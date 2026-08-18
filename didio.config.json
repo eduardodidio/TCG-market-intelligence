@@ -1,0 +1,137 @@
+{
+  "turbo": false,
+  "economy": false,
+  "highlander": true,
+  "max_parallel": 0,
+  "providers": {
+    "claude": { "bin": "claude", "default": true },
+    "codex": { "bin": "codex" }
+  },
+  "_comment_provider_per_role": "Optional 'provider' key inside any models.<role> or models_economy.<role> entry selects 'claude' (default, used when absent) or 'codex' for that role, e.g. \"techlead\": { \"provider\": \"codex\", \"model\": \"gpt-5-codex\" }.",
+  "models": {
+    "architect": {
+      "model": "opus",
+      "fallback": "sonnet"
+    },
+    "developer": {
+      "model": "sonnet",
+      "fallback": "haiku",
+      "effort": "medium"
+    },
+    "techlead": {
+      "model": "sonnet",
+      "fallback": "haiku",
+      "effort": "medium"
+    },
+    "qa": {
+      "model": "sonnet",
+      "fallback": "haiku",
+      "effort": "medium"
+    },
+    "readiness": {
+      "model": "sonnet",
+      "fallback": "haiku",
+      "effort": "medium"
+    },
+    "tea": {
+      "model": "sonnet",
+      "fallback": "haiku",
+      "effort": "medium"
+    },
+    "meeting-parser": {
+      "model": "sonnet",
+      "fallback": "haiku",
+      "effort": "medium"
+    },
+    "t800": {
+      "model": "opus",
+      "fallback": "sonnet"
+    },
+    "t1000": {
+      "model": "opus",
+      "fallback": "sonnet"
+    }
+  },
+  "models_economy": {
+    "architect": {
+      "model": "sonnet",
+      "fallback": "haiku"
+    },
+    "developer": {
+      "model": "haiku",
+      "fallback": "haiku"
+    },
+    "techlead": {
+      "model": "haiku",
+      "fallback": "haiku"
+    },
+    "qa": {
+      "model": "haiku",
+      "fallback": "haiku"
+    },
+    "readiness": {
+      "model": "haiku",
+      "fallback": "haiku"
+    },
+    "tea": {
+      "model": "haiku",
+      "fallback": "haiku"
+    },
+    "meeting-parser": {
+      "model": "haiku",
+      "fallback": "haiku"
+    },
+    "t800": {
+      "model": "sonnet",
+      "fallback": "haiku"
+    },
+    "t1000": {
+      "model": "sonnet",
+      "fallback": "haiku"
+    }
+  },
+  "retrospective": {
+    "feature": true,
+    "bugfix": true,
+    "review": true
+  },
+  "second_brain": {
+    "enabled": true,
+    "fallback_to_local": true,
+    "home": ""
+  },
+  "session_guard": {
+    "enabled": false,
+    "source": "ccusage",
+    "soft_pct": 0.9,
+    "hard_pct": 0.98,
+    "resume_buffer_minutes": 2,
+    "max_resumes_per_day": 3,
+    "notify": true,
+    "window_duration_minutes": 300,
+    "window_limit_tokens": 200000000,
+    "max_snapshot_age_secs": 300
+  },
+  "sharding": {
+    "enabled": true,
+    "brief_lines_threshold": 150,
+    "task_count_threshold": 6
+  },
+  "tea": {
+    "enabled": false
+  },
+  "meta_agents": {
+    "t800": { "enabled": false, "auto_governance": true },
+    "t1000": { "enabled": false, "review_mode": "post-decision", "escalation_blocks_pipeline": true }
+  },
+  "research": {
+    "web_search_budget": 5,
+    "web_fetch_budget": 3
+  },
+  "poc": {
+    "default_style_ref": "",
+    "smoke_timeout_secs": 30,
+    "install_timeout_secs": 180,
+    "build_timeout_secs": 60
+  }
+}

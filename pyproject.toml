@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tcg-market-intelligence"
+version = "0.1.0"
+description = "Historical price data collector for trading card games"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Eduardo Rutkoski Didio"}]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Games/Entertainment",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "curl_cffi>=0.16",
+    "beautifulsoup4>=4.12",
+    "sqlalchemy>=2.0",
+    "click>=8.1",
+    "structlog>=24.1",
+    "tenacity>=8.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+collector = "src.cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/eduardodidio/TCG-market-intelligence"
+Repository = "https://github.com/eduardodidio/TCG-market-intelligence"
+Issues = "https://github.com/eduardodidio/TCG-market-intelligence/issues"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

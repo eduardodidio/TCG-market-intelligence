@@ -1,0 +1,27 @@
+flowchart TD
+    start([New contributor<br/>clones repo]) --> detect{Which OS?}
+
+    detect -->|macOS| mac["Run bin/bootstrap-mac.sh"]
+    detect -->|Linux| linux["Run bin/bootstrap-linux.sh"]
+
+    mac --> sysdeps_mac["Install Homebrew deps<br/>Python 3.14 via pyenv"]
+    linux --> sysdeps_linux["Install apt/dnf deps<br/>Python 3.14 via pyenv"]
+
+    sysdeps_mac --> makesetup["bootstrap calls<br/>make setup"]
+    sysdeps_linux --> makesetup
+
+    makesetup --> venv["Create .venv<br/>Install Python deps<br/>Copy .env.example"]
+
+    venv --> test["Contributor runs<br/>make test"]
+    test --> testpass{Tests pass?}
+
+    testpass -->|No| readdocs["Read docs/SETUP.md<br/>Troubleshoot"]
+    readdocs --> test
+
+    testpass -->|Yes| explore["Read docs/ARCHITECTURE.md<br/>Understand the system"]
+
+    explore --> backfill["Run first backfill<br/>make run-backfill<br/>SET=dominaria-remastered LIMIT=5"]
+
+    backfill --> verify["Verify data collected<br/>in SQLite database"]
+
+    verify --> ready([Ready to develop])

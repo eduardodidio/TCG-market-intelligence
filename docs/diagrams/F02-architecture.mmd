@@ -1,0 +1,45 @@
+flowchart TB
+    subgraph root["Project Root"]
+        makefile["Makefile<br/>setup | test | lint | format | clean<br/>run-backfill | run-update"]
+        pyproject["pyproject.toml<br/>build-system metadata + deps"]
+        envexample[".env.example<br/>environment variables template"]
+    end
+
+    subgraph bootstrap["Bootstrap Scripts"]
+        mac["bin/bootstrap-mac.sh<br/>Homebrew + Python 3.14"]
+        linux["bin/bootstrap-linux.sh<br/>apt/dnf + Python 3.14"]
+    end
+
+    subgraph docs["docs/"]
+        arch["ARCHITECTURE.md"]
+        setup["SETUP.md"]
+        dev["DEVELOPMENT.md"]
+        datasrc["DATA_SOURCES.md"]
+        db["DATABASE.md"]
+        api["API.md"]
+        roadmap["ROADMAP.md"]
+        decisions["DECISIONS.md"]
+        security["SECURITY.md"]
+        contrib["CONTRIBUTING.md"]
+        aicontext["AI_CONTEXT.md"]
+    end
+
+    subgraph adr["docs/adr/"]
+        adr0001["0001-adopt-claude-didio-framework.md"]
+        adr0002["0002-web-stack-decision.md"]
+    end
+
+    subgraph diagrams["docs/diagrams/"]
+        f01arch["F01 diagrams"]
+        f02arch["F02-architecture.mmd"]
+        f02journey["F02-journey.mmd"]
+    end
+
+    venv[".venv<br/>Python virtual environment"]
+
+    mac -->|"calls"| makefile
+    linux -->|"calls"| makefile
+    makefile -->|"make setup"| pyproject
+    pyproject -->|"pip install"| venv
+    envexample -->|"cp to .env"| makefile
+    decisions -->|"index"| adr
