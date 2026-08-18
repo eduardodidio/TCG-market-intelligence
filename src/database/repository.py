@@ -21,7 +21,7 @@ class Repository:
         self.engine = create_engine(db_url, echo=False)
         Base.metadata.create_all(self.engine)
 
-    def upsert_source_card(self, card: SourceCard) -> int:
+    def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
         """Insert or update a source card. Returns the source_card id."""
         with Session(self.engine) as session:
             existing = session.execute(
@@ -36,6 +36,8 @@ class Repository:
                     existing.sku = card.sku
                 if card.url:
                     existing.url = card.url
+                if card_id is not None:
+                    existing.card_id = card_id
                 if card.identity:
                     existing.name_en = card.identity.name_en
                     existing.name_pt = card.identity.name_pt
@@ -47,6 +49,7 @@ class Repository:
             row = SourceCardRow(
                 source=card.source,
                 external_id=card.external_id,
+                card_id=card_id,
                 sku=card.sku,
                 url=card.url,
                 name_en=card.identity.name_en if card.identity else None,
@@ -160,6 +163,34 @@ class Repository:
             for r in rows:
                 r.resolved = 1
             session.commit()
+
+    def link_orphan_source_cards(self) -> int:
+        """Link source_cards with card_id=NULL to their canonical card.
+
+        Matches on (game, set_code, collector_number). Returns count linked.
+        """
+        linked = 0
+        with Session(self.engine) as session:
+            orphans = (
+                session.execute(select(SourceCardRow).where(SourceCardRow.card_id.is_(None)))
+                .scalars()
+                .all()
+            )
+            for sc in orphans:
+                if not sc.set_code or not sc.collector_number:
+                    continue
+                card = session.execute(
+                    select(CardRow).where(
+                        CardRow.game == "magic",
+                        CardRow.set_code == sc.set_code,
+                        CardRow.collector_number == sc.collector_number,
+                    )
+                ).scalar_one_or_none()
+                if card:
+                    sc.card_id = card.id
+                    linked += 1
+            session.commit()
+        return linked
 
     def get_all_source_cards(self, source: str) -> list[SourceCardRow]:
         with Session(self.engine) as session:

@@ -55,6 +55,136 @@ class TestUpsertSourceCard:
         id2 = repo.upsert_source_card(card)
         assert id1 == id2
 
+    def test_upsert_with_card_id(self, repo):
+        """upsert_source_card stores the card_id FK when provided."""
+        card = SourceCard(
+            source="myp",
+            external_id="55555",
+            url="https://example.com/card/55555",
+            sku="magic_tst_001",
+            identity=CardIdentity(
+                game="magic",
+                name_en="Test",
+                name_pt="Teste",
+                set_code="TST",
+                collector_number="001",
+            ),
+        )
+        canonical_id = repo.upsert_card(card)
+        sc_id = repo.upsert_source_card(card, card_id=canonical_id)
+        # Verify the link was stored
+        from sqlalchemy import select
+        from sqlalchemy.orm import Session
+
+        from src.database.models import SourceCardRow
+
+        with Session(repo.engine) as s:
+            sc = s.execute(select(SourceCardRow).where(SourceCardRow.id == sc_id)).scalar_one()
+            assert sc.card_id == canonical_id
+
+    def test_upsert_updates_card_id_on_existing(self, repo):
+        """When source_card exists with card_id=NULL, upsert updates it."""
+        card = SourceCard(
+            source="myp",
+            external_id="66666",
+            url="https://example.com/card/66666",
+            sku="magic_tst_002",
+            identity=CardIdentity(
+                game="magic",
+                name_en="Test2",
+                set_code="TST",
+                collector_number="002",
+            ),
+        )
+        # First insert without card_id
+        sc_id = repo.upsert_source_card(card)
+        # Then upsert with card_id
+        canonical_id = repo.upsert_card(card)
+        sc_id2 = repo.upsert_source_card(card, card_id=canonical_id)
+        assert sc_id == sc_id2
+        from sqlalchemy import select
+        from sqlalchemy.orm import Session
+
+        from src.database.models import SourceCardRow
+
+        with Session(repo.engine) as s:
+            sc = s.execute(select(SourceCardRow).where(SourceCardRow.id == sc_id)).scalar_one()
+            assert sc.card_id == canonical_id
+
+
+class TestLinkOrphanSourceCards:
+    def test_links_orphans_to_canonical_cards(self, repo):
+        """link_orphan_source_cards matches by game+set_code+collector_number."""
+        card = SourceCard(
+            source="myp",
+            external_id="77777",
+            url="https://example.com/card/77777",
+            sku="magic_tst_003",
+            identity=CardIdentity(
+                game="magic",
+                name_en="Orphan Card",
+                name_pt="Carta Orfao",
+                set_code="TST",
+                collector_number="003",
+            ),
+        )
+        # Create canonical card and source_card separately (no link)
+        canonical_id = repo.upsert_card(card)
+        repo.upsert_source_card(card)  # card_id=None
+
+        linked = repo.link_orphan_source_cards()
+        assert linked == 1
+
+        from sqlalchemy import select
+        from sqlalchemy.orm import Session
+
+        from src.database.models import SourceCardRow
+
+        with Session(repo.engine) as s:
+            sc = s.execute(
+                select(SourceCardRow).where(SourceCardRow.external_id == "77777")
+            ).scalar_one()
+            assert sc.card_id == canonical_id
+
+    def test_already_linked_not_counted(self, repo):
+        """Cards already linked are not re-processed."""
+        card = SourceCard(
+            source="myp",
+            external_id="88888",
+            url="https://example.com/card/88888",
+            sku="magic_tst_004",
+            identity=CardIdentity(
+                game="magic",
+                name_en="Linked Card",
+                set_code="TST",
+                collector_number="004",
+            ),
+        )
+        canonical_id = repo.upsert_card(card)
+        repo.upsert_source_card(card, card_id=canonical_id)
+
+        linked = repo.link_orphan_source_cards()
+        assert linked == 0
+
+    def test_orphan_without_matching_card(self, repo):
+        """Orphan source_card with no matching canonical card stays unlinked."""
+        card = SourceCard(
+            source="myp",
+            external_id="99999",
+            url="https://example.com/card/99999",
+            sku="magic_xxx_001",
+            identity=CardIdentity(
+                game="magic",
+                name_en="No Match",
+                set_code="XXX",
+                collector_number="001",
+            ),
+        )
+        repo.upsert_source_card(card)  # no canonical card exists
+
+        linked = repo.link_orphan_source_cards()
+        assert linked == 0
+
 
 class TestInsertPriceObservations:
     def test_insert_new(self, repo):

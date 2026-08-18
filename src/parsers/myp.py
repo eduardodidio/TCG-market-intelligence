@@ -43,9 +43,7 @@ def parse_card_links(html: str) -> list[tuple[str, str]]:
 
 def parse_json_ld_product(html: str) -> dict | None:
     """Extract the Product JSON-LD block from a card page."""
-    for m in re.finditer(
-        r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL
-    ):
+    for m in re.finditer(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL):
         try:
             data = json.loads(m.group(1))
             if data.get("@type") == "Product":
@@ -77,16 +75,13 @@ def parse_card_page(html: str, card_id: str, card_slug: str) -> SourceCard | Non
     sku = product.get("sku", "")
     set_code, collector_number = parse_sku(sku) if sku else (None, None)
 
-    # MYP JSON-LD 'name' is typically the PT name for translated cards.
-    # The image URL suffix (_en.jpg, _pt.jpg) hints at the display language,
-    # but the product name follows the site locale (PT-BR).
-    # We store JSON-LD name as name_en (primary) and breadcrumb as name_pt
-    # when they differ. The search API provides proper EN/PT split later.
+    # MYP is a PT-BR site — JSON-LD 'name' is always the Portuguese name.
+    # The breadcrumb last item sometimes carries a different (EN) name.
     json_ld_name = product.get("name", "")
-    name_en = json_ld_name
-    name_pt = None
+    name_pt = json_ld_name
+    name_en = json_ld_name  # fallback until EN name is resolved
 
-    # Check breadcrumb for an alternate name
+    # Check breadcrumb for a different (possibly EN) name
     breadcrumb = None
     for m_iter in re.finditer(
         r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL
@@ -104,19 +99,8 @@ def parse_card_page(html: str, card_id: str, card_slug: str) -> SourceCard | Non
         if len(items) >= 4:
             card_name_bc = items[-1].get("name", "")
             if card_name_bc and card_name_bc != json_ld_name:
-                # Two different names: JSON-LD is likely PT, breadcrumb might be same
-                name_pt = json_ld_name
+                # Breadcrumb differs from JSON-LD — use it as EN name
                 name_en = card_name_bc
-            else:
-                # Same name — could be EN-only card or PT-only
-                name_pt = json_ld_name
-
-    # Try to extract EN name from the image URL (magic_set_num_en.jpg pattern)
-    img_url = product.get("image", "")
-    if "_en." in img_url or "_en_" in img_url:
-        # Card displayed with EN image; JSON-LD name is likely the PT name
-        if not name_pt:
-            name_pt = json_ld_name
 
     identity = CardIdentity(
         game="magic",
@@ -241,9 +225,7 @@ def _parse_date(label: str) -> date | None:
 
 def _extract_stat_price(html: str, css_class: str) -> Decimal | None:
     """Extract a price from the statistics section by CSS class."""
-    m = re.search(
-        rf'class="{css_class}"[^>]*>.*?R\$\s*([\d.,]+)', html, re.DOTALL
-    )
+    m = re.search(rf'class="{css_class}"[^>]*>.*?R\$\s*([\d.,]+)', html, re.DOTALL)
     if m:
         return _to_decimal(m.group(1))
     return None
@@ -251,7 +233,7 @@ def _extract_stat_price(html: str, css_class: str) -> Decimal | None:
 
 def _extract_tcg_price(html: str) -> Decimal | None:
     """Extract TCG Player price from the stats section."""
-    m = re.search(r'estat-tcg\s[^>]*>.*?R\$\s*([\d.,]+)', html, re.DOTALL)
+    m = re.search(r"estat-tcg\s[^>]*>.*?R\$\s*([\d.,]+)", html, re.DOTALL)
     if m:
         return _to_decimal(m.group(1))
     return None

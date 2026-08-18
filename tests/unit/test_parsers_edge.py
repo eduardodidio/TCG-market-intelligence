@@ -67,6 +67,7 @@ class TestParseCardPageEdge:
         assert card is not None
         assert card.identity.set_code is None
         assert card.identity.collector_number is None
+        assert card.identity.name_pt == "TestCard"
 
     def test_breadcrumb_different_name(self):
         """When breadcrumb last item name differs from JSON-LD name."""
@@ -88,7 +89,7 @@ class TestParseCardPageEdge:
         assert card.identity.name_pt == "O Um Anel"
 
     def test_breadcrumb_malformed_json(self):
-        """Covers except branch in breadcrumb parsing (lines 99-100)."""
+        """Covers except branch in breadcrumb parsing."""
         html = (
             '<script type="application/ld+json">'
             '{"@type": "Product", "sku": "magic_ltr_451", '
@@ -98,7 +99,8 @@ class TestParseCardPageEdge:
         )
         card = parse_card_page(html, "100", "test")
         assert card is not None
-        assert card.identity.name_en == "TestCard"
+        assert card.identity.name_pt == "TestCard"
+        assert card.identity.name_en == "TestCard"  # fallback to PT
 
     def test_breadcrumb_non_dict(self):
         """Covers AttributeError branch in breadcrumb parsing."""
@@ -112,8 +114,8 @@ class TestParseCardPageEdge:
         card = parse_card_page(html, "100", "test")
         assert card is not None
 
-    def test_en_image_url_sets_name_pt(self):
-        """When image URL contains _en. and no breadcrumb, name_pt gets set (line 119)."""
+    def test_no_breadcrumb_uses_json_ld_as_pt(self):
+        """Without breadcrumb, JSON-LD name is used as name_pt (and fallback name_en)."""
         html = (
             '<script type="application/ld+json">'
             '{"@type": "Product", "sku": "magic_ltr_451", '
@@ -124,6 +126,7 @@ class TestParseCardPageEdge:
         card = parse_card_page(html, "190887", "o-um-anel")
         assert card is not None
         assert card.identity.name_pt == "O Um Anel"
+        assert card.identity.name_en == "O Um Anel"  # fallback until EN resolved
 
 
 # --- parse_price_snapshot edge cases ---

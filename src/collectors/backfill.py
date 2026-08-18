@@ -129,8 +129,8 @@ async def _process_card(
         raise ValueError(f"Could not parse card page: {card.url}")
 
     if not dry_run and repo:
-        repo.upsert_source_card(detailed)
-        repo.upsert_card(detailed)
+        card_id = repo.upsert_card(detailed)
+        repo.upsert_source_card(detailed, card_id=card_id)
 
     # Get price history
     history = await provider.get_price_history(card, days=history_days)
