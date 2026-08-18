@@ -1,0 +1,51 @@
+flowchart TB
+    subgraph cli["CLI Layer"]
+        cmd_list["analyze list<br/>List cards with observation counts"]
+        cmd_card["analyze card &lt;id&gt;<br/>Compute analytics for one card"]
+    end
+
+    subgraph db["Database Layer"]
+        repo["repository.py<br/>get_cards_with_observations()<br/>get_price_series()"]
+        sqlite[("SQLite<br/>tcg_market.db")]
+    end
+
+    subgraph analytics["Analytics Engine"]
+        indicators["indicators.py<br/>compute_card_analytics()"]
+        ma["compute_moving_average()<br/>MA(7), MA(30), MA(90)"]
+        extremes["compute_price_extremes()<br/>ATH / ATL with dates"]
+        vol["compute_volatility()<br/>StdDev + CoV (30d)"]
+        mom["compute_momentum()<br/>RoC + trend direction (7d)"]
+    end
+
+    subgraph domain["Domain Models"]
+        hp["HistoricalPrice"]
+        ca["CardAnalytics"]
+        sub_ma["MovingAverage"]
+        sub_pe["PriceExtremes"]
+        sub_vol["Volatility"]
+        sub_mom["Momentum"]
+    end
+
+    cmd_list -->|"query"| repo
+    cmd_card -->|"query"| repo
+    repo -->|"SQL"| sqlite
+    sqlite -->|"rows"| repo
+    repo -->|"HistoricalPrice[]"| cmd_card
+    cmd_card -->|"HistoricalPrice[]"| indicators
+
+    indicators --> ma
+    indicators --> extremes
+    indicators --> vol
+    indicators --> mom
+
+    ma -->|"produces"| sub_ma
+    extremes -->|"produces"| sub_pe
+    vol -->|"produces"| sub_vol
+    mom -->|"produces"| sub_mom
+
+    sub_ma --> ca
+    sub_pe --> ca
+    sub_vol --> ca
+    sub_mom --> ca
+
+    ca -->|"formatted output"| cmd_card

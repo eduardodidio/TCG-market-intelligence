@@ -1,0 +1,26 @@
+flowchart LR
+    start([User wants<br/>card analytics]) --> list["Run<br/>analyze list"]
+
+    list --> has_cards{Cards<br/>found?}
+
+    has_cards -->|No| no_cards["Show: No cards found<br/>Run backfill first"]
+    no_cards --> done_empty([Done])
+
+    has_cards -->|Yes| show_table["Display table:<br/>External ID | Observations"]
+
+    show_table --> pick["User picks<br/>an external_id"]
+
+    pick --> run_card["Run<br/>analyze card &lt;id&gt;"]
+
+    run_card --> fetch["Fetch price series<br/>from SQLite"]
+
+    fetch --> enough{Data<br/>found?}
+
+    enough -->|No| no_data["Show: No data found<br/>for this card"]
+    no_data --> done_nodata([Done])
+
+    enough -->|Yes| compute["Compute indicators:<br/>MA, ATH/ATL,<br/>Volatility, Momentum"]
+
+    compute --> print["Print formatted<br/>analytics report"]
+
+    print --> done([Done])

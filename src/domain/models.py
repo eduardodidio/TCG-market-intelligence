@@ -103,3 +103,60 @@ class CollectionSummary:
     errors: list[CollectionError] = field(default_factory=list)
     started_at: datetime = field(default_factory=datetime.now)
     finished_at: datetime | None = None
+
+
+# --- Analytics domain models ---
+
+
+@dataclass
+class MovingAverage:
+    """Result of a moving average calculation over a price series."""
+
+    period: int
+    value: Decimal
+    price_field: str
+    calculated_at: date
+
+
+@dataclass
+class PriceExtremes:
+    """All-time high and all-time low for a price field."""
+
+    ath_price: Decimal
+    ath_date: date
+    atl_price: Decimal
+    atl_date: date
+    price_field: str
+
+
+@dataclass
+class Volatility:
+    """Price volatility metrics over a given period."""
+
+    period_days: int
+    std_dev: Decimal
+    coefficient_of_variation: Decimal
+    price_field: str
+
+
+@dataclass
+class Momentum:
+    """Price momentum / rate of change over a given period."""
+
+    period_days: int
+    rate_of_change: Decimal
+    trend_direction: str
+    price_field: str
+
+
+@dataclass
+class CardAnalytics:
+    """Composite analytics result for a single card."""
+
+    external_id: str
+    source: str
+    moving_averages: list[MovingAverage] = field(default_factory=list)
+    extremes: PriceExtremes | None = None
+    volatility: Volatility | None = None
+    momentum: Momentum | None = None
+    computed_at: datetime = field(default_factory=datetime.now)

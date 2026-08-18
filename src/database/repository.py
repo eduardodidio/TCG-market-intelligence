@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session
 
 from src.database.models import (
@@ -165,6 +165,56 @@ class Repository:
                     select(SourceCardRow).where(SourceCardRow.source == source)
                 ).scalars().all()
             )
+
+    def get_price_series(
+        self, source: str, external_id: str, days: int | None = None
+    ) -> list[HistoricalPrice]:
+        """Return price observations ordered by date ASC.
+
+        If days is set, filter to last N days from today.
+        """
+        with Session(self.engine) as session:
+            stmt = (
+                select(PriceObservationRow)
+                .where(
+                    PriceObservationRow.source == source,
+                    PriceObservationRow.external_id == external_id,
+                )
+                .order_by(PriceObservationRow.observed_at.asc())
+            )
+            if days is not None:
+                cutoff = date.today() - timedelta(days=days)
+                stmt = stmt.where(PriceObservationRow.observed_at >= cutoff)
+            rows = session.execute(stmt).scalars().all()
+            return [
+                HistoricalPrice(
+                    source=r.source,
+                    external_id=r.external_id,
+                    observed_at=r.observed_at,
+                    median_price=r.median_price,
+                    tcg_price=r.tcg_price,
+                    last_sold_price=r.last_sold_price,
+                    quantity_available=r.quantity_available,
+                    last_sold_meta=r.last_sold_meta,
+                    currency=r.currency,
+                )
+                for r in rows
+            ]
+
+    def get_cards_with_observations(self, source: str) -> list[tuple[str, int]]:
+        """Return (external_id, observation_count) for cards with data."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    PriceObservationRow.external_id,
+                    func.count(PriceObservationRow.id).label("obs_count"),
+                )
+                .where(PriceObservationRow.source == source)
+                .group_by(PriceObservationRow.external_id)
+                .order_by(PriceObservationRow.external_id)
+            )
+            results = session.execute(stmt).all()
+            return [(row[0], row[1]) for row in results]
 
     def get_observation_count(self, source: str | None = None) -> int:
         with Session(self.engine) as session:

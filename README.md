@@ -29,6 +29,7 @@ make run-backfill SET=dominaria-remastered LIMIT=5
 - Stores everything in SQLite with full idempotency (no duplicate observations)
 - Handles errors gracefully — failed cards are logged and can be retried
 - Architecture supports adding new sources (Liga Magic, Scryfall, etc.)
+- Computes analytics indicators: moving averages, ATH/ATL, volatility, momentum
 
 ## Quick Start
 
@@ -59,6 +60,8 @@ python -m src.cli.main retry-failed
 | `backfill` | Full collection: discover cards + fetch all history |
 | `update` | Incremental: fetch recent data for known cards only |
 | `retry-failed` | Reprocess previously failed cards |
+| `analyze list` | List all cards with observation counts |
+| `analyze card <id>` | Compute analytics for a single card by external ID |
 
 ### Options
 
@@ -70,6 +73,8 @@ python -m src.cli.main retry-failed
 | `--dry-run` | off | Don't write to database |
 | `--delay` | 1.0 | Seconds between requests |
 | `--history-days` | 1095 | Days of price history to fetch |
+| `--source` | `myp` | Data source (for analyze commands) |
+| `--price-field` | `median_price` | Price field to analyze (for analyze card) |
 
 ## Project Structure
 
@@ -88,6 +93,8 @@ src/
     repository.py  CRUD operations with idempotency
   collectors/
     backfill.py    Orchestration: discover -> collect -> persist
+  analytics/
+    indicators.py  Pure analytics: MA, ATH/ATL, volatility, momentum
   cli/
     main.py        Click CLI entry point
 
@@ -180,11 +187,36 @@ Full backfill of the Dominaria Remastered (DMR) set was executed and validated:
 - ADR-0002: Web stack decision (FastAPI, proposed)
 - Architecture and journey diagrams for F02
 
+### F03 -- Analytics Engine (2026-08-18)
+
+Pure-function analytics engine for TCG price data with CLI integration:
+
+- **Moving Averages** -- MA(7), MA(30), MA(90) simple moving averages
+- **Price Extremes** -- All-Time High and All-Time Low with dates
+- **Volatility** -- Standard deviation and coefficient of variation (30-day window)
+- **Momentum** -- Rate of change (%) and trend direction (up/down/flat, 7-day window)
+- CLI commands: `analyze list` (browse cards) and `analyze card <id>` (full report)
+- All arithmetic uses `Decimal` for financial precision
+- Zero side effects -- pure functions, no database imports in analytics module
+
+Example usage:
+
+```bash
+# List available cards
+python -m src.cli.main analyze list
+
+# Analyze a specific card
+python -m src.cli.main analyze card 12345
+
+# Analyze using a different price field
+python -m src.cli.main analyze card 12345 --price-field tcg_price
+```
+
 ## Future
 
 Prepared for but not yet implemented:
 
-- Market analytics (moving averages, ATH/ATL, volatility, momentum)
+- Advanced analytics (correlation, portfolio-level aggregation, alerts)
 - Portfolio tracking (cost basis, P&L, ROI)
 - Opportunity scoring
 - Additional sources (Liga Magic, Scryfall metadata, CardMarket, TCGPlayer)
