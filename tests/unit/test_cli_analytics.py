@@ -6,7 +6,6 @@ from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from src.cli.main import cli
@@ -18,7 +17,6 @@ from src.domain.models import (
     PriceExtremes,
     Volatility,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,8 +44,14 @@ def _make_analytics(external_id: str = "12345", source: str = "myp") -> CardAnal
         external_id=external_id,
         source=source,
         moving_averages=[
-            MovingAverage(period=7, value=Decimal("12.34"), price_field="median_price", calculated_at=date(2026, 1, 10)),
-            MovingAverage(period=30, value=Decimal("11.89"), price_field="median_price", calculated_at=date(2026, 1, 10)),
+            MovingAverage(
+                period=7, value=Decimal("12.34"),
+                price_field="median_price", calculated_at=date(2026, 1, 10),
+            ),
+            MovingAverage(
+                period=30, value=Decimal("11.89"),
+                price_field="median_price", calculated_at=date(2026, 1, 10),
+            ),
         ],
         extremes=PriceExtremes(
             ath_price=Decimal("15.00"),
@@ -84,7 +88,8 @@ class TestAnalyzeCard:
         analytics = _make_analytics()
 
         with patch("src.database.repository.Repository") as MockRepo, \
-             patch("src.analytics.indicators.compute_card_analytics", return_value=analytics) as mock_compute:
+             patch("src.analytics.indicators.compute_card_analytics",
+                   return_value=analytics) as mock_compute:
             mock_repo = MagicMock()
             MockRepo.return_value = mock_repo
             mock_repo.get_price_series.return_value = prices
@@ -259,6 +264,6 @@ class TestAnalyzeList:
             MockRepo.return_value = mock_repo
             mock_repo.get_cards_with_observations.return_value = [("x", 1)]
 
-            result = runner.invoke(cli, ["analyze", "list", "--source", "tcgplayer"])
+            runner.invoke(cli, ["analyze", "list", "--source", "tcgplayer"])
 
         mock_repo.get_cards_with_observations.assert_called_once_with(source="tcgplayer")

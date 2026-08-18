@@ -1,0 +1,300 @@
+{
+  "id": "D-20260818-001",
+  "type": "retroactive_review",
+  "date": "2026-08-18",
+  "scope": ["F01", "F02", "F03"],
+  "verdict": "healthy_with_known_debt",
+  "options_considered": [
+    {
+      "id": "A",
+      "label": "Dedicated F04 cleanup sprint",
+      "description": "Create a dedicated feature (F04) to address all accumulated tech debt, lint errors, missing tests, stale docs, and missing tooling before building any new functionality.",
+      "pros": [
+        "Clean slate before scaling to all sets",
+        "All debt resolved in one pass with clear acceptance criteria",
+        "Avoids carrying forward compounding issues"
+      ],
+      "cons": [
+        "Delays new user-facing functionality",
+        "Cleanup features are hard to scope — risk of scope creep",
+        "Some items are trivial and don't warrant a full feature ceremony"
+      ]
+    },
+    {
+      "id": "B",
+      "label": "Fix incrementally as part of next feature (Wave 0 hygiene)",
+      "description": "Address critical debt items as Wave 0 tasks in the next feature. Non-critical items are tracked in a backlog and fixed opportunistically.",
+      "pros": [
+        "New functionality ships sooner",
+        "Debt is fixed in context where it matters",
+        "Smaller, focused changes are easier to review"
+      ],
+      "cons": [
+        "Risk of perpetually deferring non-critical items",
+        "Wave 0 gets bloated if too many items are front-loaded",
+        "Some items (like stale docs) affect multiple files and don't fit cleanly into a feature"
+      ]
+    }
+  ],
+  "recommendation": "B — Fix incrementally. The debt is manageable (no blockers, no security issues). Front-load critical items in the next feature's Wave 0, track the rest in a lightweight backlog.",
+  "findings": {
+    "technical_debt": [
+      {
+        "id": "TD-01",
+        "severity": "medium",
+        "title": "10 ruff lint errors from F01 code",
+        "description": "9 unused imports + 1 line-length violation in src/parsers/myp.py and src/providers/myp/provider.py. Identified in F02 QA report, still unresolved.",
+        "remediation": "Run `ruff check --fix` for auto-fixable issues, manually fix the rest. Add pre-commit hook or CI gate.",
+        "effort": "15 min"
+      },
+      {
+        "id": "TD-02",
+        "severity": "low",
+        "title": "Inline timedelta imports in indicators.py",
+        "description": "Lines 117 and 171 import `from datetime import timedelta` inside function bodies instead of at module top. PEP 8 violation, inconsistent with codebase.",
+        "remediation": "Move import to top of file alongside existing `from datetime import date, datetime`.",
+        "effort": "2 min"
+      },
+      {
+        "id": "TD-03",
+        "severity": "low",
+        "title": "Unusual SQLAlchemy pattern in get_observation_count",
+        "description": "repository.py:221 uses `select(text(\"count(*)\"))` which is an unconventional SQLAlchemy pattern. Should use `func.count()` for consistency with get_cards_with_observations.",
+        "remediation": "Replace `select(text(\"count(*)\")).select_from(PriceObservationRow)` with `select(func.count(PriceObservationRow.id))`.",
+        "effort": "5 min"
+      },
+      {
+        "id": "TD-04",
+        "severity": "low",
+        "title": "Population vs sample std dev undocumented",
+        "description": "compute_volatility uses population std dev (/ n). This is defensible but not documented in the docstring. TechLead flagged this.",
+        "remediation": "Add one-line note to docstring explaining the choice and rationale.",
+        "effort": "2 min"
+      },
+      {
+        "id": "TD-05",
+        "severity": "medium",
+        "title": "No pre-commit hooks or CI lint gate",
+        "description": "Lint errors from F01 survived through F02 and F03 because there is no automated enforcement. `make lint` exists but is not mandatory.",
+        "remediation": "Add pre-commit config with ruff check + ruff format, or add a CI workflow that runs lint on push.",
+        "effort": "30 min"
+      },
+      {
+        "id": "TD-06",
+        "severity": "low",
+        "title": "Hardcoded source='myp' throughout backfill.py",
+        "description": "backfill.py hardcodes 'myp' as the source string in error creation and retry logic instead of using provider.source_name. Will need refactoring when adding second provider.",
+        "remediation": "Use provider.source_name property instead of string literal.",
+        "effort": "10 min"
+      },
+      {
+        "id": "TD-07",
+        "severity": "medium",
+        "title": "insert_price_observations does SELECT per row for dedup",
+        "description": "Repository inserts observations one-by-one with a SELECT check for each. For DMR (30 cards) this is fine, but scaling to all sets (~10k+ cards) will be very slow.",
+        "remediation": "Use SQLAlchemy's `insert().on_conflict_do_nothing()` with a unique index, or batch check with `external_id IN (...)` queries.",
+        "effort": "1-2 hours"
+      }
+    ],
+    "test_coverage_gaps": [
+      {
+        "id": "TC-01",
+        "severity": "low",
+        "title": "No test for past_price == 0 in compute_momentum",
+        "description": "The division-by-zero guard at indicators.py:181 returns None but has no explicit test. Flagged by both TechLead and QA.",
+        "remediation": "Add a test with a HistoricalPrice series where the past observation has price Decimal('0').",
+        "effort": "5 min"
+      },
+      {
+        "id": "TC-02",
+        "severity": "low",
+        "title": "No test for invalid price_field argument",
+        "description": "Passing a nonexistent field name degrades gracefully but is not tested. Flagged by both TechLead and QA.",
+        "remediation": "Add a test with price_field='nonexistent' verifying None return.",
+        "effort": "5 min"
+      },
+      {
+        "id": "TC-03",
+        "severity": "medium",
+        "title": "pytest-cov not in dev dependencies",
+        "description": "Cannot measure automated branch coverage. QA had to do manual branch audit. Flagged in both F03 QA report and TechLead review.",
+        "remediation": "Add pytest-cov to [project.optional-dependencies].dev in pyproject.toml. Add --cov flags to pytest config.",
+        "effort": "10 min"
+      },
+      {
+        "id": "TC-04",
+        "severity": "medium",
+        "title": "No integration tests for collector/provider",
+        "description": "backfill.py, provider.py, and the full collection pipeline have zero tests. The 103 tests cover parsers, repository, analytics, and CLI — but not the orchestration layer or HTTP error handling paths.",
+        "remediation": "Add integration tests with mocked HTTP responses for run_backfill, run_update, and run_retry_failed. Test error handling, rate limiting, and dry-run mode.",
+        "effort": "2-3 hours"
+      },
+      {
+        "id": "TC-05",
+        "severity": "low",
+        "title": "README test structure section is outdated",
+        "description": "README shows only test_parsers.py (27 tests) and test_repository.py under tests/unit/. Missing 4 analytics test files (75 tests).",
+        "remediation": "Update the Project Structure section in README.md.",
+        "effort": "5 min"
+      }
+    ],
+    "architecture_health": [
+      {
+        "id": "AH-01",
+        "severity": "medium",
+        "title": "Sequential card processing will not scale",
+        "description": "backfill.py processes cards sequentially with asyncio.sleep between each. For DMR (30 cards) this took ~2 min. For all sets (~10k cards at 1s delay), this would take ~3 hours. No concurrency, no resume capability.",
+        "remediation": "Add configurable concurrency (asyncio.Semaphore), checkpoint/resume support (skip already-collected cards), and progress reporting.",
+        "effort": "4-6 hours"
+      },
+      {
+        "id": "AH-02",
+        "severity": "low",
+        "title": "SQLite may bottleneck at scale",
+        "description": "SQLite is fine for the current 1889 observations. At full scale (~10k cards x ~150 observations = 1.5M rows), write contention and query performance may degrade. Not blocking yet but worth monitoring.",
+        "remediation": "Monitor query times as data grows. The SQLAlchemy abstraction makes migration to PostgreSQL straightforward if needed.",
+        "effort": "Monitor only"
+      },
+      {
+        "id": "AH-03",
+        "severity": "info",
+        "title": "Provider abstraction is well-designed for multi-source",
+        "description": "CardSourceProvider ABC, separate parsers, and source-tagged data make adding Liga Magic or other sources clean. No action needed.",
+        "remediation": "None — this is a positive finding.",
+        "effort": "N/A"
+      },
+      {
+        "id": "AH-04",
+        "severity": "info",
+        "title": "Analytics purity is excellent",
+        "description": "Zero database imports in src/analytics/. Pure Decimal arithmetic. Easily testable and composable. No action needed.",
+        "remediation": "None — this is a positive finding.",
+        "effort": "N/A"
+      }
+    ],
+    "documentation_sync": [
+      {
+        "id": "DS-01",
+        "severity": "medium",
+        "title": "ARCHITECTURE.md layer diagram missing Analytics layer",
+        "description": "The Mermaid diagram in ARCHITECTURE.md shows CLI -> Collectors -> Providers -> Parsers -> Domain and DB -> Domain. The Analytics layer (CLI -> DB -> Analytics -> Domain) is completely absent.",
+        "remediation": "Add Analytics node to the layer diagram and update the accompanying text.",
+        "effort": "10 min"
+      },
+      {
+        "id": "DS-02",
+        "severity": "medium",
+        "title": "DEVELOPMENT.md project structure missing analytics",
+        "description": "The project structure listing omits src/analytics/ directory and all 4 analytics test files. CLI commands listed as 'backfill, update' — missing 'analyze list', 'analyze card', 'retry-failed'.",
+        "remediation": "Update the project structure tree and CLI command references.",
+        "effort": "10 min"
+      },
+      {
+        "id": "DS-03",
+        "severity": "low",
+        "title": "README project structure test section outdated",
+        "description": "README lists only test_parsers.py (27 tests) and test_repository.py. Missing 4 analytics test files.",
+        "remediation": "Update tests section in README project structure.",
+        "effort": "5 min"
+      },
+      {
+        "id": "DS-04",
+        "severity": "low",
+        "title": "F01 and F02 task README status inconsistency",
+        "description": "F01-README.md shows status 'completed' but F02-README.md shows status 'planned' despite both features having shipped. Task statuses within F02 also all show 'planned'.",
+        "remediation": "Update F02-README.md status to 'completed' and task statuses to 'done'. Low priority as these are internal tracking files.",
+        "effort": "5 min"
+      },
+      {
+        "id": "DS-05",
+        "severity": "low",
+        "title": "No F03 PRD exists under docs/prd/",
+        "description": "CLAUDE.md requires every feature to have a PRD under docs/prd/ before Architect runs. F01 has one but F02 and F03 do not.",
+        "remediation": "Create PRDs retroactively or update CLAUDE.md to clarify when PRDs are optional (e.g., internal/infra features).",
+        "effort": "15 min"
+      }
+    ]
+  },
+  "actions": [
+    {
+      "priority": 1,
+      "id": "ACT-01",
+      "title": "Fix 10 lint errors and add pre-commit hook",
+      "covers": ["TD-01", "TD-05"],
+      "when": "Next feature Wave 0",
+      "effort": "45 min"
+    },
+    {
+      "priority": 2,
+      "id": "ACT-02",
+      "title": "Add pytest-cov to dev deps and configure coverage threshold",
+      "covers": ["TC-03"],
+      "when": "Next feature Wave 0",
+      "effort": "10 min"
+    },
+    {
+      "priority": 3,
+      "id": "ACT-03",
+      "title": "Update ARCHITECTURE.md and DEVELOPMENT.md with analytics layer",
+      "covers": ["DS-01", "DS-02"],
+      "when": "Next feature Wave 0",
+      "effort": "20 min"
+    },
+    {
+      "priority": 4,
+      "id": "ACT-04",
+      "title": "Add missing unit tests (past_price==0, invalid price_field)",
+      "covers": ["TC-01", "TC-02"],
+      "when": "Next feature Wave 0",
+      "effort": "10 min"
+    },
+    {
+      "priority": 5,
+      "id": "ACT-05",
+      "title": "Fix inline imports and document std dev choice",
+      "covers": ["TD-02", "TD-04"],
+      "when": "Next feature Wave 0",
+      "effort": "5 min"
+    },
+    {
+      "priority": 6,
+      "id": "ACT-06",
+      "title": "Optimize insert_price_observations for batch operations",
+      "covers": ["TD-07"],
+      "when": "Before scaling to all sets",
+      "effort": "1-2 hours"
+    },
+    {
+      "priority": 7,
+      "id": "ACT-07",
+      "title": "Add concurrency and resume support to backfill",
+      "covers": ["AH-01"],
+      "when": "Before scaling to all sets",
+      "effort": "4-6 hours"
+    },
+    {
+      "priority": 8,
+      "id": "ACT-08",
+      "title": "Add integration tests for collector pipeline",
+      "covers": ["TC-04"],
+      "when": "Next 1-2 features",
+      "effort": "2-3 hours"
+    },
+    {
+      "priority": 9,
+      "id": "ACT-09",
+      "title": "Update README test structure and fix F02 task status",
+      "covers": ["TC-05", "DS-03", "DS-04"],
+      "when": "Opportunistic",
+      "effort": "10 min"
+    },
+    {
+      "priority": 10,
+      "id": "ACT-10",
+      "title": "Fix hardcoded source string and SQLAlchemy text() pattern",
+      "covers": ["TD-03", "TD-06"],
+      "when": "Opportunistic",
+      "effort": "15 min"
+    }
+  ]
+}

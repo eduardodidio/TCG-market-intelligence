@@ -3,6 +3,15 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F01 -- MYP Cards Backfill (2026-08-18)
+
+- **Start with a single small set for validation.** Using Dominaria Remastered (30 cards) as a pilot allowed catching parser, encoding, and idempotency issues before scaling to 48 pages of editions. Always scope Wave 0 to a single representative sample.
+- **Separate parsing from network I/O in the architecture.** Putting parsers in `src/parsers/` and providers in `src/providers/` made unit testing possible without network calls (27 tests, no mocking of HTTP). This separation should be maintained for any new data source.
+
+## F02 -- Reproducibility & Living Documentation (2026-08-18)
+
+- **Docs-heavy features need a cross-link verification task.** F02 shipped 3 broken links because no task explicitly required validating cross-references. For any feature delivering 5+ interconnected docs, include a dedicated task (or acceptance criterion) for link verification.
+
 ## F03 -- Analytics Engine (2026-08-18)
 
 - **Pure-function modules pay off in testability.** Separating `src/analytics/` from all DB imports made it trivial to write 46 unit tests with zero mocking of database internals. When designing new modules, default to pure functions that receive data as arguments rather than fetching it themselves.

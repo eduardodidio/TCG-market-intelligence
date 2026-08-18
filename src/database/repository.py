@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from decimal import Decimal
 
-from sqlalchemy import create_engine, func, select, text
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from src.database.models import (
@@ -218,7 +217,7 @@ class Repository:
 
     def get_observation_count(self, source: str | None = None) -> int:
         with Session(self.engine) as session:
-            stmt = select(text("count(*)")).select_from(PriceObservationRow)
+            stmt = select(func.count()).select_from(PriceObservationRow)
             if source:
                 stmt = stmt.where(PriceObservationRow.source == source)
             return session.execute(stmt).scalar() or 0

@@ -1,8 +1,6 @@
 """Tests for the database repository."""
 
-import os
-import tempfile
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -46,7 +44,10 @@ class TestUpsertSourceCard:
             external_id="12345",
             url="https://example.com/card",
             sku="magic_ltr_001",
-            identity=CardIdentity(game="magic", name_en="Test", set_code="LTR", collector_number="001"),
+            identity=CardIdentity(
+                game="magic", name_en="Test", set_code="LTR",
+                collector_number="001",
+            ),
         )
         id1 = repo.upsert_source_card(card)
         id2 = repo.upsert_source_card(card)

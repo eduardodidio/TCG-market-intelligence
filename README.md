@@ -101,8 +101,12 @@ src/
 tests/
   fixtures/        Saved HTML responses for offline tests
   unit/
-    test_parsers.py     Parser tests (27 tests)
-    test_repository.py  Database tests
+    test_analytics_models.py   Domain model tests (11)
+    test_cli_analytics.py      CLI analyze commands (8)
+    test_indicators.py         Analytics functions (48)
+    test_parsers.py            HTML/JSON-LD parsing (18)
+    test_repository.py         DB upsert/errors (7)
+    test_repository_queries.py Price series queries (10)
 ```
 
 ## Data Model

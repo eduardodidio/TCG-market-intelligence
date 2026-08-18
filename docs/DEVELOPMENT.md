@@ -6,15 +6,17 @@ Conventions, tooling, and workflows for contributing to TCG Market Intelligence.
 
 ```
 src/
+  analytics/        Pure analytics engine (no I/O, Decimal-only)
+    indicators.py   MA, ATH/ATL, volatility, momentum functions
   cli/              Click CLI entry point
-    main.py         Commands: backfill, update
+    main.py         Commands: backfill, update, analyze card/list
   collectors/       Orchestration layer
     backfill.py     Backfill, update, retry-failed logic
   database/         Persistence layer (SQLAlchemy + SQLite)
     models.py       ORM models
-    repository.py   Upsert/query with idempotency
+    repository.py   Upsert/query with idempotency + price series
   domain/           Pure domain layer (no I/O)
-    models.py       Dataclasses (Card, PriceObservation, etc.)
+    models.py       Dataclasses (Card, PriceObservation, analytics)
     interfaces.py   CardSourceProvider ABC
   parsers/          HTML/JSON-LD parsing
     myp.py          MYP Cards-specific parser
@@ -23,8 +25,12 @@ src/
       provider.py   Async provider (curl_cffi, rate-limited)
 tests/
   unit/
-    test_parsers.py
-    test_repository.py
+    test_analytics_models.py   Domain model tests (11 tests)
+    test_cli_analytics.py      CLI analyze commands (8 tests)
+    test_indicators.py         Analytics functions (48 tests)
+    test_parsers.py            HTML/JSON-LD parsing (18 tests)
+    test_repository.py         DB upsert/errors (7 tests)
+    test_repository_queries.py Price series queries (10 tests)
 ```
 
 For a deeper architectural overview, see [ARCHITECTURE.md](ARCHITECTURE.md) and the

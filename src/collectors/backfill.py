@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 
 import structlog
@@ -66,7 +65,7 @@ async def run_backfill(
             except Exception as e:
                 summary.cards_failed += 1
                 error = CollectionError(
-                    source="myp",
+                    source=provider.source_name,
                     external_id=card.external_id,
                     url=card.url,
                     error_type=type(e).__name__,
@@ -131,7 +130,7 @@ async def _process_card(
 
     # Mark any previous errors as resolved
     if not dry_run and repo:
-        repo.mark_errors_resolved("myp", card.external_id)
+        repo.mark_errors_resolved(provider.source_name, card.external_id)
 
 
 async def run_update(
@@ -146,13 +145,13 @@ async def run_update(
     summary = CollectionSummary()
 
     try:
-        source_cards = repo.get_all_source_cards("myp")
+        source_cards = repo.get_all_source_cards(provider.source_name)
         summary.cards_discovered = len(source_cards)
         log.info("update_start", known_cards=len(source_cards))
 
         for i, sc_row in enumerate(source_cards, 1):
             card = SourceCard(
-                source="myp",
+                source=provider.source_name,
                 external_id=sc_row.external_id,
                 url=sc_row.url,
                 sku=sc_row.sku,
@@ -171,7 +170,7 @@ async def run_update(
             except Exception as e:
                 summary.cards_failed += 1
                 error = CollectionError(
-                    source="myp",
+                    source=provider.source_name,
                     external_id=card.external_id,
                     url=card.url,
                     error_type=type(e).__name__,
@@ -201,7 +200,7 @@ async def run_retry_failed(
     summary = CollectionSummary()
 
     try:
-        errors = repo.get_unresolved_errors("myp")
+        errors = repo.get_unresolved_errors(provider.source_name)
         # Deduplicate by external_id
         seen: set[str] = set()
         cards_to_retry: list[SourceCard] = []
@@ -210,7 +209,7 @@ async def run_retry_failed(
                 seen.add(err.external_id)
                 cards_to_retry.append(
                     SourceCard(
-                        source="myp",
+                        source=provider.source_name,
                         external_id=err.external_id,
                         url=err.url,
                     )
@@ -232,7 +231,7 @@ async def run_retry_failed(
             except Exception as e:
                 summary.cards_failed += 1
                 error = CollectionError(
-                    source="myp",
+                    source=provider.source_name,
                     external_id=card.external_id,
                     url=card.url,
                     error_type=type(e).__name__,

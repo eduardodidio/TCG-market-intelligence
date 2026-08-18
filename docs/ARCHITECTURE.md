@@ -18,15 +18,19 @@ graph TD
     COLL["Collectors<br/><code>src/collectors/</code>"]
     PROV["Providers<br/><code>src/providers/</code>"]
     PARS["Parsers<br/><code>src/parsers/</code>"]
+    ANA["Analytics<br/><code>src/analytics/</code>"]
     DOM["Domain Models<br/><code>src/domain/</code>"]
     DB["Database<br/><code>src/database/</code>"]
 
     CLI --> COLL
+    CLI --> ANA
     COLL --> PROV
     PROV --> PARS
     PARS --> DOM
+    ANA --> DOM
     COLL --> DB
     DB --> DOM
+    CLI --> DB
 ```
 
 Dependencies flow downward. The **Domain** layer is the foundation: it defines
@@ -46,9 +50,11 @@ Entry point for all user-facing operations. Built with
 
 | Command        | Description                                      |
 |----------------|--------------------------------------------------|
-| `backfill`     | Full discovery + history collection for all (or filtered) cards |
-| `update`       | Incremental fetch of recent data for already-known cards |
-| `retry-failed` | Re-process cards that failed in previous runs    |
+| `backfill`       | Full discovery + history collection for all (or filtered) cards |
+| `update`         | Incremental fetch of recent data for already-known cards |
+| `retry-failed`   | Re-process cards that failed in previous runs    |
+| `analyze card`   | Print all analytics indicators for a single card |
+| `analyze list`   | List cards with observation counts                |
 
 Each command accepts options for database URL, rate-limit delay, history
 window, card limit, and dry-run mode. Commands delegate to async functions in
@@ -112,6 +118,26 @@ embedded in history pages.
 
 **Key file:** `src/parsers/myp.py`
 
+### `src/analytics/` -- Market Analytics Engine
+
+Pure functions that compute market indicators from price time series. No
+database imports, no side effects — all arithmetic uses `Decimal`.
+
+| Function                    | Output           | Description                              |
+|-----------------------------|------------------|------------------------------------------|
+| `compute_moving_average`    | `MovingAverage`  | SMA over last N observations             |
+| `compute_all_moving_averages` | `list[MovingAverage]` | MA(7), MA(30), MA(90) in one call  |
+| `compute_price_extremes`    | `PriceExtremes`  | All-time high/low with dates             |
+| `compute_volatility`        | `Volatility`     | Population std dev + coefficient of variation |
+| `compute_momentum`          | `Momentum`       | Rate of change + trend direction (up/down/flat) |
+| `compute_card_analytics`    | `CardAnalytics`  | Orchestrator: all indicators for one card |
+
+The CLI's `analyze` command group calls these functions directly, passing
+price data fetched from the repository. The analytics module depends only
+on `src.domain.models`.
+
+**Key file:** `src/analytics/indicators.py`
+
 ### `src/domain/` -- Domain Models and Interfaces
 
 Pure Python with no external dependencies beyond the standard library. Contains:
@@ -125,6 +151,9 @@ Pure Python with no external dependencies beyond the standard library. Contains:
     sold, volume)
   - `CollectionError` -- record of a failed collection attempt
   - `CollectionSummary` -- aggregated stats for a collection run
+  - `MovingAverage`, `PriceExtremes`, `Volatility`, `Momentum` -- analytics
+    result dataclasses
+  - `CardAnalytics` -- aggregated analytics for a single card
   - Supporting enums: `Game`, `Condition`, `Finish`
 
 - **`interfaces.py`** -- The `CardSourceProvider` ABC that all providers must

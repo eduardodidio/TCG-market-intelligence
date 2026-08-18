@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from src.domain.models import CardIdentity, HistoricalPrice, PriceSnapshot, SourceCard
+from src.domain.models import HistoricalPrice, PriceSnapshot, SourceCard
 
 
 class CardSourceProvider(ABC):

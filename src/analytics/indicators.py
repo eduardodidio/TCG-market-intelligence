@@ -7,7 +7,7 @@ All price arithmetic uses Decimal exclusively.
 from __future__ import annotations
 
 import decimal
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from src.domain.models import (
@@ -106,6 +106,9 @@ def compute_volatility(
 ) -> Volatility | None:
     """Compute population standard deviation and coefficient of variation.
 
+    Uses **population** std dev (divides by N, not N-1) since we have the
+    full set of observed prices, not a sample.
+
     If ``period_days`` is set, uses only the last N days of data.
     Returns None if fewer than 2 valid prices.
     """
@@ -114,8 +117,6 @@ def compute_volatility(
     if period_days is not None and valid:
         # Filter to last N days based on the most recent date
         latest_date = max(d for d, _ in valid)
-        from datetime import timedelta
-
         cutoff = latest_date - timedelta(days=period_days)
         valid = [(d, v) for d, v in valid if d >= cutoff]
 
@@ -168,8 +169,6 @@ def compute_momentum(
     current_date, current_price = valid[-1]
 
     # Past = price nearest to `period_days` ago
-    from datetime import timedelta
-
     target_date = current_date - timedelta(days=period_days)
 
     # Find the observation closest to target_date

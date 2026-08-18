@@ -18,12 +18,7 @@ from src.analytics.indicators import (
 from src.domain.models import (
     CardAnalytics,
     HistoricalPrice,
-    Momentum,
-    MovingAverage,
-    PriceExtremes,
-    Volatility,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -51,7 +46,9 @@ def _hp(
     )
 
 
-def _make_prices(values: list[Decimal | None], base_date: date | None = None) -> list[HistoricalPrice]:
+def _make_prices(
+    values: list[Decimal | None], base_date: date | None = None,
+) -> list[HistoricalPrice]:
     """Build a list of HistoricalPrice with daily observations."""
     return [_hp(i, median=v, base_date=base_date) for i, v in enumerate(values)]
 
@@ -408,6 +405,26 @@ class TestComputeMomentum:
         # (13 - 11) / 11 * 100
         expected_roc = (Decimal("13.00") - Decimal("11.00")) / Decimal("11.00") * Decimal("100")
         assert result.rate_of_change == expected_roc
+
+    def test_past_price_zero_returns_none(self):
+        """When past price is zero, returns None (division guard)."""
+        prices = [
+            _hp(0, median=Decimal("0.00")),
+            _hp(7, median=Decimal("10.00")),
+        ]
+        result = compute_momentum(prices, period_days=7)
+        assert result is None
+
+    def test_invalid_price_field_returns_none(self):
+        """Nonexistent price_field degrades gracefully to None."""
+        prices = [
+            _hp(0, median=Decimal("10.00")),
+            _hp(7, median=Decimal("12.00")),
+        ]
+        result = compute_momentum(
+            prices, period_days=7, price_field="nonexistent_field",
+        )
+        assert result is None
 
     def test_alternative_price_field(self):
         prices = [
