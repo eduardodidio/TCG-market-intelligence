@@ -73,6 +73,8 @@ python -m src.cli.main retry-failed
 | `--dry-run` | off | Don't write to database |
 | `--delay` | 1.0 | Seconds between requests |
 | `--history-days` | 1095 | Days of price history to fetch |
+| `--concurrency` | 3 | Max concurrent cards during backfill |
+| `--no-resume` | off | Re-process all cards (skip resume logic) |
 | `--source` | `myp` | Data source (for analyze commands) |
 | `--price-field` | `median_price` | Price field to analyze (for analyze card) |
 
@@ -102,11 +104,14 @@ tests/
   fixtures/        Saved HTML responses for offline tests
   unit/
     test_analytics_models.py   Domain model tests (11)
+    test_backfill.py           Concurrency/resume tests (11)
     test_cli_analytics.py      CLI analyze commands (8)
     test_indicators.py         Analytics functions (48)
     test_parsers.py            HTML/JSON-LD parsing (18)
-    test_repository.py         DB upsert/errors (7)
+    test_repository.py         DB upsert/batch tests (12)
     test_repository_queries.py Price series queries (10)
+  integration/
+    test_collector_pipeline.py Full pipeline tests (10)
 ```
 
 ## Data Model
@@ -215,6 +220,17 @@ python -m src.cli.main analyze card 12345
 # Analyze using a different price field
 python -m src.cli.main analyze card 12345 --price-field tcg_price
 ```
+
+### F04 -- Collector Scaling (2026-08-18)
+
+Prepared the collector pipeline to scale from 30 cards to the full MYP catalog:
+
+- **Batch upsert** -- `INSERT ON CONFLICT DO NOTHING` replaces per-row SELECT+INSERT
+- **Concurrent processing** -- `asyncio.Semaphore` with configurable concurrency (default 3)
+- **Resume capability** -- skips cards already collected, resumable after interruption
+- **Integration tests** -- 10 tests covering full pipeline (backfill, update, retry-failed)
+- CLI flags: `--concurrency` and `--no-resume`
+- 131 total tests (105 original + 26 new), 0 lint errors
 
 ## Future
 

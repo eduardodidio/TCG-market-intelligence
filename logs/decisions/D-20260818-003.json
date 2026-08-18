@@ -1,0 +1,59 @@
+{
+  "decision_id": "D-20260818-003",
+  "timestamp": "2026-08-18T14:52:00Z",
+  "type": "feature_start",
+  "context_summary": "F04 (Collector Scaling) was previously approved and planned in D-20260818-002 (plan-only). The Architect produced 3 tasks in 3 sequential waves: T01 batch upsert (Wave 0), T02 concurrency+resume (Wave 1), T03 integration tests (Wave 2). User now requests full execution via create-feature pipeline (Architect -> Waves -> TechLead -> QA). The feature addresses ACT-06/07/08 from the retroactive review and is the critical path before scaling to all MTG sets.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Execute F04 as-is: skip Architect (already done), proceed directly to Wave execution (Developer for T01->T02->T03), then TechLead review, then QA. Reuse existing task files verbatim.",
+      "pros": [
+        "No redundant Architect pass — tasks are already well-specified with code examples and test scenarios",
+        "Fastest path to delivery",
+        "Task dependencies and wave ordering are already correct (T01->T02->T03)",
+        "Acceptance criteria are clear and measurable"
+      ],
+      "cons": [
+        "If Architect missed something, there is no second look before execution",
+        "Tasks were created during plan-only mode and may not reflect any code changes since then"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Re-run Architect before execution to validate task decomposition against current codebase state, then proceed with Waves -> TechLead -> QA.",
+      "pros": [
+        "Catches any drift between planned tasks and current code",
+        "Architect might refine implementation details"
+      ],
+      "cons": [
+        "Wastes an Opus-tier Architect call when tasks are already detailed and well-specified",
+        "No code changes have landed since planning (same session, same commit c2e8ce1)",
+        "Risk of Architect producing slightly different tasks, creating confusion with existing files"
+      ]
+    },
+    {
+      "option": "C",
+      "description": "Execute F04 but collapse T01 and T02 into a single wave (parallel) since batch upsert could be developed independently from concurrency changes.",
+      "pros": [
+        "Faster delivery — two tasks in parallel",
+        "T01 and T02 touch different files (repository.py vs backfill.py)"
+      ],
+      "cons": [
+        "T02 depends on T01: the concurrency code will generate many more upserts, and the batch upsert must be in place first for correctness and performance",
+        "Architect explicitly set this dependency for good reason",
+        "Risk of merge conflicts or test failures if both touch shared test infrastructure"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "The Architect already produced high-quality, detailed task files with code examples, test scenarios, and clear acceptance criteria. No code has changed since planning (same commit c2e8ce1). Re-running the Architect (Option B) would waste an Opus call with no material benefit. Collapsing waves (Option C) is risky because T02 genuinely depends on T01 — the concurrent backfill will generate bulk inserts that need the batch upsert path. The correct approach is to skip the Architect step and proceed directly to Developer execution in the established wave order: T01 (batch upsert) -> T02 (concurrency+resume) -> T03 (integration tests), followed by TechLead review and QA validation.",
+  "actions": [
+    { "action": "create-feature", "feature": "F04" }
+  ],
+  "status": "executed",
+  "governance": {
+    "verdict": "agree",
+    "confidence": 0.90,
+    "report": "logs/governance/G-D-20260818-003.json"
+  }
+}

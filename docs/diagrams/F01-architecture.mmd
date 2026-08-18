@@ -1,0 +1,72 @@
+flowchart TB
+    subgraph cli["CLI (src/cli/main.py)"]
+        backfill_cmd["backfill<br/>--set --limit --delay --dry-run<br/>--concurrency --no-resume"]
+        update_cmd["update<br/>--delay --history-days"]
+        retry_cmd["retry-failed<br/>--delay --history-days"]
+    end
+
+    subgraph collector["Collector (src/collectors/backfill.py)"]
+        run_backfill["run_backfill()"]
+        run_update["run_update()"]
+        run_retry["run_retry_failed()"]
+
+        subgraph concurrent["Concurrent Processing"]
+            sem["asyncio.Semaphore(N)"]
+            gather["asyncio.gather(*tasks)"]
+            process["process_with_sem(card)"]
+            sem --> process
+            process --> gather
+        end
+
+        resume_check{"resume?<br/>check DB for<br/>collected IDs"}
+        process_card["_process_card()"]
+    end
+
+    subgraph provider["MYP Provider (src/providers/myp/)"]
+        discover["discover_cards()"]
+        details["get_card_details()"]
+        history["get_price_history()"]
+        curl["curl_cffi<br/>impersonate=chrome"]
+    end
+
+    subgraph parser["Parser (src/parsers/myp.py)"]
+        parse_sets["parse_set_links()"]
+        parse_cards["parse_card_links()"]
+        parse_page["parse_card_page()"]
+        parse_hist["parse_price_history()"]
+    end
+
+    subgraph database["Database (src/database/)"]
+        repo["Repository"]
+        models["SQLAlchemy Models"]
+        sqlite[("SQLite")]
+        repo --> models --> sqlite
+    end
+
+    subgraph domain["Domain (src/domain/)"]
+        source_card["SourceCard"]
+        hist_price["HistoricalPrice"]
+        summary["CollectionSummary"]
+    end
+
+    backfill_cmd --> run_backfill
+    update_cmd --> run_update
+    retry_cmd --> run_retry
+
+    run_backfill --> resume_check
+    resume_check -->|"skip collected"| concurrent
+    concurrent --> process_card
+
+    run_update --> process_card
+    run_retry --> process_card
+
+    process_card --> details
+    process_card --> history
+    details --> curl
+    history --> curl
+    discover --> curl
+
+    curl -->|"HTML"| parser
+    repo -->|"get_cards_with_observations"| resume_check
+
+    process_card -->|"upsert"| repo

@@ -26,11 +26,14 @@ src/
 tests/
   unit/
     test_analytics_models.py   Domain model tests (11 tests)
+    test_backfill.py           Concurrency/resume tests (11 tests)
     test_cli_analytics.py      CLI analyze commands (8 tests)
     test_indicators.py         Analytics functions (48 tests)
     test_parsers.py            HTML/JSON-LD parsing (18 tests)
-    test_repository.py         DB upsert/errors (7 tests)
+    test_repository.py         DB upsert/batch tests (12 tests)
     test_repository_queries.py Price series queries (10 tests)
+  integration/
+    test_collector_pipeline.py Full pipeline tests (10 tests)
 ```
 
 For a deeper architectural overview, see [ARCHITECTURE.md](ARCHITECTURE.md) and the

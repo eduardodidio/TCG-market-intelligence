@@ -29,7 +29,9 @@ def cli():
 @click.option("--dry-run", is_flag=True, help="Don't write to database")
 @click.option("--delay", default=1.0, type=float, help="Seconds between requests")
 @click.option("--history-days", default=1095, type=int, help="Days of history to fetch")
-def backfill(db, set_filter, limit, dry_run, delay, history_days):
+@click.option("--concurrency", default=3, type=int, help="Max concurrent cards to process")
+@click.option("--no-resume", is_flag=True, help="Re-process all cards (ignore already-collected)")
+def backfill(db, set_filter, limit, dry_run, delay, history_days, concurrency, no_resume):
     """Full backfill: discover all cards, collect history."""
     from src.collectors.backfill import run_backfill
 
@@ -41,6 +43,8 @@ def backfill(db, set_filter, limit, dry_run, delay, history_days):
             dry_run=dry_run,
             delay=delay,
             history_days=history_days,
+            concurrency=concurrency,
+            resume=not no_resume,
         )
     )
     _print_summary(summary, dry_run)

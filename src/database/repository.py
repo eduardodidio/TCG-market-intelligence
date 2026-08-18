@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from sqlalchemy import create_engine, func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from src.database.models import (
@@ -96,29 +97,28 @@ class Repository:
             return 0
         inserted = 0
         with Session(self.engine) as session:
-            for p in prices:
-                existing = session.execute(
-                    select(PriceObservationRow.id).where(
-                        PriceObservationRow.source == p.source,
-                        PriceObservationRow.external_id == p.external_id,
-                        PriceObservationRow.observed_at == p.observed_at,
+            for batch_start in range(0, len(prices), 500):
+                batch = prices[batch_start : batch_start + 500]
+                for p in batch:
+                    stmt = (
+                        sqlite_insert(PriceObservationRow)
+                        .values(
+                            source=p.source,
+                            external_id=p.external_id,
+                            observed_at=p.observed_at,
+                            median_price=p.median_price,
+                            tcg_price=p.tcg_price,
+                            last_sold_price=p.last_sold_price,
+                            quantity_available=p.quantity_available,
+                            last_sold_meta=p.last_sold_meta,
+                            currency=p.currency,
+                        )
+                        .on_conflict_do_nothing(
+                            index_elements=["source", "external_id", "observed_at"]
+                        )
                     )
-                ).scalar_one_or_none()
-                if existing:
-                    continue
-                row = PriceObservationRow(
-                    source=p.source,
-                    external_id=p.external_id,
-                    observed_at=p.observed_at,
-                    median_price=p.median_price,
-                    tcg_price=p.tcg_price,
-                    last_sold_price=p.last_sold_price,
-                    quantity_available=p.quantity_available,
-                    last_sold_meta=p.last_sold_meta,
-                    currency=p.currency,
-                )
-                session.add(row)
-                inserted += 1
+                    result = session.execute(stmt)
+                    inserted += result.rowcount
             session.commit()
         return inserted
 
@@ -146,13 +146,17 @@ class Repository:
 
     def mark_errors_resolved(self, source: str, external_id: str) -> None:
         with Session(self.engine) as session:
-            rows = session.execute(
-                select(CollectionErrorRow).where(
-                    CollectionErrorRow.source == source,
-                    CollectionErrorRow.external_id == external_id,
-                    CollectionErrorRow.resolved == 0,
+            rows = (
+                session.execute(
+                    select(CollectionErrorRow).where(
+                        CollectionErrorRow.source == source,
+                        CollectionErrorRow.external_id == external_id,
+                        CollectionErrorRow.resolved == 0,
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             for r in rows:
                 r.resolved = 1
             session.commit()
@@ -160,9 +164,9 @@ class Repository:
     def get_all_source_cards(self, source: str) -> list[SourceCardRow]:
         with Session(self.engine) as session:
             return list(
-                session.execute(
-                    select(SourceCardRow).where(SourceCardRow.source == source)
-                ).scalars().all()
+                session.execute(select(SourceCardRow).where(SourceCardRow.source == source))
+                .scalars()
+                .all()
             )
 
     def get_price_series(

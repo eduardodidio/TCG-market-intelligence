@@ -1,6 +1,6 @@
 # F02 -- Project Reproducibility & Living Documentation
 
-**Status:** planned
+**Status:** done
 **Created:** 2026-08-18
 **Owner:** Eduardo Rutkoski Didio
 

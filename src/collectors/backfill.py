@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 
 import structlog
@@ -20,6 +21,8 @@ async def run_backfill(
     dry_run: bool = False,
     delay: float = 1.0,
     history_days: int = 1095,
+    concurrency: int = 3,
+    resume: bool = True,
 ) -> CollectionSummary:
     """Run a full backfill collection.
 
@@ -30,6 +33,8 @@ async def run_backfill(
         dry_run: If True, don't write to database.
         delay: Seconds between requests.
         history_days: How many days of history to fetch.
+        concurrency: Max concurrent cards to process (default 3).
+        resume: If True, skip cards that already have observations in DB.
     """
     config = MypConfig(delay_seconds=delay, history_days=history_days)
     provider = MypCardsProvider(config)
@@ -51,34 +56,55 @@ async def run_backfill(
             discovered = discovered[:limit]
             log.info("limit_applied", processing=len(discovered))
 
-        # Phase 2: Process each card
-        for i, card in enumerate(discovered, 1):
-            log.info(
-                "processing_card",
-                index=i,
-                total=len(discovered),
-                external_id=card.external_id,
-            )
-            try:
-                await _process_card(provider, repo, card, summary, history_days, dry_run)
-                summary.cards_processed += 1
-            except Exception as e:
-                summary.cards_failed += 1
-                error = CollectionError(
-                    source=provider.source_name,
+        # Phase 1b: Resume — skip already-collected cards
+        if resume and repo and not dry_run:
+            collected_ids = {
+                eid for eid, _ in repo.get_cards_with_observations(provider.source_name)
+            }
+            before = len(discovered)
+            discovered = [c for c in discovered if c.external_id not in collected_ids]
+            skipped = before - len(discovered)
+            if skipped > 0:
+                log.info("resume_filtered", skipped=skipped, remaining=len(discovered))
+
+        # Phase 2: Process cards concurrently
+        total = len(discovered)
+        sem = asyncio.Semaphore(concurrency)
+        lock = asyncio.Lock()
+
+        async def process_with_sem(card: SourceCard, index: int) -> None:
+            async with sem:
+                log.info(
+                    "processing_card",
+                    index=index,
+                    total=total,
                     external_id=card.external_id,
-                    url=card.url,
-                    error_type=type(e).__name__,
-                    error_message=str(e),
                 )
-                summary.errors.append(error)
-                if repo:
-                    repo.insert_error(error)
-                log.warning(
-                    "card_failed",
-                    external_id=card.external_id,
-                    error=str(e),
-                )
+                try:
+                    await _process_card(provider, repo, card, summary, history_days, dry_run)
+                    async with lock:
+                        summary.cards_processed += 1
+                except Exception as e:
+                    async with lock:
+                        summary.cards_failed += 1
+                        error = CollectionError(
+                            source=provider.source_name,
+                            external_id=card.external_id,
+                            url=card.url,
+                            error_type=type(e).__name__,
+                            error_message=str(e),
+                        )
+                        summary.errors.append(error)
+                        if repo:
+                            repo.insert_error(error)
+                    log.warning(
+                        "card_failed",
+                        external_id=card.external_id,
+                        error=str(e),
+                    )
+
+        tasks = [process_with_sem(card, i) for i, card in enumerate(discovered, 1)]
+        await asyncio.gather(*tasks)
 
         summary.finished_at = datetime.now()
         _log_summary(summary)

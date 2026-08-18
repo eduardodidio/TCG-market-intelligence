@@ -1,0 +1,41 @@
+flowchart TD
+    start([Operator runs<br/>backfill command]) --> config["Parse CLI flags<br/>--set --limit --concurrency<br/>--no-resume --delay"]
+
+    config --> discover["Phase 1: Discover cards<br/>from MYP editions pages"]
+
+    discover --> has_limit{limit set?}
+    has_limit -->|Yes| apply_limit["Truncate to first N cards"]
+    has_limit -->|No| resume_check
+
+    apply_limit --> resume_check
+
+    resume_check{resume enabled<br/>and not dry-run?}
+    resume_check -->|Yes| query_db["Query DB for cards<br/>with observations"]
+    resume_check -->|No| process
+
+    query_db --> filter["Filter out already-collected<br/>cards by external_id"]
+    filter --> log_skip["Log: resume_filtered<br/>skipped=N remaining=M"]
+    log_skip --> process
+
+    process{Cards to<br/>process?}
+    process -->|"0 cards"| done
+    process -->|">0 cards"| concurrent["Create Semaphore(concurrency)<br/>Launch asyncio.gather"]
+
+    concurrent --> sem_card["Card N acquires semaphore"]
+    sem_card --> fetch_details["Fetch card details<br/>via curl_cffi"]
+    fetch_details --> fetch_history["Fetch price history"]
+
+    fetch_history --> card_ok{Success?}
+    card_ok -->|Yes| persist["Upsert card + observations<br/>Mark errors resolved"]
+    card_ok -->|No| record_error["Record CollectionError<br/>Log warning"]
+
+    persist --> release["Release semaphore<br/>Increment cards_processed"]
+    record_error --> release_err["Release semaphore<br/>Increment cards_failed"]
+
+    release --> more{More cards<br/>in gather?}
+    release_err --> more
+
+    more -->|Yes| sem_card
+    more -->|No| done
+
+    done["Set finished_at<br/>Log collection_summary"] --> summary([Display summary<br/>to operator])

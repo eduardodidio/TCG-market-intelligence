@@ -1,0 +1,42 @@
+{
+  "decision_id": "D-20260818-002",
+  "timestamp": "2026-08-18T14:45:00Z",
+  "type": "feature_start",
+  "context_summary": "User requested planning F04 to address technical debt items ACT-06 (batch upsert), ACT-07 (concurrency+resume), ACT-08 (collector integration tests) identified in retroactive review D-20260818-001. These are prerequisites before scaling data collection to all MTG sets.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Plan F04 as a dedicated tech debt feature covering ACT-06, ACT-07, ACT-08 only. Focused scope, clear acceptance criteria.",
+      "pros": [
+        "Clean separation from feature work — easier to review and test",
+        "All three items are tightly related (collector scaling readiness)",
+        "Unblocks full-catalog backfill which is the next major milestone",
+        "Also absorbs remaining Wave 0 items (ACT-01 through ACT-05, ACT-09, ACT-10) as low-cost hygiene"
+      ],
+      "cons": [
+        "No new user-facing functionality delivered",
+        "Ceremony overhead for what is essentially cleanup work"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Plan F04 as ACT-06/07/08 plus also start Phase 4 REST API in the same feature to deliver visible value alongside the debt.",
+      "pros": [
+        "Ships user-facing value sooner",
+        "API would immediately benefit from the batch/concurrency improvements"
+      ],
+      "cons": [
+        "Scope creep — mixing infra debt with new feature increases risk",
+        "Harder to isolate regressions",
+        "API design decisions deserve their own PRD and planning cycle"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "ACT-06/07/08 are tightly coupled (all collector-layer scaling concerns) and form a natural feature boundary. Mixing in REST API would create scope creep and dilute the focus. The debt must be resolved before scaling to all sets, making this the critical path. Remaining minor debt items (ACT-01-05, 09-10) should ride along as Wave 0 hygiene since they are trivial.",
+  "actions": [
+    { "action": "spawn-architect", "feature": "F04", "mode": "PLAN_ONLY" }
+  ],
+  "status": "executed",
+  "governance": null
+}
