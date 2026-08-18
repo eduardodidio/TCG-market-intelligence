@@ -1,0 +1,47 @@
+flowchart TD
+    start([User runs<br/>backfill --set slug<br/>--concurrency N]) --> parse["Parse CLI flags<br/>--set --limit --concurrency<br/>--no-resume --delay --dry-run"]
+
+    parse --> discover["Phase 1: Discover cards<br/>from MYP editions pages"]
+
+    discover --> has_limit{limit set?}
+    has_limit -->|Yes| apply_limit["Truncate to first N cards"]
+    has_limit -->|No| check_resume
+
+    apply_limit --> check_resume
+
+    check_resume{resume enabled<br/>and not dry-run?}
+    check_resume -->|No| count_cards
+    check_resume -->|Yes| query_db["Query DB:<br/>get_cards_with_observations()"]
+
+    query_db --> build_set["Build set of<br/>already-collected external_ids"]
+    build_set --> filter_out["Filter out collected cards<br/>from discovered list"]
+    filter_out --> log_resume["Log: resume_filtered<br/>skipped=N remaining=M"]
+    log_resume --> count_cards
+
+    count_cards{Cards to<br/>process?}
+    count_cards -->|"0 cards"| final_summary
+    count_cards -->|">0 cards"| create_sem["Create Semaphore(concurrency)<br/>Create Lock for counters<br/>Launch asyncio.gather"]
+
+    create_sem --> acquire["Card acquires<br/>semaphore slot"]
+
+    acquire --> fetch_details["Fetch card details<br/>via curl_cffi + parser"]
+    fetch_details --> fetch_history["Fetch price history<br/>via curl_cffi + parser"]
+
+    fetch_history --> card_ok{Success?}
+
+    card_ok -->|Yes| upsert_card["Upsert source_card + card<br/>in database"]
+    upsert_card --> batch_insert["Batch insert observations<br/>INSERT ON CONFLICT DO NOTHING<br/>(batches of 500)"]
+    batch_insert --> resolve_errors["Mark previous errors<br/>as resolved"]
+    resolve_errors --> inc_ok["Lock: increment<br/>cards_processed +=1<br/>observations_saved += inserted"]
+
+    card_ok -->|No| record_error["Record CollectionError<br/>in DB + summary"]
+    record_error --> inc_fail["Lock: increment<br/>cards_failed += 1"]
+
+    inc_ok --> release["Release semaphore"]
+    inc_fail --> release
+
+    release --> more{More cards<br/>in gather?}
+    more -->|Yes| acquire
+    more -->|No| final_summary
+
+    final_summary["Set finished_at timestamp<br/>Log collection_summary"] --> display([Display summary:<br/>discovered | processed<br/>skipped | failed<br/>observations saved])

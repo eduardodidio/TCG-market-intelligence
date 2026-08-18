@@ -1,0 +1,43 @@
+{
+  "decision_id": "D-20260818-004",
+  "timestamp": "2026-08-18T18:00:00Z",
+  "type": "feature_start",
+  "context_summary": "F05 Technical Debt Cleanup — plan-feature (Architect only, PLAN_ONLY). Feature resolves accumulated tech debt: test coverage gaps (provider.py 63%, parsers 82%, CLI 77%), missing PRDs (F02/F03/F04), missing F04 diagrams, .coverage in .gitignore, stale F03 status. No new modules or architectural changes. Purely additive (tests, docs, config). Overall coverage target: 90%. Architect already produced 6 tasks in 3 waves.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Accept the existing Architect plan as-is: 6 tasks, 3 waves (W0: housekeeping, W1: test coverage x3 parallel, W2: docs x2 parallel). PLAN_ONLY — no execution.",
+      "pros": [
+        "Tasks are well-scoped with clear ACs and measurable targets",
+        "Wave ordering is correct: housekeeping first, then independent test tasks in parallel, then independent doc tasks in parallel",
+        "No architectural risk — only adding tests, docs, and config",
+        "Coverage targets are reasonable (85-90%) and achievable",
+        "Each task is independently verifiable"
+      ],
+      "cons": [
+        "6 tasks for housekeeping/debt may be over-decomposed — could merge T05+T06 into one docs task",
+        "Minor: line numbers in task descriptions may drift if code changes before execution"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Re-plan with fewer tasks: merge docs tasks (T05+T06), merge parser+CLI tests (T03+T04).",
+      "pros": [
+        "Fewer tasks = less overhead",
+        "Docs are all documentation artifacts, could be one task"
+      ],
+      "cons": [
+        "T03 and T04 test different modules with different complexity — keeping separate is cleaner",
+        "T05 (PRDs) and T06 (diagrams) are different artifact types",
+        "Existing plan is already well-specified — re-planning wastes effort",
+        "Wave 1 and Wave 2 already run tasks in parallel, so task count doesn't affect execution time"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "The existing Architect plan is well-structured. 6 tasks with clear scope, measurable coverage targets, and correct wave dependencies. No architectural risk since this is purely additive (tests, docs, config). The decomposition allows parallel execution in Waves 1 and 2. Re-planning would waste effort with no material improvement.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F05", "mode": "PLAN_ONLY" }
+  ],
+  "status": "executed"
+}

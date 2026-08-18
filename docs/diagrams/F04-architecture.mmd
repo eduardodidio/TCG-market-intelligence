@@ -1,0 +1,85 @@
+flowchart TB
+    subgraph cli["CLI (src/cli/main.py)"]
+        backfill_cmd["backfill<br/>--set --limit --delay<br/>--concurrency --no-resume"]
+        update_cmd["update<br/>--delay --history-days"]
+        retry_cmd["retry-failed<br/>--delay --history-days"]
+    end
+
+    subgraph collector["Collector Orchestrator (src/collectors/backfill.py)"]
+        run_backfill["run_backfill()"]
+        run_update["run_update()"]
+        run_retry["run_retry_failed()"]
+
+        subgraph resume["Resume Logic"]
+            query_collected["get_cards_with_observations()"]
+            filter_skip["Filter out already-collected<br/>cards by external_id set"]
+            query_collected --> filter_skip
+        end
+
+        subgraph concurrency["Concurrent Processing"]
+            sem["asyncio.Semaphore(N)<br/>default N=3"]
+            gather["asyncio.gather(*tasks)"]
+            process_sem["process_with_sem(card, i)"]
+            lock["asyncio.Lock()<br/>thread-safe counters"]
+            sem --> process_sem
+            process_sem --> gather
+            process_sem --> lock
+        end
+
+        process_card["_process_card()<br/>fetch details + history<br/>persist + mark resolved"]
+        summary["CollectionSummary<br/>discovered | processed<br/>failed | observations"]
+    end
+
+    subgraph provider["MYP Provider (src/providers/myp/)"]
+        discover["discover_cards()"]
+        details["get_card_details()"]
+        history["get_price_history()"]
+        curl["curl_cffi<br/>impersonate=chrome"]
+    end
+
+    subgraph database["Database (src/database/)"]
+        repo["Repository"]
+
+        subgraph batch["Batch Upsert"]
+            insert_obs["insert_price_observations()"]
+            sqlite_insert["sqlite INSERT ... VALUES<br/>ON CONFLICT DO NOTHING<br/>(source, external_id, observed_at)"]
+            batching["Batches of 500 rows"]
+            insert_obs --> batching --> sqlite_insert
+        end
+
+        upsert_card["upsert_source_card()<br/>upsert_card()"]
+        mark_resolved["mark_errors_resolved()"]
+        insert_error["insert_error()"]
+        sqlite[("SQLite<br/>tcg_market.db")]
+
+        batch --> sqlite
+        upsert_card --> sqlite
+        mark_resolved --> sqlite
+        insert_error --> sqlite
+    end
+
+    backfill_cmd --> run_backfill
+    update_cmd --> run_update
+    retry_cmd --> run_retry
+
+    run_backfill -->|"Phase 1: discover"| discover
+    run_backfill -->|"Phase 1b"| resume
+    resume -->|"remaining cards"| concurrency
+    concurrency --> process_card
+
+    run_update --> process_card
+    run_retry --> process_card
+
+    process_card -->|"fetch"| details
+    process_card -->|"fetch"| history
+    details --> curl
+    history --> curl
+
+    process_card -->|"persist card"| upsert_card
+    process_card -->|"persist prices"| insert_obs
+    process_card -->|"on success"| mark_resolved
+
+    process_card -->|"on error"| insert_error
+    process_card --> summary
+
+    repo -->|"collected IDs"| query_collected

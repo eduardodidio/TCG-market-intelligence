@@ -1,0 +1,38 @@
+{
+  "decision_id": "D-20260818-005",
+  "timestamp": "2026-08-18T18:05:00Z",
+  "type": "feature_start",
+  "context_summary": "F05 Technical Debt Cleanup — create-feature (full execution). Plan was already approved in D-20260818-004. Architect produced 6 tasks in 3 waves. No code changes since planning. Feature is purely additive: tests, docs, config. Zero architectural risk.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Execute F05 as planned: skip Architect (already done in D-004), proceed to readiness gate, TEA, then Waves 0-1-2, TechLead, QA.",
+      "pros": [
+        "Plan already reviewed and approved by Gandalf in D-004",
+        "No code changes since planning — tasks are still accurate",
+        "Purely additive feature with zero architectural risk",
+        "Skipping redundant Architect saves an Opus call"
+      ],
+      "cons": [
+        "None material — plan is fresh from same session"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Re-run Architect before execution to re-validate.",
+      "pros": [
+        "Extra validation pass"
+      ],
+      "cons": [
+        "Wastes Opus call — no code changes since D-004 approved the plan",
+        "Risk of producing slightly different task files"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "Plan was just approved in D-20260818-004. No code changes since. Re-running Architect would waste resources with no benefit. Proceed directly to readiness gate and execution.",
+  "actions": [
+    { "action": "create-feature", "feature": "F05", "skip_architect": true }
+  ],
+  "status": "executed"
+}

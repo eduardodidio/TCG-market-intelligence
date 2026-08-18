@@ -22,3 +22,8 @@ Each entry is a lesson that generalizes beyond a single bug.)
 
 - **Always verify that instrumented tracking variables are asserted against.** The integration concurrency test tracked `max_concurrent` via a counter but never asserted on it -- a computed-but-not-asserted variable is a common gap that gives false confidence. When reviewing tests, search for variables that are assigned but never appear in `assert` statements.
 - **TechLead NITs are QA's gap backlog.** The TechLead review's NIT-03 directly mapped to a real test gap. Always cross-reference TechLead NITs with test coverage -- informational notes from review often point to missing assertions or weak test designs.
+
+## F05 -- Technical Debt Cleanup (2026-08-18)
+
+- **Always run lint as part of QA validation, even when not an explicit AC.** F05's ACs did not include "zero lint violations," but QA caught 6 ruff errors that would have blocked the commit. Lint checks should be a standard QA step for every feature, regardless of whether the ACs mention them.
+- **ResourceWarnings in test output are future tech debt.** The 26 unclosed-database warnings are harmless today but accumulate noise that can mask real warnings. Flag these in QA reports so they enter the next tech debt inventory.

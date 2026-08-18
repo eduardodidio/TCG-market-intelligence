@@ -1,6 +1,6 @@
 # F03 — Analytics Engine
 
-**Status:** planned
+**Status:** done
 **Created:** 2026-08-18
 
 ## Goal
