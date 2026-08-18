@@ -188,5 +188,15 @@ def _print_summary(summary, dry_run):
             click.echo(f"    ... and {len(summary.errors) - 20} more")
 
 
+@cli.command()
+@click.option("--host", default="0.0.0.0", help="Host to bind to")
+@click.option("--port", default=8000, type=int, help="Port to bind to")
+def serve(host, port):
+    """Start the REST API server."""
+    from src.api.app import run_server
+
+    run_server(host=host, port=port)
+
+
 if __name__ == "__main__":
     cli()

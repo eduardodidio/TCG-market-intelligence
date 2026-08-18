@@ -1,0 +1,40 @@
+graph TB
+    Client[API Consumer] --> FastAPI[FastAPI App]
+
+    subgraph Middleware
+        CORS[CORS]
+        ReqID[Request ID]
+        ErrHandler[Error Handler]
+    end
+
+    FastAPI --> Middleware
+
+    subgraph Routers
+        Cards[/cards]
+        Sets[/sets]
+        Market[/market]
+        Collect[/collect]
+    end
+
+    Middleware --> Routers
+
+    subgraph Data Layer
+        Repository
+        SQLite[(SQLite)]
+    end
+
+    Cards --> Repository
+    Sets --> Repository
+    Market --> Repository
+    Collect --> BackfillRunner[Backfill Runner]
+
+    Repository --> SQLite
+    BackfillRunner --> MYP[MYP Provider]
+    BackfillRunner --> Repository
+
+    subgraph Schemas
+        Envelope[ApiResponse Envelope]
+        Pydantic[Pydantic Models]
+    end
+
+    Routers --> Schemas

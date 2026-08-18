@@ -225,3 +225,210 @@ class Repository:
             if source:
                 stmt = stmt.where(PriceObservationRow.source == source)
             return session.execute(stmt).scalar() or 0
+
+    def list_cards(
+        self,
+        game: str | None = None,
+        set_code: str | None = None,
+        name_search: str | None = None,
+        after_id: int | None = None,
+        limit: int = 50,
+    ) -> list[CardRow]:
+        """List cards with optional filters and cursor pagination."""
+        with Session(self.engine) as session:
+            stmt = select(CardRow).order_by(CardRow.id.asc())
+            if game:
+                stmt = stmt.where(CardRow.game == game)
+            if set_code:
+                stmt = stmt.where(CardRow.set_code == set_code)
+            if name_search:
+                stmt = stmt.where(CardRow.name_en.ilike(f"%{name_search}%"))
+            if after_id:
+                stmt = stmt.where(CardRow.id > after_id)
+            stmt = stmt.limit(limit + 1)
+            return list(session.execute(stmt).scalars().all())
+
+    def count_cards(
+        self,
+        game: str | None = None,
+        set_code: str | None = None,
+        name_search: str | None = None,
+    ) -> int:
+        """Count cards matching filters."""
+        with Session(self.engine) as session:
+            stmt = select(func.count()).select_from(CardRow)
+            if game:
+                stmt = stmt.where(CardRow.game == game)
+            if set_code:
+                stmt = stmt.where(CardRow.set_code == set_code)
+            if name_search:
+                stmt = stmt.where(CardRow.name_en.ilike(f"%{name_search}%"))
+            return session.execute(stmt).scalar() or 0
+
+    def get_card_by_id(self, card_id: int) -> CardRow | None:
+        """Get a single card by ID."""
+        with Session(self.engine) as session:
+            return session.execute(
+                select(CardRow).where(CardRow.id == card_id)
+            ).scalar_one_or_none()
+
+    def get_source_cards_for_card(self, card_id: int) -> list[SourceCardRow]:
+        """Get all source cards linked to a canonical card."""
+        with Session(self.engine) as session:
+            return list(
+                session.execute(select(SourceCardRow).where(SourceCardRow.card_id == card_id))
+                .scalars()
+                .all()
+            )
+
+    def get_latest_prices_batch(self, card_ids: list[int]) -> dict[int, PriceObservationRow | None]:
+        """Get the latest price observation for each card_id."""
+        if not card_ids:
+            return {}
+        with Session(self.engine) as session:
+            result: dict[int, PriceObservationRow | None] = {}
+            for card_id in card_ids:
+                source_cards = (
+                    session.execute(select(SourceCardRow).where(SourceCardRow.card_id == card_id))
+                    .scalars()
+                    .all()
+                )
+                latest = None
+                for sc in source_cards:
+                    obs = session.execute(
+                        select(PriceObservationRow)
+                        .where(
+                            PriceObservationRow.source == sc.source,
+                            PriceObservationRow.external_id == sc.external_id,
+                        )
+                        .order_by(PriceObservationRow.observed_at.desc())
+                        .limit(1)
+                    ).scalar_one_or_none()
+                    if obs and (latest is None or obs.observed_at > latest.observed_at):
+                        latest = obs
+                result[card_id] = latest
+            return result
+
+    def list_sets(self, game: str | None = None) -> list[tuple[str, str, int]]:
+        """List distinct sets with card counts."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    CardRow.game,
+                    CardRow.set_code,
+                    func.count(CardRow.id).label("card_count"),
+                )
+                .where(CardRow.set_code.isnot(None))
+                .group_by(CardRow.game, CardRow.set_code)
+                .order_by(CardRow.game, CardRow.set_code)
+            )
+            if game:
+                stmt = stmt.where(CardRow.game == game)
+            results = session.execute(stmt).all()
+            return [(r[0], r[1], r[2]) for r in results]
+
+    def get_movers(self, days: int, limit: int = 10) -> tuple[list[tuple], list[tuple]]:
+        """Get top price gainers and losers over a period.
+
+        Returns (gainers, losers) as lists of tuples:
+        (card_id, name_en, set_code, price_start, price_end, change_pct)
+        """
+        from decimal import Decimal
+
+        cutoff = date.today() - timedelta(days=days)
+
+        with Session(self.engine) as session:
+            cards = session.execute(select(CardRow)).scalars().all()
+
+            movers: list[tuple] = []
+            for card in cards:
+                source_cards = (
+                    session.execute(select(SourceCardRow).where(SourceCardRow.card_id == card.id))
+                    .scalars()
+                    .all()
+                )
+
+                if not source_cards:
+                    continue
+
+                earliest_price = None
+                latest_price = None
+
+                for sc in source_cards:
+                    early = session.execute(
+                        select(PriceObservationRow)
+                        .where(
+                            PriceObservationRow.source == sc.source,
+                            PriceObservationRow.external_id == sc.external_id,
+                            PriceObservationRow.observed_at >= cutoff,
+                            PriceObservationRow.median_price.isnot(None),
+                        )
+                        .order_by(PriceObservationRow.observed_at.asc())
+                        .limit(1)
+                    ).scalar_one_or_none()
+
+                    late = session.execute(
+                        select(PriceObservationRow)
+                        .where(
+                            PriceObservationRow.source == sc.source,
+                            PriceObservationRow.external_id == sc.external_id,
+                            PriceObservationRow.median_price.isnot(None),
+                        )
+                        .order_by(PriceObservationRow.observed_at.desc())
+                        .limit(1)
+                    ).scalar_one_or_none()
+
+                    if early and late and early.median_price and late.median_price:
+                        earliest_price = early.median_price
+                        latest_price = late.median_price
+
+                if earliest_price and latest_price and earliest_price != Decimal("0"):
+                    change_pct = ((latest_price - earliest_price) / earliest_price) * 100
+                    movers.append(
+                        (
+                            card.id,
+                            card.name_en,
+                            card.set_code,
+                            earliest_price,
+                            latest_price,
+                            change_pct,
+                        )
+                    )
+
+            gainers = sorted(movers, key=lambda x: x[5], reverse=True)[:limit]
+            losers = sorted(movers, key=lambda x: x[5])[:limit]
+
+            return gainers, losers
+
+    def get_market_stats(self, game: str | None = None) -> dict:
+        """Get aggregate market statistics."""
+        with Session(self.engine) as session:
+            card_stmt = select(func.count()).select_from(CardRow)
+            if game:
+                card_stmt = card_stmt.where(CardRow.game == game)
+            total_cards = session.execute(card_stmt).scalar() or 0
+
+            total_obs = (
+                session.execute(select(func.count()).select_from(PriceObservationRow)).scalar() or 0
+            )
+
+            date_range = session.execute(
+                select(
+                    func.min(PriceObservationRow.observed_at),
+                    func.max(PriceObservationRow.observed_at),
+                )
+            ).one()
+
+            avg_price = session.execute(
+                select(func.avg(PriceObservationRow.median_price)).where(
+                    PriceObservationRow.median_price.isnot(None)
+                )
+            ).scalar()
+
+            return {
+                "total_cards": total_cards,
+                "total_observations": total_obs,
+                "avg_price": avg_price,
+                "date_range_start": date_range[0],
+                "date_range_end": date_range[1],
+            }

@@ -1,6 +1,6 @@
 # ADR-0002: Use FastAPI for REST API
 
-**Status:** proposed
+**Status:** accepted
 **Date:** 2026-08-18
 **Deciders:** Eduardo Rutkoski Didio
 

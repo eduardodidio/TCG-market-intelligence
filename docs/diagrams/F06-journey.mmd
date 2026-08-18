@@ -1,0 +1,18 @@
+graph LR
+    subgraph Consumer Journey
+        A[Browse Cards] --> B[Filter by Set/Game]
+        B --> C[View Card Detail]
+        C --> D[Check Price History]
+        D --> E[Compare Periods]
+    end
+
+    subgraph Market Analysis
+        F[Check Market Stats] --> G[View Top Movers]
+        G --> H[Identify Trends]
+    end
+
+    subgraph Admin Journey
+        I[Trigger Backfill] --> J[Receive Job ID]
+        J --> K[Collection Runs]
+        L[Trigger Update] --> M[Receive Job ID]
+    end

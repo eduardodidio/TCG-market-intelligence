@@ -1,0 +1,54 @@
+{
+  "decision_id": "D-20260818-006",
+  "timestamp": "2026-08-18T19:30:00Z",
+  "type": "feature_start",
+  "context_summary": "F06 REST API — plan-feature (PLAN_ONLY, Architect only). The project is ready for its next phase: exposing collected data via a REST API. All prerequisites are in place: F01-F05 shipped (213 tests, 97% coverage, 0 lint errors), ADR-0002 proposes FastAPI with detailed rationale, docs/API.md contains a complete endpoint specification (cards, sets, market movers, stats, admin collection triggers), and the roadmap identifies Phase 4 (REST API) as the next milestone. The existing codebase is async-first (curl_cffi, pytest-asyncio) and SQLAlchemy-based, both of which align well with FastAPI. No new dependencies have been introduced without review. No blockers identified.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with plan-feature (Architect only, PLAN_ONLY). Let the Architect decompose F06 into tasks and waves based on the existing API.md spec and ADR-0002.",
+      "pros": [
+        "All prerequisites satisfied: stable codebase, ADR approved, full API spec written",
+        "PLAN_ONLY mode is low-risk — produces task files without code changes",
+        "Async-first codebase aligns perfectly with FastAPI's async-native design",
+        "API.md provides clear, bounded scope for the Architect to decompose",
+        "Phase 4 is the natural next step per the project roadmap"
+      ],
+      "cons": [
+        "Adds a new dependency (fastapi, uvicorn, pydantic) — but this was already decided in ADR-0002",
+        "API scope is broad (7 endpoints + envelope + pagination + error handling) — Architect must decompose carefully into incremental waves"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Defer F06. Address additional tech debt or expand analytics before building the API.",
+      "pros": [
+        "More data collection time means richer API responses at launch"
+      ],
+      "cons": [
+        "No concrete tech debt remains — F05 cleaned it to 97% coverage",
+        "The API is the critical path to the front-end (noted in Future Planning)",
+        "Deferring without a reason wastes the planning work already done in API.md and ADR-0002",
+        "No blockers exist — deferral is unjustified"
+      ]
+    },
+    {
+      "option": "C",
+      "description": "Proceed with full create-feature (plan + execute) in a single decision.",
+      "pros": [
+        "Faster delivery — no separate execution decision needed"
+      ],
+      "cons": [
+        "The request explicitly asks for PLAN_ONLY mode",
+        "F06 is the largest feature yet (new framework, 7+ endpoints, Pydantic models, middleware) — planning first is prudent",
+        "Reviewing the plan before execution allows scope validation"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "F06 is the natural next feature per the roadmap, and the project is fully ready. ADR-0002 (FastAPI) provides the architectural foundation. docs/API.md provides a complete, bounded endpoint specification. The codebase is stable at 97% coverage with zero lint errors. No tech debt or blockers remain. PLAN_ONLY mode is appropriate for a feature of this scope — it lets the Architect decompose the 7-endpoint API into incremental waves, which can be reviewed before committing to execution. Proceeding with Option A.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F06", "mode": "PLAN_ONLY" }
+  ],
+  "status": "executed"
+}

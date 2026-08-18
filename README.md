@@ -97,6 +97,12 @@ src/
     backfill.py    Orchestration: discover -> collect -> persist
   analytics/
     indicators.py  Pure analytics: MA, ATH/ATL, volatility, momentum
+  api/
+    app.py         FastAPI application factory
+    deps.py        Dependency injection (get_db)
+    jobs.py        In-memory job tracker
+    routers/       Route handlers (cards, sets, market, collect)
+    schemas/       Pydantic request/response models
   cli/
     main.py        Click CLI entry point
 
@@ -130,6 +136,41 @@ price_observations       Immutable weekly price snapshots
 collection_errors        Failed collection attempts (for retry)
   source, external_id, url, error_type, error_message, resolved
 ```
+
+## REST API
+
+Start the API server:
+
+```bash
+# Via CLI
+python -m src.cli.main serve
+
+# Or directly with Uvicorn
+python -m uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port 8000
+```
+
+Auto-generated interactive docs are available at `/docs` (Swagger UI) and
+`/redoc` (ReDoc) once the server is running.
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api/v1/cards` | List cards (filter: `game`, `set`, `name`; cursor pagination) |
+| GET | `/api/v1/cards/{id}` | Card detail with linked source cards |
+| GET | `/api/v1/cards/{id}/history` | Price history (period: `30d`, `90d`, `180d`, `1y`, `3y`) |
+| GET | `/api/v1/sets` | List sets with card counts |
+| GET | `/api/v1/market/movers` | Top gainers and losers (period: `7d`, `30d`, `90d`) |
+| GET | `/api/v1/market/stats` | Aggregate market statistics |
+| POST | `/api/v1/collect/backfill` | Trigger backfill job (async) |
+| POST | `/api/v1/collect/update` | Trigger update job (async) |
+
+All responses use a standard envelope: `{"data": ..., "meta": {...}, "errors": []}`.
+Every response includes a `X-Request-ID` header and `meta.request_id` for tracing.
+
+**Note:** Authentication is not yet implemented. The API is intended for local
+or trusted-network use only in this phase.
 
 ## Data Source: MYP Cards
 
@@ -232,6 +273,20 @@ Prepared the collector pipeline to scale from 30 cards to the full MYP catalog:
 - CLI flags: `--concurrency` and `--no-resume`
 - 131 total tests (105 original + 26 new), 0 lint errors
 
+### F06 -- REST API (2026-08-18)
+
+FastAPI-based REST API exposing all collected data over HTTP:
+
+- **8 endpoints** under `/api/v1`: cards (list, detail, history), sets, market (movers, stats), collect (backfill, update)
+- Standard envelope format (`data`, `meta`, `errors`) on all responses
+- Request ID middleware for tracing (`X-Request-ID` header)
+- CORS middleware enabled, exception handlers for validation/HTTP/internal errors
+- Cursor-based pagination on card listing
+- Auto-generated OpenAPI docs at `/docs` and `/redoc`
+- In-memory job tracker for async collection tasks
+- Integration tests with seeded data covering all endpoints
+- Architecture and journey diagrams
+
 ## Future
 
 Prepared for but not yet implemented:
@@ -240,5 +295,4 @@ Prepared for but not yet implemented:
 - Portfolio tracking (cost basis, P&L, ROI)
 - Opportunity scoring
 - Additional sources (Liga Magic, Scryfall metadata, CardMarket, TCGPlayer)
-- REST API (`GET /cards`, `/cards/{id}/history`, `/market/movers`)
 - Frontend dashboard
