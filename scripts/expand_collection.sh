@@ -60,7 +60,7 @@ fi
 # or check https://mypcards.com/magic/edicoes
 SETS=(
     "foundations"                                # FDN — current Standard staple set
-    "duskmourn-casa-do-horror"                   # DSK — recent Standard set (PT slug)
+    "duskmourn-house-of-horror"                   # DSK — recent Standard set
     "modern-horizons-3"                          # MH3 — high-value Modern set
     "outlaws-of-thunder-junction"                # OTJ — recent Standard
     "murders-at-karlov-manor"                    # MKM — recent Standard
