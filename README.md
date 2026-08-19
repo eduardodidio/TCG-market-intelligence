@@ -313,6 +313,19 @@ npm run dev
 # Open http://localhost:5173
 ```
 
+### F08 -- Data Enrichment (2026-08-19)
+
+Fixed data quality issues discovered during manual testing of the F07 dashboard:
+
+- **UTF-8 encoding fix** -- resolved double-encoding of Portuguese card names
+  (e.g., "ContramaÃÂ§ica" now correctly displays "Contramagica") in both the
+  parser/provider pipeline and existing DB data via migration script
+- **Movers default period** -- changed Dashboard movers from 7d to 30d so that
+  price changes are non-zero with weekly-resolution data
+- **Collection expansion** -- backfill script for multiple popular Magic sets
+  beyond the initial Dominaria Remastered dataset
+- **15 new encoding tests** added; total backend tests now 405, frontend 165
+
 ## Future
 
 Prepared for but not yet implemented:

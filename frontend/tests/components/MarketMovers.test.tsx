@@ -92,7 +92,7 @@ describe("MarketMovers page", () => {
     expect(screen.getByText("Card Loser 1")).toBeDefined();
   });
 
-  it("renders period selector with 7d active by default", async () => {
+  it("renders period selector with 30d active by default", async () => {
     mockFetchSuccess();
     renderMarketMovers();
 
@@ -104,8 +104,8 @@ describe("MarketMovers page", () => {
     const btn30d = screen.getByText("30d");
     const btn90d = screen.getByText("90d");
 
-    expect(btn7d.className).toContain("bg-cyan-500");
-    expect(btn30d.className).toContain("bg-slate-700");
+    expect(btn30d.className).toContain("bg-cyan-500");
+    expect(btn7d.className).toContain("bg-slate-700");
     expect(btn90d.className).toContain("bg-slate-700");
   });
 
@@ -117,20 +117,20 @@ describe("MarketMovers page", () => {
       expect(screen.queryByTestId("skeleton-movers")).toBeNull();
     });
 
-    // Initial fetch with period=7d
+    // Initial fetch with period=30d
     const initialCallCount = (fetch as ReturnType<typeof vi.fn>).mock.calls.length;
 
-    // Click 30d
-    fireEvent.click(screen.getByText("30d"));
+    // Click 7d
+    fireEvent.click(screen.getByText("7d"));
 
     await waitFor(() => {
       const newCallCount = (fetch as ReturnType<typeof vi.fn>).mock.calls.length;
       expect(newCallCount).toBeGreaterThan(initialCallCount);
     });
 
-    // Verify 30d button is now active
-    expect(screen.getByText("30d").className).toContain("bg-cyan-500");
-    expect(screen.getByText("7d").className).toContain("bg-slate-700");
+    // Verify 7d button is now active
+    expect(screen.getByText("7d").className).toContain("bg-cyan-500");
+    expect(screen.getByText("30d").className).toContain("bg-slate-700");
   });
 
   it("passes period parameter to API call", async () => {
@@ -141,9 +141,9 @@ describe("MarketMovers page", () => {
       expect(screen.queryByTestId("skeleton-movers")).toBeNull();
     });
 
-    // Check initial call includes period=7d
+    // Check initial call includes period=30d
     const firstCallUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-    expect(firstCallUrl).toContain("period=7d");
+    expect(firstCallUrl).toContain("period=30d");
 
     // Click 90d
     fireEvent.click(screen.getByText("90d"));

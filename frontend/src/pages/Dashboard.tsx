@@ -15,7 +15,7 @@ export function Dashboard() {
 
   const stats = useApi<MarketStats>(() => fetchMarketStats());
   const movers = useApi<MoversResponse>(() =>
-    fetchMovers({ period: "7d", limit: "5" }),
+    fetchMovers({ period: "30d", limit: "5" }),
   );
 
   const loading = stats.loading || movers.loading;

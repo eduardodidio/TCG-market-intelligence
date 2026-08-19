@@ -101,13 +101,11 @@ class MypCardsProvider(CardSourceProvider):
                         attempt=attempt,
                     )
                     if attempt == self.config.max_retries:
-                        raise RuntimeError(
-                            f"HTTP {resp.status_code} for {url}"
-                        )
+                        raise RuntimeError(f"HTTP {resp.status_code} for {url}")
                     await asyncio.sleep(2**attempt)
                     continue
 
-                return resp.text
+                return resp.content.decode("utf-8")
 
             except (TimeoutError, OSError) as e:
                 log.warning("request_error", url=url, attempt=attempt, error=str(e))
@@ -189,9 +187,7 @@ class MypCardsProvider(CardSourceProvider):
         html = await self._fetch(card.url)
         return parse_price_snapshot(html, card.external_id)
 
-    async def get_price_history(
-        self, card: SourceCard, days: int = 1095
-    ) -> list[HistoricalPrice]:
+    async def get_price_history(self, card: SourceCard, days: int = 1095) -> list[HistoricalPrice]:
         slug = card.url.rsplit("/", 1)[-1]
         url = f"{BASE_URL}/magic/preco/{card.external_id}/{slug}?dias={days}"
         html = await self._fetch(url)

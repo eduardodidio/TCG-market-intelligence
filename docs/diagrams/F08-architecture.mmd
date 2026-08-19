@@ -1,0 +1,47 @@
+graph TB
+    subgraph External
+        MYP[MYP Cards Website<br>HTML + JSON-LD]
+    end
+
+    subgraph Data Collection Pipeline
+        CurlCFFI[curl_cffi<br>HTTP client - raw bytes]
+        Provider[MYP Provider<br>Forces UTF-8 decode]
+        Parser[MYP Parser<br>BeautifulSoup extraction]
+    end
+
+    subgraph Storage
+        SQLite[(SQLite Database<br>cards / source_cards / price_observations)]
+    end
+
+    subgraph API Layer
+        FastAPI[FastAPI REST API<br>/api/v1/*]
+    end
+
+    subgraph Frontend
+        React[React SPA<br>Dashboard, Cards, Detail, Movers]
+    end
+
+    MYP -->|HTTP response bytes| CurlCFFI
+    CurlCFFI -->|raw bytes| Provider
+    Provider -->|UTF-8 decoded HTML| Parser
+    Parser -->|domain models| SQLite
+
+    SQLite --> FastAPI
+    FastAPI -->|JSON envelope| React
+
+    %% Encoding fix highlight
+    style Provider fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+
+    subgraph Migration Path
+        direction LR
+        DBMojibake[(DB with mojibake<br>double-encoded names)]
+        FixScript[fix_encoding.py<br>detect + repair UTF-8]
+        DBFixed[(DB with correct<br>UTF-8 names)]
+    end
+
+    DBMojibake -->|scan all card names| FixScript
+    FixScript -->|UPDATE corrected names| DBFixed
+
+    style FixScript fill:#e76f51,stroke:#f4a261,color:#fff
+    style DBMojibake fill:#6c757d,stroke:#adb5bd,color:#fff
+    style DBFixed fill:#2d6a4f,stroke:#40916c,color:#d8f3dc

@@ -17,7 +17,7 @@ export function MarketMovers() {
     document.title = "Market Movers | TCG Market";
   }, []);
 
-  const [period, setPeriod] = useState<Period>("7d");
+  const [period, setPeriod] = useState<Period>("30d");
   const [limit, setLimit] = useState<string>("25");
 
   const { data, loading, error, refetch } = useApi<MoversResponse>(

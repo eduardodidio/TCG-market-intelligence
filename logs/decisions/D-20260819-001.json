@@ -1,0 +1,83 @@
+{
+  "decision_id": "D-20260819-001",
+  "timestamp": "2026-08-19T10:00:00Z",
+  "type": "feature_scope",
+  "context_summary": "User tested the F07 frontend dashboard and found three issues: (1) card names are double-encoded (UTF-8 bytes stored as latin-1, e.g. 'Contramagica' shows as garbled text), (2) market movers show 0% change because frontend defaults to period=7d but MYP price observations are weekly, (3) only 30 cards from 1 set (DMR) — insufficient data for meaningful market intelligence. Database has 30 cards, 1889 observations spanning 2023-08-20 to 2026-08-16.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Single feature F08 covering encoding fix + movers period default fix + collection expansion to more sets.",
+      "pros": [
+        "All three issues are facets of the same user complaint: 'the dashboard shows garbage' — fixing them together delivers a coherent improvement",
+        "The encoding fix and movers period fix are small (< 1 hour each) and would feel under-scoped as standalone features",
+        "Collection expansion validates the encoding fix end-to-end with fresh data",
+        "Single PRD, single set of diagrams, single QA pass — lower overhead",
+        "User gets a fully working dashboard in one delivery instead of needing 2-3 feature cycles"
+      ],
+      "cons": [
+        "Mixing data-quality bugfixes with a feature (expansion) in one feature number",
+        "Collection expansion involves network I/O to MYP — potential for flakiness in CI",
+        "Larger blast radius if something goes wrong"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Split into F08 (encoding fix + movers period fix — data quality) and F09 (collection expansion to more sets).",
+      "pros": [
+        "Clean separation of concerns: bugfix vs. new capability",
+        "F08 ships fast (no network I/O, no scraping), F09 can be planned separately",
+        "If collection expansion hits Cloudflare issues, encoding fix is already shipped"
+      ],
+      "cons": [
+        "Two feature cycles for what the user perceives as one problem ('dashboard is broken')",
+        "The encoding fix alone still leaves the dashboard with only 30 DMR cards showing flat prices — user value is low",
+        "Double the overhead: 2 PRDs, 2 Architect plans, 2 QA passes, 2 commits",
+        "F08 without expansion would fix names but the dashboard would still feel empty and useless"
+      ]
+    },
+    {
+      "option": "C",
+      "description": "Fix encoding + movers period as a quick bugfix (no feature number), defer collection expansion entirely.",
+      "pros": [
+        "Fastest path to fixing the most visible bugs",
+        "No feature ceremony overhead"
+      ],
+      "cons": [
+        "Skips the project's established feature workflow — sets a bad precedent",
+        "Dashboard remains nearly useless with only 30 cards from 1 set",
+        "Movers will still show minimal change because DMR prices genuinely don't move much — the real fix needs more diverse data",
+        "The user explicitly mentioned expanding to more sets as part of the scope"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "Option A is the right call for three reasons. First, the three issues are deeply interdependent: fixing encoding alone still shows a broken dashboard (30 flat-price cards), and expanding collection without fixing encoding would just produce more garbled names. They must ship together for the user to see a working product. Second, the encoding fix and movers period default are both small, surgical changes (parser encoding + frontend default state) that would be under-scoped as standalone features — bundling them with collection expansion creates a properly-sized feature. Third, collection expansion naturally validates the encoding fix with fresh data from new sets, making it a superior integration test compared to only re-processing existing DMR data. The risk of a larger blast radius is mitigated by the wave structure: Wave 0 fixes encoding + movers (low risk, no I/O), Wave 1 handles collection expansion (isolated, can be tested independently). If expansion hits issues, the bugfixes are already committed.",
+  "scope": {
+    "feature": "F08",
+    "title": "Data enrichment & encoding fix",
+    "deliverables": [
+      "Fix UTF-8 double-encoding in parser (likely curl_cffi response decoding) and migrate existing DB data",
+      "Change frontend movers default period from 7d to 30d for meaningful price changes",
+      "Expand collection beyond DMR — add at least 3-5 popular sets with significant price movement",
+      "Validate end-to-end: dashboard shows correct names, meaningful movers, and richer card catalog"
+    ],
+    "out_of_scope": [
+      "Card images from Scryfall (defer to F09+)",
+      "Portfolio features",
+      "Deployment/hosting story",
+      "New API endpoints — existing endpoints are sufficient"
+    ],
+    "estimated_waves": 3,
+    "wave_sketch": {
+      "wave_0": "Encoding fix (parser + DB migration script) + movers period default fix (frontend)",
+      "wave_1": "Collection expansion infrastructure — parameterize backfill for multiple sets, select target sets",
+      "wave_2": "Run expanded backfill, validate data, update docs/diagrams"
+    }
+  },
+  "actions": [
+    { "action": "create-prd", "feature": "F08" },
+    { "action": "spawn-architect", "feature": "F08" }
+  ],
+  "status": "decided",
+  "governance": "Gandalf T-800 strategic decision — single feature covering all three issues for maximum user value per delivery cycle"
+}

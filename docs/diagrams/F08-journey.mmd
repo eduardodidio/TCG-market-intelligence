@@ -1,0 +1,34 @@
+graph LR
+    subgraph Dashboard Flow
+        A[User opens Dashboard] --> B[KPIs load<br>correct card/set counts]
+        B --> C[Movers section loads<br>30d default period]
+        C --> D{Non-zero price changes?}
+        D -->|Yes| E[View gainers and losers]
+        D -->|No| F[Change period or expand data]
+    end
+
+    subgraph Card Browsing Flow
+        E --> G[Click card name or Explore Cards]
+        G --> H[Cards page loads<br>multiple sets visible]
+        H --> I[Browse cards from different sets]
+        I --> J[Verify Portuguese names<br>with correct accents]
+        J --> K[Click a card tile]
+    end
+
+    subgraph Card Detail Flow
+        K --> L[Card Detail page loads]
+        L --> M[Card name displays correctly<br>e.g. Relampago Helice]
+        M --> N[View price history chart]
+        N --> O[Change period selector]
+        O --> N
+    end
+
+    subgraph Market Movers Flow
+        E --> P[Click Market Movers nav]
+        P --> Q[Movers page loads<br>30d default]
+        Q --> R[View gainers table<br>cards from multiple sets]
+        Q --> S[View losers table<br>real price movements]
+        R --> T[Click card name]
+        S --> T
+        T --> L
+    end

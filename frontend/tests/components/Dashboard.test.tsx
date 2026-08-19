@@ -145,4 +145,21 @@ describe("Dashboard", () => {
       expect(screen.getByText("Market Overview")).toBeDefined();
     });
   });
+
+  it("fetches movers with period=30d by default", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-preview")).toBeDefined();
+    });
+
+    // Verify that at least one fetch call included period=30d
+    const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls;
+    const moversCalls = calls.filter((c: unknown[]) =>
+      String(c[0]).includes("/market/movers"),
+    );
+    expect(moversCalls.length).toBeGreaterThan(0);
+    expect(String(moversCalls[0][0])).toContain("period=30d");
+  });
 });

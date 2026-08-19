@@ -33,3 +33,9 @@ Each entry is a lesson that generalizes beyond a single bug.)
 - **Install coverage tooling early and verify it works.** `@vitest/coverage-v8` was not in devDependencies, so QA had to install it to get coverage numbers. Coverage tooling should be part of Wave 0 scaffolding and verified in the first test run.
 - **React 19 `act()` warnings in stderr are cosmetic, not blocking.** PriceChart and Cards tests emit `act()` warnings because state updates happen outside `act()` wrappers. All assertions pass correctly. These are a known React 19 testing pattern shift and should not delay a QA verdict.
 - **TechLead minor notes are QA quick-wins.** Three of four TechLead minor notes (unused alias, dead export, version label) were fixed in under 5 minutes. Always check TechLead notes first -- they are pre-identified cleanup opportunities.
+
+## F08 -- Data Enrichment (2026-08-19)
+
+- **Cross-reference test plan IDs against actual test files systematically.** The developer implemented 15 of 18 test plan cases, but missed U-04 (empty response body in _fetch), U-11 (UnicodeEncodeError graceful handling), and U-16 (Dashboard fetches movers with period=30d). QA found and added all three. When a test plan exists with numbered cases, QA should check off each ID one-by-one against the test code rather than spot-checking.
+- **Default parameter assertions prevent silent regressions.** The Dashboard test verified movers rendering but never asserted the fetch URL contained `period=30d`. Without this assertion, someone could revert the default to `7d` and all tests would still pass. Always assert on default parameters when the default value is a deliberate product decision.
+- **Encoding tests require boundary coverage.** The fix_mojibake function has three code paths: successful roundtrip (latin-1 encode then UTF-8 decode), no-change (already correct), and exception (unencodable characters). All three paths must have explicit test coverage, not just the happy path.

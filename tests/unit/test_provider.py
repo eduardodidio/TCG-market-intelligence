@@ -30,10 +30,13 @@ def provider(config):
     return MypCardsProvider(config)
 
 
-def _mock_response(status_code: int = 200, text: str = "") -> MagicMock:
+def _mock_response(
+    status_code: int = 200, text: str = "", content: bytes | None = None
+) -> MagicMock:
     resp = MagicMock()
     resp.status_code = status_code
     resp.text = text
+    resp.content = content if content is not None else text.encode("utf-8")
     return resp
 
 

@@ -30,3 +30,8 @@ Each entry is a lesson that generalizes beyond a single bug.)
 - **Include coverage tooling in Wave 0 scaffolding.** `@vitest/coverage-v8` was missing from devDependencies, forcing QA to install it. Always add the coverage provider alongside the test framework in the initial project setup.
 - **Do not export constants that have no consumer.** `PERIOD_OPTIONS` in constants.ts was exported but never imported -- dead code that confuses future developers about project conventions. If a constant is only used locally, keep it local.
 - **Do not configure features you do not use.** The `@/` path alias was configured in both tsconfig.json and vite.config.ts but no import in the codebase used it. Unused configuration signals intent without follow-through and creates confusion about project conventions.
+
+## F08 -- Data Enrichment (2026-08-19)
+
+- **When a test plan exists with numbered cases, implement all of them.** F08's test plan had 18 unit test cases (U-01 through U-18). The developer shipped 15, missing U-04, U-11, and U-16. QA had to fill those gaps. Treat test plan IDs as a checklist -- mark each one off as you implement it.
+- **Always test default parameter values with URL assertions.** Changing a UI default (e.g., movers period from 7d to 30d) must have a corresponding test that asserts the fetch URL contains the new default. Component rendering tests alone do not catch regressions to the default value.
