@@ -27,3 +27,9 @@ Each entry is a lesson that generalizes beyond a single bug.)
 
 - **Always run lint as part of QA validation, even when not an explicit AC.** F05's ACs did not include "zero lint violations," but QA caught 6 ruff errors that would have blocked the commit. Lint checks should be a standard QA step for every feature, regardless of whether the ACs mention them.
 - **ResourceWarnings in test output are future tech debt.** The 26 unclosed-database warnings are harmless today but accumulate noise that can mask real warnings. Flag these in QA reports so they enter the next tech debt inventory.
+
+## F07 -- Front-end Dashboard (2026-08-18)
+
+- **Install coverage tooling early and verify it works.** `@vitest/coverage-v8` was not in devDependencies, so QA had to install it to get coverage numbers. Coverage tooling should be part of Wave 0 scaffolding and verified in the first test run.
+- **React 19 `act()` warnings in stderr are cosmetic, not blocking.** PriceChart and Cards tests emit `act()` warnings because state updates happen outside `act()` wrappers. All assertions pass correctly. These are a known React 19 testing pattern shift and should not delay a QA verdict.
+- **TechLead minor notes are QA quick-wins.** Three of four TechLead minor notes (unused alias, dead export, version label) were fixed in under 5 minutes. Always check TechLead notes first -- they are pre-identified cleanup opportunities.

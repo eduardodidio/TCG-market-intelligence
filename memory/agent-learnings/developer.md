@@ -24,3 +24,9 @@ Each entry is a lesson that generalizes beyond a single bug.)
 - **Run `ruff check` on every new file before declaring a task done.** F05 introduced 6 lint violations across 3 new test files (unused imports, unsorted imports, line too long). Pre-commit hooks would catch these at commit time, but running lint during development avoids rework and keeps the QA pass clean.
 - **Name test methods accurately for the behavior they test.** Two test methods named `test_generic_4xx_*` actually tested 5xx status codes. Misleading names erode trust in test suites -- future readers will question whether the test is wrong or the name is wrong.
 - **Remove dead code blocks from tests.** A `with patch(...) as mock_bf: pass` block in `test_backfill_with_options` does nothing and triggers an F841 lint violation. If a mock setup is not needed, delete it rather than leaving an empty block.
+
+## F07 -- Front-end Dashboard (2026-08-18)
+
+- **Include coverage tooling in Wave 0 scaffolding.** `@vitest/coverage-v8` was missing from devDependencies, forcing QA to install it. Always add the coverage provider alongside the test framework in the initial project setup.
+- **Do not export constants that have no consumer.** `PERIOD_OPTIONS` in constants.ts was exported but never imported -- dead code that confuses future developers about project conventions. If a constant is only used locally, keep it local.
+- **Do not configure features you do not use.** The `@/` path alias was configured in both tsconfig.json and vite.config.ts but no import in the codebase used it. Unused configuration signals intent without follow-through and creates confusion about project conventions.

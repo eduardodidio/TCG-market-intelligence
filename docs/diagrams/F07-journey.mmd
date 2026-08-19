@@ -1,0 +1,43 @@
+graph LR
+    subgraph Dashboard Flow
+        A[User opens app] --> B[Dashboard loads]
+        B --> C{KPIs + Movers render}
+        C --> D[View market stats]
+        C --> E[View top movers preview]
+    end
+
+    subgraph Card Browsing Flow
+        E --> F[Click Explore Cards]
+        D --> F
+        F --> G[Cards page loads]
+        G --> H[Type search query]
+        H --> I[Debounce 300ms]
+        I --> J[Filtered results render]
+        J --> K[Select set filter chip]
+        K --> J
+        J --> L[Navigate pages]
+        L --> J
+        J --> M[Click card tile]
+    end
+
+    subgraph Card Detail Flow
+        M --> N[Card Detail loads]
+        N --> O[View price chart]
+        O --> P[Change period selector]
+        P --> Q[Chart updates with new data]
+        Q --> P
+    end
+
+    subgraph Market Movers Flow
+        E --> R[Click Market Movers nav]
+        R --> S[Movers page loads]
+        S --> T[View gainers table]
+        S --> U[View losers table]
+        T --> V[Change period]
+        U --> V
+        V --> T
+        V --> U
+        T --> W[Click card name]
+        U --> W
+        W --> N
+    end

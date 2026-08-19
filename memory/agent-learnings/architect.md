@@ -21,3 +21,7 @@ Each entry is a lesson that generalizes beyond a single bug.)
 
 - **Schedule tech debt features periodically to prevent coverage drift.** Between F01 and F04, coverage dropped from an implicit "good enough" to 86% with three files below 85%. A dedicated tech debt sprint (F05) brought it to 97%. Plan a debt cleanup every 3-4 features.
 - **Include retroactive PRDs in the debt inventory.** F02, F03, and F04 shipped without PRDs. Listing them explicitly in the debt inventory ensured they were created. Make "PRD exists" a gate in the feature workflow to prevent this accumulation.
+
+## F07 -- Front-end Dashboard (2026-08-18)
+
+- **Only configure what you use in scaffolding tasks.** The `@/` path alias was configured in Wave 0 but never adopted by any developer task. Unused configuration creates ambiguity about project conventions -- either use it consistently or remove it. When planning Wave 0, list only the tooling that subsequent waves will consume.

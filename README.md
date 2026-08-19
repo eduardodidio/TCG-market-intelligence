@@ -287,6 +287,32 @@ FastAPI-based REST API exposing all collected data over HTTP:
 - Integration tests with seeded data covering all endpoints
 - Architecture and journey diagrams
 
+### F07 -- Front-end Dashboard (2026-08-18)
+
+React SPA for visualizing TCG price data from the REST API:
+
+- **4 pages**: Dashboard (KPIs + movers preview), Cards (search/filter/pagination),
+  Card Detail (interactive price history chart), Market Movers (gainers/losers tables)
+- **Tech stack**: Vite 6, React 19, TypeScript 5.8, Tailwind CSS, Recharts, React Router v7
+- **Dark theme** by default, responsive layout (desktop + tablet)
+- **Typed API client** with fetch wrapper, debounced search, cursor-based pagination
+- **Component tests** with Vitest + React Testing Library
+- Vite dev server proxies `/api` to FastAPI backend -- no CORS setup needed
+- Architecture and user journey diagrams under `docs/diagrams/`
+
+Running the front-end:
+
+```bash
+# Start the API server first (from project root)
+python -m src.cli.main serve
+
+# Then start the front-end (in a separate terminal)
+cd frontend
+npm install
+npm run dev
+# Open http://localhost:5173
+```
+
 ## Future
 
 Prepared for but not yet implemented:

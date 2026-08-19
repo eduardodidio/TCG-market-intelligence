@@ -1,0 +1,53 @@
+{
+  "decision_id": "D-20260818-008",
+  "timestamp": "2026-08-18T21:05:00Z",
+  "type": "feature_start",
+  "context_summary": "F07 Front-end Dashboard — full create-feature pipeline execution. The Architect plan (approved in D-20260818-007) is ready with 8 tasks across 4 waves: scaffolding, core pages, detail pages, and polish. The F06 REST API backend is stable with 385 tests at 96% coverage, CORS enabled, and OpenAPI docs.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with the full create-feature pipeline (Readiness check, TEA, Waves 0-3, TechLead review, QA validation). Execute all 8 tasks as planned.",
+      "pros": [
+        "The Architect plan is well-structured with clear wave dependencies — scaffolding before pages, pages before polish",
+        "F06 REST API is fully tested and stable — the front-end has a reliable backend to consume",
+        "CORS already enabled with allow_origins=['*'] — no backend modifications needed",
+        "Tech stack (Vite + React + TypeScript + Tailwind) is mainstream with excellent tooling support",
+        "The plan explicitly scopes out risky features (auth, portfolio, AI) — clean MVP boundaries",
+        "All 8 tasks have clear acceptance criteria in the task files"
+      ],
+      "cons": [
+        "Introduces Node.js toolchain as a new dependency in the mono-repo",
+        "8 tasks across 4 waves is a full pipeline run — significant token cost",
+        "Front-end tests (Vitest + RTL) are a new test stack separate from the Python pytest suite"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Defer execution. Request the Architect to slim the plan down to 4 tasks (2 waves) covering only scaffolding and one core page before committing to the full 8-task pipeline.",
+      "pros": [
+        "Smaller blast radius — validates the new tech stack with fewer tasks before going all-in",
+        "Lower token cost for initial validation"
+      ],
+      "cons": [
+        "The plan is already well-scoped with no-auth, no-portfolio, no-AI boundaries — it is already minimal",
+        "Wave 0 (scaffolding) already serves as the validation step — if it fails, later waves naturally stop",
+        "Splitting an already-planned feature wastes the Architect work done in D-20260818-007",
+        "The user requested the full pipeline, not an incremental approach"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "The plan is already well-scoped and minimal — 4 pages, no auth, no portfolio, no AI. Wave 0 (scaffolding + API client) naturally validates the new tech stack before subsequent waves build on it. The F06 backend is stable and CORS-ready, so there are no blocking dependencies. Proceeding with the full pipeline is the right call since the Architect plan was already approved and the wave structure provides natural checkpoints.",
+  "actions": [
+    { "action": "readiness-check", "feature": "F07" },
+    { "action": "tea-review", "feature": "F07" },
+    { "action": "run-wave", "feature": "F07", "wave": 0 },
+    { "action": "run-wave", "feature": "F07", "wave": 1 },
+    { "action": "run-wave", "feature": "F07", "wave": 2 },
+    { "action": "run-wave", "feature": "F07", "wave": 3 },
+    { "action": "spawn-techlead", "feature": "F07" },
+    { "action": "spawn-qa", "feature": "F07" }
+  ],
+  "status": "executed",
+  "governance": null
+}

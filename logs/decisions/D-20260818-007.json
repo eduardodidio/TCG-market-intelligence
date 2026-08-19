@@ -1,0 +1,43 @@
+{
+  "decision_id": "D-20260818-007",
+  "timestamp": "2026-08-18T20:00:00Z",
+  "type": "feature_start",
+  "context_summary": "F07 Front-end web dashboard — plan-feature (PLAN_ONLY, Architect only). The project has a fully functional REST API (F06) with 8 endpoints: cards list/detail/history, sets, market movers/stats, and collection triggers. All 385 tests pass at 96% coverage. The API uses cursor pagination, JSON envelope, CORS enabled (allow_origins=['*']), and OpenAPI docs. The front-end is the logical next step per the project roadmap (Future Planning Notes mention 'gerar script para o Lovable criar UI'). The user specifically wants a UI inspired by PokeBolsa (pokebolsa.com), which is a Pokemon card market intelligence platform with dashboard, search, price history, movers, and portfolio features. This is a PLAN_ONLY request — the Architect will decompose the front-end into tasks/waves without executing any code.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with plan-feature (Architect only, PLAN_ONLY). Plan the front-end as a Vite+React SPA consuming the existing F06 REST API.",
+      "pros": [
+        "F06 REST API is fully delivered and tested — the front-end has a stable backend to consume",
+        "CORS is already enabled with allow_origins=['*'] — no backend changes needed for dev",
+        "PLAN_ONLY mode is zero-risk — produces task files without code changes",
+        "The user's roadmap explicitly identifies front-end as the next phase",
+        "PokeBolsa provides clear UI inspiration with proven patterns for TCG market data"
+      ],
+      "cons": [
+        "Front-end introduces a new tech stack (React/Vite/TypeScript) — significant new dependencies",
+        "No front-end infrastructure exists yet — needs project scaffolding from scratch",
+        "Mono-repo approach (per roadmap) requires careful project structure to avoid conflicts"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Defer F07. Build authentication, rate limiting, or caching for the API first.",
+      "pros": [
+        "Production-grade API features would benefit the front-end when it lands"
+      ],
+      "cons": [
+        "F06 PRD explicitly lists auth, rate limiting, and caching as non-goals for this phase",
+        "Front-end development can proceed in parallel with API hardening",
+        "The user explicitly requested the front-end as the next feature",
+        "Deferral contradicts the project roadmap"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "F07 is the natural next step. The REST API (F06) is stable with 385 tests at 96% coverage, CORS enabled, and OpenAPI docs available. The user's roadmap explicitly calls for a front-end next, with PokeBolsa as UI inspiration. PLAN_ONLY mode allows the Architect to decompose a complex front-end feature into manageable waves before any code is written. The mono-repo approach (per the user's future planning notes) will be addressed in the task structure. Proceeding with Option A.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F07", "mode": "PLAN_ONLY" }
+  ],
+  "status": "executed"
+}

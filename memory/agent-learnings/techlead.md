@@ -22,3 +22,8 @@ Each entry is a lesson that generalizes beyond a single bug.)
 
 - **Verify lint cleanliness of new test files during review.** The TechLead review approved F05 but missed 6 ruff violations in the new test files. Add "run `ruff check` on all new/modified files" as a checklist item in every TechLead review.
 - **Cross-check test method names against the behavior they exercise.** Two tests named `test_generic_4xx_*` actually tested HTTP 500 responses. Catching naming mismatches during review prevents confusion for future developers reading the test suite.
+
+## F07 -- Front-end Dashboard (2026-08-18)
+
+- **Minor notes in reviews become QA quick-wins.** Three of four minor notes (unused path alias, dead export, version label mismatch) were fixed by QA in under 5 minutes. Tagging fixable items as MINOR with clear descriptions makes them actionable for the next agent in the pipeline.
+- **Verify coverage tooling is functional, not just installed.** The test framework (Vitest) was configured but `@vitest/coverage-v8` was missing from devDependencies. During review, attempt to run coverage and flag if the provider is absent -- this is a one-line fix in Wave 0 but becomes QA friction later.

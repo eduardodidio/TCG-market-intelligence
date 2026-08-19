@@ -1,0 +1,69 @@
+graph TB
+    Browser[Browser - SPA] --> ViteDev[Vite Dev Server :5173]
+
+    subgraph Frontend - React SPA
+        ViteDev --> App[App - Router]
+
+        subgraph Pages
+            Dashboard[Dashboard Page]
+            CardsPage[Cards Page]
+            CardDetail[Card Detail Page]
+            MarketMovers[Market Movers Page]
+        end
+
+        App --> Layout[Layout Component]
+        Layout --> Pages
+
+        subgraph Shared Components
+            KpiCard[KpiCard]
+            MoversPreview[MoversPreview]
+            SearchBar[SearchBar]
+            FilterChips[FilterChips]
+            CardTile[CardTile]
+            Pagination[Pagination]
+            PriceChart[PriceChart]
+            MoversTable[MoversTable]
+            LoadingSpinner[LoadingSpinner]
+            Skeleton[Skeleton]
+            ErrorBanner[ErrorBanner]
+        end
+
+        Dashboard --> KpiCard
+        Dashboard --> MoversPreview
+        CardsPage --> SearchBar
+        CardsPage --> FilterChips
+        CardsPage --> CardTile
+        CardsPage --> Pagination
+        CardDetail --> PriceChart
+        MarketMovers --> MoversTable
+
+        subgraph Hooks
+            useApi[useApi]
+            useDebounce[useDebounce]
+        end
+
+        Pages --> Hooks
+
+        subgraph API Client Layer
+            client[client.ts - fetch wrapper]
+            cardsApi[cards.ts]
+            marketApi[market.ts]
+            setsApi[sets.ts]
+        end
+
+        Hooks --> API Client Layer
+    end
+
+    subgraph Backend - FastAPI
+        Proxy[Vite Proxy /api -> :8000]
+        FastAPI[FastAPI App]
+        Routers[Routers]
+        Repository[Repository]
+        SQLite[(SQLite)]
+    end
+
+    API Client Layer --> Proxy
+    Proxy --> FastAPI
+    FastAPI --> Routers
+    Routers --> Repository
+    Repository --> SQLite
