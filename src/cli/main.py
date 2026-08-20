@@ -188,6 +188,138 @@ def _print_summary(summary, dry_run):
             click.echo(f"    ... and {len(summary.errors) - 20} more")
 
 
+@cli.command("match-report")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--limit", default=None, type=int, help="Max cards to process")
+@click.option("--delay", default=1.0, type=float, help="Seconds between requests")
+@click.option("--concurrency", default=3, type=int, help="Max concurrent searches")
+@click.option(
+    "--output", default=None, type=click.Path(), help="Write detailed JSON report to file"
+)
+def match_report(db, limit, delay, concurrency, output):
+    """Dry-run match report: check MYP coverage for collection cards."""
+    from src.collectors.match_report import format_report, run_match_report
+
+    summary = asyncio.run(
+        run_match_report(
+            db_url=db,
+            limit=limit,
+            delay=delay,
+            concurrency=concurrency,
+            output=output,
+        )
+    )
+    click.echo(format_report(summary))
+
+
+@cli.command("db-backup")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--backup-dir", default="backups", help="Directory for backups")
+def db_backup(db, backup_dir):
+    """Create a timestamped backup of the SQLite database."""
+    from src.database.backup import backup_database, extract_db_path
+
+    db_path = extract_db_path(db)
+    try:
+        path = backup_database(db_path, backup_dir=backup_dir)
+        size_mb = path.stat().st_size / (1024 * 1024)
+        click.echo(f"Backup created: {path} ({size_mb:.2f} MB)")
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+
+@cli.command("db-cleanup")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--dry-run", is_flag=True, help="Show what would be deleted without deleting")
+@click.option("--no-backup", is_flag=True, help="Skip automatic backup before cleanup")
+def db_cleanup(db, dry_run, no_backup):
+    """Remove cards, source_cards, and observations not in your collection."""
+    from src.database.cleanup import cleanup_non_collection_data
+
+    try:
+        result = cleanup_non_collection_data(
+            db_url=db,
+            dry_run=dry_run,
+            skip_backup=no_backup,
+        )
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+    prefix = "[DRY RUN] Would delete" if dry_run else "Deleted"
+    click.echo("")
+    click.echo(f"  {prefix}:")
+    click.echo(f"    Cards:              {result.cards_deleted}")
+    click.echo(f"    Source cards:        {result.source_cards_deleted}")
+    click.echo(f"    Price observations:  {result.observations_deleted}")
+
+    if result.cards_deleted == 0 and result.source_cards_deleted == 0:
+        click.echo("\n  Nothing to clean -- all data belongs to your collection.")
+
+    if result.backup_path:
+        click.echo(f"\n  Backup saved to: {result.backup_path}")
+    click.echo("")
+
+
+@cli.command("sync-collection")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--limit", default=None, type=int, help="Max cards to process")
+@click.option("--dry-run", is_flag=True, help="Don't write to database")
+@click.option("--delay", default=1.0, type=float, help="Seconds between requests")
+@click.option("--history-days", default=365, type=int, help="Days of history to fetch")
+@click.option("--concurrency", default=3, type=int, help="Max concurrent requests")
+@click.option("--force", is_flag=True, help="Re-process already-linked entries")
+def sync_collection(db, limit, dry_run, delay, history_days, concurrency, force):
+    """Sync user collection with MYP price data."""
+    from src.collectors.sync_collection import run_sync_collection
+
+    summary = asyncio.run(
+        run_sync_collection(
+            db_url=db,
+            limit=limit,
+            dry_run=dry_run,
+            delay=delay,
+            history_days=history_days,
+            concurrency=concurrency,
+            skip_matched=not force,
+        )
+    )
+    _print_sync_summary(summary, dry_run)
+
+
+def _print_sync_summary(summary, dry_run):
+    """Format and print collection sync summary to stdout."""
+    click.echo("")
+    click.echo("=" * 60)
+    if dry_run:
+        click.echo("  DRY RUN — no data was written")
+    click.echo("  COLLECTION SYNC SUMMARY")
+    click.echo(f"  Total entries:           {summary.total_entries}")
+    click.echo(f"  Skipped (already linked): {summary.skipped_already_linked}")
+    click.echo(f"  Searched:                 {summary.searched}")
+    click.echo(f"  Matched:                  {summary.matched}")
+    click.echo(f"  Ambiguous:                {summary.ambiguous:>3}")
+    click.echo(f"  Unmatched:                {summary.unmatched:>3}")
+    click.echo(f"  Cards created:            {summary.cards_created}")
+    click.echo(f"  Observations saved:     {summary.observations_saved:,}")
+    if summary.finished_at:
+        elapsed = (summary.finished_at - summary.started_at).total_seconds()
+        minutes = elapsed / 60
+        click.echo(f"  Elapsed:                {elapsed:.1f}s ({minutes:.1f} min)")
+    click.echo("=" * 60)
+
+    if summary.errors:
+        click.echo(f"\n  Errors ({len(summary.errors)}):")
+        for err in summary.errors[:20]:
+            click.echo(
+                f"    - [{err.set_code}/{err.collector_number}] {err.name_en}: "
+                f"{err.error_type} — {err.error_message[:80]}"
+            )
+        if len(summary.errors) > 20:
+            click.echo(f"    ... and {len(summary.errors) - 20} more")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")

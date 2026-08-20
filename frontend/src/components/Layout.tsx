@@ -3,9 +3,15 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard" },
+  { to: "/collection", label: "My Collection" },
   { to: "/cards", label: "Explore Cards" },
   { to: "/market/movers", label: "Market Movers" },
 ] as const;
+
+const FAKE_USER = {
+  name: "Eduardo",
+  initials: "ED",
+};
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -39,6 +45,16 @@ export function Layout() {
       >
         <div className="flex items-center h-16 px-6 border-b border-slate-700">
           <h1 className="text-lg font-bold text-white">TCG Market</h1>
+        </div>
+        {/* User avatar */}
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-700">
+          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-600 text-white text-sm font-bold">
+            {FAKE_USER.initials}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white">{FAKE_USER.name}</p>
+            <p className="text-xs text-slate-400">Collector</p>
+          </div>
         </div>
         <nav className="mt-4 px-3" data-testid="sidebar-nav">
           {NAV_ITEMS.map((item) => {

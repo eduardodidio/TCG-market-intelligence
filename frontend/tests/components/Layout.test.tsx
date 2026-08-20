@@ -19,10 +19,11 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(4);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
+    expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Market Movers");
   });
@@ -60,6 +61,7 @@ describe("Layout", () => {
 
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"));
     expect(hrefs).toContain("/");
+    expect(hrefs).toContain("/collection");
     expect(hrefs).toContain("/cards");
     expect(hrefs).toContain("/market/movers");
   });

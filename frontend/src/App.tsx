@@ -15,6 +15,9 @@ const CardDetail = lazy(() =>
 const MarketMovers = lazy(() =>
   import("./pages/MarketMovers").then((m) => ({ default: m.MarketMovers })),
 );
+const MyCollection = lazy(() =>
+  import("./pages/MyCollection").then((m) => ({ default: m.MyCollection })),
+);
 
 export default function App() {
   return (
@@ -26,6 +29,14 @@ export default function App() {
             element={
               <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                 <Dashboard />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/collection"
+            element={
+              <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
+                <MyCollection />
               </Suspense>
             }
           />

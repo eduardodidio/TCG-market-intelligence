@@ -81,10 +81,33 @@ class PriceObservationRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     __table_args__ = (
-        UniqueConstraint(
-            "source", "external_id", "observed_at", name="uq_price_observation"
-        ),
+        UniqueConstraint("source", "external_id", "observed_at", name="uq_price_observation"),
         Index("ix_price_obs_card_date", "source", "external_id", "observed_at"),
+    )
+
+
+class UserCollectionRow(Base):
+    __tablename__ = "user_collection"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    card_id: Mapped[int | None] = mapped_column(Integer)
+    set_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    collector_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    name_en: Mapped[str | None] = mapped_column(String(500))
+    name_pt: Mapped[str | None] = mapped_column(String(500))
+    set_name_en: Mapped[str | None] = mapped_column(String(200))
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    quality: Mapped[str | None] = mapped_column(String(10))
+    language: Mapped[str | None] = mapped_column(String(10))
+    rarity: Mapped[str | None] = mapped_column(String(5))
+    color: Mapped[str | None] = mapped_column(String(10))
+    extras: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        Index("ix_user_collection_user", "user_id"),
+        Index("ix_user_collection_card", "card_id"),
     )
 
 

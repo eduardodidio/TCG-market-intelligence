@@ -165,7 +165,7 @@ describe("MarketMovers page", () => {
 
     expect(screen.getByTestId("empty-state")).toBeDefined();
     expect(
-      screen.getByText("No movers data available for this period."),
+      screen.getByText("Not enough price history for movers. Run a sync and check back."),
     ).toBeDefined();
 
     // Tables should not render

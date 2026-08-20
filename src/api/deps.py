@@ -3,7 +3,21 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 
+from fastapi import Header, HTTPException
+
 from src.database.repository import Repository
+
+
+def verify_api_key(x_api_key: str | None = Header(None)) -> None:
+    """Require X-API-Key header when TCG_API_KEY env var is set.
+
+    When TCG_API_KEY is not configured the guard is a no-op (dev mode).
+    """
+    expected = os.environ.get("TCG_API_KEY")
+    if expected is None:
+        return  # No key configured — dev mode
+    if x_api_key is None or x_api_key != expected:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
 def get_db() -> Generator[Repository, None, None]:

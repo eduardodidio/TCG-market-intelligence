@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.database.models import (
     CardRow,
+    CollectionErrorRow,
     PriceObservationRow,
     SourceCardRow,
 )
@@ -262,3 +263,137 @@ class TestGetMarketStats:
         assert stats["avg_price"] is None
         assert stats["date_range_start"] is None
         assert stats["date_range_end"] is None
+
+
+class TestGetLatestObservationDate:
+    def test_empty_db(self, repo):
+        result = repo.get_latest_observation_date()
+        assert result is None
+
+    def test_with_data(self, seeded_repo):
+        result = seeded_repo.get_latest_observation_date()
+        assert result == date(2026, 8, 15)
+
+    def test_filtered_by_source(self, seeded_repo):
+        result = seeded_repo.get_latest_observation_date(source="myp")
+        assert result == date(2026, 8, 15)
+
+    def test_filtered_by_nonexistent_source(self, seeded_repo):
+        result = seeded_repo.get_latest_observation_date(source="nonexistent")
+        assert result is None
+
+
+class TestGetStaleCardsCount:
+    def test_no_stale_when_all_fresh(self, seeded_repo):
+        # Observations at 2026-08-10 and 2026-08-15; with stale_days=30
+        # and today=2026-08-19, none are stale
+        count = seeded_repo.get_stale_cards_count(stale_days=30)
+        assert count == 0
+
+    def test_with_stale_cards(self, seeded_repo):
+        # With stale_days=3, cards observed before 2026-08-16 are stale.
+        # ext1 last obs is 2026-08-15 (stale), ext2 last obs is 2026-08-12 (stale)
+        count = seeded_repo.get_stale_cards_count(stale_days=3)
+        assert count >= 1  # At least ext2 is stale (may vary with test date)
+
+    def test_source_cards_without_observations_counted_as_stale(self, repo):
+        """Source cards with zero observations should be counted as stale."""
+        engine = repo.engine
+        with Session(engine) as session:
+            sc = SourceCardRow(
+                source="myp",
+                external_id="orphan1",
+                url="https://myp/orphan1",
+            )
+            session.add(sc)
+            session.commit()
+
+        count = repo.get_stale_cards_count(stale_days=14)
+        assert count == 1
+
+    def test_empty_db(self, repo):
+        count = repo.get_stale_cards_count()
+        assert count == 0
+
+
+class TestGetRecentErrorsCount:
+    def test_empty_db(self, repo):
+        count = repo.get_recent_errors_count()
+        assert count == 0
+
+    def test_counts_recent_unresolved_errors(self, repo):
+        engine = repo.engine
+        with Session(engine) as session:
+            # Recent unresolved error
+            e1 = CollectionErrorRow(
+                source="myp",
+                external_id="ext1",
+                url="https://myp/ext1",
+                error_type="http_error",
+                error_message="503 Service Unavailable",
+                resolved=0,
+                timestamp=datetime.now() - timedelta(days=1),
+            )
+            # Old unresolved error (should not count with default days=7)
+            e2 = CollectionErrorRow(
+                source="myp",
+                external_id="ext2",
+                url="https://myp/ext2",
+                error_type="http_error",
+                error_message="500 Internal Server Error",
+                resolved=0,
+                timestamp=datetime.now() - timedelta(days=30),
+            )
+            # Recent but resolved error (should not count)
+            e3 = CollectionErrorRow(
+                source="myp",
+                external_id="ext3",
+                url="https://myp/ext3",
+                error_type="http_error",
+                error_message="404 Not Found",
+                resolved=1,
+                timestamp=datetime.now() - timedelta(days=1),
+            )
+            session.add_all([e1, e2, e3])
+            session.commit()
+
+        count = repo.get_recent_errors_count()
+        assert count == 1
+
+    def test_filtered_by_source(self, repo):
+        engine = repo.engine
+        with Session(engine) as session:
+            e1 = CollectionErrorRow(
+                source="myp",
+                external_id="ext1",
+                url="https://myp/ext1",
+                error_type="http_error",
+                error_message="503",
+                resolved=0,
+                timestamp=datetime.now() - timedelta(hours=1),
+            )
+            e2 = CollectionErrorRow(
+                source="other",
+                external_id="ext2",
+                url="https://other/ext2",
+                error_type="http_error",
+                error_message="503",
+                resolved=0,
+                timestamp=datetime.now() - timedelta(hours=1),
+            )
+            session.add_all([e1, e2])
+            session.commit()
+
+        assert repo.get_recent_errors_count(source="myp") == 1
+        assert repo.get_recent_errors_count(source="other") == 1
+        assert repo.get_recent_errors_count() == 2
+
+
+class TestGetSourceCardCount:
+    def test_empty_db(self, repo):
+        assert repo.get_source_card_count() == 0
+
+    def test_with_data(self, seeded_repo):
+        assert seeded_repo.get_source_card_count() == 2
+        assert seeded_repo.get_source_card_count(source="myp") == 2
+        assert seeded_repo.get_source_card_count(source="nonexistent") == 0

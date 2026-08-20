@@ -166,8 +166,16 @@ export function Cards() {
       {/* Empty state */}
       {!loading && !error && cards.length === 0 && (
         <EmptyState
-          message="No cards found. Try a different search."
-          action={{ label: "Clear filters", onClick: handleClearFilters }}
+          message={
+            debouncedSearch || selectedSet
+              ? "No cards found. Try a different search."
+              : "No cards with price data yet. Run a collection sync to fetch prices."
+          }
+          action={
+            debouncedSearch || selectedSet
+              ? { label: "Clear filters", onClick: handleClearFilters }
+              : undefined
+          }
         />
       )}
 

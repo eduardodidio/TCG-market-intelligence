@@ -163,14 +163,16 @@ Auto-generated interactive docs are available at `/docs` (Swagger UI) and
 | GET | `/api/v1/sets` | List sets with card counts |
 | GET | `/api/v1/market/movers` | Top gainers and losers (period: `7d`, `30d`, `90d`) |
 | GET | `/api/v1/market/stats` | Aggregate market statistics |
-| POST | `/api/v1/collect/backfill` | Trigger backfill job (async) |
-| POST | `/api/v1/collect/update` | Trigger update job (async) |
+| POST | `/api/v1/collect/backfill` | Trigger backfill job (async, requires API key) |
+| POST | `/api/v1/collect/update` | Trigger update job (async, requires API key) |
+| GET | `/api/v1/collect/health` | Collection pipeline health (last run, stale cards, errors) |
 
 All responses use a standard envelope: `{"data": ..., "meta": {...}, "errors": []}`.
 Every response includes a `X-Request-ID` header and `meta.request_id` for tracing.
 
-**Note:** Authentication is not yet implemented. The API is intended for local
-or trusted-network use only in this phase.
+**Authentication:** The collect endpoints (`backfill`, `update`) are protected by
+an API key via the `X-API-Key` header. Set the `TCG_API_KEY` environment variable
+to enable the guard. When `TCG_API_KEY` is unset, the guard is a no-op (dev mode).
 
 ## Data Source: MYP Cards
 
@@ -325,6 +327,53 @@ Fixed data quality issues discovered during manual testing of the F07 dashboard:
 - **Collection expansion** -- backfill script for multiple popular Magic sets
   beyond the initial Dominaria Remastered dataset
 - **15 new encoding tests** added; total backend tests now 405, frontend 165
+
+### F09 -- Scheduled Collection & Observability (2026-08-19)
+
+Automated daily price collection with pipeline observability and API security:
+
+- **Health endpoint** -- `GET /api/v1/collect/health` returns last collection
+  timestamp, stale cards count, recent error count, and overall status
+  (`healthy`, `stale`, or `error`)
+- **API key protection** -- POST collect endpoints (`backfill`, `update`) now
+  require an `X-API-Key` header when `TCG_API_KEY` env var is set; no-op guard
+  in dev mode when unset
+- **Cron trigger script** -- `scripts/cron_update.sh` calls the update endpoint
+  with the API key, logs results to `logs/cron/`, and exits with meaningful
+  status codes for cron/scheduler integration
+- **Dashboard freshness indicator** -- Dashboard page shows "Last updated: X ago"
+  derived from the health endpoint, with graceful degradation if unreachable
+- Scheduling docs for Linux/Mac (crontab) and Windows (Task Scheduler)
+- Architecture and journey diagrams under `docs/diagrams/`
+
+### F10 -- Collection-Centric Pivot (2026-08-19)
+
+Pivoted the platform from a generic market scanner to a personal collection
+tracker. The user's imported collection is now the source of truth -- the
+database tracks only cards the user owns, and the dashboard shows
+collection-specific intelligence (portfolio value, coverage, per-card images).
+
+- **Collection import** -- CSV import into `user_collection` table with
+  set code, collector number, quantity, quality, language, and rarity
+- **Match report** -- `match-report` CLI command runs a dry-run search
+  against MYP Cards and reports matched/ambiguous/unmatched coverage
+  before any destructive operations
+- **DB maintenance** -- `db-backup` creates timestamped SQLite backups;
+  `db-cleanup` removes cards, source_cards, and price_observations not
+  linked to the user's collection (with automatic backup)
+- **Sync pipeline** -- `sync-collection` CLI command orchestrates search,
+  match, card detail fetch, price history fetch, and DB upsert for each
+  collection card; also available as `POST /api/v1/collection/sync`
+- **Collection API** -- `GET /api/v1/collection` lists collection cards
+  with latest prices and Scryfall image URLs; `GET /api/v1/collection/summary`
+  returns portfolio KPIs
+- **Dashboard collection KPIs** -- shows unique cards, total copies,
+  estimated portfolio value, and coverage percentage
+- **Scryfall HD images** -- Card Detail and My Collection pages display
+  card artwork via Scryfall's redirect API
+- **Set code normalization** -- all set codes normalized to lowercase
+  across import, matching, and storage
+- Architecture decision: [ADR-0004](docs/adr/0004-collection-centric-pivot.md)
 
 ## Future
 

@@ -5,6 +5,10 @@ import { Dashboard } from "../../src/pages/Dashboard";
 import {
   mockMarketStats,
   mockMoversResponse,
+  mockCollectionHealth,
+  mockCollectionSummary,
+  mockEmptyMarketStats,
+  mockEmptyMoversResponse,
   mockApiError,
 } from "../fixtures/api-responses";
 
@@ -28,6 +32,8 @@ describe("Dashboard", () => {
   function mockFetchSuccess() {
     const statsResponse = mockMarketStats();
     const moversResponse = mockMoversResponse();
+    const healthResponse = mockCollectionHealth();
+    const summaryResponse = mockCollectionSummary();
 
     (fetch as ReturnType<typeof vi.fn>).mockImplementation(
       (url: string | URL) => {
@@ -44,6 +50,18 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(moversResponse),
           });
         }
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(healthResponse),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(summaryResponse),
+          });
+        }
         return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
       },
     );
@@ -51,13 +69,33 @@ describe("Dashboard", () => {
 
   function mockFetchError() {
     const errorResponse = mockApiError("SERVER_ERROR", "Internal server error");
+    const healthResponse = mockCollectionHealth();
+    const summaryResponse = mockCollectionSummary();
 
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: "Internal Server Error",
-      json: () => Promise.resolve(errorResponse),
-    });
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string | URL) => {
+        const urlStr = url.toString();
+        // Health and collection summary endpoints still succeed — they must not block dashboard
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(healthResponse),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(summaryResponse),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          statusText: "Internal Server Error",
+          json: () => Promise.resolve(errorResponse),
+        });
+      },
+    );
   }
 
   it("shows skeleton loading while data is being fetched", () => {
@@ -70,16 +108,39 @@ describe("Dashboard", () => {
     expect(skeletons.length).toBe(4);
   });
 
-  it("renders 4 KPI cards with market statistics", async () => {
+  it("renders collection KPIs when collection summary is available", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
+      expect(screen.getByTestId("collection-kpis")).toBeDefined();
     });
 
+    // Collection KPIs from fixture: total_unique=120, total_cards=340, total_value=2850, linked_count=96
+    expect(screen.getByText("Collection Cards")).toBeDefined();
+    expect(screen.getByText("120")).toBeDefined();
+
+    expect(screen.getByText("Total Copies")).toBeDefined();
+    expect(screen.getByText("340")).toBeDefined();
+
+    expect(screen.getByText("Est. Collection Value")).toBeDefined();
+
+    expect(screen.getByText("Coverage")).toBeDefined();
+    // coverage = round(96/120 * 100) = 80%
+    expect(screen.getByText("80%")).toBeDefined();
+  });
+
+  it("renders market KPIs below collection KPIs", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("market-kpis")).toBeDefined();
+    });
+
+    // 8 total KPIs: 4 collection + 4 market
     const kpiCards = screen.getAllByTestId("kpi-card");
-    expect(kpiCards).toHaveLength(4);
+    expect(kpiCards).toHaveLength(8);
 
     expect(screen.getByText("Total Cards")).toBeDefined();
     expect(screen.getByText("150")).toBeDefined();
@@ -90,7 +151,6 @@ describe("Dashboard", () => {
     expect(screen.getByText("Average Price")).toBeDefined();
 
     expect(screen.getByText("Data Range")).toBeDefined();
-    // Date range: 01/01/2026 - 18/08/2026
     expect(screen.getByText("01/01/2026 - 18/08/2026")).toBeDefined();
   });
 
@@ -137,7 +197,16 @@ describe("Dashboard", () => {
     });
   });
 
-  it("renders page title", async () => {
+  it("renders page title as My Collection", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText("My Collection")).toBeDefined();
+    });
+  });
+
+  it("renders Market Overview heading", async () => {
     mockFetchSuccess();
     renderDashboard();
 
@@ -161,5 +230,263 @@ describe("Dashboard", () => {
     );
     expect(moversCalls.length).toBeGreaterThan(0);
     expect(String(moversCalls[0][0])).toContain("period=30d");
+  });
+
+  it("renders freshness indicator when health endpoint succeeds", async () => {
+    // Fix "now" so relative time is deterministic
+    const now = new Date("2026-08-19T12:00:00Z").getTime();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("freshness-indicator")).toBeDefined();
+    });
+
+    // Health fixture has last_collection_at = "2026-08-19T10:30:00Z"
+    // That's 1.5 hours before "now" -> "1 hour ago"
+    expect(screen.getByText(/Last updated:/)).toBeDefined();
+
+    // Green dot for healthy status
+    const dot = screen.getByTestId("freshness-dot");
+    expect(dot.className).toContain("bg-green-400");
+  });
+
+  it("renders dashboard without freshness indicator when health endpoint fails", async () => {
+    const statsResponse = mockMarketStats();
+    const moversResponse = mockMoversResponse();
+    const summaryResponse = mockCollectionSummary();
+    const healthError = mockApiError("SERVER_ERROR", "Health check failed");
+
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string | URL) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/market/stats")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(statsResponse),
+          });
+        }
+        if (urlStr.includes("/market/movers")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(moversResponse),
+          });
+        }
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            statusText: "Internal Server Error",
+            json: () => Promise.resolve(healthError),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(summaryResponse),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+      },
+    );
+
+    renderDashboard();
+
+    // Dashboard still loads its KPI cards (4 collection + 4 market = 8)
+    await waitFor(() => {
+      expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
+    });
+
+    const kpiCards = screen.getAllByTestId("kpi-card");
+    expect(kpiCards).toHaveLength(8);
+
+    // Freshness indicator should NOT be rendered
+    expect(screen.queryByTestId("freshness-indicator")).toBeNull();
+  });
+
+  it("renders gracefully when collection summary returns zero values", async () => {
+    const statsResponse = mockMarketStats();
+    const moversResponse = mockMoversResponse();
+    const healthResponse = mockCollectionHealth();
+    const emptySummary = mockCollectionSummary({
+      total_unique: 0,
+      total_cards: 0,
+      total_value: null,
+      linked_count: 0,
+      sets_count: 0,
+    });
+
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string | URL) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/market/stats")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(statsResponse),
+          });
+        }
+        if (urlStr.includes("/market/movers")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(moversResponse),
+          });
+        }
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(healthResponse),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(emptySummary),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+      },
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
+    });
+
+    // Collection KPIs still render with zero values
+    expect(screen.getByTestId("collection-kpis")).toBeDefined();
+    expect(screen.getByText("Collection Cards")).toBeDefined();
+
+    // Coverage should be 0% when total_unique is 0
+    expect(screen.getByText("0%")).toBeDefined();
+
+    // Market KPIs still visible
+    expect(screen.getByTestId("market-kpis")).toBeDefined();
+  });
+
+  it("renders gracefully when market stats returns zero", async () => {
+    const emptyStats = mockEmptyMarketStats();
+    const emptyMovers = mockEmptyMoversResponse();
+    const healthResponse = mockCollectionHealth();
+    const summaryResponse = mockCollectionSummary();
+
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string | URL) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/market/stats")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(emptyStats),
+          });
+        }
+        if (urlStr.includes("/market/movers")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(emptyMovers),
+          });
+        }
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(healthResponse),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(summaryResponse),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+      },
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
+    });
+
+    // Collection KPIs should still render
+    expect(screen.getByTestId("collection-kpis")).toBeDefined();
+
+    // Market KPIs should show empty state instead
+    expect(screen.getByTestId("market-empty")).toBeDefined();
+    expect(
+      screen.getByText(
+        "Import your collection and sync with MYP to see market data here.",
+      ),
+    ).toBeDefined();
+
+    // Movers should show empty state
+    expect(screen.getByTestId("movers-empty")).toBeDefined();
+    expect(
+      screen.getByText(
+        "Not enough price history for movers. Run a sync and check back.",
+      ),
+    ).toBeDefined();
+
+    // No movers preview
+    expect(screen.queryByTestId("movers-preview")).toBeNull();
+  });
+
+  it("shows collection empty state when summary endpoint fails", async () => {
+    const statsResponse = mockMarketStats();
+    const moversResponse = mockMoversResponse();
+    const healthResponse = mockCollectionHealth();
+    const summaryError = mockApiError("SERVER_ERROR", "Collection unavailable");
+
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string | URL) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/market/stats")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(statsResponse),
+          });
+        }
+        if (urlStr.includes("/market/movers")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(moversResponse),
+          });
+        }
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(healthResponse),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            statusText: "Internal Server Error",
+            json: () => Promise.resolve(summaryError),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+      },
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
+    });
+
+    // Collection section should show empty state
+    expect(screen.getByTestId("collection-empty")).toBeDefined();
+    expect(
+      screen.getByText(
+        "Import your collection and sync with MYP to see your stats here.",
+      ),
+    ).toBeDefined();
+
+    // Market section still works
+    expect(screen.getByTestId("market-kpis")).toBeDefined();
+    expect(screen.getByTestId("movers-preview")).toBeDefined();
   });
 });

@@ -17,3 +17,12 @@ class JobStatus(BaseModel):
     job_id: str
     status: str
     message: str
+
+
+class CollectionHealth(BaseModel):
+    last_collection_at: str | None
+    next_expected_at: str | None
+    total_cards: int
+    stale_cards_count: int
+    recent_errors_count: int
+    status: str  # "healthy" | "stale" | "error"

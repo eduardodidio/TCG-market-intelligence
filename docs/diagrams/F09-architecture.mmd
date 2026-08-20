@@ -1,0 +1,62 @@
+graph TB
+    subgraph External Trigger
+        Cron[Crontab / Task Scheduler<br>fires daily at 03:00]
+        Script[scripts/cron_update.sh<br>curl + logging]
+    end
+
+    subgraph External Source
+        MYP[MYP Cards Website<br>HTML + JSON-LD]
+    end
+
+    subgraph API Layer
+        subgraph Middleware
+            APIKeyGuard[verify_api_key<br>X-API-Key header check]
+        end
+
+        subgraph Collect Router
+            HealthEP[GET /api/v1/collect/health<br>pipeline status]
+            UpdateEP[POST /api/v1/collect/update<br>trigger update job]
+            BackfillEP[POST /api/v1/collect/backfill<br>trigger backfill job]
+        end
+    end
+
+    subgraph Collection Pipeline
+        RunUpdate[run_update<br>async collection task]
+        Provider[MYP Provider<br>curl_cffi HTTP client]
+    end
+
+    subgraph Storage
+        SQLite[(SQLite Database<br>cards / source_cards /<br>price_observations / errors)]
+    end
+
+    subgraph Frontend
+        Dashboard[React Dashboard<br>freshness indicator]
+    end
+
+    %% Cron trigger flow
+    Cron -->|fires| Script
+    Script -->|POST with X-API-Key| UpdateEP
+    Script -->|GET health check| HealthEP
+
+    %% API key guard on collect endpoints
+    UpdateEP --> APIKeyGuard
+    BackfillEP --> APIKeyGuard
+    APIKeyGuard -->|valid key| RunUpdate
+
+    %% Collection pipeline
+    RunUpdate -->|HTTP requests| Provider
+    Provider -->|scrape prices| MYP
+    RunUpdate -->|persist observations| SQLite
+
+    %% Health endpoint reads DB directly
+    HealthEP -->|query latest dates,<br>stale counts, errors| SQLite
+
+    %% Frontend consumes health
+    Dashboard -->|GET /api/v1/collect/health| HealthEP
+
+    %% Styling
+    style Cron fill:#6c757d,stroke:#adb5bd,color:#fff
+    style Script fill:#6c757d,stroke:#adb5bd,color:#fff
+    style APIKeyGuard fill:#e76f51,stroke:#f4a261,color:#fff
+    style HealthEP fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style Dashboard fill:#264653,stroke:#2a9d8f,color:#e9c46a

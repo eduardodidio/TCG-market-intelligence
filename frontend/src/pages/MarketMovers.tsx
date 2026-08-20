@@ -78,7 +78,7 @@ export function MarketMovers() {
 
       {/* Empty state */}
       {!loading && !error && data && data.gainers.length === 0 && data.losers.length === 0 && (
-        <EmptyState message="No movers data available for this period." />
+        <EmptyState message="Not enough price history for movers. Run a sync and check back." />
       )}
 
       {/* Tables */}

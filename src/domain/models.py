@@ -150,6 +150,20 @@ class Momentum:
 
 
 @dataclass
+class MypSearchResult:
+    """A single result from the MYP search API."""
+
+    external_id: str
+    name: str
+    slug: str
+    url: str
+    sku: str | None = None
+    set_code: str | None = None
+    collector_number: str | None = None
+    image_url: str | None = None
+
+
+@dataclass
 class CardAnalytics:
     """Composite analytics result for a single card."""
 
@@ -160,3 +174,51 @@ class CardAnalytics:
     volatility: Volatility | None = None
     momentum: Momentum | None = None
     computed_at: datetime = field(default_factory=datetime.now)
+
+
+# --- Collection sync domain models ---
+
+
+@dataclass
+class SyncError:
+    """Record of an error during collection sync."""
+
+    entry_id: int
+    name_en: str | None
+    set_code: str
+    collector_number: str
+    error_type: str
+    error_message: str
+
+
+@dataclass
+class SyncResult:
+    """Outcome of syncing a single collection entry."""
+
+    entry_id: int
+    name_en: str | None
+    set_code: str
+    collector_number: str
+    status: str  # "synced" | "unmatched" | "ambiguous" | "skipped" | "error" | "no_name"
+    card_id: int | None = None
+    observations_count: int = 0
+    match_confidence: str | None = None
+    error_message: str | None = None
+
+
+@dataclass
+class SyncSummary:
+    """Summary of a collection sync run."""
+
+    total_entries: int = 0
+    skipped_already_linked: int = 0
+    searched: int = 0
+    matched: int = 0
+    ambiguous: int = 0
+    unmatched: int = 0
+    cards_created: int = 0
+    observations_saved: int = 0
+    errors: list[SyncError] = field(default_factory=list)
+    results: list[SyncResult] = field(default_factory=list)
+    started_at: datetime = field(default_factory=datetime.now)
+    finished_at: datetime | None = None

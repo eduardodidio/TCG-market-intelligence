@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from urllib.parse import quote
 
 import structlog
 from curl_cffi.requests import AsyncSession
@@ -11,6 +12,7 @@ from curl_cffi.requests import AsyncSession
 from src.domain.interfaces import CardSourceProvider
 from src.domain.models import (
     HistoricalPrice,
+    MypSearchResult,
     PriceSnapshot,
     SourceCard,
 )
@@ -20,6 +22,7 @@ from src.parsers.myp import (
     parse_pagination_max,
     parse_price_history,
     parse_price_snapshot,
+    parse_search_results,
     parse_set_links,
 )
 
@@ -114,6 +117,27 @@ class MypCardsProvider(CardSourceProvider):
                 await asyncio.sleep(2**attempt)
 
         raise RuntimeError(f"Failed after {self.config.max_retries} attempts: {url}")
+
+    async def search_card(self, term: str) -> list[MypSearchResult]:
+        """Search MYP for cards matching *term*.
+
+        Uses the ``/produto/search`` endpoint with ``marca=magic``.
+        Returns an empty list when *term* is blank, the API returns no
+        results, or the response cannot be parsed.
+        """
+        if not term or not term.strip():
+            return []
+
+        encoded_term = quote(term.strip())
+        url = f"{BASE_URL}/produto/search?marca=magic&term={encoded_term}"
+
+        try:
+            raw = await self._fetch(url)
+        except (RuntimeError, TimeoutError, OSError):
+            log.warning("search_card_fetch_failed", term=term)
+            return []
+
+        return parse_search_results(raw)
 
     async def discover_sets(self) -> list[str]:
         """Discover all Magic set slugs from the editions pages."""

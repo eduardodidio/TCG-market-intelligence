@@ -1,0 +1,83 @@
+{
+  "decision_id": "D-20260819-002",
+  "timestamp": "2026-08-19T10:30:00Z",
+  "type": "feature_scope",
+  "context_summary": "With F08 data enrichment shipped (encoding fix, movers tuning, multi-set expansion), the database now has meaningful data but collection remains manual. F09 proposes automating recurring price updates via the existing collect endpoint plus an external cron trigger, with a health/status endpoint for observability — Direction 3 from the brainstorm.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "F09 as scoped: health/status endpoint + cron trigger configuration (Direction 3 — external cron + existing endpoint).",
+      "pros": [
+        "Minimal new code — the collect endpoint already exists from F06, only a health endpoint and cron config are needed",
+        "Small scope (S estimate) means fast delivery with low risk",
+        "Flexible trigger mechanism — cron today, GitHub Actions or CI tomorrow, no app changes needed",
+        "Health endpoint adds observability that benefits all future features (dashboard can show freshness)",
+        "Natural next step after F08: data is now rich and correct, keeping it fresh is the obvious follow-up",
+        "No new heavyweight dependencies (no APScheduler, no daemon process)"
+      ],
+      "cons": [
+        "Depends on the backend process being running — no self-contained scheduler",
+        "Collect endpoint currently has no authentication — exposing it via cron means it is callable by anyone on the network",
+        "If the cron trigger fails silently, data goes stale without notification"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Skip F09 and use Direction 1 instead — OS-level cron calling the CLI directly, no new code at all.",
+      "pros": [
+        "Zero code changes — purely operational configuration",
+        "Does not require the FastAPI backend to be running for collection to work",
+        "Simpler mental model: cron calls CLI, done"
+      ],
+      "cons": [
+        "No observability — if cron fails, nobody knows until data is visibly stale",
+        "Not versionable or portable — crontab config lives outside the repo",
+        "Misses the opportunity to add a health endpoint that the frontend can consume",
+        "Does not advance the project's code or architecture — feels like a non-feature",
+        "The brainstorm explicitly chose Direction 3 over Direction 1 for good reasons"
+      ]
+    },
+    {
+      "option": "C",
+      "description": "Expand scope to include in-process APScheduler (Direction 2) for a fully self-contained solution.",
+      "pros": [
+        "Self-contained — no external cron dependency",
+        "Scheduler state visible via API endpoints"
+      ],
+      "cons": [
+        "New dependency (APScheduler) — violates project guardrail of confirming new deps",
+        "Couples scheduler lifecycle to API process — if API restarts, schedule resets",
+        "Over-engineered for current scale (240 cards, weekly MYP updates, local-only deployment)",
+        "Higher risk of bugs in long-running background tasks",
+        "Scope creep from S to M without proportional user value"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "Option A is the right choice for three reasons. First, it is perfectly right-sized: the collect infrastructure already exists (F06 endpoint + F04 batch upsert with resume/retry), so the only new code is a health endpoint and a cron configuration script — small scope, high value. Second, it directly addresses the project's most pressing operational gap: after F08 enriched the database with multiple sets, keeping that data fresh is the natural next priority, and manual CLI invocation does not scale even for a solo developer. Third, Direction 3 (external cron + health endpoint) strikes the ideal balance between Direction 1's zero-observability simplicity and Direction 2/4's over-engineering — it adds just enough infrastructure (health endpoint for freshness visibility, versionable cron config) without introducing new dependencies or coupling the scheduler to the API process. The auth concern on the collect endpoint should be addressed with a simple API key or bearer token guard as part of this feature's scope, keeping it minimal but not negligent.",
+  "scope": {
+    "feature": "F09",
+    "title": "Scheduled price collection — cron + health endpoint",
+    "deliverables": [
+      "GET /api/v1/collect/health endpoint returning collection status (last run timestamp, next expected run, cards count, stale cards count, recent errors)",
+      "Simple auth guard on POST /api/v1/collect/* endpoints (API key via environment variable)",
+      "Cron trigger script (shell script using curl to hit the collect endpoint, with logging)",
+      "Cron configuration documentation (crontab example for Linux/Mac, Task Scheduler for Windows)",
+      "Frontend integration: Dashboard shows last collection timestamp and data freshness indicator",
+      "Tests for health endpoint and auth guard",
+      "Updated diagrams and README"
+    ],
+    "out_of_scope": [
+      "In-process scheduler (APScheduler or similar) — defer until deployment story requires it",
+      "Alerting/notification system for failed collections",
+      "GitHub Actions scheduled workflow — document as future option but do not implement",
+      "Rate limiting on the collect endpoint beyond the existing API key guard",
+      "Changes to the collection logic itself (backfill, update, retry — already solid from F01/F04)"
+    ]
+  },
+  "actions": [
+    { "action": "plan-feature", "feature": "F09" }
+  ],
+  "status": "decided",
+  "governance": "Gandalf T-800 strategic decision — approved Direction 3 from brainstorm as a right-sized S feature. Auth guard added to scope to address the exposed-endpoint risk identified in the brainstorm. No new dependencies required."
+}

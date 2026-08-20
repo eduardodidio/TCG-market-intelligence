@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -12,6 +12,7 @@ from src.database.models import (
     CollectionErrorRow,
     PriceObservationRow,
     SourceCardRow,
+    UserCollectionRow,
 )
 from src.domain.models import CollectionError, HistoricalPrice, SourceCard
 
@@ -463,3 +464,198 @@ class Repository:
                 "date_range_start": date_range[0],
                 "date_range_end": date_range[1],
             }
+
+    def get_latest_observation_date(self, source: str | None = None) -> date | None:
+        """Return the most recent observation date, optionally filtered by source."""
+        with Session(self.engine) as session:
+            stmt = select(func.max(PriceObservationRow.observed_at))
+            if source:
+                stmt = stmt.where(PriceObservationRow.source == source)
+            return session.execute(stmt).scalar()
+
+    def get_stale_cards_count(self, source: str | None = None, stale_days: int = 14) -> int:
+        """Count source cards whose latest observation is older than stale_days.
+
+        Also counts source cards with zero observations as stale.
+        """
+        cutoff = date.today() - timedelta(days=stale_days)
+        with Session(self.engine) as session:
+            # Subquery: latest observation per (source, external_id)
+            latest_obs = (
+                select(
+                    PriceObservationRow.source,
+                    PriceObservationRow.external_id,
+                    func.max(PriceObservationRow.observed_at).label("max_date"),
+                )
+                .group_by(PriceObservationRow.source, PriceObservationRow.external_id)
+                .subquery()
+            )
+
+            # LEFT JOIN source_cards with latest observations
+            stmt = (
+                select(func.count())
+                .select_from(SourceCardRow)
+                .outerjoin(
+                    latest_obs,
+                    (SourceCardRow.source == latest_obs.c.source)
+                    & (SourceCardRow.external_id == latest_obs.c.external_id),
+                )
+                .where((latest_obs.c.max_date < cutoff) | (latest_obs.c.max_date.is_(None)))
+            )
+
+            if source:
+                stmt = stmt.where(SourceCardRow.source == source)
+
+            return session.execute(stmt).scalar() or 0
+
+    def get_recent_errors_count(self, source: str | None = None, days: int = 7) -> int:
+        """Count unresolved collection errors from the last N days."""
+        cutoff = datetime.now() - timedelta(days=days)
+        with Session(self.engine) as session:
+            stmt = (
+                select(func.count())
+                .select_from(CollectionErrorRow)
+                .where(
+                    CollectionErrorRow.resolved == 0,
+                    CollectionErrorRow.timestamp >= cutoff,
+                )
+            )
+            if source:
+                stmt = stmt.where(CollectionErrorRow.source == source)
+            return session.execute(stmt).scalar() or 0
+
+    def get_source_card_count(self, source: str | None = None) -> int:
+        """Count total source cards, optionally filtered by source."""
+        with Session(self.engine) as session:
+            stmt = select(func.count()).select_from(SourceCardRow)
+            if source:
+                stmt = stmt.where(SourceCardRow.source == source)
+            return session.execute(stmt).scalar() or 0
+
+    # ── User Collection ──────────────────────────────────────────────
+
+    def link_collection_entry(self, entry_id: int, card_id: int) -> None:
+        """Set card_id on a user_collection entry."""
+        with Session(self.engine) as session:
+            entry = session.get(UserCollectionRow, entry_id)
+            if entry:
+                entry.card_id = card_id
+                session.commit()
+
+    def get_all_collection_entries(self) -> list[UserCollectionRow]:
+        """Return all user_collection rows (all users). READ-ONLY helper
+        used by the match-report CLI to iterate over the full collection."""
+        with Session(self.engine) as session:
+            return list(
+                session.execute(select(UserCollectionRow).order_by(UserCollectionRow.id.asc()))
+                .scalars()
+                .all()
+            )
+
+    def list_collection(
+        self,
+        user_id: str,
+        name_search: str | None = None,
+        set_code: str | None = None,
+        after_id: int | None = None,
+        limit: int = 50,
+    ) -> list[UserCollectionRow]:
+        with Session(self.engine) as session:
+            stmt = (
+                select(UserCollectionRow)
+                .where(UserCollectionRow.user_id == user_id)
+                .order_by(UserCollectionRow.id.asc())
+            )
+            if name_search:
+                pattern = f"%{name_search}%"
+                stmt = stmt.where(
+                    UserCollectionRow.name_en.ilike(pattern)
+                    | UserCollectionRow.name_pt.ilike(pattern)
+                )
+            if set_code:
+                stmt = stmt.where(UserCollectionRow.set_code == set_code)
+            if after_id:
+                stmt = stmt.where(UserCollectionRow.id > after_id)
+            stmt = stmt.limit(limit + 1)
+            return list(session.execute(stmt).scalars().all())
+
+    def count_collection(
+        self,
+        user_id: str,
+        name_search: str | None = None,
+        set_code: str | None = None,
+    ) -> int:
+        with Session(self.engine) as session:
+            stmt = (
+                select(func.count())
+                .select_from(UserCollectionRow)
+                .where(UserCollectionRow.user_id == user_id)
+            )
+            if name_search:
+                pattern = f"%{name_search}%"
+                stmt = stmt.where(
+                    UserCollectionRow.name_en.ilike(pattern)
+                    | UserCollectionRow.name_pt.ilike(pattern)
+                )
+            if set_code:
+                stmt = stmt.where(UserCollectionRow.set_code == set_code)
+            return session.execute(stmt).scalar() or 0
+
+    def get_collection_summary(self, user_id: str) -> dict:
+        with Session(self.engine) as session:
+            total_unique = (
+                session.execute(
+                    select(func.count())
+                    .select_from(UserCollectionRow)
+                    .where(UserCollectionRow.user_id == user_id)
+                ).scalar()
+                or 0
+            )
+            total_cards = (
+                session.execute(
+                    select(func.coalesce(func.sum(UserCollectionRow.quantity), 0)).where(
+                        UserCollectionRow.user_id == user_id
+                    )
+                ).scalar()
+                or 0
+            )
+            linked_count = (
+                session.execute(
+                    select(func.count())
+                    .select_from(UserCollectionRow)
+                    .where(
+                        UserCollectionRow.user_id == user_id,
+                        UserCollectionRow.card_id.isnot(None),
+                    )
+                ).scalar()
+                or 0
+            )
+            sets_count = (
+                session.execute(
+                    select(func.count(func.distinct(UserCollectionRow.set_code))).where(
+                        UserCollectionRow.user_id == user_id
+                    )
+                ).scalar()
+                or 0
+            )
+            return {
+                "total_unique": total_unique,
+                "total_cards": int(total_cards),
+                "linked_count": linked_count,
+                "sets_count": sets_count,
+            }
+
+    def get_collection_sets(self, user_id: str) -> list[tuple[str, str | None, int]]:
+        """Return distinct (set_code, set_name_en, count) for a user's collection."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    UserCollectionRow.set_code,
+                    func.max(UserCollectionRow.set_name_en),
+                    func.count(UserCollectionRow.id),
+                )
+                .where(UserCollectionRow.user_id == user_id)
+                .group_by(UserCollectionRow.set_code)
+                .order_by(UserCollectionRow.set_code)
+            )
+            return [(r[0], r[1], r[2]) for r in session.execute(stmt).all()]

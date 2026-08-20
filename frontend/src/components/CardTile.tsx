@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { CardSummary } from "../types/api";
 import { formatBRL } from "../utils/format";
+import { scryfallImageUrl } from "../utils/scryfall";
 
 interface CardTileProps {
   card: CardSummary;
@@ -8,6 +10,12 @@ interface CardTileProps {
 
 export function CardTile({ card }: CardTileProps) {
   const displayName = card.name_en || card.name_pt || "Unknown Card";
+  const [imgError, setImgError] = useState(false);
+
+  const imageUrl =
+    card.set_code && card.collector_number
+      ? scryfallImageUrl(card.set_code, card.collector_number)
+      : null;
 
   return (
     <Link
@@ -17,26 +25,36 @@ export function CardTile({ card }: CardTileProps) {
         transition-all duration-200 hover:scale-[1.02]"
       data-testid={`card-tile-${card.id}`}
     >
-      {/* Placeholder image area */}
+      {/* Card image */}
       <div
         className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800
-          flex items-center justify-center"
+          flex items-center justify-center overflow-hidden"
         data-testid="card-image-placeholder"
       >
-        <svg
-          className="h-12 w-12 text-slate-600"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1}
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+        {imageUrl && !imgError ? (
+          <img
+            src={imageUrl}
+            alt={displayName}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={() => setImgError(true)}
           />
-        </svg>
+        ) : (
+          <svg
+            className="h-12 w-12 text-slate-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1}
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        )}
       </div>
 
       {/* Card info */}

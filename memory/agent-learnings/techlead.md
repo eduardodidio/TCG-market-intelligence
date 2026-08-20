@@ -27,3 +27,7 @@ Each entry is a lesson that generalizes beyond a single bug.)
 
 - **Minor notes in reviews become QA quick-wins.** Three of four minor notes (unused path alias, dead export, version label mismatch) were fixed by QA in under 5 minutes. Tagging fixable items as MINOR with clear descriptions makes them actionable for the next agent in the pipeline.
 - **Verify coverage tooling is functional, not just installed.** The test framework (Vitest) was configured but `@vitest/coverage-v8` was missing from devDependencies. During review, attempt to run coverage and flag if the provider is absent -- this is a one-line fix in Wave 0 but becomes QA friction later.
+
+## F10 -- Collection-Centric Pivot (2026-08-19)
+- **Layering violations in API routers should be flagged as IMPORTANT, not MINOR.** The `collection_summary` endpoint bypassed Repository with raw SQLAlchemy session access. This was correctly flagged as IMPORTANT because it sets a bad precedent -- once one endpoint breaks the pattern, future developers will copy it. Any direct database access from the API layer should be caught and escalated during review.
+- **Integration tests with real DB + mocked provider are the highest-value test tier for pipeline features.** The 9 integration tests in `test_sync_integration.py` verified actual DB state (card rows created, collection entries linked, no duplicate observations on resume) that unit tests with fully mocked Repository cannot catch. For any feature with a multi-step data pipeline, require at least one integration test tier that exercises real DB writes.

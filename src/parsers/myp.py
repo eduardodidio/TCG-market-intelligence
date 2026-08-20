@@ -9,7 +9,13 @@ from decimal import Decimal, InvalidOperation
 
 from bs4 import BeautifulSoup
 
-from src.domain.models import CardIdentity, HistoricalPrice, PriceSnapshot, SourceCard
+from src.domain.models import (
+    CardIdentity,
+    HistoricalPrice,
+    MypSearchResult,
+    PriceSnapshot,
+    SourceCard,
+)
 
 
 def parse_set_links(html: str) -> list[str]:
@@ -28,6 +34,63 @@ def parse_set_links(html: str) -> list[str]:
             if slug not in ("edicoes", "produto", "preco"):
                 slugs.add(slug)
     return sorted(slugs)
+
+
+def parse_search_results(json_text: str) -> list[MypSearchResult]:
+    """Parse MYP search API JSON response into a list of MypSearchResult.
+
+    The MYP search endpoint returns a JSON array of objects, each with at
+    least ``id``, ``nome`` (PT name), and ``slug``.  Additional fields
+    (``sku``, ``imagem``, etc.) are captured when present.
+
+    Returns an empty list on empty arrays, malformed JSON, or unexpected
+    response shapes (no exceptions raised).
+    """
+    try:
+        data = json.loads(json_text)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+    if not isinstance(data, list):
+        return []
+
+    results: list[MypSearchResult] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+
+        raw_id = item.get("id")
+        name = item.get("nome")
+        slug = item.get("slug")
+
+        # id and slug are mandatory; skip items missing them
+        if raw_id is None or not slug:
+            continue
+
+        external_id = str(raw_id)
+        name = name or slug  # fallback to slug if name is missing
+
+        url = f"https://mypcards.com/magic/produto/{external_id}/{slug}"
+
+        sku = item.get("sku") or None
+        set_code, collector_number = parse_sku(sku) if sku else (None, None)
+
+        image_url = item.get("imagem") or item.get("image") or None
+
+        results.append(
+            MypSearchResult(
+                external_id=external_id,
+                name=name,
+                slug=slug,
+                url=url,
+                sku=sku,
+                set_code=set_code,
+                collector_number=collector_number,
+                image_url=image_url,
+            )
+        )
+
+    return results
 
 
 def parse_card_links(html: str) -> list[tuple[str, str]]:
@@ -56,11 +119,13 @@ def parse_json_ld_product(html: str) -> dict | None:
 def parse_sku(sku: str) -> tuple[str | None, str | None]:
     """Parse MYP SKU like 'magic_ltr_748' into (set_code, collector_number).
 
-    Returns (set_code_upper, collector_number) or (None, None).
+    Returns (set_code_lower, collector_number) or (None, None).
+    Set codes are normalized to lowercase for consistent matching
+    across the system (collection CSV, Scryfall URLs, DB).
     """
     parts = sku.split("_")
     if len(parts) >= 3:
-        set_code = parts[1].upper()
+        set_code = parts[1].lower()
         collector_number = parts[2]
         return set_code, collector_number
     return None, None

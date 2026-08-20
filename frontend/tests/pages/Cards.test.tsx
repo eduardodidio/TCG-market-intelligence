@@ -134,7 +134,7 @@ describe("Cards page", () => {
     await waitFor(() => {
       expect(screen.getByTestId("empty-state")).toBeDefined();
     });
-    expect(screen.getByText("No cards found. Try a different search.")).toBeDefined();
+    expect(screen.getByText("No cards with price data yet. Run a collection sync to fetch prices.")).toBeDefined();
   });
 
   it("shows error message on API error", async () => {

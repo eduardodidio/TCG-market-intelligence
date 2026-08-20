@@ -28,12 +28,12 @@ def _load(name: str) -> str:
 class TestParseSku:
     def test_standard_sku(self):
         set_code, num = parse_sku("magic_ltr_748")
-        assert set_code == "LTR"
+        assert set_code == "ltr"
         assert num == "748"
 
     def test_three_letter_set(self):
         set_code, num = parse_sku("magic_dmr_045")
-        assert set_code == "DMR"
+        assert set_code == "dmr"
         assert num == "045"
 
     def test_invalid_sku(self):
@@ -108,7 +108,7 @@ class TestParseCardPage:
         assert card.sku == "magic_ltr_451"
         assert card.identity is not None
         assert card.identity.game == "magic"
-        assert card.identity.set_code == "LTR"
+        assert card.identity.set_code == "ltr"
         assert card.identity.collector_number == "451"
 
     def test_card_has_url(self, card_html):

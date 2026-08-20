@@ -25,3 +25,12 @@ Each entry is a lesson that generalizes beyond a single bug.)
 ## F07 -- Front-end Dashboard (2026-08-18)
 
 - **Only configure what you use in scaffolding tasks.** The `@/` path alias was configured in Wave 0 but never adopted by any developer task. Unused configuration creates ambiguity about project conventions -- either use it consistently or remove it. When planning Wave 0, list only the tooling that subsequent waves will consume.
+
+## F09 -- Scheduled Collection (2026-08-19)
+
+- **External cron + script is the right initial automation pattern.** Choosing an external scheduler (crontab / Task Scheduler) over an in-process scheduler (APScheduler) avoided a new dependency, kept the API process stateless, and made the trigger mechanism OS-native and debuggable. This is the correct choice for single-user/local deployments. Reserve in-process scheduling for when a deployment target (Docker, cloud) makes external cron impractical.
+- **Separating observability from mutation endpoints pays off.** The health endpoint (GET, no auth) is independent of the collect endpoints (POST, auth required). This allowed the frontend to show freshness without needing an API key, and the cron script to do a post-update health check without additional auth setup. When designing API features, keep read-only observability endpoints separate from mutation endpoints in both routing and security.
+
+## F10 -- Collection-Centric Pivot (2026-08-19)
+- **Front-loading a read-only dry-run wave before destructive operations is the correct safety pattern.** Wave 0 (match report) produced a coverage report that the user reviews before Wave 1 (cleanup) deletes any data. This gave confidence that the sync pipeline would have acceptable match rates before committing to an irreversible operation. For any feature with destructive operations (DELETE, DROP, file removal), plan a read-only preview wave first.
+- **Pure matcher modules are the gold standard for testability.** `src/collection/matcher.py` has zero dependencies on DB, network, or framework -- only domain models. This produced 26 tests with 100% coverage and zero mocking. Future features with matching, scoring, or classification logic should follow this exact pattern: pure functions that take domain objects in and return domain objects out.

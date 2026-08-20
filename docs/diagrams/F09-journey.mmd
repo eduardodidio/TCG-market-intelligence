@@ -1,0 +1,45 @@
+graph TD
+    subgraph Operator Setup
+        A[Set TCG_API_KEY env var] --> B[Configure crontab<br>0 3 * * * cron_update.sh]
+        B --> C[Verify: GET /api/v1/collect/health]
+        C --> D{Status healthy?}
+        D -->|Yes| E[Setup complete]
+        D -->|No| F[Check logs + DB state]
+        F --> C
+    end
+
+    subgraph Cron Execution
+        G[Cron fires at 03:00] --> H[cron_update.sh starts]
+        H --> I[POST /api/v1/collect/update<br>with X-API-Key header]
+        I --> J{HTTP 200?}
+        J -->|Yes| K[Log success to<br>logs/cron/cron_update_DATE.log]
+        J -->|No - 401| L[Log auth error<br>exit code 1]
+        J -->|No - connection| M[Log connection error<br>exit code 2]
+        K --> N[GET /api/v1/collect/health<br>post-update check]
+        N --> O[Log health status]
+        O --> P[Exit 0 - success]
+    end
+
+    subgraph Dashboard User
+        Q[Open Dashboard page] --> R[Frontend calls<br>GET /api/v1/collect/health]
+        R --> S{Health response OK?}
+        S -->|Yes| T[Show freshness indicator<br>Last updated: X ago]
+        S -->|Error/timeout| U[Degrade gracefully<br>hide indicator]
+        T --> V{Status field?}
+        V -->|healthy| W[Data is fresh<br>user trusts prices]
+        V -->|stale| X[Data is old<br>user knows to wait]
+        V -->|error| Y[Recent errors<br>operator should check]
+    end
+
+    %% Connect the flows
+    E -.->|daily trigger| G
+    P -.->|next day| Q
+
+    %% Styling
+    style A fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style G fill:#6c757d,stroke:#adb5bd,color:#fff
+    style L fill:#e76f51,stroke:#f4a261,color:#fff
+    style M fill:#e76f51,stroke:#f4a261,color:#fff
+    style W fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style X fill:#e9c46a,stroke:#f4a261,color:#264653
+    style Y fill:#e76f51,stroke:#f4a261,color:#fff

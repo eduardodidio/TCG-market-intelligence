@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { fetchCardDetail } from "../api/cards";
 import { formatBRL, formatDate } from "../utils/format";
+import { scryfallImageUrl } from "../utils/scryfall";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PriceChart } from "../components/PriceChart";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
@@ -65,7 +66,7 @@ export function CardDetail() {
           <div data-testid="card-not-found" className="text-center py-12">
             <h2 className="text-2xl font-bold text-white mb-4">Card not found</h2>
             <p className="text-slate-400 mb-6">
-              The card you are looking for does not exist or has been removed.
+              Card not found. It may not have been synced yet.
             </p>
             <Link
               to="/cards"
@@ -116,6 +117,20 @@ export function CardDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left panel: Card info */}
         <div data-testid="card-info-panel" className="bg-slate-800 rounded-xl p-6">
+          {/* Scryfall card image */}
+          {card.set_code && card.collector_number && (
+            <div className="mb-6 flex justify-center">
+              <img
+                src={scryfallImageUrl(card.set_code, card.collector_number, "normal")}
+                alt={card.name_en}
+                data-testid="card-image"
+                className="rounded-xl shadow-lg max-w-[250px] w-full"
+                loading="eager"
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
+              />
+            </div>
+          )}
+
           {/* Card name */}
           <h1 className="text-2xl font-bold text-white mb-1">{card.name_en}</h1>
           {card.name_pt && card.name_pt !== card.name_en && (

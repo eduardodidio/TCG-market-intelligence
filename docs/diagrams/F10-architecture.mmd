@@ -1,0 +1,112 @@
+graph TB
+    subgraph User Input
+        CSV[Collection CSV Export<br>set_code, collector_number,<br>name_en, quantity, quality]
+    end
+
+    subgraph Collection Import
+        Importer[collection/importer.py<br>CSV parser + DB insert]
+    end
+
+    subgraph Match Report - Dry Run
+        MatchReport[collectors/match_report.py<br>read-only coverage check]
+    end
+
+    subgraph Sync Pipeline
+        SyncOrch[collectors/sync_collection.py<br>async orchestrator]
+        SearchAdapter[providers/myp/provider.py<br>search_card method]
+        Matcher[collection/matcher.py<br>SKU exact > name+set > name only]
+        CardFetch[providers/myp/provider.py<br>get_card_details]
+        HistoryFetch[providers/myp/provider.py<br>get_price_history]
+    end
+
+    subgraph External Services
+        MYPSearch[MYP Search API<br>/produto/search?marca=magic]
+        MYPCard[MYP Card Page<br>JSON-LD product data]
+        MYPHistory[MYP History Page<br>precoChartConfig JS var]
+        Scryfall[Scryfall Image API<br>redirect to CDN]
+    end
+
+    subgraph DB Maintenance
+        Backup[database/backup.py<br>sqlite3.backup]
+        Cleanup[database/cleanup.py<br>remove non-collection data]
+    end
+
+    subgraph SQLite Database
+        UC[(user_collection<br>user_id, set_code,<br>collector_number, card_id)]
+        Cards[(cards<br>game, name_en, name_pt,<br>set_code, collector_number)]
+        SC[(source_cards<br>source, external_id,<br>sku, url, card_id)]
+        PO[(price_observations<br>source, external_id,<br>observed_at, prices)]
+        CE[(collection_errors<br>source, error_type,<br>error_message)]
+    end
+
+    subgraph API Layer
+        CollRouter[POST /api/v1/collection/sync<br>GET /api/v1/collection<br>GET /api/v1/collection/summary]
+    end
+
+    subgraph Frontend
+        Dashboard[Dashboard<br>collection KPIs + movers]
+        MyCollection[My Collection Page<br>card grid with images]
+        CardDetail[Card Detail<br>Scryfall HD image + chart]
+    end
+
+    %% Import flow
+    CSV -->|parse CSV| Importer
+    Importer -->|INSERT rows| UC
+
+    %% Match report flow
+    UC -->|read entries| MatchReport
+    MatchReport -->|search each card| MYPSearch
+    MatchReport -->|print coverage report| User_Output[CLI stdout]
+
+    %% Sync pipeline flow
+    UC -->|read unlinked entries| SyncOrch
+    SyncOrch -->|for each entry| SearchAdapter
+    SearchAdapter -->|HTTP search| MYPSearch
+    MYPSearch -->|search results| Matcher
+    Matcher -->|best match| SyncOrch
+    SyncOrch -->|matched card| CardFetch
+    CardFetch -->|HTTP scrape| MYPCard
+    SyncOrch -->|card details| HistoryFetch
+    HistoryFetch -->|HTTP scrape| MYPHistory
+    SyncOrch -->|upsert card| Cards
+    SyncOrch -->|upsert source_card| SC
+    SyncOrch -->|INSERT observations| PO
+    SyncOrch -->|UPDATE card_id link| UC
+
+    %% DB relationships
+    UC -.->|card_id FK| Cards
+    SC -.->|card_id FK| Cards
+    PO -.->|external_id ref| SC
+
+    %% DB maintenance
+    Backup -->|sqlite3.backup| SQLiteFile[backup.db]
+    Cleanup -->|DELETE non-collection| Cards
+    Cleanup -->|DELETE non-collection| SC
+    Cleanup -->|DELETE non-collection| PO
+
+    %% API layer
+    CollRouter -->|triggers| SyncOrch
+    CollRouter -->|queries| UC
+    CollRouter -->|queries| PO
+
+    %% Frontend
+    Dashboard -->|GET /collection/summary| CollRouter
+    MyCollection -->|GET /collection| CollRouter
+    CardDetail -->|GET /cards/id/history| CollRouter
+    CardDetail -->|browser fetch| Scryfall
+
+    %% Styling
+    style CSV fill:#6c757d,stroke:#adb5bd,color:#fff
+    style Importer fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style SyncOrch fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style Matcher fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style MatchReport fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style MYPSearch fill:#e76f51,stroke:#f4a261,color:#fff
+    style MYPCard fill:#e76f51,stroke:#f4a261,color:#fff
+    style MYPHistory fill:#e76f51,stroke:#f4a261,color:#fff
+    style Scryfall fill:#e76f51,stroke:#f4a261,color:#fff
+    style Backup fill:#e9c46a,stroke:#f4a261,color:#264653
+    style Cleanup fill:#e9c46a,stroke:#f4a261,color:#264653
+    style Dashboard fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style MyCollection fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style CardDetail fill:#264653,stroke:#2a9d8f,color:#e9c46a

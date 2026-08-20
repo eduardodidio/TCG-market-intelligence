@@ -2,6 +2,8 @@ import type {
   ApiResponse,
   CardDetail,
   CardSummary,
+  CollectionHealth,
+  CollectionSummary,
   MarketStats,
   MoverEntry,
   MoversResponse,
@@ -116,6 +118,47 @@ export function mockSetSummaries(): ApiResponse<SetSummary[]> {
     { set_code: "MH2", game: "magic", card_count: 303 },
     { set_code: "2X2", game: "magic", card_count: 332 },
   ]);
+}
+
+export function mockCollectionHealth(): ApiResponse<CollectionHealth> {
+  return envelope<CollectionHealth>({
+    last_collection_at: "2026-08-19T10:30:00Z",
+    next_expected_at: "2026-08-20T10:30:00Z",
+    total_cards: 150,
+    stale_cards_count: 5,
+    recent_errors_count: 0,
+    status: "healthy",
+  });
+}
+
+export function mockCollectionSummary(
+  overrides?: Partial<CollectionSummary>,
+): ApiResponse<CollectionSummary> {
+  return envelope<CollectionSummary>({
+    total_unique: 120,
+    total_cards: 340,
+    total_value: 2850.0,
+    linked_count: 96,
+    sets_count: 5,
+    ...overrides,
+  });
+}
+
+export function mockEmptyMarketStats(): ApiResponse<MarketStats> {
+  return envelope<MarketStats>({
+    total_cards: 0,
+    total_observations: 0,
+    avg_price: null,
+    date_range_start: null,
+    date_range_end: null,
+  });
+}
+
+export function mockEmptyMoversResponse(): ApiResponse<MoversResponse> {
+  return envelope<MoversResponse>({
+    gainers: [],
+    losers: [],
+  });
 }
 
 export function mockApiError(

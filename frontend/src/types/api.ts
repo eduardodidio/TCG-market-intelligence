@@ -83,3 +83,42 @@ export interface MarketStats {
   date_range_start: string | null;
   date_range_end: string | null;
 }
+
+// User collection types
+
+export interface CollectionCard {
+  id: number;
+  card_id: number | null;
+  set_code: string;
+  collector_number: string;
+  name_en: string | null;
+  name_pt: string | null;
+  set_name_en: string | null;
+  quantity: number;
+  quality: string | null;
+  language: string | null;
+  rarity: string | null;
+  color: string | null;
+  extras: string | null;
+  latest_price: number | null;
+  image_url: string | null;
+}
+
+export interface CollectionSummary {
+  total_unique: number;
+  total_cards: number;
+  total_value: number | null;
+  linked_count: number;
+  sets_count: number;
+}
+
+// Collection health types
+
+export interface CollectionHealth {
+  last_collection_at: string | null;
+  next_expected_at: string | null;
+  total_cards: number;
+  stale_cards_count: number;
+  recent_errors_count: number;
+  status: "healthy" | "stale" | "error";
+}

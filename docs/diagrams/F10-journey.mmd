@@ -1,0 +1,62 @@
+graph TD
+    subgraph Phase 1 -- Import Collection
+        A[User exports collection CSV<br>from external tool] --> B[Run: CSV import<br>POST /api/v1/collection/import]
+        B --> C{Import successful?}
+        C -->|Yes| D[548 entries in user_collection<br>card_id is NULL for all]
+        C -->|No| E[Fix CSV format<br>retry import]
+        E --> B
+    end
+
+    subgraph Phase 2 -- Dry-Run Match Report
+        D --> F[Run: python -m src.cli.main match-report]
+        F --> G[Search MYP for each card<br>rate-limited, ~20 min]
+        G --> H[Print coverage report<br>matched / ambiguous / unmatched]
+        H --> I{Coverage acceptable?}
+        I -->|Yes, proceed| J[User decides to sync]
+        I -->|No, investigate| K[Review unmatched cards<br>check --output report.json]
+        K --> L[Adjust collection CSV<br>or accept gaps]
+        L --> J
+    end
+
+    subgraph Phase 3 -- DB Backup and Cleanup
+        J --> M[Run: python -m src.cli.main db-backup]
+        M --> N[Timestamped backup created<br>backups/tcg_market_YYYYMMDD.db]
+        N --> O[Run: python -m src.cli.main db-cleanup --dry-run]
+        O --> P[Review deletion counts<br>cards / source_cards / observations]
+        P --> Q{Proceed with cleanup?}
+        Q -->|Yes| R[Run: python -m src.cli.main db-cleanup]
+        R --> S[Non-collection data removed<br>automatic backup created]
+        Q -->|No| T[Keep existing data<br>skip to sync]
+    end
+
+    subgraph Phase 4 -- Collection Sync
+        S --> U[Run: python -m src.cli.main sync-collection]
+        T --> U
+        U --> V[For each unlinked entry:<br>1. Search MYP<br>2. Match by SKU or name<br>3. Fetch card details<br>4. Fetch price history<br>5. Upsert card + source_card<br>6. Insert observations<br>7. Link collection entry]
+        V --> W[Sync summary printed<br>matched / observations / errors]
+        W --> X{Errors to retry?}
+        X -->|Yes| Y[Run sync-collection --force<br>to retry failed entries]
+        Y --> W
+        X -->|No| Z[Sync complete]
+    end
+
+    subgraph Phase 5 -- Dashboard Experience
+        Z --> AA[Open Dashboard in browser<br>http://localhost:5173]
+        AA --> AB[Collection KPIs load<br>unique cards, copies, value, coverage]
+        AB --> AC[Browse My Collection page<br>card grid with Scryfall images]
+        AC --> AD[Click a card]
+        AD --> AE[Card Detail page<br>HD image + price history chart]
+        AE --> AF[Select period: 30d / 90d / 1y]
+        AF --> AG[Chart updates with<br>historical price data]
+    end
+
+    %% Styling
+    style A fill:#6c757d,stroke:#adb5bd,color:#fff
+    style D fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style H fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style N fill:#e9c46a,stroke:#f4a261,color:#264653
+    style S fill:#e9c46a,stroke:#f4a261,color:#264653
+    style Z fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style AA fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style AE fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style AG fill:#2d6a4f,stroke:#40916c,color:#d8f3dc

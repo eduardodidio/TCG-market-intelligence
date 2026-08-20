@@ -35,3 +35,14 @@ Each entry is a lesson that generalizes beyond a single bug.)
 
 - **When a test plan exists with numbered cases, implement all of them.** F08's test plan had 18 unit test cases (U-01 through U-18). The developer shipped 15, missing U-04, U-11, and U-16. QA had to fill those gaps. Treat test plan IDs as a checklist -- mark each one off as you implement it.
 - **Always test default parameter values with URL assertions.** Changing a UI default (e.g., movers period from 7d to 30d) must have a corresponding test that asserts the fetch URL contains the new default. Component rendering tests alone do not catch regressions to the default value.
+
+## F09 -- Scheduled Collection (2026-08-19)
+
+- **Exceed the test plan with edge-case tests for status determination logic.** The boundary test (50% stale = healthy, not stale) and error-priority-over-stale test were not in the original test plan but both test non-obvious business logic. When implementing status/state-machine logic, always test the boundaries and priority ordering -- these are the most common sources of future bugs.
+- **Use `data-testid` attributes for all testable frontend components.** The `FreshnessIndicator` used `data-testid="freshness-indicator"` and `data-testid="freshness-dot"` which made Dashboard integration tests straightforward. This pattern avoids brittle text-based selectors and should be standard for all new components.
+- **Keep optional UI elements independent of critical data flows.** The freshness indicator is fetched via a separate `useApi` call that does not contribute to the `loading` or `error` state of the dashboard. This prevents a health endpoint failure from blocking the entire dashboard. Apply this pattern to any "nice-to-have" UI element.
+
+## F10 -- Collection-Centric Pivot (2026-08-19)
+- **Extract shared helpers immediately when two modules copy the same function.** The `_row_to_entry` function was identically defined in both `match_report.py` and `sync_collection.py`. This duplication was flagged by the Tech Lead as IMPORTANT risk. When a helper is needed in a second module, extract it to a shared location on the first copy -- do not let the duplication happen.
+- **API routers should never open raw database sessions.** The `collection_summary` endpoint imported `sqlalchemy` and opened a `Session(repo.engine)` directly, bypassing the Repository layer. This violates the layering pattern and makes the endpoint harder to test. All database queries should live in Repository methods.
+- **Remove dead code before shipping.** `BASE_URL = "https://mypcards.com"` in `sync_collection.py` was defined but never referenced. Dead constants mislead future developers about where URL construction happens. If a variable is not used by any code path, delete it.

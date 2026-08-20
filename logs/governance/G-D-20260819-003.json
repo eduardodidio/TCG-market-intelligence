@@ -1,0 +1,58 @@
+{
+  "id": "G-D-20260819-003",
+  "decision_id": "D-20260819-003",
+  "reviewed_at": "2026-08-19T15:20:00-03:00",
+  "verdict": "agree",
+  "rationale": "The decision to proceed with plan-feature for F10 is strategically sound. The POC data is definitive: a 0.5% match rate between the user's actual collection and the generic backfill data proves the current data collection strategy is misaligned with user needs. The pivot from generic market scanner to personal collection tracker is not scope creep — it is a course correction backed by empirical evidence. The decision correctly identifies that existing infrastructure (provider, concurrency, batch upsert, importer, collection models) is preserved and reused, which minimizes implementation risk. The DB cleanup is the riskiest element but is well-mitigated by the backup-before-delete approach and the fact that re-backfill capability is fully preserved.",
+  "bias_check": {
+    "sunk_cost": {
+      "detected": false,
+      "note": "The decision explicitly acknowledges that F01-F08 built infrastructure that is being preserved (provider, parsers, analytics, API, frontend). Only the data rows are being cleaned. There is no attachment to the old data — the 0.5% match rate makes the case objectively. The existing code investment is not wasted; it is reused under a new data acquisition strategy."
+    },
+    "anchoring": {
+      "detected": false,
+      "note": "The decision evaluates the pivot on its own merits (POC match rate, architectural fit) rather than anchoring to the prior F09 plan. F09 is correctly identified as needing re-scope rather than being forced through unchanged."
+    },
+    "scope_creep": {
+      "detected": "mild",
+      "note": "F10 bundles three concerns: (1) DB cleanup, (2) MYP search-based sync for collection cards, (3) Scryfall HD image upgrade. Concerns 1 and 3 are trivial (file copy + URL parameter change). Concern 2 is the core work. The bundling is acceptable because all three serve the same strategic goal (collection-centric experience), but the Architect should ensure proper task decomposition to keep each concern isolated and independently testable."
+    },
+    "optimism": {
+      "detected": "mild",
+      "note": "The decision assumes MYP search API will successfully match most of the 548 cards. The risk section acknowledges name mismatch issues, but the mitigation ('log match confidence and allow manual review') may underestimate the effort if match rates are low (e.g., <50%). The Architect should include a task for building a match report so the user can assess coverage before relying on the sync pipeline."
+    },
+    "recency": {
+      "detected": false,
+      "note": "The decision is informed by the full project history (F01-F08) and correctly contextualizes the POC findings against that history."
+    }
+  },
+  "blind_spots": [
+    "The decision does not address how the existing Dashboard, Cards list, CardDetail, and MarketMovers pages will behave after the DB cleanup. If cards/source_cards/price_observations are all deleted, these pages will show empty states or errors until the collection sync populates new data. The Architect should plan for graceful degradation or a phased transition.",
+    "The MYP search API endpoint (/produto/search?marca=magic&term={query}) has not been stress-tested at 548-card scale. If MYP applies stricter rate limiting on search than on product pages, the existing retry logic may not be sufficient. The Architect should include a small-batch validation step before the full sync.",
+    "The importer currently uses a hardcoded FAKE_USER_ID = 'eduardo'. F10 should address whether this remains acceptable or if user identity needs to be parameterized. Not blocking, but worth noting for the Architect.",
+    "F09's decision record (D-20260819-002) and PRD are not formally superseded. If another agent reads them, they may attempt to implement F09 as originally scoped. A formal supersession note should be added."
+  ],
+  "risks": [
+    {
+      "risk": "Empty dashboard experience between DB cleanup and first successful collection sync",
+      "severity": "medium",
+      "mitigation": "Architect should sequence tasks so that DB cleanup and initial collection sync happen in the same wave or back-to-back, minimizing the window of empty data. Alternatively, keep old data until new sync is verified."
+    },
+    {
+      "risk": "MYP search match rate may be too low to provide meaningful price coverage",
+      "severity": "medium",
+      "mitigation": "Include a dry-run/report task that attempts matching all 548 cards and produces a coverage report before committing to the cleanup. If coverage is below 60%, the user should be consulted before proceeding with the cleanup."
+    },
+    {
+      "risk": "Stale F09 artifacts could confuse future planning",
+      "severity": "low",
+      "mitigation": "Add a note to F09's PRD header marking it as superseded by F10's collection-centric model."
+    }
+  ],
+  "conditions": [
+    "The Architect MUST include a dry-run matching task that reports how many of the 548 collection cards can be matched to MYP products before the DB cleanup occurs. This protects against the scenario where low match rates make the cleanup premature.",
+    "The DB cleanup task MUST create a backup of the SQLite file before deleting any rows. This is non-negotiable — the guardrails in CLAUDE.md require confirmation before destructive operations.",
+    "Existing frontend pages (Dashboard, Cards, CardDetail, MarketMovers) MUST either gracefully handle empty data post-cleanup or be updated as part of F10's scope."
+  ],
+  "confidence": 0.88
+}

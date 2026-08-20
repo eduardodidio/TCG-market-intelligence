@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { CardDetail } from "../../src/pages/CardDetail";
+import { fireEvent } from "@testing-library/react";
 import {
   mockCardDetail,
   mockPriceHistory,
   mockApiError,
 } from "../fixtures/api-responses";
+import type { CardDetail as CardDetailType } from "../../src/types/api";
 
 // Mock Recharts to avoid jsdom SVG rendering issues
 vi.mock("recharts", async (importOriginal) => {
@@ -194,6 +196,65 @@ describe("CardDetail page", () => {
     // Back link to cards
     const backLink = screen.getByText("Back to Cards");
     expect(backLink.getAttribute("href")).toBe("/cards");
+  });
+
+  it("renders Scryfall image when set_code and collector_number exist", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("card-image")).toBeDefined();
+    });
+
+    const img = screen.getByTestId("card-image") as HTMLImageElement;
+    expect(img.src).toContain("api.scryfall.com/cards/dmr/123");
+    expect(img.src).toContain("version=normal");
+    expect(img.alt).toBe("Lightning Bolt");
+    expect(img.getAttribute("loading")).toBe("eager");
+    expect(img.className).toContain("max-w-[250px]");
+  });
+
+  it("does not render image when set_code is null", async () => {
+    const detailNoSet = mockCardDetail();
+    (detailNoSet.data as CardDetailType).set_code = null;
+    (detailNoSet.data as CardDetailType).collector_number = null;
+
+    globalThis.fetch = createMockFetch({ detail: detailNoSet }) as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("card-info-panel")).toBeDefined();
+    });
+
+    expect(screen.queryByTestId("card-image")).toBeNull();
+  });
+
+  it("hides image on load error via onError handler", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("card-image")).toBeDefined();
+    });
+
+    const img = screen.getByTestId("card-image") as HTMLImageElement;
+    fireEvent.error(img);
+
+    expect(img.style.display).toBe("none");
+  });
+
+  it("shows updated 404 message with sync hint", async () => {
+    const errorResponse = mockApiError("NOT_FOUND", "Card not found");
+    globalThis.fetch = createMockFetch({
+      detail: errorResponse as unknown as ReturnType<typeof mockCardDetail>,
+    }) as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("card-not-found")).toBeDefined();
+    });
+
+    expect(screen.getByText("Card not found. It may not have been synced yet.")).toBeDefined();
   });
 
   it("shows error banner on non-404 error", async () => {

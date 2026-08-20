@@ -1,0 +1,50 @@
+{
+  "id": "D-20260819-003",
+  "feature": "F10",
+  "type": "feature_start",
+  "requested_at": "2026-08-19T15:00:00-03:00",
+  "decided_at": "2026-08-19T15:15:00-03:00",
+  "status": "executed",
+  "action": "plan-feature",
+  "rationale": "F10 is the right next step for five reasons. First, the collection-centric pivot is a natural evolution validated by the POC: only 3 of 548 collection cards matched existing DB data, proving that the generic set-based backfill strategy (F01/F04/F08) collected data the user does not actually need. Pivoting to collection-driven sync aligns data collection with actual user value. Second, the existing infrastructure is well-suited: the MYP provider already has curl_cffi with rate limiting, retry, and Cloudflare bypass (F01); the search API at /produto/search?marca=magic&term={query} provides the lookup mechanism to find MYP product IDs for collection cards; batch upsert and asyncio concurrency are proven (F04); and the collection importer, UserCollectionRow model, and collection API endpoints already exist from the POC. Third, cleaning the database is a low-risk operation because the old data can be re-backfilled at any time using the existing backfill CLI/API — the infrastructure is preserved, only the data is removed. Fourth, upgrading Scryfall images to HD (art_crop or large instead of normal) is a trivial URL parameter change in the existing _scryfall_image_url helper. Fifth, F09 (scheduled collection) was planned but not shipped, and its value proposition changes fundamentally under the collection-centric model — instead of scheduling generic set updates, the scheduler would update only collection cards, making F09 a natural follow-up to F10 rather than a prerequisite. The plan-feature action is correct because this is a multi-concern feature (DB cleanup, new sync pipeline, image upgrade, frontend adjustments) that requires Architect decomposition into properly sequenced tasks.",
+  "risks": [
+    "MYP search API may not return results for all 548 collection cards — name mismatches between CSV (English names) and MYP (Portuguese-centric catalog) could cause low match rates, leaving many collection cards without price data",
+    "DB cleanup removes all historical price observations — if the user later wants to analyze cards outside their collection, that data is permanently gone unless re-backfilled",
+    "Search-based matching is inherently fuzzy — cards with common names, reprints across sets, or special editions (foil, promo, alternate art) may match the wrong MYP product, leading to incorrect price tracking",
+    "Rate limiting against MYP search API — 548 cards x 1 search each at 1s delay = ~9 minutes minimum, and failed searches may need retry, extending the initial sync window",
+    "F09 scope invalidation — the planned F09 (cron + health endpoint) was scoped for generic set-based collection; F10 changes the collection model, so F09's PRD and decision record (D-20260819-002) become partially stale"
+  ],
+  "mitigations": [
+    "Implement a two-phase matching strategy: (1) exact match by set_code + collector_number in existing source_cards, then (2) MYP search API fallback for unmatched cards. Log match confidence and allow manual review of ambiguous matches",
+    "Before cleanup, export a DB backup (SQLite file copy) and document the re-backfill procedure. The backfill infrastructure (CLI + API + provider) is preserved — only data rows are deleted, not schema or code",
+    "For search-based matching, use set_code + collector_number as disambiguation keys when multiple MYP results are returned. Store the match confidence/method on the source_card so the user can audit questionable links",
+    "Use the existing asyncio.Semaphore concurrency (default 3) for parallel search requests, with the proven rate-limiting and retry-on-429 logic from MypCardsProvider._fetch(). Estimate and display progress to the user",
+    "Mark F09's PRD and decision record as superseded-by-F10 in a future update. The health endpoint and cron concepts from F09 remain valid but should be re-scoped after F10 ships to target collection-only sync"
+  ],
+  "actions": [
+    {
+      "type": "plan-feature",
+      "target": "F10"
+    }
+  ],
+  "context": {
+    "poc_validated": true,
+    "poc_findings": {
+      "collection_cards": 548,
+      "unique_sets": 134,
+      "matched_to_existing_db": 3,
+      "match_rate": "0.5%"
+    },
+    "existing_infrastructure": [
+      "MypCardsProvider with curl_cffi, rate limiting, retry, concurrency",
+      "UserCollectionRow model + repository methods (list, count, summary, sets)",
+      "Collection API router (list, summary, sets, import)",
+      "MyCollection.tsx frontend page with image tiles, search, filters, pagination",
+      "Collection CSV importer with canonical card linking",
+      "Batch upsert with ON CONFLICT DO NOTHING",
+      "Scryfall image URL helper (currently using 'normal' quality)"
+    ],
+    "f09_status": "planned_not_shipped",
+    "f09_impact": "scope_partially_invalidated"
+  }
+}
