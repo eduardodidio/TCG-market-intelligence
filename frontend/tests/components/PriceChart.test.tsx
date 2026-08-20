@@ -163,4 +163,70 @@ describe("PriceChart", () => {
       expect(screen.getByTestId("error-banner")).toBeDefined();
     });
   });
+
+  describe("sparse data handling", () => {
+    it("shows sparse-data-notice with 1 data point", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(1)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sparse-data-notice")).toBeDefined();
+      });
+
+      expect(screen.getByTestId("sparse-data-notice").textContent).toContain(
+        "1 data point so far",
+      );
+      // Chart should still render
+      expect(screen.getByTestId("chart-container")).toBeDefined();
+    });
+
+    it("shows sparse-data-notice with 5 data points", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(5)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sparse-data-notice")).toBeDefined();
+      });
+
+      expect(screen.getByTestId("sparse-data-notice").textContent).toContain(
+        "5 data points so far",
+      );
+      expect(screen.getByTestId("chart-container")).toBeDefined();
+    });
+
+    it("does not show sparse-data-notice with 7 data points", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(7)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("chart-container")).toBeDefined();
+      });
+
+      expect(screen.queryByTestId("sparse-data-notice")).toBeNull();
+    });
+
+    it("does not show sparse-data-notice with 30 data points", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(30)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("chart-container")).toBeDefined();
+      });
+
+      expect(screen.queryByTestId("sparse-data-notice")).toBeNull();
+    });
+
+    it("shows empty state with 0 data points, not sparse notice", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(0)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("empty-history")).toBeDefined();
+      });
+
+      expect(screen.getByText("No price history available")).toBeDefined();
+      expect(screen.queryByTestId("sparse-data-notice")).toBeNull();
+      expect(screen.queryByTestId("chart-container")).toBeNull();
+    });
+  });
 });

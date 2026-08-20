@@ -203,17 +203,22 @@ class Repository:
             )
 
     def get_price_series(
-        self, source: str, external_id: str, days: int | None = None
+        self, source: str | list[str], external_id: str, days: int | None = None
     ) -> list[HistoricalPrice]:
         """Return price observations ordered by date ASC.
 
+        ``source`` may be a single string or a list of strings.
         If days is set, filter to last N days from today.
         """
         with Session(self.engine) as session:
+            if isinstance(source, list):
+                source_filter = PriceObservationRow.source.in_(source)
+            else:
+                source_filter = PriceObservationRow.source == source
             stmt = (
                 select(PriceObservationRow)
                 .where(
-                    PriceObservationRow.source == source,
+                    source_filter,
                     PriceObservationRow.external_id == external_id,
                 )
                 .order_by(PriceObservationRow.observed_at.asc())
@@ -331,7 +336,7 @@ class Repository:
                     obs = session.execute(
                         select(PriceObservationRow)
                         .where(
-                            PriceObservationRow.source == sc.source,
+                            PriceObservationRow.source.in_([sc.source, "jsonld_snapshot"]),
                             PriceObservationRow.external_id == sc.external_id,
                         )
                         .order_by(PriceObservationRow.observed_at.desc())
@@ -391,7 +396,7 @@ class Repository:
                     early = session.execute(
                         select(PriceObservationRow)
                         .where(
-                            PriceObservationRow.source == sc.source,
+                            PriceObservationRow.source.in_([sc.source, "jsonld_snapshot"]),
                             PriceObservationRow.external_id == sc.external_id,
                             PriceObservationRow.observed_at >= cutoff,
                             PriceObservationRow.median_price.isnot(None),
@@ -403,7 +408,7 @@ class Repository:
                     late = session.execute(
                         select(PriceObservationRow)
                         .where(
-                            PriceObservationRow.source == sc.source,
+                            PriceObservationRow.source.in_([sc.source, "jsonld_snapshot"]),
                             PriceObservationRow.external_id == sc.external_id,
                             PriceObservationRow.median_price.isnot(None),
                         )
@@ -688,3 +693,62 @@ class Repository:
                 if obs and obs.median_price:
                     total += obs.median_price * r.quantity
             return total if total > 0 else None
+
+    # ── Snapshot helpers ─────────────────────────────────────────
+
+    def get_linked_collection_with_source(self, source: str = "myp") -> list[dict]:
+        """Return linked collection entries with source_card info.
+
+        Only returns entries where card_id IS NOT NULL and a matching
+        source_card exists for the given source.
+
+        Returns list of dicts with keys: entry_id, card_id,
+        external_id, slug, url.
+        """
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    UserCollectionRow.id.label("entry_id"),
+                    UserCollectionRow.card_id,
+                    SourceCardRow.external_id,
+                    SourceCardRow.url,
+                )
+                .join(
+                    SourceCardRow,
+                    SourceCardRow.card_id == UserCollectionRow.card_id,
+                )
+                .where(
+                    UserCollectionRow.card_id.isnot(None),
+                    SourceCardRow.source == source,
+                )
+                .order_by(UserCollectionRow.id.asc())
+            )
+            rows = session.execute(stmt).all()
+            results = []
+            for r in rows:
+                url = r.url or ""
+                slug = url.rsplit("/", 1)[-1] if "/" in url else ""
+                results.append(
+                    {
+                        "entry_id": r.entry_id,
+                        "card_id": r.card_id,
+                        "external_id": r.external_id,
+                        "slug": slug,
+                        "url": url,
+                    }
+                )
+            return results
+
+    def has_snapshot_for_date(self, external_id: str, obs_date: date) -> bool:
+        """Check if a jsonld_snapshot observation exists for this card+date."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(PriceObservationRow.id)
+                .where(
+                    PriceObservationRow.source == "jsonld_snapshot",
+                    PriceObservationRow.external_id == external_id,
+                    PriceObservationRow.observed_at == obs_date,
+                )
+                .limit(1)
+            )
+            return session.execute(stmt).scalar_one_or_none() is not None

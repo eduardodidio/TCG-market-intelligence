@@ -114,59 +114,70 @@ export function PriceChart({ cardId }: PriceChartProps) {
         </p>
       )}
 
-      {!loading && !error && observations && observations.length > 0 && (
-        <div data-testid="chart-container" className="w-full h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={observations}>
-              <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
-              <XAxis
-                dataKey="observed_at"
-                tickFormatter={formatChartDate}
-                stroke="#94a3b8"
-                tick={{ fill: "#94a3b8", fontSize: 12 }}
-              />
-              <YAxis
-                stroke="#94a3b8"
-                tick={{ fill: "#94a3b8", fontSize: 12 }}
-                tickFormatter={(v: number) => formatBRL(v)}
-              />
-              <Tooltip content={<ChartTooltip />} />
-              <Legend
-                wrapperStyle={{ color: "#e2e8f0" }}
-              />
-              <Line
-                type="monotone"
-                dataKey="median_price"
-                name="Median"
-                stroke="#06b6d4"
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="tcg_price"
-                name="TCG"
-                stroke="#94a3b8"
-                strokeWidth={1.5}
-                strokeDasharray="5 5"
-                dot={false}
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="last_sold_price"
-                name="Last Sold"
-                stroke="#4ade80"
-                strokeWidth={1.5}
-                strokeDasharray="2 2"
-                dot={false}
-                connectNulls
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+      {!loading && !error && observations && observations.length > 0 && (() => {
+        const isSparse = observations.length < 7;
+        return (
+          <>
+            {isSparse && (
+              <p data-testid="sparse-data-notice" className="text-sm text-amber-400/80 mb-3">
+                Building price history -- {observations.length} data point{observations.length !== 1 ? 's' : ''} so far.
+                Daily snapshots will fill this chart over time.
+              </p>
+            )}
+            <div data-testid="chart-container" className="w-full h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={observations}>
+                  <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="observed_at"
+                    tickFormatter={formatChartDate}
+                    stroke="#94a3b8"
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    tickFormatter={(v: number) => formatBRL(v)}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend
+                    wrapperStyle={{ color: "#e2e8f0" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="median_price"
+                    name="Median"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    dot={isSparse ? { r: 3, fill: "#06b6d4" } : false}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="tcg_price"
+                    name="TCG"
+                    stroke="#94a3b8"
+                    strokeWidth={1.5}
+                    strokeDasharray="5 5"
+                    dot={isSparse ? { r: 3, fill: "#94a3b8" } : false}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="last_sold_price"
+                    name="Last Sold"
+                    stroke="#4ade80"
+                    strokeWidth={1.5}
+                    strokeDasharray="2 2"
+                    dot={isSparse ? { r: 3, fill: "#4ade80" } : false}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

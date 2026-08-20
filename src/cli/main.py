@@ -262,6 +262,28 @@ def db_cleanup(db, dry_run, no_backup):
     click.echo("")
 
 
+@cli.command("snapshot-prices")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--limit", default=None, type=int, help="Max cards to process")
+@click.option("--dry-run", is_flag=True, help="Don't write to database")
+@click.option("--delay", default=1.0, type=float, help="Seconds between requests")
+@click.option("--concurrency", default=3, type=int, help="Max concurrent requests")
+def snapshot_prices(db, limit, dry_run, delay, concurrency):
+    """Daily price snapshot from JSON-LD on product pages."""
+    from src.collectors.snapshot_prices import run_snapshot_prices
+
+    summary = asyncio.run(
+        run_snapshot_prices(
+            db_url=db,
+            limit=limit,
+            dry_run=dry_run,
+            delay=delay,
+            concurrency=concurrency,
+        )
+    )
+    _print_snapshot_summary(summary, dry_run)
+
+
 @cli.command("sync-collection")
 @click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
 @click.option("--limit", default=None, type=int, help="Max cards to process")
@@ -318,6 +340,32 @@ def _print_sync_summary(summary, dry_run):
             )
         if len(summary.errors) > 20:
             click.echo(f"    ... and {len(summary.errors) - 20} more")
+
+
+def _print_snapshot_summary(summary, dry_run):
+    """Format and print snapshot prices summary to stdout."""
+    click.echo("")
+    click.echo("=" * 60)
+    if dry_run:
+        click.echo("  DRY RUN -- no data was written")
+    click.echo("  SNAPSHOT PRICES SUMMARY")
+    click.echo(f"  Total entries:           {summary.total_entries}")
+    click.echo(f"  Fetched:                 {summary.fetched}")
+    click.echo(f"  Stored:                  {summary.stored}")
+    click.echo(f"  Skipped (existing):      {summary.skipped_existing}")
+    click.echo(f"  Skipped (zero price):    {summary.skipped_zero_price}")
+    click.echo(f"  Errors:                  {summary.errors}")
+    if summary.finished_at:
+        elapsed = (summary.finished_at - summary.started_at).total_seconds()
+        click.echo(f"  Elapsed:                 {elapsed:.1f}s")
+    click.echo("=" * 60)
+
+    if summary.error_details:
+        click.echo(f"\n  Error details ({len(summary.error_details)}):")
+        for err in summary.error_details[:20]:
+            click.echo(f"    - {err.external_id}: {err.error_type} -- {err.error_message[:80]}")
+        if len(summary.error_details) > 20:
+            click.echo(f"    ... and {len(summary.error_details) - 20} more")
 
 
 @cli.command()

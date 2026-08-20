@@ -60,6 +60,7 @@ python -m src.cli.main retry-failed
 | `backfill` | Full collection: discover cards + fetch all history |
 | `update` | Incremental: fetch recent data for known cards only |
 | `retry-failed` | Reprocess previously failed cards |
+| `snapshot-prices` | Daily price snapshot from JSON-LD on product pages |
 | `analyze list` | List all cards with observation counts |
 | `analyze card <id>` | Compute analytics for a single card by external ID |
 
@@ -166,6 +167,7 @@ Auto-generated interactive docs are available at `/docs` (Swagger UI) and
 | POST | `/api/v1/collect/backfill` | Trigger backfill job (async, requires API key) |
 | POST | `/api/v1/collect/update` | Trigger update job (async, requires API key) |
 | GET | `/api/v1/collect/health` | Collection pipeline health (last run, stale cards, errors) |
+| POST | `/api/v1/collection/snapshot-prices` | Trigger daily JSON-LD price snapshot (async, requires API key) |
 
 All responses use a standard envelope: `{"data": ..., "meta": {...}, "errors": []}`.
 Every response includes a `X-Request-ID` header and `meta.request_id` for tracing.
@@ -390,6 +392,31 @@ Operationalized the production database after F10 and cleaned up tech debt:
   SQLAlchemy from router to `Repository.get_collection_total_value()`,
   removed dead `BASE_URL` constant
 - **Tests:** 616 backend + 187 frontend, 91.44% coverage
+
+### F12 -- JSON-LD Price Snapshot (2026-08-20)
+
+Daily price collection from public JSON-LD product data, replacing the
+auth-walled price history endpoint that MYP Cards locked down on 2026-08-20:
+
+- **Parser** -- `parse_jsonld_price()` extracts `price`, `currency`, and
+  `availability` from the `@type: Product` / `offers.price` JSON-LD block
+  on MYP product pages (public, no auth required)
+- **Provider** -- `fetch_current_price()` fetches a product page and returns
+  a `JsonLdPrice` dataclass
+- **Snapshot collector** -- `src/collectors/snapshot_prices.py` iterates
+  linked collection entries, checks idempotency (skip if card+date already
+  has a snapshot), and stores observations with `source="jsonld_snapshot"`
+- **CLI** -- `python -m src.cli.main snapshot-prices` with `--limit`,
+  `--dry-run`, `--delay`, `--concurrency` options
+- **API** -- `POST /api/v1/collection/snapshot-prices` endpoint with API key
+  auth, runs as background job
+- **Cron** -- `scripts/cron_update.sh` now calls snapshot-prices after the
+  existing daily update
+- **Frontend** -- PriceChart handles sparse data (fewer than 2 points)
+  gracefully with an empty-state message
+
+Price history builds organically: after 7 daily runs, charts show trends;
+after 30 days, analytics (MA, ATH/ATL, volatility) have sufficient data.
 
 ## Future
 

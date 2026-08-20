@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from src.domain.models import (
     CardIdentity,
     HistoricalPrice,
+    JsonLdPrice,
     MypSearchResult,
     PriceSnapshot,
     SourceCard,
@@ -202,6 +203,42 @@ def parse_price_snapshot(html: str, card_id: str) -> PriceSnapshot | None:
         avg_price=min_price,  # MYP shows avg_price in stat; fallback to min
         tcg_price=tcg_price,
         currency="BRL",
+    )
+
+
+def parse_jsonld_price(html: str) -> JsonLdPrice | None:
+    """Extract current price from JSON-LD offers on a product page.
+
+    Returns None if no Product JSON-LD block is found.
+    Returns JsonLdPrice with price=None if price is zero or missing.
+    """
+    if not html:
+        return None
+
+    product = parse_json_ld_product(html)
+    if not product:
+        return None
+
+    offers = product.get("offers", {})
+    price_raw = offers.get("price")
+    currency = offers.get("priceCurrency", "BRL")
+
+    # Parse availability URL to short form
+    availability_url = offers.get("availability", "")
+    if isinstance(availability_url, str) and "/" in availability_url:
+        availability = availability_url.rsplit("/", 1)[-1]
+    else:
+        availability = str(availability_url) if availability_url else "Unknown"
+
+    # Parse price -- treat zero as None (no meaningful price data)
+    price = _to_decimal(price_raw)
+    if price is not None and price == Decimal("0"):
+        price = None
+
+    return JsonLdPrice(
+        price=price,
+        currency=currency,
+        availability=availability,
     )
 
 

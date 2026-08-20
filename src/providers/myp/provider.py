@@ -12,6 +12,7 @@ from curl_cffi.requests import AsyncSession
 from src.domain.interfaces import CardSourceProvider
 from src.domain.models import (
     HistoricalPrice,
+    JsonLdPrice,
     MypSearchResult,
     PriceSnapshot,
     SourceCard,
@@ -19,6 +20,7 @@ from src.domain.models import (
 from src.parsers.myp import (
     parse_card_links,
     parse_card_page,
+    parse_jsonld_price,
     parse_pagination_max,
     parse_price_history,
     parse_price_snapshot,
@@ -210,6 +212,28 @@ class MypCardsProvider(CardSourceProvider):
     async def get_current_price(self, card: SourceCard) -> PriceSnapshot | None:
         html = await self._fetch(card.url)
         return parse_price_snapshot(html, card.external_id)
+
+    async def fetch_current_price(self, product_id: str, slug: str) -> JsonLdPrice | None:
+        """Fetch product page and extract current price from JSON-LD.
+
+        Args:
+            product_id: MYP product ID (e.g., "179334").
+            slug: URL slug (e.g., "tutor-esclarecido").
+
+        Returns:
+            JsonLdPrice with current price data, or None on fetch failure.
+        """
+        url = f"{BASE_URL}/magic/produto/{product_id}/{slug}"
+        try:
+            html = await self._fetch(url)
+        except (RuntimeError, TimeoutError, OSError):
+            log.warning(
+                "fetch_current_price_failed",
+                product_id=product_id,
+                slug=slug,
+            )
+            return None
+        return parse_jsonld_price(html)
 
     async def get_price_history(self, card: SourceCard, days: int = 1095) -> list[HistoricalPrice]:
         slug = card.url.rsplit("/", 1)[-1]

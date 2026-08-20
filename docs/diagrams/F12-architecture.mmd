@@ -1,0 +1,80 @@
+graph TD
+    subgraph "Trigger Layer"
+        CRON[Cron Job<br>scripts/cron_update.sh<br>daily at 03:00]
+        CLI[CLI Command<br>python -m src.cli.main<br>snapshot-prices]
+        API[API Endpoint<br>POST /api/v1/collection<br>/snapshot-prices]
+    end
+
+    subgraph "Collection Source"
+        UC[(user_collection<br>card_id NOT NULL)]
+        SC[(source_cards<br>external_id + slug)]
+    end
+
+    subgraph "Snapshot Collector"
+        COLLECTOR[snapshot_prices.py<br>run_snapshot_prices<br>asyncio.Semaphore]
+        IDEMP{Already has<br>snapshot today?}
+    end
+
+    subgraph "MYP Cards -- External"
+        PRODUCT[MYP Product Page<br>/magic/produto/id/slug<br>public, no auth]
+        JSONLD[JSON-LD Block<br>@type: Product<br>offers.price]
+    end
+
+    subgraph "Parser"
+        PARSE[parse_jsonld_price<br>price, currency,<br>availability]
+        CHECK{price > 0?}
+    end
+
+    subgraph "Storage"
+        PO[(price_observations<br>source = jsonld_snapshot<br>observed_at = today)]
+    end
+
+    subgraph "Consumer"
+        DASHBOARD[Dashboard<br>PriceChart component<br>accumulating history]
+        ANALYTICS[Analytics Engine<br>MA, ATH/ATL,<br>volatility, momentum]
+    end
+
+    %% Trigger to collector
+    CRON -->|HTTP POST| API
+    CLI -->|asyncio.run| COLLECTOR
+    API -->|background task| COLLECTOR
+
+    %% Collection lookup
+    COLLECTOR -->|load linked entries| UC
+    UC -->|card_id FK| SC
+
+    %% Idempotency check
+    COLLECTOR --> IDEMP
+    IDEMP -->|Yes| SKIP[Skip]
+    IDEMP -->|No| FETCH[Fetch page]
+
+    %% Fetch and parse
+    FETCH -->|curl_cffi + Chrome TLS| PRODUCT
+    PRODUCT --> JSONLD
+    JSONLD --> PARSE
+    PARSE --> CHECK
+    CHECK -->|Yes| PO
+    CHECK -->|No| SKIPZERO[Skip zero price]
+
+    %% Consumers
+    PO --> DASHBOARD
+    PO --> ANALYTICS
+
+    %% Styling
+    style CRON fill:#6c757d,stroke:#adb5bd,color:#fff
+    style CLI fill:#6c757d,stroke:#adb5bd,color:#fff
+    style API fill:#6c757d,stroke:#adb5bd,color:#fff
+    style UC fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style SC fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style COLLECTOR fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style IDEMP fill:#e9c46a,stroke:#f4a261,color:#264653
+    style PRODUCT fill:#e76f51,stroke:#f4a261,color:#fff
+    style JSONLD fill:#e76f51,stroke:#f4a261,color:#fff
+    style PARSE fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style CHECK fill:#e9c46a,stroke:#f4a261,color:#264653
+    style PO fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style DASHBOARD fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style ANALYTICS fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style SKIP fill:#6c757d,stroke:#adb5bd,color:#fff
+    style SKIPZERO fill:#6c757d,stroke:#adb5bd,color:#fff
+    style FETCH fill:#2d6a4f,stroke:#40916c,color:#d8f3dc

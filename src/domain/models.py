@@ -164,6 +164,15 @@ class MypSearchResult:
 
 
 @dataclass
+class JsonLdPrice:
+    """Price extracted from JSON-LD offers block on a product page."""
+
+    price: Decimal | None
+    currency: str = "BRL"
+    availability: str = "Unknown"  # "InStock" | "OutOfStock" | "Unknown"
+
+
+@dataclass
 class CardAnalytics:
     """Composite analytics result for a single card."""
 
@@ -220,5 +229,23 @@ class SyncSummary:
     observations_saved: int = 0
     errors: list[SyncError] = field(default_factory=list)
     results: list[SyncResult] = field(default_factory=list)
+    started_at: datetime = field(default_factory=datetime.now)
+    finished_at: datetime | None = None
+
+
+# --- JSON-LD snapshot domain models ---
+
+
+@dataclass
+class SnapshotSummary:
+    """Summary of a price snapshot run."""
+
+    total_entries: int = 0
+    fetched: int = 0
+    stored: int = 0
+    skipped_existing: int = 0
+    skipped_zero_price: int = 0
+    errors: int = 0
+    error_details: list[CollectionError] = field(default_factory=list)
     started_at: datetime = field(default_factory=datetime.now)
     finished_at: datetime | None = None

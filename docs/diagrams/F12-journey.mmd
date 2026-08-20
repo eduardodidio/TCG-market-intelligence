@@ -1,0 +1,55 @@
+flowchart TD
+    A[Operator triggers snapshot<br>CLI / Cron / API POST] --> B[Load linked collection entries<br>user_collection JOIN source_cards]
+    B --> C{Entries found?}
+    C -->|No| D[Log: no linked cards<br>exit with summary]
+    C -->|Yes| E[Apply --limit if set<br>cap processing count]
+    E --> F[For each entry<br>asyncio.Semaphore concurrency=3]
+
+    F --> G{Snapshot exists<br>for today?}
+    G -->|Yes| H[Skip<br>increment skipped_existing]
+    G -->|No| I[Fetch product page<br>curl_cffi + Chrome TLS]
+
+    I --> J{Fetch successful?}
+    J -->|No| K[Log error<br>increment errors<br>continue to next card]
+    J -->|Yes| L[Parse JSON-LD block<br>parse_jsonld_price]
+
+    L --> M{Price > 0?}
+    M -->|No| N[Skip<br>increment skipped_zero_price]
+    M -->|Yes| O{Dry run?}
+
+    O -->|Yes| P[Log price<br>increment stored counter<br>no DB write]
+    O -->|No| Q[INSERT price_observation<br>source=jsonld_snapshot<br>observed_at=today]
+
+    Q --> R[Increment stored counter]
+
+    H --> S[Next card]
+    K --> S
+    N --> S
+    P --> S
+    R --> S
+
+    S --> T{More cards?}
+    T -->|Yes| F
+    T -->|No| U[Print summary<br>total / fetched / stored /<br>skipped / errors / elapsed]
+
+    U --> V[Cron logs result<br>to logs/cron/]
+
+    V --> W[Dashboard shows<br>accumulating price history<br>after 7+ daily runs]
+
+    %% Styling
+    style A fill:#6c757d,stroke:#adb5bd,color:#fff
+    style C fill:#e9c46a,stroke:#f4a261,color:#264653
+    style D fill:#d62828,stroke:#f4a261,color:#fff
+    style F fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style G fill:#e9c46a,stroke:#f4a261,color:#264653
+    style H fill:#6c757d,stroke:#adb5bd,color:#fff
+    style I fill:#e76f51,stroke:#f4a261,color:#fff
+    style J fill:#e9c46a,stroke:#f4a261,color:#264653
+    style K fill:#d62828,stroke:#f4a261,color:#fff
+    style L fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style M fill:#e9c46a,stroke:#f4a261,color:#264653
+    style N fill:#6c757d,stroke:#adb5bd,color:#fff
+    style O fill:#e9c46a,stroke:#f4a261,color:#264653
+    style Q fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style U fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style W fill:#2d6a4f,stroke:#40916c,color:#d8f3dc

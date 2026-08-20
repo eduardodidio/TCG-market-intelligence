@@ -13,6 +13,7 @@ from src.api.schemas.collection import (
     CollectionCard,
     CollectionSummary,
     ImportResult,
+    SnapshotRequest,
     SyncRequest,
 )
 from src.api.schemas.envelope import ApiResponse, paginated_response, success_response
@@ -191,6 +192,52 @@ async def _run_sync_job(
         job_tracker.complete(
             job_id,
             f"Synced {summary.matched} cards, " f"{summary.observations_saved} observations saved",
+        )
+    except Exception as e:
+        job_tracker.fail(job_id, str(e))
+
+
+@router.post("/snapshot-prices", response_model=ApiResponse[JobStatus])
+async def trigger_snapshot_prices(
+    request: SnapshotRequest,
+    repo: Repository = Depends(get_db),
+    _auth: None = Depends(verify_api_key),
+) -> ApiResponse[JobStatus]:
+    """Trigger a daily price snapshot as a background job."""
+    job_id = job_tracker.start(
+        "snapshot_prices",
+        {"limit": request.limit, "dry_run": request.dry_run},
+    )
+
+    asyncio.create_task(_run_snapshot_job(job_id, limit=request.limit, dry_run=request.dry_run))
+
+    data = JobStatus(
+        job_id=job_id,
+        status="started",
+        message="Price snapshot started",
+    )
+    return success_response(data=data)
+
+
+async def _run_snapshot_job(
+    job_id: str,
+    limit: int | None,
+    dry_run: bool = False,
+) -> None:
+    try:
+        from src.collectors.snapshot_prices import run_snapshot_prices
+
+        db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+        summary = await run_snapshot_prices(
+            db_url=db_url,
+            limit=limit,
+            dry_run=dry_run,
+        )
+        job_tracker.complete(
+            job_id,
+            f"Snapshot complete: {summary.stored} stored, "
+            f"{summary.skipped_existing} skipped (existing), "
+            f"{summary.skipped_zero_price} skipped (zero price)",
         )
     except Exception as e:
         job_tracker.fail(job_id, str(e))

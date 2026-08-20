@@ -84,6 +84,24 @@ RESPONSE_BODY="$(cat "${TMPFILE}")"
 log "Update response — HTTP ${HTTP_STATUS}: ${RESPONSE_BODY}" | tee -a "${LOG_FILE}"
 
 # ---------------------------------------------------------------------------
+# Call POST /api/v1/collection/snapshot-prices (daily JSON-LD snapshot)
+# ---------------------------------------------------------------------------
+log "Starting price snapshot via ${TCG_API_URL}/api/v1/collection/snapshot-prices" | tee -a "${LOG_FILE}"
+
+SNAPSHOT_STATUS=$(curl -s -o "${TMPFILE}" -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: ${TCG_API_KEY}" \
+    -d '{}' \
+    "${TCG_API_URL}/api/v1/collection/snapshot-prices" \
+    2>&1) || {
+    log "WARNING: snapshot-prices request failed" | tee -a "${LOG_FILE}"
+}
+
+SNAPSHOT_BODY="$(cat "${TMPFILE}")"
+log "Snapshot response — HTTP ${SNAPSHOT_STATUS}: ${SNAPSHOT_BODY}" | tee -a "${LOG_FILE}"
+
+# ---------------------------------------------------------------------------
 # Call GET /api/v1/collect/health (optional health check after update)
 # ---------------------------------------------------------------------------
 HEALTH_STATUS=$(curl -s -o "${TMPFILE}" -w "%{http_code}" \

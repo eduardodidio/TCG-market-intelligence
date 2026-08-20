@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class CollectionCard(BaseModel):
@@ -44,3 +44,16 @@ class SyncRequest(BaseModel):
     limit: int | None = None
     history_days: int = 365
     force: bool = False  # if True, re-sync already-linked entries
+
+
+class SnapshotRequest(BaseModel):
+    limit: int | None = None
+    dry_run: bool = False
+
+    @field_validator("limit")
+    @classmethod
+    def limit_must_be_positive(cls, v: int | None) -> int | None:
+        if v is not None and v <= 0:
+            msg = "limit must be a positive integer"
+            raise ValueError(msg)
+        return v
