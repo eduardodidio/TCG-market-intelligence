@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { CardSummary } from "../types/api";
 import { formatBRL } from "../utils/format";
-import { scryfallImageUrl } from "../utils/scryfall";
+import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
 interface CardTileProps {
   card: CardSummary;
@@ -11,11 +11,17 @@ interface CardTileProps {
 export function CardTile({ card }: CardTileProps) {
   const displayName = card.name_en || card.name_pt || "Unknown Card";
   const [imgError, setImgError] = useState(false);
+  const [fallbackError, setFallbackError] = useState(false);
 
-  const imageUrl =
+  // Primary: set/collector_number URL. Fallback: name-based URL.
+  const primaryUrl =
     card.set_code && card.collector_number
       ? scryfallImageUrl(card.set_code, card.collector_number)
       : null;
+  const fallbackUrl = card.name_en ? scryfallImageByName(card.name_en) : null;
+
+  const currentUrl = imgError && fallbackUrl ? fallbackUrl : primaryUrl;
+  const showImage = currentUrl && !(imgError && (fallbackError || !fallbackUrl));
 
   return (
     <Link
@@ -31,13 +37,19 @@ export function CardTile({ card }: CardTileProps) {
           flex items-center justify-center overflow-hidden"
         data-testid="card-image-placeholder"
       >
-        {imageUrl && !imgError ? (
+        {showImage ? (
           <img
-            src={imageUrl}
+            src={currentUrl}
             alt={displayName}
             className="w-full h-full object-cover"
             loading="lazy"
-            onError={() => setImgError(true)}
+            onError={() => {
+              if (!imgError) {
+                setImgError(true);
+              } else {
+                setFallbackError(true);
+              }
+            }}
           />
         ) : (
           <svg

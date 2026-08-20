@@ -91,6 +91,13 @@ ML-based buy/sell signal generation:
 - Trend prediction models
 - Configurable alert thresholds
 
+## Full Backlog
+
+See [BACKLOG.md](BACKLOG.md) for the complete prioritized backlog including:
+
+- **F13-F26**: Motor de Market Intelligence (varredura, historico, tendencias, ticker, mercado, banlist)
+- **E01-E15**: Ecossistema de Aluguel, Trade e Marketplace
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and

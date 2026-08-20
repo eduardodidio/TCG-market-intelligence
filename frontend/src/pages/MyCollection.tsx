@@ -12,6 +12,7 @@ import { SkeletonCard } from "../components/Skeleton";
 import { useDebounce } from "../hooks/useDebounce";
 import type { CollectionCard, CollectionSummary } from "../types/api";
 import { formatBRL } from "../utils/format";
+import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { DEFAULT_PAGE_LIMIT } from "../utils/constants";
 
 const RARITY_COLORS: Record<string, string> = {
@@ -31,12 +32,20 @@ const RARITY_LABELS: Record<string, string> = {
 function CollectionCardTile({ card }: { card: CollectionCard }) {
   const displayName = card.name_en || card.name_pt || "Unknown Card";
   const [imgError, setImgError] = useState(false);
+  const [fallbackError, setFallbackError] = useState(false);
+
+  // Primary image: backend-provided URL (Scryfall by set/number)
+  // Fallback: Scryfall by exact card name
+  const primaryUrl = card.image_url || scryfallImageUrl(card.set_code, card.collector_number);
+  const fallbackUrl = card.name_en ? scryfallImageByName(card.name_en) : null;
+  const currentUrl = imgError && fallbackUrl ? fallbackUrl : primaryUrl;
+  const showImage = !(imgError && (fallbackError || !fallbackUrl));
 
   const inner = (
     <div
       className="group block bg-slate-800 rounded-xl overflow-hidden
         border border-slate-700 hover:border-cyan-500/50
-        transition-all duration-200 hover:scale-[1.02] relative"
+        transition-all duration-200 hover:scale-[1.02] relative cursor-pointer"
       data-testid={`collection-card-${card.id}`}
     >
       {/* Quantity badge */}
@@ -55,13 +64,19 @@ function CollectionCardTile({ card }: { card: CollectionCard }) {
 
       {/* Card image */}
       <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden">
-        {card.image_url && !imgError ? (
+        {showImage ? (
           <img
-            src={card.image_url}
+            src={currentUrl}
             alt={displayName}
             className="w-full h-full object-cover"
             loading="lazy"
-            onError={() => setImgError(true)}
+            onError={() => {
+              if (!imgError) {
+                setImgError(true);
+              } else {
+                setFallbackError(true);
+              }
+            }}
           />
         ) : (
           <svg
@@ -121,12 +136,20 @@ function CollectionCardTile({ card }: { card: CollectionCard }) {
     </div>
   );
 
-  // Link to card detail if we have a card_id
+  // Always clickable: internal link if card_id exists, Scryfall otherwise
   if (card.card_id) {
     return <Link to={`/cards/${card.card_id}`}>{inner}</Link>;
   }
 
-  return inner;
+  return (
+    <a
+      href={`https://scryfall.com/search?q=${encodeURIComponent(`!"${displayName}"${card.set_code ? ` set:${card.set_code}` : ""}`)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {inner}
+    </a>
+  );
 }
 
 export function MyCollection() {
