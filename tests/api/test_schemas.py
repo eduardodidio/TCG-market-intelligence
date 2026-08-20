@@ -220,7 +220,7 @@ class TestHistoryParams:
 
 
 class TestDecimalRoundTrip:
-    def test_card_summary_decimal_roundtrip(self) -> None:
+    def test_card_summary_float_roundtrip(self) -> None:
         card = CardSummary(
             id=1,
             game="magic",
@@ -229,8 +229,8 @@ class TestDecimalRoundTrip:
         )
         dumped = card.model_dump()
         restored = CardSummary.model_validate(dumped)
-        assert restored.latest_price == Decimal("123.45")
-        assert isinstance(restored.latest_price, Decimal)
+        assert restored.latest_price == 123.45
+        assert isinstance(restored.latest_price, float)
 
     def test_mover_entry_decimal_roundtrip(self) -> None:
         entry = MoverEntry(

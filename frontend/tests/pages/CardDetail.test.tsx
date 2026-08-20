@@ -257,6 +257,73 @@ describe("CardDetail page", () => {
     expect(screen.getByText("Card not found. It may not have been synced yet.")).toBeDefined();
   });
 
+  it("renders Scryfall external link with correct URL", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("external-links")).toBeDefined();
+    });
+
+    const link = screen.getByTestId("scryfall-link");
+    expect(link.getAttribute("href")).toBe(
+      `https://scryfall.com/search?q=${encodeURIComponent("Lightning Bolt")}+set:DMR`,
+    );
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link.textContent).toContain("View on Scryfall");
+  });
+
+  it("renders LigaMagic external link with correct URL", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("external-links")).toBeDefined();
+    });
+
+    const link = screen.getByTestId("ligamagic-link");
+    expect(link.getAttribute("href")).toBe(
+      `https://www.ligamagic.com.br/?view=cards/card&card=${encodeURIComponent("Lightning Bolt")}`,
+    );
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link.textContent).toContain("View on LigaMagic");
+  });
+
+  it("renders Scryfall link without set code when set_code is null", async () => {
+    const detailNoSet = mockCardDetail();
+    (detailNoSet.data as CardDetailType).set_code = null;
+    (detailNoSet.data as CardDetailType).collector_number = null;
+
+    globalThis.fetch = createMockFetch({ detail: detailNoSet }) as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("scryfall-link")).toBeDefined();
+    });
+
+    const link = screen.getByTestId("scryfall-link");
+    expect(link.getAttribute("href")).toBe(
+      `https://scryfall.com/search?q=${encodeURIComponent("Lightning Bolt")}`,
+    );
+  });
+
+  it("renders '--' for latest price when latest_price is null", async () => {
+    const detailNoPrice = mockCardDetail();
+    (detailNoPrice.data as CardDetailType).latest_price = null;
+
+    globalThis.fetch = createMockFetch({ detail: detailNoPrice }) as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("latest-price")).toBeDefined();
+    });
+
+    const priceEl = screen.getByTestId("latest-price");
+    expect(priceEl.textContent).toBe("--");
+  });
+
   it("shows error banner on non-404 error", async () => {
     const errorResponse = mockApiError("SERVER_ERROR", "Internal server error");
     globalThis.fetch = vi.fn().mockImplementation((url: string) => {

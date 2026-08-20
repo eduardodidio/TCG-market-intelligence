@@ -6,10 +6,10 @@ import { CardTile } from "../components/CardTile";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { FilterChips } from "../components/FilterChips";
-import { Pagination } from "../components/Pagination";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
 import { useDebounce } from "../hooks/useDebounce";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CardSummary, SetSummary } from "../types/api";
 import { DEFAULT_PAGE_LIMIT } from "../utils/constants";
 
@@ -122,6 +122,10 @@ export function Cards() {
     value: s.set_code,
   }));
 
+  const sentinelRef = useInfiniteScroll(handleLoadMore, {
+    enabled: !!cursor && !loadingMore,
+  });
+
   const handleClearFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedSet(null);
@@ -191,11 +195,12 @@ export function Cards() {
             ))}
           </div>
 
-          <Pagination
-            cursor={cursor}
-            onLoadMore={handleLoadMore}
-            loading={loadingMore}
-          />
+          <div ref={sentinelRef} data-testid="scroll-sentinel" />
+          {loadingMore && (
+            <div className="flex justify-center mt-4" data-testid="loading-more">
+              <div className="h-6 w-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
         </>
       )}
     </div>

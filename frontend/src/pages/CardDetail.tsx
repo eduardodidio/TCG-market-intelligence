@@ -210,6 +210,59 @@ export function CardDetail() {
               <p className="text-white">{formatDate(card.updated_at)}</p>
             </div>
           </div>
+
+          {/* External Links */}
+          <div className="mt-6" data-testid="external-links">
+            <p className="text-sm text-slate-400 mb-2">External Links</p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={`https://scryfall.com/search?q=${encodeURIComponent(card.name_en)}${card.set_code ? `+set:${card.set_code}` : ""}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="scryfall-link"
+                className="inline-flex items-center gap-1.5 rounded-md bg-slate-700 px-3 py-1.5 text-sm text-cyan-400 hover:bg-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              >
+                View on Scryfall
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
+              <a
+                href={`https://www.ligamagic.com.br/?view=cards/card&card=${encodeURIComponent(card.name_en)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="ligamagic-link"
+                className="inline-flex items-center gap-1.5 rounded-md bg-slate-700 px-3 py-1.5 text-sm text-cyan-400 hover:bg-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              >
+                View on LigaMagic
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
+            </div>
+          </div>
         </div>
 
         {/* Right panel: Price chart */}

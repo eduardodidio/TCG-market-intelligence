@@ -196,17 +196,17 @@ describe("Cards page", () => {
     vi.useRealTimers();
   });
 
-  it("shows 'Load more' button when cursor exists", async () => {
+  it("renders scroll sentinel when cursor exists", async () => {
     const cardsWithCursor = mockCardSummaries(24); // cursor is set when n >= 24
     globalThis.fetch = createMockFetch({ cards: cardsWithCursor }) as unknown as typeof fetch;
     renderCards();
 
     await waitFor(() => {
-      expect(screen.getByTestId("load-more-button")).toBeDefined();
+      expect(screen.getByTestId("scroll-sentinel")).toBeDefined();
     });
   });
 
-  it("does not show 'Load more' when cursor is null", async () => {
+  it("renders scroll sentinel even when cursor is null (disabled observer)", async () => {
     globalThis.fetch = createMockFetch() as unknown as typeof fetch; // 3 cards, no cursor
     renderCards();
 
@@ -214,46 +214,22 @@ describe("Cards page", () => {
       expect(screen.getByText("Test Card 1")).toBeDefined();
     });
 
+    // Sentinel is always rendered when cards exist; observer just won't fire
+    expect(screen.getByTestId("scroll-sentinel")).toBeDefined();
+    // No load-more button should exist
     expect(screen.queryByTestId("load-more-button")).toBeNull();
   });
 
-  it("clicking 'Load more' appends next page of results", async () => {
-    const page1 = mockCardSummaries(24);
-    const page2Response = {
-      data: [
-        {
-          id: 100,
-          game: "magic",
-          name_en: "Page Two Card",
-          name_pt: null,
-          set_code: "MH2",
-          collector_number: "001",
-          latest_price: 10.0,
-        },
-      ],
-      meta: { cursor: null, total: 1, request_id: "req-002" },
-      errors: [],
-    };
-
-    globalThis.fetch = createMockFetch({
-      cards: page1,
-      cardsPage2: page2Response as ReturnType<typeof mockCardSummaries>,
-    }) as unknown as typeof fetch;
-
+  it("does not show load-more button (replaced by infinite scroll)", async () => {
+    const cardsWithCursor = mockCardSummaries(24);
+    globalThis.fetch = createMockFetch({ cards: cardsWithCursor }) as unknown as typeof fetch;
     renderCards();
 
     await waitFor(() => {
-      expect(screen.getByTestId("load-more-button")).toBeDefined();
+      expect(screen.getByTestId("cards-grid")).toBeDefined();
     });
 
-    fireEvent.click(screen.getByTestId("load-more-button"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Page Two Card")).toBeDefined();
-    });
-
-    // Original cards should still be visible
-    expect(screen.getByText("Test Card 1")).toBeDefined();
+    expect(screen.queryByTestId("load-more-button")).toBeNull();
   });
 
   it("selecting a set chip triggers a new fetch with set param", async () => {

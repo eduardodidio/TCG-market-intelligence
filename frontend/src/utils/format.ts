@@ -2,9 +2,11 @@
  * Format a number as Brazilian Real currency (R$ 1.234,56).
  * Returns "--" for null/undefined values.
  */
-export function formatBRL(value: number | null | undefined): string {
+export function formatBRL(value: number | string | null | undefined): string {
   if (value == null) return "--";
-  return value.toLocaleString("pt-BR", {
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "--";
+  return num.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
     minimumFractionDigits: 2,

@@ -28,6 +28,26 @@ describe("formatBRL", () => {
   it("returns '--' for undefined", () => {
     expect(formatBRL(undefined)).toBe("--");
   });
+
+  it("coerces string value to number and formats", () => {
+    const result = formatBRL("40.00" as unknown as number);
+    expect(result).toContain("R$");
+    expect(result).toContain("40,00");
+  });
+
+  it("returns '--' for non-numeric string", () => {
+    expect(formatBRL("abc" as unknown as number)).toBe("--");
+  });
+
+  it("formats very large numbers with thousand separators", () => {
+    const result = formatBRL(999999.99);
+    expect(result).toContain("R$");
+    expect(result).toContain("999.999,99");
+  });
+
+  it("returns '--' for NaN", () => {
+    expect(formatBRL(NaN)).toBe("--");
+  });
 });
 
 describe("formatPercent", () => {

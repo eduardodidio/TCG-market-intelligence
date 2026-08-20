@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
-
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
@@ -19,7 +17,7 @@ class CollectionCard(BaseModel):
     rarity: str | None = None
     color: str | None = None
     extras: str | None = None
-    latest_price: Decimal | None = None
+    latest_price: float | None = None
     image_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -28,7 +26,7 @@ class CollectionCard(BaseModel):
 class CollectionSummary(BaseModel):
     total_unique: int
     total_cards: int
-    total_value: Decimal | None = None
+    total_value: float | None = None
     linked_count: int
     sets_count: int
 

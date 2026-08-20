@@ -6,10 +6,10 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { FilterChips } from "../components/FilterChips";
 import { KpiCard } from "../components/KpiCard";
-import { Pagination } from "../components/Pagination";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
 import { useDebounce } from "../hooks/useDebounce";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CollectionCard, CollectionSummary } from "../types/api";
 import { formatBRL } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
@@ -124,7 +124,10 @@ function CollectionCardTile({ card }: { card: CollectionCard }) {
         </div>
 
         <div className="flex items-center justify-between mt-2">
-          <p className="text-sm font-bold text-cyan-400" data-testid="card-price">
+          <p
+            className={`text-sm font-bold ${card.latest_price != null ? "text-cyan-400" : "text-slate-500"}`}
+            data-testid="card-price"
+          >
             {formatBRL(card.latest_price)}
           </p>
           <div className="flex items-center gap-1 text-xs text-slate-400">
@@ -136,20 +139,16 @@ function CollectionCardTile({ card }: { card: CollectionCard }) {
     </div>
   );
 
-  // Always clickable: internal link if card_id exists, Scryfall otherwise
+  // Always clickable: internal link for all cards
   if (card.card_id) {
     return <Link to={`/cards/${card.card_id}`}>{inner}</Link>;
   }
 
-  return (
-    <a
-      href={`https://scryfall.com/search?q=${encodeURIComponent(`!"${displayName}"${card.set_code ? ` set:${card.set_code}` : ""}`)}`}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {inner}
-    </a>
-  );
+  // Unlinked cards: navigate to Explore page pre-filtered by name/set
+  const params = new URLSearchParams();
+  if (displayName !== "Unknown Card") params.set("name", displayName);
+  if (card.set_code) params.set("set", card.set_code);
+  return <Link to={`/cards?${params.toString()}`}>{inner}</Link>;
 }
 
 export function MyCollection() {
@@ -252,6 +251,10 @@ export function MyCollection() {
       .finally(() => setLoadingMore(false));
   }, [cursor, loadingMore, debouncedSearch, selectedSet]);
 
+  const sentinelRef = useInfiniteScroll(handleLoadMore, {
+    enabled: !!cursor && !loadingMore,
+  });
+
   const handleClearFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedSet(null);
@@ -316,7 +319,12 @@ export function MyCollection() {
               <CollectionCardTile key={card.id} card={card} />
             ))}
           </div>
-          <Pagination cursor={cursor} onLoadMore={handleLoadMore} loading={loadingMore} />
+          <div ref={sentinelRef} data-testid="scroll-sentinel" />
+          {loadingMore && (
+            <div className="flex justify-center mt-4" data-testid="loading-more">
+              <div className="h-6 w-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
         </>
       )}
     </div>
