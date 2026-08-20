@@ -1,0 +1,45 @@
+{
+  "id": "D-20260820-001",
+  "feature": "F11",
+  "type": "feature_start",
+  "requested_at": "2026-08-20T12:00:00-03:00",
+  "decided_at": "2026-08-20T12:01:00-03:00",
+  "status": "executed",
+  "action": "plan-feature",
+  "rationale": "F11 is purely operational: it executes the post-ship manual steps documented in MEMORY.md after F10 shipped (normalize set codes, run match report, sync collection prices, verify dashboard) plus three minor tech debt items identified by the TechLead during F10 review. All code already exists — no new features are being built. The plan-feature action is appropriate because the user wants a structured, parallelized execution plan with proper task decomposition rather than ad-hoc manual execution. Risk is minimal: the normalize script, match-report (dry-run), and backup utility all have safety checks built into F10. The tech debt items are small refactors with no behavioral change.",
+  "risks": [
+    "MYP search API availability during match-report and sync-collection — rate limiting or downtime could extend sync time",
+    "Set code normalization script modifies existing DB rows — incorrect normalization could break FK relationships",
+    "DB cleanup removes non-collection data permanently — backup must complete before cleanup runs",
+    "Tech debt refactors (_row_to_entry extraction, SQLAlchemy move) could introduce regressions if not tested"
+  ],
+  "mitigations": [
+    "Match-report is dry-run by default, sync uses proven rate limiting from F10",
+    "normalize_set_codes.py already has safety checks and was tested during F10 development",
+    "db-backup runs SQLite .backup() before any cleanup — this is enforced by the cleanup code itself",
+    "All three tech debt items are covered by existing 604 backend tests at 90.69% coverage — regressions will be caught"
+  ],
+  "actions": [
+    {
+      "type": "plan-feature",
+      "target": "F11"
+    }
+  ],
+  "context": {
+    "f10_commit": "5cb2cd6",
+    "backend_tests": 604,
+    "frontend_tests": 187,
+    "coverage": "90.69%",
+    "pending_manual_steps": [
+      "normalize_set_codes.py",
+      "match-report",
+      "sync-collection",
+      "verify dashboard KPIs"
+    ],
+    "tech_debt_items": [
+      "extract _row_to_entry from match_report.py/sync_collection.py",
+      "move raw SQLAlchemy in collection_summary to Repository",
+      "remove dead BASE_URL in sync_collection.py"
+    ]
+  }
+}

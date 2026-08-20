@@ -1,0 +1,70 @@
+flowchart TD
+    subgraph "Wave 0 -- Normalize"
+        BACKUP0[db-backup<br>sqlite3.backup] --> NORM[normalize_set_codes.py<br>LOWER set_code]
+        NORM --> DB[(tcg_market.db<br>cards + source_cards)]
+    end
+
+    subgraph "Wave 1 -- Match Report + Tech Debt"
+        direction TB
+        MR[match-report CLI<br>dry-run coverage check]
+        MR -->|search each card| MYP[MYP Search API<br>/produto/search]
+        MR -->|94.7% matched| REPORT[reports/match-report.json]
+
+        subgraph "Parser Fix"
+            BUG[Bug: wrong field names<br>id/nome/slug] -->|discovered run 1| FIX[Fix: fallback chain<br>idproduto/nomeenproduto]
+            FIX --> PARSER[src/parsers/myp.py<br>parse_search_results]
+        end
+
+        subgraph "Tech Debt"
+            TD1[Extract _row_to_entry<br>to collection/converter.py]
+            TD2[Move SQLAlchemy<br>to Repository.get_collection_total_value]
+            TD3[Remove dead BASE_URL<br>from sync_collection.py]
+        end
+    end
+
+    subgraph "Wave 2 -- Sync Collection"
+        BACKUP2[db-backup<br>pre-sync safety] --> SYNC[sync-collection CLI<br>async orchestrator]
+        SYNC -->|search + match| MYP2[MYP Search API]
+        SYNC -->|fetch details| MYPCARD[MYP Card Pages<br>404 for 396 cards]
+        SYNC -->|fetch history| MYPHIST[MYP Price History<br>redirects to homepage]
+        SYNC -->|upsert 121 cards| DB2[(tcg_market.db)]
+        SYNC -->|link 124 entries| UC[(user_collection<br>card_id populated)]
+        SYNC -->|0 observations| BLOCKED[BLOCKED<br>MYP no longer serves<br>price history data]
+    end
+
+    subgraph "Wave 3 -- Verify + Document"
+        DASH[Verify Dashboard KPIs<br>card counts valid]
+        DOCS[PRD + Diagrams + README]
+    end
+
+    %% Cross-wave dependencies
+    NORM --> MR
+    NORM --> SYNC
+    MR --> SYNC
+    FIX --> MR
+    SYNC --> DASH
+    DASH --> DOCS
+
+    %% Styling
+    style BACKUP0 fill:#e9c46a,stroke:#f4a261,color:#264653
+    style BACKUP2 fill:#e9c46a,stroke:#f4a261,color:#264653
+    style NORM fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style MR fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style SYNC fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style MYP fill:#e76f51,stroke:#f4a261,color:#fff
+    style MYP2 fill:#e76f51,stroke:#f4a261,color:#fff
+    style MYPCARD fill:#e76f51,stroke:#f4a261,color:#fff
+    style MYPHIST fill:#e76f51,stroke:#f4a261,color:#fff
+    style BLOCKED fill:#d62828,stroke:#f4a261,color:#fff
+    style BUG fill:#d62828,stroke:#f4a261,color:#fff
+    style FIX fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style TD1 fill:#6c757d,stroke:#adb5bd,color:#fff
+    style TD2 fill:#6c757d,stroke:#adb5bd,color:#fff
+    style TD3 fill:#6c757d,stroke:#adb5bd,color:#fff
+    style DASH fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style DOCS fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style REPORT fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style DB fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style DB2 fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style UC fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style PARSER fill:#2d6a4f,stroke:#40916c,color:#d8f3dc

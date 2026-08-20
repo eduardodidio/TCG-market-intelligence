@@ -11,6 +11,7 @@ from src.database.models import (
     CollectionErrorRow,
     PriceObservationRow,
     SourceCardRow,
+    UserCollectionRow,
 )
 from src.database.repository import Repository
 
@@ -397,3 +398,118 @@ class TestGetSourceCardCount:
         assert seeded_repo.get_source_card_count() == 2
         assert seeded_repo.get_source_card_count(source="myp") == 2
         assert seeded_repo.get_source_card_count(source="nonexistent") == 0
+
+
+class TestGetCollectionTotalValue:
+    """Tests for Repository.get_collection_total_value()."""
+
+    def test_happy_path_linked_cards_with_prices(self, seeded_repo):
+        """Linked cards with prices return the correct Decimal total."""
+        ids = seeded_repo._test_ids
+        engine = seeded_repo.engine
+        with Session(engine) as session:
+            # Two collection entries linked to cards with prices
+            uc1 = UserCollectionRow(
+                user_id="testuser",
+                card_id=ids["c1"],
+                set_code="2XM",
+                collector_number="1",
+                name_en="Lightning Bolt",
+                quantity=2,
+            )
+            uc2 = UserCollectionRow(
+                user_id="testuser",
+                card_id=ids["c2"],
+                set_code="2XM",
+                collector_number="2",
+                name_en="Counterspell",
+                quantity=3,
+            )
+            session.add_all([uc1, uc2])
+            session.commit()
+
+        # c1 latest price = 6.00, qty=2 => 12.00
+        # c2 latest price = 3.00, qty=3 => 9.00
+        # total = 21.00
+        result = seeded_repo.get_collection_total_value("testuser")
+        assert result == Decimal("21.00")
+
+    def test_no_linked_cards_returns_none(self, repo):
+        """No linked cards (empty collection) returns None."""
+        result = repo.get_collection_total_value("nouser")
+        assert result is None
+
+    def test_linked_cards_no_prices_returns_none(self, repo):
+        """Linked cards but no price observations returns None."""
+        engine = repo.engine
+        with Session(engine) as session:
+            # Create a card with no source cards / price observations
+            card = CardRow(
+                game="magic",
+                name_en="No Price Card",
+                set_code="TST",
+                collector_number="999",
+            )
+            session.add(card)
+            session.flush()
+
+            uc = UserCollectionRow(
+                user_id="testuser",
+                card_id=card.id,
+                set_code="TST",
+                collector_number="999",
+                name_en="No Price Card",
+                quantity=1,
+            )
+            session.add(uc)
+            session.commit()
+
+        result = repo.get_collection_total_value("testuser")
+        assert result is None
+
+    def test_mixed_some_cards_have_prices(self, seeded_repo):
+        """When some linked cards have prices and some do not, sums only priced ones."""
+        ids = seeded_repo._test_ids
+        engine = seeded_repo.engine
+        with Session(engine) as session:
+            # c1 has prices, c3 (Pikachu) has no source cards / prices
+            uc1 = UserCollectionRow(
+                user_id="mixeduser",
+                card_id=ids["c1"],
+                set_code="2XM",
+                collector_number="1",
+                name_en="Lightning Bolt",
+                quantity=1,
+            )
+            uc2 = UserCollectionRow(
+                user_id="mixeduser",
+                card_id=ids["c3"],
+                set_code="SV1",
+                collector_number="25",
+                name_en="Pikachu",
+                quantity=4,
+            )
+            session.add_all([uc1, uc2])
+            session.commit()
+
+        # Only c1 has a price (6.00), qty=1 => 6.00
+        result = seeded_repo.get_collection_total_value("mixeduser")
+        assert result == Decimal("6.00")
+
+    def test_unlinked_entries_ignored(self, seeded_repo):
+        """Collection entries with card_id=None are not counted."""
+        engine = seeded_repo.engine
+        with Session(engine) as session:
+            uc = UserCollectionRow(
+                user_id="unlinked",
+                card_id=None,
+                set_code="2XM",
+                collector_number="1",
+                name_en="Unlinked Card",
+                quantity=5,
+            )
+            session.add(uc)
+            session.commit()
+
+        result = seeded_repo.get_collection_total_value("unlinked")
+        assert result is None

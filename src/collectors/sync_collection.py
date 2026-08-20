@@ -8,6 +8,7 @@ from datetime import datetime
 
 import structlog
 
+from src.collection.converter import row_to_collection_entry
 from src.collection.matcher import CollectionEntry, match_collection_card
 from src.database.models import UserCollectionRow
 from src.database.repository import Repository
@@ -15,17 +16,6 @@ from src.domain.models import SourceCard, SyncError, SyncResult, SyncSummary
 from src.providers.myp.provider import MypCardsProvider, MypConfig
 
 log = structlog.get_logger()
-
-BASE_URL = "https://mypcards.com"
-
-
-def _row_to_entry(row: UserCollectionRow) -> CollectionEntry:
-    """Convert a DB row to a CollectionEntry for the matcher."""
-    return CollectionEntry(
-        set_code=row.set_code,
-        collector_number=row.collector_number,
-        name_en=row.name_en,
-    )
 
 
 async def run_sync_collection(
@@ -86,7 +76,7 @@ async def run_sync_collection(
 
         async def process_entry(row: UserCollectionRow, index: int) -> None:
             async with sem:
-                entry = _row_to_entry(row)
+                entry = row_to_collection_entry(row)
 
                 # Skip entries without name_en
                 if not entry.name_en:

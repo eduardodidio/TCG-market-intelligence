@@ -18,11 +18,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.collection.converter import row_to_collection_entry
 from src.collection.matcher import CollectionEntry, MatchResult
 from src.collectors.match_report import (
     MatchReportSummary,
     _pct,
-    _row_to_entry,
     _unmatched_sets,
     format_report,
     run_match_report,
@@ -74,11 +74,11 @@ def _search_result(
 
 
 class TestRowToEntry:
-    """_row_to_entry correctly converts a DB row to CollectionEntry."""
+    """row_to_collection_entry correctly converts a DB row to CollectionEntry."""
 
     def test_converts_row_fields(self):
         row = _fake_row(set_code="ltr", collector_number="42", name_en="Gandalf")
-        entry = _row_to_entry(row)
+        entry = row_to_collection_entry(row)
 
         assert isinstance(entry, CollectionEntry)
         assert entry.set_code == "ltr"
@@ -87,7 +87,7 @@ class TestRowToEntry:
 
     def test_none_name_en(self):
         row = _fake_row(name_en=None)
-        entry = _row_to_entry(row)
+        entry = row_to_collection_entry(row)
 
         assert entry.name_en is None
 

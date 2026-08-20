@@ -34,3 +34,8 @@ Each entry is a lesson that generalizes beyond a single bug.)
 ## F10 -- Collection-Centric Pivot (2026-08-19)
 - **Front-loading a read-only dry-run wave before destructive operations is the correct safety pattern.** Wave 0 (match report) produced a coverage report that the user reviews before Wave 1 (cleanup) deletes any data. This gave confidence that the sync pipeline would have acceptable match rates before committing to an irreversible operation. For any feature with destructive operations (DELETE, DROP, file removal), plan a read-only preview wave first.
 - **Pure matcher modules are the gold standard for testability.** `src/collection/matcher.py` has zero dependencies on DB, network, or framework -- only domain models. This produced 26 tests with 100% coverage and zero mocking. Future features with matching, scoring, or classification logic should follow this exact pattern: pure functions that take domain objects in and return domain objects out.
+
+## F11 -- Post-F10 Operationalization (2026-08-20)
+
+- **Operational features should include a "live validation" wave before the full run.** F11's match-report wave (dry-run) discovered a parser bug before the sync wave committed any data. Without this sequencing, the sync would have silently matched 0 cards and the bug would have been harder to diagnose. For any feature that runs existing pipelines against production data, plan a read-only validation step first.
+- **Plan for upstream API changes as a first-class risk.** MYP changed both field names and page structure between F10 and F11 (days apart). Architect should include "parser resilience" tasks (fallback chains, field name mapping tables) when the feature depends on external scraped APIs. Assume the API will change.

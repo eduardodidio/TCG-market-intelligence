@@ -375,6 +375,22 @@ collection-specific intelligence (portfolio value, coverage, per-card images).
   across import, matching, and storage
 - Architecture decision: [ADR-0004](docs/adr/0004-collection-centric-pivot.md)
 
+### F11 -- Post-F10 Operationalization (2026-08-20)
+
+Operationalized the production database after F10 and cleaned up tech debt:
+
+- **Parser fix** -- `parse_search_results()` field names updated to match
+  MYP's current API (`idproduto`/`nomeenproduto`/`slugnomeenproduto`),
+  with backward-compatible fallback chain
+- **Match report** -- 94.7% match rate (519/548 collection cards found on MYP)
+- **Collection sync** -- 124 cards linked to collection entries; however,
+  MYP price history pages no longer serve data (0 new observations --
+  blocker for future price collection features)
+- **Tech debt** -- extracted shared `_row_to_entry` converter, moved raw
+  SQLAlchemy from router to `Repository.get_collection_total_value()`,
+  removed dead `BASE_URL` constant
+- **Tests:** 616 backend + 187 frontend, 91.44% coverage
+
 ## Future
 
 Prepared for but not yet implemented:

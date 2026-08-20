@@ -10,7 +10,8 @@ from pathlib import Path
 
 import structlog
 
-from src.collection.matcher import CollectionEntry, MatchResult, match_collection_card
+from src.collection.converter import row_to_collection_entry
+from src.collection.matcher import MatchResult, match_collection_card
 from src.database.models import UserCollectionRow
 from src.database.repository import Repository
 from src.providers.myp.provider import MypCardsProvider, MypConfig
@@ -35,15 +36,6 @@ class MatchReportSummary:
     @property
     def matched_total(self) -> int:
         return self.matched_sku + self.matched_name_set + self.matched_name_only
-
-
-def _row_to_entry(row: UserCollectionRow) -> CollectionEntry:
-    """Convert a DB row to a CollectionEntry for the matcher."""
-    return CollectionEntry(
-        set_code=row.set_code,
-        collector_number=row.collector_number,
-        name_en=row.name_en,
-    )
 
 
 def _pct(n: int, total: int) -> str:
@@ -103,7 +95,7 @@ async def run_match_report(
 
         async def process_entry(row: UserCollectionRow, index: int) -> None:
             async with sem:
-                entry = _row_to_entry(row)
+                entry = row_to_collection_entry(row)
 
                 if not entry.name_en:
                     async with lock:

@@ -39,9 +39,9 @@ def parse_set_links(html: str) -> list[str]:
 def parse_search_results(json_text: str) -> list[MypSearchResult]:
     """Parse MYP search API JSON response into a list of MypSearchResult.
 
-    The MYP search endpoint returns a JSON array of objects, each with at
-    least ``id``, ``nome`` (PT name), and ``slug``.  Additional fields
-    (``sku``, ``imagem``, etc.) are captured when present.
+    The MYP search endpoint (``/produto/search``) returns a JSON array of
+    objects with keys like ``idproduto``, ``nomeenproduto``,
+    ``slugnomeenproduto``, ``codigoproduto``, etc.
 
     Returns an empty list on empty arrays, malformed JSON, or unexpected
     response shapes (no exceptions raised).
@@ -59,9 +59,9 @@ def parse_search_results(json_text: str) -> list[MypSearchResult]:
         if not isinstance(item, dict):
             continue
 
-        raw_id = item.get("id")
-        name = item.get("nome")
-        slug = item.get("slug")
+        raw_id = item.get("idproduto") or item.get("id")
+        name = item.get("nomeenproduto") or item.get("nomeptproduto") or item.get("nome")
+        slug = item.get("slugnomeenproduto") or item.get("slugnomeptproduto") or item.get("slug")
 
         # id and slug are mandatory; skip items missing them
         if raw_id is None or not slug:
@@ -72,7 +72,7 @@ def parse_search_results(json_text: str) -> list[MypSearchResult]:
 
         url = f"https://mypcards.com/magic/produto/{external_id}/{slug}"
 
-        sku = item.get("sku") or None
+        sku = item.get("codigoproduto") or item.get("sku") or None
         set_code, collector_number = parse_sku(sku) if sku else (None, None)
 
         image_url = item.get("imagem") or item.get("image") or None

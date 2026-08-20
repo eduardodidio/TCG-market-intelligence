@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -659,3 +660,31 @@ class Repository:
                 .order_by(UserCollectionRow.set_code)
             )
             return [(r[0], r[1], r[2]) for r in session.execute(stmt).all()]
+
+    def get_collection_total_value(self, user_id: str) -> Decimal | None:
+        """Calculate the total portfolio value for linked collection entries.
+
+        Sums (median_price * quantity) for each linked card. Returns None
+        if there are no linked cards or none of them have prices.
+        """
+        with Session(self.engine) as session:
+            linked_rows = (
+                session.execute(
+                    select(UserCollectionRow).where(
+                        UserCollectionRow.user_id == user_id,
+                        UserCollectionRow.card_id.isnot(None),
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not linked_rows:
+                return None
+            card_ids = list({r.card_id for r in linked_rows})
+            prices = self.get_latest_prices_batch(card_ids)
+            total = Decimal("0")
+            for r in linked_rows:
+                obs = prices.get(r.card_id)
+                if obs and obs.median_price:
+                    total += obs.median_price * r.quantity
+            return total if total > 0 else None

@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.collection.converter import row_to_collection_entry
 from src.collection.matcher import CollectionEntry
 from src.collectors.sync_collection import (
-    _row_to_entry,
     run_sync_collection,
 )
 from src.domain.models import (
@@ -112,15 +112,15 @@ def _history_prices(external_id: str = "1000", count: int = 3) -> list[Historica
     ]
 
 
-# ── unit tests: _row_to_entry ─────────────────────────────────
+# ── unit tests: row_to_collection_entry ───────────────────────
 
 
 class TestRowToEntry:
-    """_row_to_entry converts a DB row to CollectionEntry."""
+    """row_to_collection_entry converts a DB row to CollectionEntry."""
 
     def test_converts_all_fields(self):
         row = _fake_row(set_code="ltr", collector_number="42", name_en="Gandalf")
-        entry = _row_to_entry(row)
+        entry = row_to_collection_entry(row)
 
         assert isinstance(entry, CollectionEntry)
         assert entry.set_code == "ltr"
@@ -129,7 +129,7 @@ class TestRowToEntry:
 
     def test_none_name_en(self):
         row = _fake_row(name_en=None)
-        entry = _row_to_entry(row)
+        entry = row_to_collection_entry(row)
 
         assert entry.name_en is None
 

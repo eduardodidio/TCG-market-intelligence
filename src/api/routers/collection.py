@@ -100,38 +100,7 @@ def list_collection(
 @router.get("/summary", response_model=ApiResponse[CollectionSummary])
 def collection_summary(repo: Repository = Depends(get_db)):
     summary = repo.get_collection_summary(FAKE_USER_ID)
-
-    # Calculate total value for linked cards
-    from decimal import Decimal
-
-    total_value = None
-    if summary["linked_count"] > 0:
-        from sqlalchemy import select
-        from sqlalchemy.orm import Session
-
-        from src.database.models import UserCollectionRow
-
-        with Session(repo.engine) as session:
-            linked_rows = (
-                session.execute(
-                    select(UserCollectionRow).where(
-                        UserCollectionRow.user_id == FAKE_USER_ID,
-                        UserCollectionRow.card_id.isnot(None),
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            card_ids = list({r.card_id for r in linked_rows})
-            prices = repo.get_latest_prices_batch(card_ids)
-            total = Decimal("0")
-            for r in linked_rows:
-                obs = prices.get(r.card_id)
-                if obs and obs.median_price:
-                    total += obs.median_price * r.quantity
-            if total > 0:
-                total_value = total
-
+    total_value = repo.get_collection_total_value(FAKE_USER_ID)
     data = CollectionSummary(
         total_unique=summary["total_unique"],
         total_cards=summary["total_cards"],

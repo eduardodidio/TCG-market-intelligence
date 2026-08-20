@@ -1,0 +1,27 @@
+flowchart LR
+    A[Operator starts<br>F11 operationalization] --> B[db-backup<br>safety backup]
+    B --> C[normalize_set_codes.py<br>lowercase all set codes]
+    C --> D[match-report<br>dry-run MYP search]
+    D --> E{Coverage<br>above 70%?}
+    E -->|No| F[Investigate unmatched<br>review report.json]
+    F --> G[Fix parser or<br>adjust collection]
+    G --> D
+    E -->|Yes: 94.7%| H[db-backup<br>pre-sync safety]
+    H --> I[sync-collection<br>search + match + fetch]
+    I --> J{New observations<br>collected?}
+    J -->|Yes| K[Verify dashboard<br>KPIs and prices]
+    J -->|No: MYP broken| L[Verify dashboard<br>card counts only]
+    K --> M[Document results<br>PRD + diagrams + README]
+    L --> M
+    M --> N[Done<br>616 tests, 91.44% cov]
+
+    %% Styling
+    style A fill:#6c757d,stroke:#adb5bd,color:#fff
+    style C fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style D fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style E fill:#e9c46a,stroke:#f4a261,color:#264653
+    style G fill:#d62828,stroke:#f4a261,color:#fff
+    style I fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style J fill:#e9c46a,stroke:#f4a261,color:#264653
+    style L fill:#d62828,stroke:#f4a261,color:#fff
+    style N fill:#2d6a4f,stroke:#40916c,color:#d8f3dc

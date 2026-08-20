@@ -198,3 +198,93 @@ class TestParseSearchResultsMissingFields:
         results = parse_search_results(raw)
         assert results[0].external_id == "99999"
         assert isinstance(results[0].external_id, str)
+
+
+# ---------------------------------------------------------------------------
+# New MYP API field names (idproduto, nomeenproduto, etc.)
+# ---------------------------------------------------------------------------
+
+
+class TestParseSearchResultsNewFieldNames:
+    """Scenario 5: parse response with new MYP API field names."""
+
+    def test_new_field_names_parsed(self):
+        """MYP API uses idproduto, nomeenproduto, slugnomeenproduto, codigoproduto."""
+        raw = json.dumps(
+            [
+                {
+                    "nomeenproduto": "Lightning Bolt (JP Alternate Art)",
+                    "nomeptproduto": "",
+                    "codigoproduto": "magic_sta_0105p1",
+                    "idproduto": 423741,
+                    "slugnomeptproduto": "",
+                    "slugnomeenproduto": "lightning-bolt-jp-alternate-art",
+                    "nomemarca": "Magic",
+                    "nomecategoria": "Cards avulsos",
+                    "relevance": 17.22,
+                    "qtd": 1,
+                }
+            ]
+        )
+        results = parse_search_results(raw)
+        assert len(results) == 1
+        r = results[0]
+        assert r.external_id == "423741"
+        assert r.name == "Lightning Bolt (JP Alternate Art)"
+        assert r.slug == "lightning-bolt-jp-alternate-art"
+        assert r.sku == "magic_sta_0105p1"
+        assert r.url == "https://mypcards.com/magic/produto/423741/lightning-bolt-jp-alternate-art"
+
+    def test_new_field_names_multiple_results(self):
+        raw = json.dumps(
+            [
+                {
+                    "idproduto": 100,
+                    "nomeenproduto": "Card A",
+                    "slugnomeenproduto": "card-a",
+                    "codigoproduto": "magic_dmr_001",
+                },
+                {
+                    "idproduto": 200,
+                    "nomeenproduto": "Card B",
+                    "slugnomeenproduto": "card-b",
+                    "codigoproduto": "magic_ltr_050",
+                },
+            ]
+        )
+        results = parse_search_results(raw)
+        assert len(results) == 2
+        assert results[0].set_code == "dmr"
+        assert results[1].set_code == "ltr"
+
+    def test_pt_name_fallback_when_en_empty(self):
+        """When nomeenproduto is empty, fall back to nomeptproduto."""
+        raw = json.dumps(
+            [
+                {
+                    "idproduto": 300,
+                    "nomeenproduto": "",
+                    "nomeptproduto": "Raio",
+                    "slugnomeenproduto": "raio",
+                }
+            ]
+        )
+        results = parse_search_results(raw)
+        assert len(results) == 1
+        assert results[0].name == "Raio"
+
+    def test_pt_slug_fallback_when_en_empty(self):
+        """When slugnomeenproduto is empty, fall back to slugnomeptproduto."""
+        raw = json.dumps(
+            [
+                {
+                    "idproduto": 400,
+                    "nomeenproduto": "Some Card",
+                    "slugnomeenproduto": "",
+                    "slugnomeptproduto": "alguma-carta",
+                }
+            ]
+        )
+        results = parse_search_results(raw)
+        assert len(results) == 1
+        assert results[0].slug == "alguma-carta"
