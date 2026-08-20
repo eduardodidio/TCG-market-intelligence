@@ -1,0 +1,12 @@
+{
+  "id": "G-20260820-002",
+  "decision_ref": "D-20260820-002",
+  "feature": "F12",
+  "reviewed_by": "t1000",
+  "review_mode": "post-decision",
+  "verdict": "agree",
+  "reviewed_at": "2026-08-20T17:00:05Z",
+  "assessment": "T800 decision is sound. The JSON-LD extraction approach is the lowest-risk path to restore price data collection after MYP's authentication change. Three governance observations: (1) The risk classification of 'low' is appropriate -- JSON-LD is a W3C standard embedded for SEO purposes and its removal would be self-defeating for MYP. (2) The recommendation to reuse existing infrastructure (parser, collector patterns, cron) rather than introducing new architectural layers is correct and aligned with the collection-centric pivot established in ADR-0004. (3) The idempotency guard recommendation is critical for production reliability -- daily cron retries must not create duplicate observations. No escalation required.",
+  "concerns": [],
+  "escalation_required": false
+}

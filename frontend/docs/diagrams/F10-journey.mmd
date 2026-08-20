@@ -1,0 +1,57 @@
+graph TD
+    subgraph Phase 1: Import Collection
+        A[Export CSV from collection tool] --> B[python -m src.cli.main import-collection<br>--csv collection.csv]
+        B --> C{Import successful?}
+        C -->|Yes| D[548 entries in user_collection table]
+        C -->|No| E[Fix CSV format and retry]
+        E --> B
+    end
+
+    subgraph Phase 2: Match Report
+        D --> F[python -m src.cli.main match-report<br>--limit 10]
+        F --> G[Search MYP for each card by name]
+        G --> H[Match by SKU exact then name+set then name only]
+        H --> I[Print coverage report<br>matched / ambiguous / unmatched]
+        I --> J{Coverage acceptable?}
+        J -->|Yes| K[Proceed to cleanup]
+        J -->|No| L[Review unmatched cards<br>check --output report.json]
+        L --> M[Adjust collection or accept gaps]
+        M --> K
+    end
+
+    subgraph Phase 3: DB Cleanup
+        K --> N[python -m src.cli.main db-backup]
+        N --> O[Timestamped backup in backups/]
+        O --> P[python -m src.cli.main db-cleanup --dry-run]
+        P --> Q{Dry-run counts OK?}
+        Q -->|Yes| R[python -m src.cli.main db-cleanup]
+        Q -->|No| S[Investigate or restore backup]
+        R --> T[Non-collection cards removed<br>DB contains only collection scope]
+    end
+
+    subgraph Phase 4: Sync Collection
+        T --> U[python -m src.cli.main sync-collection<br>--limit 5 --dry-run]
+        U --> V{Dry-run OK?}
+        V -->|Yes| W[python -m src.cli.main sync-collection]
+        V -->|No| X[Debug and fix issues]
+        X --> U
+        W --> Y[Search + match + fetch + store<br>~35-55 min for 548 cards]
+        Y --> Z[Summary: matched / unmatched / errors<br>Price observations stored]
+    end
+
+    subgraph Phase 5: Use Dashboard
+        Z --> AA[Open Dashboard at localhost:5173]
+        AA --> AB[Collection KPIs<br>unique cards, copies, value, coverage]
+        AB --> AC[Browse Cards page<br>collection cards with price data]
+        AC --> AD[Card Detail<br>Scryfall HD image + price chart]
+        AD --> AE[Market Movers<br>top gainers and losers]
+    end
+
+    %% Styling
+    style A fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style D fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style I fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style O fill:#e9c46a,stroke:#f4a261,color:#264653
+    style R fill:#e76f51,stroke:#f4a261,color:#fff
+    style Z fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style AA fill:#264653,stroke:#2a9d8f,color:#e9c46a

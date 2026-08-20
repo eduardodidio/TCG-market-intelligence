@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "second-brain": {
+      "command": "bun",
+      "args": ["run", "/c/Workspace/didio-second-brain-claude/mcp-server/src/index.ts"],
+      "env": {}
+    }
+  }
+}

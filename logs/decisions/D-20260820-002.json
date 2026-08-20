@@ -1,0 +1,35 @@
+{
+  "id": "D-20260820-002",
+  "feature": "F12",
+  "title": "JSON-LD price snapshot",
+  "status": "executed",
+  "action": "plan-feature",
+  "requested_at": "2026-08-20T16:59:25Z",
+  "decided_at": "2026-08-20T17:00:00Z",
+  "decided_by": "t800",
+  "rationale": "F12 is the correct strategic response to MYP gating price history behind authentication. The JSON-LD offers.price field is exposed on all public product pages as structured data (SEO/search engine optimization), making it a stable and reliable extraction target unlikely to be removed without breaking MYP's search engine indexing. The approach is architecturally conservative: it reuses the existing curl_cffi provider, collection sync pipeline, CLI framework (Click), API layer (FastAPI), and scheduled cron infrastructure (F09). No new dependencies are required. Building price history organically via daily snapshots is the pragmatic path -- after 30 days the system will have enough data points for meaningful analytics (MA, volatility, momentum). The feature scope is well-bounded: parser update, new collector, CLI command, API endpoint, and dashboard integration. All of these follow established patterns from F04/F06/F09/F10.",
+  "risk_level": "low",
+  "risk_factors": [
+    "MYP could theoretically remove JSON-LD structured data, but this is unlikely as it would harm their SEO ranking",
+    "Rate limiting must respect existing concurrency controls (asyncio.Semaphore, default 3) to avoid triggering Cloudflare blocks",
+    "Initial snapshot data will be sparse -- analytics requiring 30+ days of history will return incomplete results until enough snapshots accumulate"
+  ],
+  "recommendations": [
+    "Reuse the existing MYP parser module (src/parsers/myp.py) rather than creating a new parser -- add a dedicated function for JSON-LD price extraction alongside existing parse functions",
+    "The snapshot collector should operate on collection cards only (not full catalog) to keep request volume manageable and aligned with the collection-centric pivot from F10",
+    "Store snapshot prices in the existing price_observations table with a distinct source marker (e.g., 'jsonld_snapshot') to differentiate from legacy scraped history",
+    "Integrate with F09 cron by adding the snapshot command after the existing daily sync -- no new cron entry needed",
+    "Add idempotency guard: if a snapshot for a given card+date already exists, skip rather than overwrite, so re-runs are safe",
+    "Include a --dry-run flag on the CLI command to preview which cards would be snapshotted without making requests",
+    "Dashboard should gracefully handle the sparse-data period (first 1-30 days) by showing available data points rather than erroring on insufficient history"
+  ],
+  "prerequisites_verified": {
+    "curl_cffi_provider": true,
+    "json_ld_parser": true,
+    "collection_sync_pipeline": true,
+    "cron_infrastructure_f09": true,
+    "cli_framework": true,
+    "api_layer": true,
+    "test_suite": "616 backend tests passing"
+  }
+}

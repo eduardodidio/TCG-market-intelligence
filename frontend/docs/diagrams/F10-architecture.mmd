@@ -1,0 +1,82 @@
+graph TB
+    subgraph User Input
+        CSV[Collection CSV<br>548 cards, 134 sets]
+        CLI_CMD[CLI Commands<br>match-report, sync-collection,<br>db-backup, db-cleanup]
+    end
+
+    subgraph External Source
+        MYP_Search[MYP Search API<br>GET /produto/search?marca=magic&term=]
+        MYP_Card[MYP Card Page<br>JSON-LD product data]
+        MYP_History[MYP History Page<br>precoChartConfig JS var]
+        Scryfall[Scryfall CDN<br>Card images via redirect API]
+    end
+
+    subgraph Collection Pipeline
+        Importer[CSV Importer<br>src/collection/importer.py]
+        MatchReport[Match Report<br>src/collectors/match_report.py]
+        Matcher[Collection Matcher<br>src/collection/matcher.py<br>SKU exact, name+set, name only]
+        SyncOrch[Sync Orchestrator<br>src/collectors/sync_collection.py<br>asyncio.Semaphore concurrency=3]
+        SearchAdapter[MYP Search Adapter<br>MypCardsProvider.search_card]
+    end
+
+    subgraph API Layer
+        SyncEP[POST /api/v1/collection/sync<br>async job, auth required]
+        CollEP[GET /api/v1/collection<br>list + summary]
+        MarketEP[GET /api/v1/market/*<br>movers + stats]
+    end
+
+    subgraph Storage
+        SQLite[(SQLite Database)]
+        Backup[Backup Utility<br>sqlite3.backup<br>timestamped copies]
+        Cleanup[DB Cleanup<br>remove non-collection data]
+    end
+
+    subgraph Frontend
+        Dashboard[Dashboard<br>Collection KPIs + Movers]
+        CardDetail[Card Detail<br>Scryfall HD image + price chart]
+        CardsPage[Cards Page<br>collection-scoped listing]
+    end
+
+    %% Import flow
+    CSV -->|import| Importer
+    Importer -->|user_collection rows| SQLite
+
+    %% Match report flow
+    CLI_CMD -->|match-report| MatchReport
+    MatchReport -->|search each card| SearchAdapter
+    SearchAdapter -->|HTTP| MYP_Search
+    MatchReport -->|score results| Matcher
+    MatchReport -->|stdout report| CLI_CMD
+
+    %% Sync flow
+    CLI_CMD -->|sync-collection| SyncOrch
+    SyncEP -->|async task| SyncOrch
+    SyncOrch -->|1. search| SearchAdapter
+    SyncOrch -->|2. match| Matcher
+    SyncOrch -->|3. fetch details| MYP_Card
+    SyncOrch -->|4. fetch history| MYP_History
+    SyncOrch -->|5. upsert card + observations| SQLite
+    SyncOrch -->|6. link collection entry| SQLite
+
+    %% DB maintenance
+    CLI_CMD -->|db-backup| Backup
+    Backup -->|sqlite3.backup| SQLite
+    CLI_CMD -->|db-cleanup| Cleanup
+    Cleanup -->|delete non-collection rows| SQLite
+
+    %% Frontend
+    Dashboard -->|GET /collection/summary| CollEP
+    Dashboard -->|GET /market/movers| MarketEP
+    CardDetail -->|card image| Scryfall
+    CardsPage -->|GET /cards| MarketEP
+    CollEP -->|query| SQLite
+    MarketEP -->|query| SQLite
+
+    %% Styling
+    style CSV fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style SyncOrch fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style Matcher fill:#2d6a4f,stroke:#40916c,color:#d8f3dc
+    style SQLite fill:#264653,stroke:#2a9d8f,color:#e9c46a
+    style Backup fill:#e9c46a,stroke:#f4a261,color:#264653
+    style Cleanup fill:#e76f51,stroke:#f4a261,color:#fff
+    style Dashboard fill:#264653,stroke:#2a9d8f,color:#e9c46a
