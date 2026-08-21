@@ -459,6 +459,22 @@ Three display fixes for the collection experience:
   source links, and external links (Scryfall, LigaMagic). Eliminates
   dead-end navigation for unlinked cards.
 
+### F16 -- Explore Cards Sorting (2026-08-21)
+
+Added sorting controls to the My Collection page so users can reorder
+their cards by different criteria:
+
+- **Sort fields**: Name (A-Z / Z-A), Set, Card Number, Date Added
+  (Newest / Oldest), Price (High-Low / Low-High)
+- **Backend sorting** for name, set, number, and date added via
+  `sort_by` and `sort_dir` query parameters on `GET /api/v1/collection`
+- **Client-side sorting** for price (avoids JOIN overhead; null prices
+  pushed to end)
+- **Offset pagination** replaces cursor-based pagination for stable
+  sort ordering (backward-compatible: cursor param still works)
+- **URL-persisted sort state** via query parameters (`?sort=...&dir=...`)
+- **SortSelect component** -- reusable dropdown with configurable options
+
 ## Future
 
 Prepared for but not yet implemented:

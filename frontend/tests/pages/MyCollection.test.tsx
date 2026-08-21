@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { MyCollection } from "../../src/pages/MyCollection";
 import { mockCollectionSummary } from "../fixtures/api-responses";
 import type { ApiResponse, CollectionCard } from "../../src/types/api";
 
-function envelope<T>(data: T): ApiResponse<T> {
+function envelope<T>(data: T, meta?: Partial<ApiResponse<T>["meta"]>): ApiResponse<T> {
   return {
     data,
-    meta: { cursor: null, total: null, request_id: "req-test" },
+    meta: {
+      cursor: meta?.cursor ?? null,
+      total: meta?.total ?? null,
+      offset: meta?.offset ?? null,
+      request_id: meta?.request_id ?? "req-test",
+    },
     errors: [],
   };
 }
@@ -34,7 +39,7 @@ function makeCollectionCard(overrides: Partial<CollectionCard> = {}): Collection
   };
 }
 
-function createMockFetch(cards: CollectionCard[]) {
+function createMockFetch(cards: CollectionCard[], total?: number) {
   return vi.fn().mockImplementation((url: string) => {
     const urlStr = String(url);
     if (urlStr.includes("/collection/summary")) {
@@ -55,7 +60,7 @@ function createMockFetch(cards: CollectionCard[]) {
     if (urlStr.includes("/collection")) {
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve(envelope(cards)),
+        json: () => Promise.resolve(envelope(cards, { total: total ?? cards.length })),
       });
     }
     return Promise.resolve({
@@ -65,15 +70,15 @@ function createMockFetch(cards: CollectionCard[]) {
   });
 }
 
-function renderMyCollection() {
+function renderMyCollection(initialEntries: string[] = ["/collection"]) {
   return render(
-    <MemoryRouter initialEntries={["/collection"]}>
+    <MemoryRouter initialEntries={initialEntries}>
       <MyCollection />
     </MemoryRouter>,
   );
 }
 
-describe("MyCollection — price display", () => {
+describe("MyCollection -- price display", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -117,7 +122,7 @@ describe("MyCollection — price display", () => {
   });
 });
 
-describe("MyCollection — card navigation", () => {
+describe("MyCollection -- card navigation", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -179,7 +184,7 @@ describe("MyCollection — card navigation", () => {
   });
 });
 
-describe("MyCollection — infinite scroll", () => {
+describe("MyCollection -- infinite scroll", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -218,7 +223,7 @@ describe("MyCollection — infinite scroll", () => {
   });
 });
 
-describe("MyCollection — summary KPI", () => {
+describe("MyCollection -- summary KPI", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -267,5 +272,197 @@ describe("MyCollection — summary KPI", () => {
 
     const kpi = screen.getByText("Est. Value").closest("[data-testid]");
     expect(kpi?.textContent).toContain("--");
+  });
+});
+
+describe("MyCollection -- sort dropdown", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("renders the sort dropdown", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sort-select")).toBeDefined();
+    });
+  });
+
+  it("selecting a sort option re-fetches data", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    const mockFetch = createMockFetch([card]);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const callCountBefore = mockFetch.mock.calls.filter(
+      (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+    ).length;
+
+    const select = screen.getByTestId("sort-select");
+    fireEvent.change(select, { target: { value: "added-desc" } });
+
+    await waitFor(() => {
+      const callCountAfter = mockFetch.mock.calls.filter(
+        (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+      ).length;
+      expect(callCountAfter).toBeGreaterThan(callCountBefore);
+    });
+  });
+
+  it("passes sort_by and sort_dir to API for non-price sorts", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    const mockFetch = createMockFetch([card]);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const select = screen.getByTestId("sort-select");
+    fireEvent.change(select, { target: { value: "added-desc" } });
+
+    await waitFor(() => {
+      const collectionCalls = mockFetch.mock.calls.filter(
+        (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+      );
+      const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
+      expect(lastCall).toContain("sort_by=added");
+      expect(lastCall).toContain("sort_dir=desc");
+    });
+  });
+
+  it("does NOT pass sort params to API for price sorting (client-side)", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    const mockFetch = createMockFetch([card]);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const select = screen.getByTestId("sort-select");
+    fireEvent.change(select, { target: { value: "price-desc" } });
+
+    await waitFor(() => {
+      const collectionCalls = mockFetch.mock.calls.filter(
+        (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+      );
+      const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
+      expect(lastCall).not.toContain("sort_by=price");
+    });
+  });
+
+  it("sorts cards by price client-side (high to low)", async () => {
+    const cards = [
+      makeCollectionCard({ id: 1, name_en: "Cheap Card", latest_price: 1.0 }),
+      makeCollectionCard({ id: 2, name_en: "Expensive Card", latest_price: 100.0 }),
+      makeCollectionCard({ id: 3, name_en: "Mid Card", latest_price: 10.0 }),
+    ];
+    globalThis.fetch = createMockFetch(cards) as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const select = screen.getByTestId("sort-select");
+    fireEvent.change(select, { target: { value: "price-desc" } });
+
+    await waitFor(() => {
+      const grid = screen.getByTestId("collection-grid");
+      const cardNames = Array.from(grid.querySelectorAll("h3")).map((h) => h.textContent);
+      expect(cardNames).toEqual(["Expensive Card", "Mid Card", "Cheap Card"]);
+    });
+  });
+
+  it("sorts cards by price client-side (low to high)", async () => {
+    const cards = [
+      makeCollectionCard({ id: 1, name_en: "Expensive Card", latest_price: 100.0 }),
+      makeCollectionCard({ id: 2, name_en: "Cheap Card", latest_price: 1.0 }),
+      makeCollectionCard({ id: 3, name_en: "Mid Card", latest_price: 10.0 }),
+    ];
+    globalThis.fetch = createMockFetch(cards) as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const select = screen.getByTestId("sort-select");
+    fireEvent.change(select, { target: { value: "price-asc" } });
+
+    await waitFor(() => {
+      const grid = screen.getByTestId("collection-grid");
+      const cardNames = Array.from(grid.querySelectorAll("h3")).map((h) => h.textContent);
+      expect(cardNames).toEqual(["Cheap Card", "Mid Card", "Expensive Card"]);
+    });
+  });
+
+  it("pushes null-price cards to the end for price-asc sort", async () => {
+    const cards = [
+      makeCollectionCard({ id: 1, name_en: "No Price", latest_price: null }),
+      makeCollectionCard({ id: 2, name_en: "Has Price", latest_price: 5.0 }),
+    ];
+    globalThis.fetch = createMockFetch(cards) as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const select = screen.getByTestId("sort-select");
+    fireEvent.change(select, { target: { value: "price-asc" } });
+
+    await waitFor(() => {
+      const grid = screen.getByTestId("collection-grid");
+      const cardNames = Array.from(grid.querySelectorAll("h3")).map((h) => h.textContent);
+      expect(cardNames).toEqual(["Has Price", "No Price"]);
+    });
+  });
+
+  it("uses offset-based pagination (offset param in API call)", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    const mockFetch = createMockFetch([card]);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    // The initial fetch should include offset=0
+    const collectionCalls = mockFetch.mock.calls.filter(
+      (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+    );
+    const firstCall = String(collectionCalls[0][0]);
+    expect(firstCall).toContain("offset=0");
+  });
+
+  it("initializes sort from URL params", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
+    renderMyCollection(["/collection?sort=added&dir=desc"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sort-select")).toBeDefined();
+    });
+
+    const select = screen.getByTestId("sort-select") as HTMLSelectElement;
+    expect(select.value).toBe("added-desc");
   });
 });

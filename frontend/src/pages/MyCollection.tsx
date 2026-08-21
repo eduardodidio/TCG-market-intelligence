@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { fetchCollection, fetchCollectionSummary, fetchCollectionSets } from "../api/collection";
@@ -8,6 +8,7 @@ import { FilterChips } from "../components/FilterChips";
 import { KpiCard } from "../components/KpiCard";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
+import { SortSelect, COLLECTION_SORT_OPTIONS } from "../components/SortSelect";
 import { useDebounce } from "../hooks/useDebounce";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CollectionCard, CollectionSummary } from "../types/api";
@@ -151,8 +152,11 @@ export function MyCollection() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("name") ?? "");
   const [selectedSet, setSelectedSet] = useState<string | null>(searchParams.get("set") ?? null);
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">((searchParams.get("dir") as "asc" | "desc") ?? "asc");
   const [cards, setCards] = useState<CollectionCard[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,8 +188,29 @@ export function MyCollection() {
     const params: Record<string, string> = {};
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
+    if (sortBy !== "name") params.sort = sortBy;
+    if (sortDir !== "asc") params.dir = sortDir;
     setSearchParams(params, { replace: true });
-  }, [debouncedSearch, selectedSet, setSearchParams]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, setSearchParams]);
+
+  // Build API params (shared between initial fetch and load-more)
+  const buildParams = useCallback(
+    (currentOffset: number): Record<string, string> => {
+      const params: Record<string, string> = {
+        limit: String(DEFAULT_PAGE_LIMIT),
+        offset: String(currentOffset),
+      };
+      if (debouncedSearch) params.name = debouncedSearch;
+      if (selectedSet) params.set = selectedSet;
+      // For price sorting, sort client-side — don't pass sort params to API
+      if (sortBy !== "price") {
+        params.sort_by = sortBy;
+        params.sort_dir = sortDir;
+      }
+      return params;
+    },
+    [debouncedSearch, selectedSet, sortBy, sortDir],
+  );
 
   // Fetch collection cards
   useEffect(() => {
@@ -194,21 +219,21 @@ export function MyCollection() {
 
     setLoading(true);
     setError(null);
-    setCursor(null);
+    setOffset(0);
     setCards([]);
+    setHasMore(false);
 
-    const params: Record<string, string> = { limit: String(DEFAULT_PAGE_LIMIT) };
-    if (debouncedSearch) params.name = debouncedSearch;
-    if (selectedSet) params.set = selectedSet;
-
-    fetchCollection(params)
+    fetchCollection(buildParams(0))
       .then((res) => {
         if (currentId !== fetchIdRef.current) return;
         if (res.errors.length > 0) {
           setError(res.errors.map((e) => e.message).join("; "));
         } else {
-          setCards(res.data ?? []);
-          setCursor(res.meta.cursor);
+          const data = res.data ?? [];
+          setCards(data);
+          const total = res.meta.total;
+          setHasMore(total != null ? data.length < total : data.length >= DEFAULT_PAGE_LIMIT);
+          setOffset(data.length);
         }
       })
       .catch((err: unknown) => {
@@ -218,39 +243,54 @@ export function MyCollection() {
       .finally(() => {
         if (currentId === fetchIdRef.current) setLoading(false);
       });
-  }, [debouncedSearch, selectedSet]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, buildParams]);
 
   const handleLoadMore = useCallback(() => {
-    if (!cursor || loadingMore) return;
+    if (!hasMore || loadingMore) return;
     setLoadingMore(true);
 
-    const params: Record<string, string> = { limit: String(DEFAULT_PAGE_LIMIT), cursor };
-    if (debouncedSearch) params.name = debouncedSearch;
-    if (selectedSet) params.set = selectedSet;
-
-    fetchCollection(params)
+    fetchCollection(buildParams(offset))
       .then((res) => {
         if (res.errors.length > 0) {
           setError(res.errors.map((e) => e.message).join("; "));
         } else {
-          setCards((prev) => [...prev, ...(res.data ?? [])]);
-          setCursor(res.meta.cursor);
+          const data = res.data ?? [];
+          setCards((prev) => [...prev, ...data]);
+          const newOffset = offset + data.length;
+          setOffset(newOffset);
+          const total = res.meta.total;
+          setHasMore(total != null ? newOffset < total : data.length >= DEFAULT_PAGE_LIMIT);
         }
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Unknown error");
       })
       .finally(() => setLoadingMore(false));
-  }, [cursor, loadingMore, debouncedSearch, selectedSet]);
+  }, [hasMore, loadingMore, offset, buildParams]);
 
   const sentinelRef = useInfiniteScroll(handleLoadMore, {
-    enabled: !!cursor && !loadingMore,
+    enabled: hasMore && !loadingMore,
   });
 
   const handleClearFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedSet(null);
   }, []);
+
+  const handleSortChange = useCallback((newSortBy: string, newSortDir: "asc" | "desc") => {
+    setSortBy(newSortBy);
+    setSortDir(newSortDir);
+  }, []);
+
+  // Client-side price sorting
+  const sortedCards = useMemo(() => {
+    if (sortBy !== "price") return cards;
+    return [...cards].sort((a, b) => {
+      const pa = a.latest_price ?? (sortDir === "asc" ? Infinity : -Infinity);
+      const pb = b.latest_price ?? (sortDir === "asc" ? Infinity : -Infinity);
+      return sortDir === "asc" ? pa - pb : pb - pa;
+    });
+  }, [cards, sortBy, sortDir]);
 
   return (
     <div data-testid="page-collection">
@@ -269,9 +309,18 @@ export function MyCollection() {
         </div>
       )}
 
-      {/* Search and filters */}
+      {/* Search, sort, and filters */}
       <div className="space-y-4 mb-6">
-        <SearchBar value={searchTerm} onChange={setSearchTerm} />
+        <div className="flex gap-3 items-center">
+          <div className="flex-1">
+            <SearchBar value={searchTerm} onChange={setSearchTerm} />
+          </div>
+          <SortSelect
+            options={COLLECTION_SORT_OPTIONS}
+            value={`${sortBy}-${sortDir}`}
+            onChange={handleSortChange}
+          />
+        </div>
         {setOptions.length > 0 && (
           <FilterChips options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
         )}
@@ -307,7 +356,7 @@ export function MyCollection() {
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4"
             data-testid="collection-grid"
           >
-            {cards.map((card) => (
+            {sortedCards.map((card) => (
               <CollectionCardTile key={card.id} card={card} />
             ))}
           </div>

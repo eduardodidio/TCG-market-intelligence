@@ -3,6 +3,11 @@
 _Placeholder. QA acrescenta seções `## <FXX> — <YYYY-MM-DD>` aqui durante a
 ceremony de retrospectiva (ver `templates/agents/prompts/qa.md`)._
 
+## F16 -- Explore Cards Sorting (2026-08-21)
+
+- **Verify edge case descriptions against the implementation, not assumptions.** B13 stated "NULL name sorted last in asc" but `func.coalesce(col, '')` sorts NULL-as-empty-string FIRST. B16 stated "offset takes precedence over after_id" but the code checks `after_id` first. Test plan edge case descriptions should be validated against the actual code before finalizing, not written from assumptions about how the code "should" behave.
+- **Mark client-side-only edge cases (E09-E13) as requiring specific test approaches.** Edge cases like "all prices null in client-side sort" or "in-flight fetch abort" require different test setups than server-side tests. Tag them with their test layer (frontend unit, integration, manual) so developers know what kind of test to write.
+
 ## F13 — 2026-04-27
 
 **What worked:** TEA boundary with QA is the load-bearing design decision — "do not write tests, do not replace QA" stated explicitly in the prompt prevents scope creep. The 7-section output contract tied 1:1 to `docs/F13-test-plan-spec.md` makes TEA output structurally verifiable by a smoke script without a live model run.

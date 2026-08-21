@@ -566,20 +566,26 @@ class Repository:
                 .all()
             )
 
+    _COLLECTION_SORT_COLUMNS = {
+        "name": "name_en",
+        "set": "set_code",
+        "number": "collector_number",
+        "added": "created_at",
+    }
+
     def list_collection(
         self,
         user_id: str,
         name_search: str | None = None,
         set_code: str | None = None,
-        after_id: int | None = None,
+        sort_by: str = "name",
+        sort_dir: str = "asc",
+        offset: int = 0,
         limit: int = 50,
+        after_id: int | None = None,
     ) -> list[UserCollectionRow]:
         with Session(self.engine) as session:
-            stmt = (
-                select(UserCollectionRow)
-                .where(UserCollectionRow.user_id == user_id)
-                .order_by(UserCollectionRow.id.asc())
-            )
+            stmt = select(UserCollectionRow).where(UserCollectionRow.user_id == user_id)
             if name_search:
                 pattern = f"%{name_search}%"
                 stmt = stmt.where(
@@ -588,8 +594,27 @@ class Repository:
                 )
             if set_code:
                 stmt = stmt.where(UserCollectionRow.set_code == set_code)
-            if after_id:
+
+            # Sorting
+            col_name = self._COLLECTION_SORT_COLUMNS.get(sort_by, "name_en")
+            col = getattr(UserCollectionRow, col_name)
+            # Handle NULLs: coalesce nullable string columns to '' so they sort last
+            if col_name in ("name_en",):
+                sort_expr = func.coalesce(col, "")
+            else:
+                sort_expr = col
+            if sort_dir == "desc":
+                sort_expr = sort_expr.desc()
+            else:
+                sort_expr = sort_expr.asc()
+            stmt = stmt.order_by(sort_expr, UserCollectionRow.id.asc())
+
+            # Pagination: cursor-based (after_id) takes precedence over offset
+            if after_id is not None:
                 stmt = stmt.where(UserCollectionRow.id > after_id)
+            elif offset:
+                stmt = stmt.offset(offset)
+
             stmt = stmt.limit(limit + 1)
             return list(session.execute(stmt).scalars().all())
 

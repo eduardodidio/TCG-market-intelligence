@@ -52,6 +52,9 @@ def list_collection(
     name: str | None = None,
     set: str | None = Query(None, alias="set"),
     cursor: str | None = None,
+    sort_by: str = Query(default="name", pattern="^(name|set|number|added)$"),
+    sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
+    offset: int | None = Query(default=None, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     repo: Repository = Depends(get_db),
 ):
@@ -60,6 +63,9 @@ def list_collection(
         user_id=FAKE_USER_ID,
         name_search=name,
         set_code=set,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        offset=offset if offset is not None else 0,
         after_id=after_id,
         limit=limit,
     )
@@ -100,7 +106,17 @@ def list_collection(
     next_cursor = _encode_cursor(rows[-1].id) if has_next and rows else None
     total = repo.count_collection(FAKE_USER_ID, name_search=name, set_code=set)
 
-    return paginated_response(data=data, cursor=next_cursor, total=total)
+    # Compute next_offset for offset-based pagination
+    next_offset = None
+    if offset is not None and has_next:
+        next_offset = offset + limit
+
+    return paginated_response(
+        data=data,
+        cursor=next_cursor,
+        total=total,
+        offset=next_offset,
+    )
 
 
 @router.get("/summary", response_model=ApiResponse[CollectionSummary])

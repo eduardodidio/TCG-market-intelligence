@@ -3,6 +3,10 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F16 -- Explore Cards Sorting (2026-08-21)
+
+- **Check for input validation gaps at the frontend-to-API boundary.** TechLead review verified API-level validation (regex patterns, ge=0) but did not flag that the frontend passes URL params to the API without validation. The API correctly rejects invalid values with 422, but the user experience is poor (error banner). A TechLead review should verify that each layer validates its inputs independently -- the frontend should not rely solely on the API for input sanitization of user-facing state like URL params.
+
 ## F01 -- MYP Cards Backfill (2026-08-18)
 
 - **Enforce lint cleanliness from the first feature.** F01 left 10 lint errors (9 unused imports, 1 line-length) that were only discovered during F02. Adding `ruff check` to the dev workflow from project setup prevents accumulation of technical debt.

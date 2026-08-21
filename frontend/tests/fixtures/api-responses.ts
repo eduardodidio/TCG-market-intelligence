@@ -20,6 +20,7 @@ function envelope<T>(
     meta: {
       cursor: meta?.cursor ?? null,
       total: meta?.total ?? null,
+      offset: meta?.offset ?? null,
       request_id: meta?.request_id ?? "req-test-001",
     },
     errors: [],
@@ -167,7 +168,7 @@ export function mockApiError(
 ): ApiResponse<null> {
   return {
     data: null,
-    meta: { cursor: null, total: null, request_id: "req-err-001" },
+    meta: { cursor: null, total: null, offset: null, request_id: "req-err-001" },
     errors: [{ code, message }],
   };
 }

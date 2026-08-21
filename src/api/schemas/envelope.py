@@ -17,6 +17,7 @@ class ErrorDetail(BaseModel):
 class Meta(BaseModel):
     cursor: str | None = None
     total: int | None = None
+    offset: int | None = None
     request_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 
 

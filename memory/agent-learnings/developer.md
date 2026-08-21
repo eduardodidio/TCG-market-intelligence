@@ -3,6 +3,11 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F16 -- Explore Cards Sorting (2026-08-21)
+
+- **Name tests to reflect actual behavior, not plan expectations.** The developer correctly named `test_null_name_en_sorts_to_beginning_asc` to match the real behavior (NULL coalesces to '' = sorts first), even though the test plan said "sorts last." This is the right approach -- test names are documentation. When the plan is wrong, the test name should document reality.
+- **Validate URL-sourced state on the frontend.** The `MyCollection` page reads `sort` from URL search params and passes it directly to the API. If the URL contains an invalid sort value (e.g., `?sort=invalid`), the API returns 422 and the user sees an error. Adding a guard like `COLLECTION_SORT_OPTIONS.some(o => o.sortBy === urlSort) ? urlSort : "name"` would prevent this edge case.
+
 ## F01 -- MYP Cards Backfill (2026-08-18)
 
 - **Use `curl_cffi` with `impersonate="chrome"` for Cloudflare-protected sites.** `httpx` and `requests` get 403 from MYP Cards. This is a hard requirement — do not attempt other HTTP libraries without testing Cloudflare bypass first.

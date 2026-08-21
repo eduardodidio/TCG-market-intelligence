@@ -3,6 +3,11 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F16 -- Explore Cards Sorting (2026-08-21)
+
+- **Specify NULL ordering expectations explicitly in the PRD.** F16's PRD did not specify where NULL values should appear in sorted results (first vs last). The developer chose `coalesce(name_en, '')` which puts NULLs first in ascending order. The test plan then incorrectly stated "None sorted last." Ambiguity in the PRD propagates through the entire pipeline. When a sort feature touches nullable columns, the PRD should state "NULL values sort [first|last] in ascending order."
+- **Document precedence rules when introducing overlapping parameters.** F16 introduced `offset` alongside the existing `cursor`/`after_id`. The PRD said "cursor is ignored when offset is provided" but the implementation gives `after_id` precedence (which is arguably safer for backward compatibility). Either approach is valid, but the PRD should be unambiguous about which parameter wins.
+
 ## F01 -- MYP Cards Backfill (2026-08-18)
 
 - **Start with a single small set for validation.** Using Dominaria Remastered (30 cards) as a pilot allowed catching parser, encoding, and idempotency issues before scaling to 48 pages of editions. Always scope Wave 0 to a single representative sample.

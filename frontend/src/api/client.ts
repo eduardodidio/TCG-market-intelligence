@@ -47,7 +47,7 @@ export async function apiGet<T>(
       // Otherwise build an envelope from the HTTP status
       return {
         data: null,
-        meta: { cursor: null, total: null, request_id: "" },
+        meta: { cursor: null, total: null, offset: null, request_id: "" },
         errors: [
           {
             code: `HTTP_${response.status}`,
@@ -72,7 +72,7 @@ export async function apiGet<T>(
 
     return {
       data: null,
-      meta: { cursor: null, total: null, request_id: "" },
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
       errors: [{ code, message }],
     };
   }

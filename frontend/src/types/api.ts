@@ -9,6 +9,7 @@ export interface ApiError {
 export interface ApiMeta {
   cursor: string | null;
   total: number | null;
+  offset: number | null;
   request_id: string;
 }
 

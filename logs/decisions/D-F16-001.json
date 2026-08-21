@@ -1,0 +1,11 @@
+{
+  "id": "D-F16-001",
+  "feature": "F16",
+  "type": "feature_start",
+  "status": "executed",
+  "action": "create-feature",
+  "rationale": "F16 is fully planned and ready for execution. The PRD is comprehensive with clear scope boundaries, explicit out-of-scope items, and a pragmatic pagination migration strategy (cursor to offset). All 5 tasks have detailed dev notes with file paths, line numbers, code snippets, acceptance criteria, and test scenarios. Tasks are organized into 3 waves with correct dependency chains. Risk is low: the feature adds sorting controls to an existing collection endpoint with no new external dependencies, no schema migrations, and no destructive changes. The price-sorting caveat (client-side only) is well-documented. This is a straightforward UI/API enhancement on stable infrastructure with 92.75% backend coverage as a safety net.",
+  "risk_level": "low",
+  "actions": ["create-feature"],
+  "created_at": "2026-08-21T10:21:15Z"
+}
