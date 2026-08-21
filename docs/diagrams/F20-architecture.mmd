@@ -1,0 +1,13 @@
+graph TD
+    subgraph Frontend
+        MC[MyCollection.tsx] -->|uses| UGS[useGridSize hook]
+        MC -->|renders| GST[GridSizeToggle]
+        UGS -->|reads/writes| LS[localStorage tcg:grid-size]
+        UGS -->|provides| GS[gridSize: sm/md/lg]
+        GS -->|selects| CFG[GRID_SIZE_CONFIG]
+        CFG -->|applies| GC[Grid Tailwind Classes]
+        CFG -->|controls| CP[compact prop]
+        GC --> SG[Skeleton Grid]
+        GC --> CG[Card Grid]
+        CP --> CCT[CollectionCardTile]
+    end

@@ -4,17 +4,19 @@ import { Link } from "react-router-dom";
 import { fetchCollection, fetchCollectionSummary, fetchCollectionSets } from "../api/collection";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { FilterChips } from "../components/FilterChips";
+import { GridSizeToggle } from "../components/GridSizeToggle";
 import { KpiCard } from "../components/KpiCard";
 import { SearchBar } from "../components/SearchBar";
+import { SetIconFilter } from "../components/SetIconFilter";
 import { SkeletonCard } from "../components/Skeleton";
 import { SortSelect, COLLECTION_SORT_OPTIONS } from "../components/SortSelect";
 import { useDebounce } from "../hooks/useDebounce";
+import { useGridSize } from "../hooks/useGridSize";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CollectionCard, CollectionSummary } from "../types/api";
+import { DEFAULT_PAGE_LIMIT, GRID_SIZE_CONFIG } from "../utils/constants";
 import { formatBRL } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
-import { DEFAULT_PAGE_LIMIT } from "../utils/constants";
 
 const RARITY_COLORS: Record<string, string> = {
   M: "text-amber-400",
@@ -30,7 +32,7 @@ const RARITY_LABELS: Record<string, string> = {
   C: "Common",
 };
 
-function CollectionCardTile({ card }: { card: CollectionCard }) {
+function CollectionCardTile({ card, compact = false }: { card: CollectionCard; compact?: boolean }) {
   const displayName = card.name_en || card.name_pt || "Unknown Card";
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
@@ -106,23 +108,25 @@ function CollectionCardTile({ card }: { card: CollectionCard }) {
           {displayName}
         </h3>
 
-        <div className="flex items-center gap-2 mt-1">
-          {card.set_code && (
-            <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-300 rounded">
-              {card.set_code}
-            </span>
-          )}
-          {card.collector_number && (
-            <span className="text-xs text-slate-500">
-              #{card.collector_number}
-            </span>
-          )}
-          {card.rarity && (
-            <span className={`text-xs font-bold ${RARITY_COLORS[card.rarity] || "text-slate-400"}`}>
-              {RARITY_LABELS[card.rarity] || card.rarity}
-            </span>
-          )}
-        </div>
+        {!compact && (
+          <div className="flex items-center gap-2 mt-1">
+            {card.set_code && (
+              <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-300 rounded">
+                {card.set_code}
+              </span>
+            )}
+            {card.collector_number && (
+              <span className="text-xs text-slate-500">
+                #{card.collector_number}
+              </span>
+            )}
+            {card.rarity && (
+              <span className={`text-xs font-bold ${RARITY_COLORS[card.rarity] || "text-slate-400"}`}>
+                {RARITY_LABELS[card.rarity] || card.rarity}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between mt-2">
           <p
@@ -131,10 +135,12 @@ function CollectionCardTile({ card }: { card: CollectionCard }) {
           >
             {formatBRL(card.latest_price)}
           </p>
-          <div className="flex items-center gap-1 text-xs text-slate-400">
-            {card.quality && <span>{card.quality}</span>}
-            {card.language && <span className="text-slate-500">({card.language})</span>}
-          </div>
+          {!compact && (
+            <div className="flex items-center gap-1 text-xs text-slate-400">
+              {card.quality && <span>{card.quality}</span>}
+              {card.language && <span className="text-slate-500">({card.language})</span>}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -148,6 +154,8 @@ export function MyCollection() {
   useEffect(() => {
     document.title = "My Collection | TCG Market";
   }, []);
+
+  const { gridSize, setGridSize } = useGridSize();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("name") ?? "");
@@ -175,7 +183,7 @@ export function MyCollection() {
       if (res.data) {
         setSetOptions(
           res.data.map((s) => ({
-            label: s.set_name ? `${s.set_code} — ${s.set_name}` : s.set_code,
+            label: s.set_name || s.set_code,
             value: s.set_code,
           })),
         );
@@ -322,8 +330,11 @@ export function MyCollection() {
           />
         </div>
         {setOptions.length > 0 && (
-          <FilterChips options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
+          <SetIconFilter options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
         )}
+        <div className="flex justify-end">
+          <GridSizeToggle value={gridSize} onChange={setGridSize} />
+        </div>
       </div>
 
       {error && (
@@ -334,7 +345,7 @@ export function MyCollection() {
 
       {loading && (
         <div
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4"
+          className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses}`}
           data-testid="skeleton-grid"
         >
           {Array.from({ length: 12 }).map((_, i) => (
@@ -353,11 +364,11 @@ export function MyCollection() {
       {!loading && cards.length > 0 && (
         <>
           <div
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4"
+            className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses}`}
             data-testid="collection-grid"
           >
             {sortedCards.map((card) => (
-              <CollectionCardTile key={card.id} card={card} />
+              <CollectionCardTile key={card.id} card={card} compact={GRID_SIZE_CONFIG[gridSize].compact} />
             ))}
           </div>
           <div ref={sentinelRef} data-testid="scroll-sentinel" />

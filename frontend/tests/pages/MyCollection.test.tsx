@@ -466,3 +466,79 @@ describe("MyCollection -- sort dropdown", () => {
     expect(select.value).toBe("added-desc");
   });
 });
+
+describe("MyCollection -- set icon filter", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("renders SetIconFilter instead of FilterChips", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("set-icon-filter")).toBeDefined();
+    });
+
+    // FilterChips testid should NOT exist for sets
+    expect(screen.queryByTestId("filter-chips")).toBeNull();
+  });
+});
+
+describe("MyCollection -- grid size", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    localStorage.removeItem("tcg:grid-size");
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+    localStorage.removeItem("tcg:grid-size");
+  });
+
+  it("renders grid size toggle", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByRole("group", { name: "Grid size" })).toBeDefined();
+    });
+  });
+
+  it("uses medium grid classes by default", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const grid = screen.getByTestId("collection-grid");
+    expect(grid.className).toContain("grid-cols-2");
+    expect(grid.className).toContain("xl:grid-cols-6");
+  });
+
+  it("skeleton grid also uses the selected size classes", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
+    renderMyCollection();
+
+    // Skeleton grid shows during loading
+    const skeleton = screen.getByTestId("skeleton-grid");
+    expect(skeleton.className).toContain("grid-cols-2");
+    expect(skeleton.className).toContain("xl:grid-cols-6");
+  });
+});

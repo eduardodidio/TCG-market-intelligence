@@ -475,6 +475,33 @@ their cards by different criteria:
 - **URL-persisted sort state** via query parameters (`?sort=...&dir=...`)
 - **SortSelect component** -- reusable dropdown with configurable options
 
+### F17 -- Set Symbol Icons (2026-08-21)
+
+Replaced text-based set filter chips on the My Collection page with
+Scryfall set symbol SVG icons:
+
+- **Set icon utility** -- `scryfallSetIconUrl()` builds Scryfall SVG URLs
+  with MYP variant set code mapping (reuses existing `mapToScryfallSetCode`)
+- **SetIconFilter component** -- compact icon buttons with tooltips (full
+  set name on hover), highlight ring on selection, text fallback on SVG
+  load error
+- **Simplified labels** -- set filter options now show just the set name
+  (icon conveys the code visually)
+
+### F20 -- Card Grid Size Control (2026-08-21)
+
+Added a 3-option grid size toggle (Small / Medium / Large) to the
+collection page, persisted in localStorage:
+
+- **useGridSize hook** -- reads/writes grid size preference to
+  `localStorage` with `"md"` default and invalid-value fallback
+- **GridSizeToggle component** -- accessible button group with SVG grid
+  density icons, `aria-pressed` states, and cyan highlight on active
+- **Dynamic grid layout** -- both skeleton and card grids use Tailwind
+  classes from `GRID_SIZE_CONFIG`; Small mode shows compact cards
+  (name + price only), Large mode shows full card info
+- **Persistent preference** -- grid size survives page reload
+
 ## Future
 
 Prepared for but not yet implemented:

@@ -1,0 +1,12 @@
+graph TD
+    subgraph Frontend
+        MC[MyCollection.tsx] -->|uses| SIF[SetIconFilter]
+        SIF -->|calls| SIU[scryfallSetIconUrl]
+        SIU -->|maps via| SCM[setCodeMap.ts]
+        SIU -->|returns| SVG_URL["svgs.scryfall.io/sets/{code}.svg"]
+        SIF -->|on error| FB[Text Fallback]
+    end
+
+    subgraph External
+        SVG_URL -->|HTTP GET| SCRY[Scryfall CDN]
+    end

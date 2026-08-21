@@ -1,0 +1,11 @@
+graph LR
+    A[User opens My Collection] --> B[Set icons load from Scryfall SVGs]
+    B --> C{Icon loads?}
+    C -->|Yes| D[Show set symbol icon]
+    C -->|No| E[Show 3-letter set code text]
+    D --> F[User hovers icon]
+    F --> G[Tooltip shows full set name]
+    D --> H[User clicks icon]
+    H --> I[Cards filter by selected set]
+    I --> J[User clicks icon again]
+    J --> K[Filter cleared - show all]

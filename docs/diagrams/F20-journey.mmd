@@ -1,0 +1,11 @@
+graph LR
+    A[User opens My Collection] --> B[Grid renders at saved size or Medium default]
+    B --> C[User clicks Small grid button]
+    C --> D[Grid switches to 8 columns, compact cards]
+    D --> E[Name + price only, no set/rarity/quality]
+    C --> F[Preference saved to localStorage]
+    B --> G[User clicks Large grid button]
+    G --> H[Grid switches to 4 columns, full cards]
+    H --> I[Full card info: set, rarity, quality, language]
+    F --> J[User reloads page]
+    J --> K[Grid restores saved size preference]

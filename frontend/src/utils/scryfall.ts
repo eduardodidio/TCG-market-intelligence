@@ -23,3 +23,12 @@ export function scryfallImageByName(
 ): string {
   return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image&version=${version}`;
 }
+
+/**
+ * Build a Scryfall set icon SVG URL.
+ * Applies MYP variant set code mapping before building the URL.
+ */
+export function scryfallSetIconUrl(setCode: string): string {
+  const mapped = mapToScryfallSetCode(setCode);
+  return `https://svgs.scryfall.io/sets/${mapped}.svg`;
+}

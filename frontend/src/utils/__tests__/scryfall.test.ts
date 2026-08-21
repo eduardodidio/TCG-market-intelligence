@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scryfallImageUrl, scryfallImageByName } from "../scryfall";
+import { scryfallImageUrl, scryfallImageByName, scryfallSetIconUrl } from "../scryfall";
 
 describe("scryfallImageUrl", () => {
   it("maps borderless set code bldmr to dmr", () => {
@@ -66,5 +66,25 @@ describe("scryfallImageByName", () => {
   it("encodes ampersand in card name", () => {
     const url = scryfallImageByName("Sword of Fire & Ice");
     expect(url).toContain("exact=Sword%20of%20Fire%20%26%20Ice");
+  });
+});
+
+describe("scryfallSetIconUrl", () => {
+  it("builds SVG URL for a standard set code", () => {
+    expect(scryfallSetIconUrl("DMR")).toBe(
+      "https://svgs.scryfall.io/sets/dmr.svg",
+    );
+  });
+
+  it("maps variant set code bldmr to dmr", () => {
+    expect(scryfallSetIconUrl("bldmr")).toBe(
+      "https://svgs.scryfall.io/sets/dmr.svg",
+    );
+  });
+
+  it("handles uppercase variant set code", () => {
+    expect(scryfallSetIconUrl("BLDMR")).toBe(
+      "https://svgs.scryfall.io/sets/dmr.svg",
+    );
   });
 });
