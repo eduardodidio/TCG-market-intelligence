@@ -1,5 +1,7 @@
+import { useTranslation } from "react-i18next";
+
 export interface SortOption {
-  label: string;
+  labelKey: string;
   sortBy: string;
   sortDir: "asc" | "desc";
 }
@@ -11,17 +13,18 @@ export interface SortSelectProps {
 }
 
 export const COLLECTION_SORT_OPTIONS: SortOption[] = [
-  { label: "Name (A-Z)", sortBy: "name", sortDir: "asc" },
-  { label: "Name (Z-A)", sortBy: "name", sortDir: "desc" },
-  { label: "Set", sortBy: "set", sortDir: "asc" },
-  { label: "Card Number", sortBy: "number", sortDir: "asc" },
-  { label: "Date Added (Newest)", sortBy: "added", sortDir: "desc" },
-  { label: "Date Added (Oldest)", sortBy: "added", sortDir: "asc" },
-  { label: "Price (High-Low)", sortBy: "price", sortDir: "desc" },
-  { label: "Price (Low-High)", sortBy: "price", sortDir: "asc" },
+  { labelKey: "sort.nameAZ", sortBy: "name", sortDir: "asc" },
+  { labelKey: "sort.nameZA", sortBy: "name", sortDir: "desc" },
+  { labelKey: "sort.set", sortBy: "set", sortDir: "asc" },
+  { labelKey: "sort.cardNumber", sortBy: "number", sortDir: "asc" },
+  { labelKey: "sort.dateNewest", sortBy: "added", sortDir: "desc" },
+  { labelKey: "sort.dateOldest", sortBy: "added", sortDir: "asc" },
+  { labelKey: "sort.priceHighLow", sortBy: "price", sortDir: "desc" },
+  { labelKey: "sort.priceLowHigh", sortBy: "price", sortDir: "asc" },
 ];
 
 export function SortSelect({ options, value, onChange }: SortSelectProps) {
+  const { t } = useTranslation();
   return (
     <select
       data-testid="sort-select"
@@ -30,16 +33,16 @@ export function SortSelect({ options, value, onChange }: SortSelectProps) {
         const [sortBy, sortDir] = e.target.value.split("-");
         onChange(sortBy, sortDir as "asc" | "desc");
       }}
-      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg
+      className="px-3 py-2 bg-tcg-card border border-tcg-border rounded-tcg-md
         text-white text-sm
-        focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent
-        cursor-pointer"
+        focus:outline-none focus:ring-2 focus:ring-tcg-primary focus:border-transparent
+        cursor-pointer transition-colors"
     >
       {options.map((opt) => {
         const key = `${opt.sortBy}-${opt.sortDir}`;
         return (
           <option key={key} value={key}>
-            {opt.label}
+            {t(opt.labelKey)}
           </option>
         );
       })}

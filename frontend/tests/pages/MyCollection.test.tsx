@@ -103,7 +103,7 @@ describe("MyCollection -- price display", () => {
     expect(priceEl.textContent).toContain("R$");
     expect(priceEl.textContent).toContain("1,50");
     // Price should use cyan color
-    expect(priceEl.className).toContain("text-cyan-400");
+    expect(priceEl.className).toContain("text-tcg-secondary");
   });
 
   it("displays '--' fallback for card with null latest_price", async () => {
@@ -118,7 +118,7 @@ describe("MyCollection -- price display", () => {
     const priceEl = screen.getByTestId("card-price");
     expect(priceEl.textContent).toBe("--");
     // No-price should use muted color
-    expect(priceEl.className).toContain("text-slate-500");
+    expect(priceEl.className).toContain("text-tcg-dimmed");
   });
 });
 

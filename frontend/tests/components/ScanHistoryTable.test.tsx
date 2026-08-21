@@ -28,20 +28,20 @@ describe("ScanHistoryTable", () => {
     render(<ScanHistoryTable scans={scans} />);
 
     const completedBadge = screen.getByTestId("status-badge-completed");
-    expect(completedBadge.className).toContain("bg-green-100");
-    expect(completedBadge.className).toContain("text-green-700");
+    expect(completedBadge.className).toContain("bg-tcg-gain/20");
+    expect(completedBadge.className).toContain("text-tcg-gain");
 
     const failedBadge = screen.getByTestId("status-badge-failed");
-    expect(failedBadge.className).toContain("bg-red-100");
-    expect(failedBadge.className).toContain("text-red-700");
+    expect(failedBadge.className).toContain("bg-tcg-loss/20");
+    expect(failedBadge.className).toContain("text-tcg-loss");
 
     const runningBadge = screen.getByTestId("status-badge-running");
-    expect(runningBadge.className).toContain("bg-blue-100");
-    expect(runningBadge.className).toContain("text-blue-700");
+    expect(runningBadge.className).toContain("bg-tcg-info/20");
+    expect(runningBadge.className).toContain("text-tcg-info");
 
     const pendingBadge = screen.getByTestId("status-badge-pending");
-    expect(pendingBadge.className).toContain("bg-gray-100");
-    expect(pendingBadge.className).toContain("text-gray-700");
+    expect(pendingBadge.className).toContain("bg-tcg-muted/20");
+    expect(pendingBadge.className).toContain("text-tcg-muted");
   });
 
   it("shows empty state message when no scans", () => {

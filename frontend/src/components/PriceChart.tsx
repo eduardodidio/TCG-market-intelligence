@@ -1,9 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
+  Brush,
   CartesianGrid,
   Legend,
   Line,
   LineChart,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -55,24 +58,34 @@ function ChartTooltip({ active, payload, label, currency = "BRL" }: CustomToolti
   const quantity = dataPoint?.payload?.quantity_available;
 
   return (
-    <div className="rounded-lg bg-slate-900 border border-slate-600 p-3 shadow-lg">
-      <p className="text-xs text-slate-400 mb-2">{label}</p>
+    <div className="rounded-tcg-md bg-tcg-bg border border-tcg-ring p-3 shadow-tcg-lg">
+      <p className="text-xs text-tcg-muted mb-2">{label}</p>
       {payload.map((entry) => (
         <p key={entry.dataKey} className="text-sm" style={{ color: entry.color }}>
           {entry.name}: {formatCurrency(entry.value, currency)}
         </p>
       ))}
       {quantity != null && (
-        <p className="text-xs text-slate-400 mt-1">
-          Qty available: {quantity}
+        <p className="text-xs text-tcg-muted mt-1">
+          {`Qty available: ${quantity}`}
         </p>
       )}
     </div>
   );
 }
 
+interface ZoomState {
+  left: string | null;
+  right: string | null;
+}
+
 export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
+  const { t } = useTranslation();
   const [period, setPeriod] = useState("90d");
+  const [zoom, setZoom] = useState<ZoomState>({ left: null, right: null });
+  const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
+  const [refAreaRight, setRefAreaRight] = useState<string | null>(null);
+  const isDragging = useRef(false);
 
   const historyFetcher = useCallback(
     () => fetchCardHistory(cardId, period, currency),
@@ -84,95 +97,192 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
     [cardId, period, currency],
   );
 
+  const isZoomed = zoom.left !== null && zoom.right !== null;
+
+  function getZoomedData(data: PriceObservation[]): PriceObservation[] {
+    if (!isZoomed) return data;
+    const leftIdx = data.findIndex((d) => d.observed_at === zoom.left);
+    const rightIdx = data.findIndex((d) => d.observed_at === zoom.right);
+    if (leftIdx === -1 || rightIdx === -1) return data;
+    const start = Math.min(leftIdx, rightIdx);
+    const end = Math.max(leftIdx, rightIdx);
+    return data.slice(start, end + 1);
+  }
+
+  function handleMouseDown(e: { activeLabel?: string }) {
+    if (e?.activeLabel) {
+      setRefAreaLeft(e.activeLabel);
+      setRefAreaRight(null);
+      isDragging.current = true;
+    }
+  }
+
+  function handleMouseMove(e: { activeLabel?: string }) {
+    if (isDragging.current && refAreaLeft && e?.activeLabel) {
+      setRefAreaRight(e.activeLabel);
+    }
+  }
+
+  function handleMouseUp() {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    if (refAreaLeft && refAreaRight && refAreaLeft !== refAreaRight) {
+      // Ensure left < right
+      const data = observations ?? [];
+      const leftIdx = data.findIndex((d) => d.observed_at === refAreaLeft);
+      const rightIdx = data.findIndex((d) => d.observed_at === refAreaRight);
+      if (leftIdx !== -1 && rightIdx !== -1) {
+        const startIdx = Math.min(leftIdx, rightIdx);
+        const endIdx = Math.max(leftIdx, rightIdx);
+        setZoom({
+          left: data[startIdx].observed_at,
+          right: data[endIdx].observed_at,
+        });
+      }
+    }
+    setRefAreaLeft(null);
+    setRefAreaRight(null);
+  }
+
+  function resetZoom() {
+    setZoom({ left: null, right: null });
+    setRefAreaLeft(null);
+    setRefAreaRight(null);
+    isDragging.current = false;
+  }
+
   return (
-    <div data-testid="price-chart" className="bg-slate-800 rounded-xl p-4">
-      {/* Period selector */}
-      <div data-testid="period-selector" className="flex gap-2 mb-4">
-        {PERIODS.map((p) => (
+    <div data-testid="price-chart" className="bg-tcg-card rounded-tcg-lg p-4 border border-tcg-border">
+      {/* Period selector + zoom reset */}
+      <div className="flex items-center justify-between mb-4">
+        <div data-testid="period-selector" className="flex gap-2">
+          {PERIODS.map((p) => (
+            <button
+              key={p.value}
+              data-testid={`period-btn-${p.value}`}
+              onClick={() => {
+                setPeriod(p.value);
+                resetZoom();
+              }}
+              className={`px-3 py-1.5 rounded-tcg-md text-sm font-medium transition-colors ${
+                period === p.value
+                  ? "bg-tcg-primary text-white shadow-tcg-glow"
+                  : "bg-tcg-card-alt text-tcg-muted hover:text-white hover:bg-tcg-ring"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {isZoomed && (
           <button
-            key={p.value}
-            data-testid={`period-btn-${p.value}`}
-            onClick={() => setPeriod(p.value)}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              period === p.value
-                ? "bg-cyan-500 text-white"
-                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-            }`}
+            data-testid="reset-zoom-btn"
+            onClick={resetZoom}
+            className="px-3 py-1.5 rounded-tcg-md text-sm font-medium bg-tcg-warning text-tcg-bg hover:brightness-110 transition-colors"
           >
-            {p.label}
+            {t("chart.resetZoom")}
           </button>
-        ))}
+        )}
       </div>
 
       {/* Chart area */}
-      {loading && <LoadingSpinner message="Loading price history..." />}
+      {loading && <LoadingSpinner message={t("chart.loadingHistory")} />}
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
       {!loading && !error && (!observations || observations.length === 0) && (
-        <p data-testid="empty-history" className="text-slate-400 text-center py-8">
-          No price history available
+        <p data-testid="empty-history" className="text-tcg-muted text-center py-8">
+          {t("chart.noHistory")}
         </p>
       )}
 
       {!loading && !error && observations && observations.length > 0 && (() => {
         const isSparse = observations.length < 7;
+        const displayData = getZoomedData(observations);
         return (
           <>
             {isSparse && (
-              <p data-testid="sparse-data-notice" className="text-sm text-amber-400/80 mb-3">
-                Building price history -- {observations.length} data point{observations.length !== 1 ? 's' : ''} so far.
-                Daily snapshots will fill this chart over time.
+              <p data-testid="sparse-data-notice" className="text-sm text-tcg-warning/80 mb-3">
+                {t("chart.sparseData", { count: observations.length })}
               </p>
             )}
             <div data-testid="chart-container" className="w-full h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={observations}>
-                  <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
+                <LineChart
+                  data={displayData}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                >
+                  <CartesianGrid stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
                   <XAxis
                     dataKey="observed_at"
                     tickFormatter={formatChartDate}
-                    stroke="#94a3b8"
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    stroke="#556275"
+                    tick={{ fill: "#8494a7", fontSize: 12 }}
                   />
                   <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    stroke="#556275"
+                    tick={{ fill: "#8494a7", fontSize: 12 }}
                     tickFormatter={(v: number) => formatCurrency(v, currency)}
+                    domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.1)]}
                   />
-                  <Tooltip content={<ChartTooltip currency={currency} />} />
+                  <Tooltip
+                    content={<ChartTooltip currency={currency} />}
+                    cursor={{ strokeDasharray: "3 3" }}
+                  />
                   <Legend
                     wrapperStyle={{ color: "#e2e8f0" }}
                   />
                   <Line
                     type="monotone"
                     dataKey="median_price"
-                    name="Median"
-                    stroke="#06b6d4"
+                    name={t("chart.median")}
+                    stroke="#22d3ee"
                     strokeWidth={2}
-                    dot={isSparse ? { r: 3, fill: "#06b6d4" } : false}
+                    dot={isSparse ? { r: 3, fill: "#22d3ee" } : false}
                     connectNulls
                   />
                   <Line
                     type="monotone"
                     dataKey="tcg_price"
-                    name="TCG"
-                    stroke="#94a3b8"
+                    name={t("chart.tcg")}
+                    stroke="#8494a7"
                     strokeWidth={1.5}
                     strokeDasharray="5 5"
-                    dot={isSparse ? { r: 3, fill: "#94a3b8" } : false}
+                    dot={isSparse ? { r: 3, fill: "#8494a7" } : false}
                     connectNulls
                   />
                   <Line
                     type="monotone"
                     dataKey="last_sold_price"
-                    name="Last Sold"
+                    name={t("chart.lastSold")}
                     stroke="#4ade80"
                     strokeWidth={1.5}
                     strokeDasharray="2 2"
                     dot={isSparse ? { r: 3, fill: "#4ade80" } : false}
                     connectNulls
                   />
+                  {!isZoomed && observations.length > 14 && (
+                    <Brush
+                      dataKey="observed_at"
+                      height={30}
+                      stroke="#6366f1"
+                      fill="#12161e"
+                      tickFormatter={formatChartDate}
+                    />
+                  )}
+                  {refAreaLeft && refAreaRight && (
+                    <ReferenceArea
+                      x1={refAreaLeft}
+                      x2={refAreaRight}
+                      strokeOpacity={0.3}
+                      fill="#6366f1"
+                      fillOpacity={0.15}
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>

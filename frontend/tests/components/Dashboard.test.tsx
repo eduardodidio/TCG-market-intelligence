@@ -126,8 +126,13 @@ describe("Dashboard", () => {
     expect(screen.getByText("Est. Collection Value")).toBeDefined();
 
     expect(screen.getByText("Coverage")).toBeDefined();
-    // coverage = round(96/120 * 100) = 80%
+    // linkedPct = round(96/120 * 100) = 80%
     expect(screen.getByText("80%")).toBeDefined();
+
+    // Coverage breakdown shows linked and priced counts
+    expect(screen.getByTestId("coverage-breakdown")).toBeDefined();
+    expect(screen.getByText(/96 linked/)).toBeDefined();
+    expect(screen.getByText(/80 priced/)).toBeDefined();
   });
 
   it("renders market KPIs below collection KPIs", async () => {
@@ -250,7 +255,7 @@ describe("Dashboard", () => {
 
     // Green dot for healthy status
     const dot = screen.getByTestId("freshness-dot");
-    expect(dot.className).toContain("bg-green-400");
+    expect(dot.className).toContain("bg-tcg-gain");
   });
 
   it("renders dashboard without freshness indicator when health endpoint fails", async () => {
@@ -315,6 +320,7 @@ describe("Dashboard", () => {
       total_cards: 0,
       total_value: null,
       linked_count: 0,
+      priced_count: 0,
       sets_count: 0,
     });
 
@@ -364,6 +370,75 @@ describe("Dashboard", () => {
 
     // Market KPIs still visible
     expect(screen.getByTestId("market-kpis")).toBeDefined();
+  });
+
+  it("shows low coverage hint when linked percentage is below 50%", async () => {
+    const statsResponse = mockMarketStats();
+    const moversResponse = mockMoversResponse();
+    const healthResponse = mockCollectionHealth();
+    const lowCoverageSummary = mockCollectionSummary({
+      total_unique: 100,
+      total_cards: 200,
+      total_value: 500.0,
+      linked_count: 30,
+      priced_count: 20,
+      sets_count: 3,
+    });
+
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string | URL) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/market/stats")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(statsResponse),
+          });
+        }
+        if (urlStr.includes("/market/movers")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(moversResponse),
+          });
+        }
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(healthResponse),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(lowCoverageSummary),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+      },
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-kpis")).toBeDefined();
+    });
+
+    // Low coverage hint should appear (30% < 50%)
+    expect(screen.getByTestId("low-coverage-hint")).toBeDefined();
+    expect(
+      screen.getByText(/Sync your collection with MYP to improve coverage/),
+    ).toBeDefined();
+  });
+
+  it("does not show low coverage hint when linked percentage is 50% or above", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-kpis")).toBeDefined();
+    });
+
+    // Default fixture has 96/120 = 80% coverage, which is >= 50%
+    expect(screen.queryByTestId("low-coverage-hint")).toBeNull();
   });
 
   it("renders gracefully when market stats returns zero", async () => {

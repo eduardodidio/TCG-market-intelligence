@@ -1,8 +1,10 @@
+import { useTranslation } from "react-i18next";
 import { useCurrency } from "../hooks/useCurrency";
 import type { CurrencyCode } from "../contexts/CurrencyContext";
 import rsFlag from "../assets/rs-flag.svg";
 
 export function CurrencyToggle() {
+  const { t } = useTranslation();
   const { currency, setCurrency } = useCurrency();
 
   const options: { code: CurrencyCode; label: string; icon?: string }[] = [
@@ -13,19 +15,19 @@ export function CurrencyToggle() {
 
   return (
     <div
-      className="flex rounded-lg overflow-hidden border border-slate-600"
+      className="flex rounded-tcg-md overflow-hidden border border-tcg-ring"
       role="group"
-      aria-label="Currency selector"
+      aria-label={t("currency.selector")}
       data-testid="currency-toggle"
     >
       {options.map((opt) => (
         <button
           key={opt.code}
           onClick={() => setCurrency(opt.code)}
-          className={`px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 flex items-center gap-1 ${
+          className={`px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary flex items-center gap-1 ${
             currency === opt.code
-              ? "bg-cyan-600 text-white"
-              : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+              ? "bg-tcg-primary text-white"
+              : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
           }`}
           aria-pressed={currency === opt.code}
           data-testid={`currency-btn-${opt.code}`}

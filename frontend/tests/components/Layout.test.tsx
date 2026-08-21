@@ -5,6 +5,7 @@ import { Layout } from "../../src/components/Layout";
 import { AuthContext } from "../../src/contexts/AuthContext";
 import type { AuthContextValue } from "../../src/contexts/AuthContext";
 import { CurrencyProvider } from "../../src/contexts/CurrencyContext";
+import { LanguageProvider } from "../../src/contexts/LanguageContext";
 
 // Mock localStorage for CurrencyContext
 beforeEach(() => {
@@ -47,13 +48,15 @@ function renderLayout(
   auth: AuthContextValue = mockAuthAuthenticated,
 ) {
   return render(
-    <AuthContext.Provider value={auth}>
-      <CurrencyProvider>
-        <MemoryRouter initialEntries={[initialPath]}>
-          <Layout />
-        </MemoryRouter>
-      </CurrencyProvider>
-    </AuthContext.Provider>,
+    <LanguageProvider>
+      <AuthContext.Provider value={auth}>
+        <CurrencyProvider>
+          <MemoryRouter initialEntries={[initialPath]}>
+            <Layout />
+          </MemoryRouter>
+        </CurrencyProvider>
+      </AuthContext.Provider>
+    </LanguageProvider>,
   );
 }
 
@@ -173,7 +176,7 @@ describe("Layout", () => {
 
     links.forEach((link) => {
       expect(link.className).toContain("focus-visible:ring-2");
-      expect(link.className).toContain("focus-visible:ring-cyan-400");
+      expect(link.className).toContain("focus-visible:ring-tcg-secondary");
     });
   });
 
@@ -194,5 +197,11 @@ describe("Layout", () => {
     const logoutBtn = screen.getByTestId("logout-button");
     expect(logoutBtn).toBeDefined();
     expect(logoutBtn.textContent).toContain("Sign out");
+  });
+
+  it("contains a language selector in the sidebar", () => {
+    renderLayout();
+    expect(screen.getByTestId("sidebar-language-selector")).toBeDefined();
+    expect(screen.getByTestId("language-selector")).toBeDefined();
   });
 });

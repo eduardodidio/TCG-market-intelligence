@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './styles/design-tokens.css';
+
 /*
  * Dark theme defaults:
  *   background: slate-900 (#0f172a)
@@ -11,7 +13,10 @@
  */
 
 @layer base {
+  html {
+    color-scheme: dark;
+  }
   body {
-    @apply bg-slate-900 text-slate-100 antialiased;
+    @apply bg-tcg-bg text-tcg-text antialiased font-tcg-sans;
   }
 }

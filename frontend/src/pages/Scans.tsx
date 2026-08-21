@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ScanForm } from "../components/ScanForm";
 import { ScanHistoryTable } from "../components/ScanHistoryTable";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -6,9 +7,11 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { useScans } from "../hooks/useScans";
 
 export function Scans() {
+  const { t } = useTranslation();
+
   useEffect(() => {
-    document.title = "Price Scans | TCG Market";
-  }, []);
+    document.title = `${t("scans.title")} | TCG Market`;
+  }, [t]);
 
   const [showForm, setShowForm] = useState(false);
   const { scans, loading, error, refetch } = useScans({ limit: 50 });
@@ -22,13 +25,13 @@ export function Scans() {
     <div data-testid="page-scans">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">Price Scans</h2>
+        <h2 className="text-2xl font-bold text-white">{t("scans.title")}</h2>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+          className="rounded-tcg-md bg-tcg-primary px-4 py-2 text-sm font-medium text-white hover:bg-tcg-primary-hover transition-colors shadow-tcg-glow"
           data-testid="new-scan-toggle"
         >
-          {showForm ? "Cancel" : "New Scan"}
+          {showForm ? t("common.cancel") : t("scans.newScan")}
         </button>
       </div>
 
@@ -47,7 +50,7 @@ export function Scans() {
       )}
 
       {/* Loading state */}
-      {loading && <LoadingSpinner message="Loading scans..." />}
+      {loading && <LoadingSpinner message={t("scans.loadingScans")} />}
 
       {/* Scan history table */}
       {!loading && <ScanHistoryTable scans={scans} />}

@@ -33,8 +33,10 @@ class UserProfile(BaseModel):
     avatar_url: str | None = None
     auth_provider: str
     preferred_currency: str = "BRL"
+    preferred_language: str = "en"
     is_active: bool
 
 
 class PreferencesUpdate(BaseModel):
-    preferred_currency: str = Field(..., pattern="^(BRL|USD|PILA)$")
+    preferred_currency: str | None = Field(None, pattern="^(BRL|USD|PILA)$")
+    preferred_language: str | None = Field(None, pattern="^(en|pt-BR)$")

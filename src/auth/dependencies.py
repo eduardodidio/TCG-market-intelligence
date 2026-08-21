@@ -57,6 +57,7 @@ def get_current_user(
         avatar_url=user_row.avatar_url,
         auth_provider=user_row.auth_provider,
         preferred_currency=user_row.preferred_currency,
+        preferred_language=getattr(user_row, "preferred_language", "en"),
         is_active=bool(user_row.is_active),
     )
 
@@ -90,6 +91,7 @@ def get_optional_user(
         avatar_url=user_row.avatar_url,
         auth_provider=user_row.auth_provider,
         preferred_currency=user_row.preferred_currency,
+        preferred_language=getattr(user_row, "preferred_language", "en"),
         is_active=bool(user_row.is_active),
     )
 

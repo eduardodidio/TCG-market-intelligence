@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { CurrencyToggle } from "./CurrencyToggle";
+import { LanguageSelector } from "./LanguageSelector";
 
 const NAV_ITEMS = [
-  { to: "/", label: "Dashboard", requiresAuth: false },
-  { to: "/collection", label: "My Collection", requiresAuth: true },
-  { to: "/cards", label: "Explore Cards", requiresAuth: false },
-  { to: "/market/movers", label: "Market Movers", requiresAuth: false },
-  { to: "/decks", label: "My Decks", requiresAuth: true },
-  { to: "/scans", label: "Price Scans", requiresAuth: true },
+  { to: "/", labelKey: "nav.dashboard", requiresAuth: false },
+  { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
+  { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
+  { to: "/market/movers", labelKey: "nav.marketMovers", requiresAuth: false },
+  { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true },
+  { to: "/scans", labelKey: "nav.priceScans", requiresAuth: true },
 ] as const;
 
 function getInitials(name: string | null | undefined): string {
@@ -24,6 +26,7 @@ function getInitials(name: string | null | undefined): string {
 }
 
 export function Layout() {
+  const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,7 +46,7 @@ export function Layout() {
   );
 
   return (
-    <div className="flex h-screen bg-slate-900 text-slate-100">
+    <div className="flex h-screen bg-tcg-bg text-tcg-text">
       {/* Mobile overlay -- close on outside click */}
       {sidebarOpen && (
         <div
@@ -56,24 +59,24 @@ export function Layout() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-30 w-64 bg-slate-800 border-r border-slate-700
+          fixed inset-y-0 left-0 z-30 w-64 bg-tcg-surface border-r border-tcg-border
           transform transition-transform duration-200 ease-in-out
           md:relative md:translate-x-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
         data-testid="sidebar"
       >
-        <div className="flex items-center h-16 px-6 border-b border-slate-700">
-          <h1 className="text-lg font-bold text-white">TCG Market</h1>
+        <div className="flex items-center h-16 px-6 border-b border-tcg-border">
+          <h1 className="text-lg font-bold bg-tcg-gradient-hero bg-clip-text text-transparent">TCG Market</h1>
         </div>
         {/* User avatar / sign-in */}
         <div
-          className="flex items-center gap-3 px-6 py-4 border-b border-slate-700"
+          className="flex items-center gap-3 px-6 py-4 border-b border-tcg-border"
           data-testid="user-section"
         >
           {isAuthenticated ? (
             <>
-              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-600 text-white text-sm font-bold">
+              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-tcg-primary text-white text-sm font-bold">
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
@@ -85,29 +88,33 @@ export function Layout() {
                     await logout();
                     navigate("/");
                   }}
-                  className="text-xs text-slate-400 hover:text-red-400 transition-colors"
+                  className="text-xs text-tcg-muted hover:text-tcg-loss transition-colors"
                   data-testid="logout-button"
                 >
-                  Sign out
+                  {t("nav.signOut")}
                 </button>
               </div>
             </>
           ) : (
             <Link
               to="/login"
-              className="flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-tcg-primary-hover hover:text-tcg-accent transition-colors"
               data-testid="sign-in-link"
             >
-              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-700 text-slate-400 text-sm font-bold">
+              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-tcg-card-alt text-tcg-muted text-sm font-bold">
                 ?
               </div>
-              <span>Sign in</span>
+              <span>{t("nav.signIn")}</span>
             </Link>
           )}
         </div>
         {/* Currency toggle */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-700">
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-tcg-border">
           <CurrencyToggle />
+        </div>
+        {/* Language selector */}
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-tcg-border" data-testid="sidebar-language-selector">
+          <LanguageSelector variant="compact" />
         </div>
         <nav className="mt-4 px-3" data-testid="sidebar-nav">
           {visibleNavItems.map((item) => {
@@ -120,16 +127,16 @@ export function Layout() {
                 key={item.to}
                 to={item.to}
                 className={`
-                  flex items-center px-3 py-2 mb-1 rounded-lg text-sm font-medium
-                  transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400
+                  flex items-center px-3 py-2 mb-1 rounded-tcg-md text-sm font-medium
+                  transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary
                   ${
                     isActive
-                      ? "bg-indigo-600 text-white"
-                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                      ? "bg-tcg-primary text-white shadow-tcg-glow"
+                      : "text-tcg-muted hover:bg-tcg-card hover:text-white"
                   }
                 `}
               >
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             );
           })}
@@ -139,11 +146,11 @@ export function Layout() {
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar with hamburger */}
-        <header className="flex items-center h-16 px-4 bg-slate-800 border-b border-slate-700 md:hidden">
+        <header className="flex items-center h-16 px-4 bg-tcg-surface border-b border-tcg-border md:hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-            aria-label="Toggle navigation"
+            className="p-2 rounded-tcg-md text-tcg-muted hover:bg-tcg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary"
+            aria-label={t("nav.toggleNav")}
             data-testid="hamburger-button"
           >
             <svg
@@ -161,7 +168,7 @@ export function Layout() {
               />
             </svg>
           </button>
-          <span className="ml-3 text-lg font-bold text-white">TCG Market</span>
+          <span className="ml-3 text-lg font-bold bg-tcg-gradient-hero bg-clip-text text-transparent">TCG Market</span>
         </header>
 
         {/* Page content */}

@@ -24,6 +24,7 @@ def _mock_user_row(**overrides):
         "provider_id": None,
         "password_hash": hash_password("validpass123"),
         "preferred_currency": "BRL",
+        "preferred_language": "en",
         "is_active": 1,
     }
     defaults.update(overrides)
@@ -232,6 +233,52 @@ class TestUpdatePreferences:
         assert data["preferred_currency"] == "PILA"
         mock_repo.update_user.assert_called_once_with(1, preferred_currency="PILA")
 
+    def test_set_preferred_language_pt_br(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row()
+        mock_repo.update_user.return_value = _mock_user_row(preferred_language="pt-BR")
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.patch(
+            "/api/v1/auth/me/preferences",
+            json={"preferred_language": "pt-BR"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["preferred_language"] == "pt-BR"
+        mock_repo.update_user.assert_called_once_with(1, preferred_language="pt-BR")
+
+    def test_set_preferred_language_en(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row()
+        mock_repo.update_user.return_value = _mock_user_row(preferred_language="en")
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.patch(
+            "/api/v1/auth/me/preferences",
+            json={"preferred_language": "en"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["preferred_language"] == "en"
+
+    def test_invalid_language_returns_422(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row()
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.patch(
+            "/api/v1/auth/me/preferences",
+            json={"preferred_language": "fr"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
     def test_set_usd_currency(self):
         mock_repo = MagicMock()
         mock_repo.get_user_by_id.return_value = _mock_user_row()
@@ -283,6 +330,47 @@ class TestUpdatePreferences:
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["preferred_currency"] == "PILA"
+
+    def test_profile_includes_preferred_language(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row(preferred_language="pt-BR")
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["preferred_language"] == "pt-BR"
+
+    def test_profile_default_preferred_language_is_en(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row()
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["preferred_language"] == "en"
+
+    def test_empty_preferences_returns_422(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row()
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.patch(
+            "/api/v1/auth/me/preferences",
+            json={},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
 
 
 class TestOAuthRedirect:

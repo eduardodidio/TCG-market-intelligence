@@ -140,6 +140,7 @@ def collection_summary(
         total_cards=summary["total_cards"],
         total_value=converted_value,
         linked_count=summary["linked_count"],
+        priced_count=summary["priced_count"],
         sets_count=summary["sets_count"],
         currency=currency,
     )
@@ -162,10 +163,11 @@ def get_collection_entry(
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
 ):
     """Get a single collection entry with full detail."""
     entry = repo.get_collection_entry(entry_id)
-    if not entry:
+    if not entry or entry.user_id != user_id:
         raise HTTPException(status_code=404, detail="Collection entry not found")
 
     image_url = _scryfall_image_url(entry.set_code, entry.collector_number)

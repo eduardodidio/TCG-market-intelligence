@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { fetchCards } from "../api/cards";
 import { fetchSets } from "../api/sets";
@@ -15,9 +16,11 @@ import type { CardSummary, SetSummary } from "../types/api";
 import { DEFAULT_PAGE_LIMIT } from "../utils/constants";
 
 export function Cards() {
+  const { t } = useTranslation();
+
   useEffect(() => {
-    document.title = "Explore Cards | TCG Market";
-  }, []);
+    document.title = `${t("cards.title")} | TCG Market`;
+  }, [t]);
 
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -82,7 +85,7 @@ export function Cards() {
       })
       .catch((err: unknown) => {
         if (currentFetchId !== fetchIdRef.current) return;
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : t("common.unknownError"));
       })
       .finally(() => {
         if (currentFetchId === fetchIdRef.current) {
@@ -114,7 +117,7 @@ export function Cards() {
         }
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : t("common.unknownError"));
       })
       .finally(() => {
         setLoadingMore(false);
@@ -137,7 +140,7 @@ export function Cards() {
 
   return (
     <div data-testid="page-cards">
-      <h2 className="text-2xl font-bold text-white mb-6">Explore Cards</h2>
+      <h2 className="text-2xl font-bold text-white mb-6">{t("cards.title")}</h2>
 
       {/* Search and filters */}
       <div className="space-y-4 mb-6">
@@ -176,12 +179,12 @@ export function Cards() {
         <EmptyState
           message={
             debouncedSearch || selectedSet
-              ? "No cards found. Try a different search."
-              : "No cards with price data yet. Run a collection sync to fetch prices."
+              ? t("cards.noCardsFiltered")
+              : t("cards.noCardsEmpty")
           }
           action={
             debouncedSearch || selectedSet
-              ? { label: "Clear filters", onClick: handleClearFilters }
+              ? { label: t("common.clearFilters"), onClick: handleClearFilters }
               : undefined
           }
         />
@@ -202,7 +205,7 @@ export function Cards() {
           <div ref={sentinelRef} data-testid="scroll-sentinel" />
           {loadingMore && (
             <div className="flex justify-center mt-4" data-testid="loading-more">
-              <div className="h-6 w-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+              <div className="h-6 w-6 border-2 border-tcg-secondary border-t-transparent rounded-full animate-spin" />
             </div>
           )}
         </>

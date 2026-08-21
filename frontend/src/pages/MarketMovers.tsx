@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useApi } from "../hooks/useApi";
 import { fetchMovers } from "../api/market";
 import { useCurrency } from "../hooks/useCurrency";
@@ -14,9 +15,11 @@ type Period = (typeof PERIODS)[number];
 const LIMITS = ["10", "25", "50"] as const;
 
 export function MarketMovers() {
+  const { t } = useTranslation();
+
   useEffect(() => {
-    document.title = "Market Movers | TCG Market";
-  }, []);
+    document.title = `${t("market.title")} | TCG Market`;
+  }, [t]);
 
   const { currency } = useCurrency();
   const [period, setPeriod] = useState<Period>("30d");
@@ -29,20 +32,20 @@ export function MarketMovers() {
 
   return (
     <div data-testid="page-market-movers">
-      <h1 className="mb-6 text-2xl font-bold text-white">Market Movers</h1>
+      <h1 className="mb-6 text-2xl font-bold text-white">{t("market.title")}</h1>
 
       {/* Controls row */}
       <div className="mb-6 flex flex-wrap items-center gap-4">
         {/* Period selector */}
-        <div className="flex rounded-lg overflow-hidden" role="group" aria-label="Period selector">
+        <div className="flex rounded-tcg-md overflow-hidden" role="group" aria-label={t("market.periodSelector")}>
           {PERIODS.map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+              className={`px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary ${
                 p === period
-                  ? "bg-cyan-500 text-white"
-                  : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                  ? "bg-tcg-primary text-white shadow-tcg-glow"
+                  : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
               }`}
             >
               {p}
@@ -54,12 +57,12 @@ export function MarketMovers() {
         <select
           value={limit}
           onChange={(e) => setLimit(e.target.value)}
-          aria-label="Results limit"
-          className="rounded-lg bg-slate-700 px-3 py-2 text-sm text-slate-300 border border-slate-600 focus:outline-none focus:border-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-400"
+          aria-label={t("market.resultsLimit")}
+          className="rounded-tcg-md bg-tcg-card px-3 py-2 text-sm text-tcg-muted border border-tcg-border focus:outline-none focus:border-tcg-primary focus-visible:ring-2 focus-visible:ring-tcg-secondary"
         >
           {LIMITS.map((l) => (
             <option key={l} value={l}>
-              Top {l}
+              {t("market.topN", { n: l })}
             </option>
           ))}
         </select>
@@ -80,7 +83,7 @@ export function MarketMovers() {
 
       {/* Empty state */}
       {!loading && !error && data && data.gainers.length === 0 && data.losers.length === 0 && (
-        <EmptyState message="Not enough price history for movers. Run a sync and check back." />
+        <EmptyState message={t("market.emptyMovers")} />
       )}
 
       {/* Tables */}
@@ -88,12 +91,12 @@ export function MarketMovers() {
         <div className="grid gap-6 lg:grid-cols-2">
           <MoversTable
             entries={data.gainers}
-            title="Top Gainers"
+            title={t("market.topGainers")}
             type="gainers"
           />
           <MoversTable
             entries={data.losers}
-            title="Top Losers"
+            title={t("market.topLosers")}
             type="losers"
           />
         </div>

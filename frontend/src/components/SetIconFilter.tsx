@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { scryfallSetIconUrl } from "../utils/scryfall";
 import { useState } from "react";
 
@@ -8,18 +9,19 @@ interface SetIconFilterProps {
 }
 
 export function SetIconFilter({ options, selected, onSelect }: SetIconFilterProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-2 overflow-x-auto pb-2" data-testid="set-icon-filter">
       {/* "All" button */}
       <button
         className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
           selected === null
-            ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-            : "bg-slate-700 text-slate-300 hover:text-white border border-transparent"
+            ? "bg-tcg-primary/20 text-tcg-primary-hover border border-tcg-primary/50"
+            : "bg-tcg-card text-tcg-muted hover:text-white border border-transparent"
         }`}
         onClick={() => onSelect(null)}
       >
-        All
+        {t("common.all")}
       </button>
       {options.map((opt) => (
         <SetIconButton
@@ -46,17 +48,17 @@ function SetIconButton({
 
   return (
     <button
-      className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+      className={`flex items-center justify-center w-10 h-10 rounded-tcg-md transition-all ${
         isSelected
-          ? "bg-cyan-500/20 ring-2 ring-cyan-500"
-          : "bg-slate-700 hover:bg-slate-600"
+          ? "bg-tcg-primary/20 ring-2 ring-tcg-primary shadow-tcg-glow"
+          : "bg-tcg-card hover:bg-tcg-card-alt"
       }`}
       onClick={() => onSelect(isSelected ? null : option.value)}
       title={option.label}
       data-testid={`set-icon-${option.value}`}
     >
       {imgError ? (
-        <span className="text-xs font-mono text-slate-300">{option.value.slice(0, 3).toUpperCase()}</span>
+        <span className="text-xs font-mono text-tcg-muted">{option.value.slice(0, 3).toUpperCase()}</span>
       ) : (
         <img
           src={scryfallSetIconUrl(option.value)}

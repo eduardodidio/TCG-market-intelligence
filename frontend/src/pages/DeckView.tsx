@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { deleteDeck, fetchDeck } from "../api/decks";
 import { DeckCardTile } from "../components/DeckCardTile";
 import type { DeckDetail } from "../types/api";
 
 export function DeckView() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [deck, setDeck] = useState<DeckDetail | null>(null);
@@ -37,7 +39,7 @@ export function DeckView() {
       await deleteDeck(Number(id));
       navigate("/decks");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete deck");
+      setError(err instanceof Error ? err.message : t("decks.failedDelete"));
       setDeleting(false);
       setShowDeleteConfirm(false);
     }
@@ -46,12 +48,12 @@ export function DeckView() {
   if (loading) {
     return (
       <div data-testid="page-deck-view">
-        <div className="h-8 w-48 bg-slate-800 animate-pulse rounded mb-4" />
+        <div className="h-8 w-48 bg-tcg-card animate-pulse rounded mb-4" />
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="aspect-[488/680] bg-slate-800 animate-pulse rounded-lg"
+              className="aspect-[488/680] bg-tcg-card animate-pulse rounded-lg"
               data-testid="deck-view-skeleton"
             />
           ))}
@@ -64,7 +66,7 @@ export function DeckView() {
     return (
       <div data-testid="page-deck-view">
         <div
-          className="p-4 rounded bg-red-900/50 text-red-300"
+          className="p-4 rounded-tcg-md bg-red-900/20 border border-red-700/50 text-tcg-loss"
           data-testid="deck-view-error"
         >
           {error}
@@ -84,43 +86,43 @@ export function DeckView() {
             {deck.name}
           </h1>
           {deck.description && (
-            <p className="text-slate-400 mt-1" data-testid="deck-description">
+            <p className="text-tcg-muted mt-1" data-testid="deck-description">
               {deck.description}
             </p>
           )}
         </div>
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          className="px-3 py-1.5 rounded text-sm font-medium text-red-400 hover:bg-red-900/30 transition-colors"
+          className="px-3 py-1.5 rounded text-sm font-medium text-tcg-loss hover:bg-red-900/30 transition-colors"
           data-testid="delete-deck-btn"
         >
-          Delete
+          {t("common.delete")}
         </button>
       </div>
 
       {/* Stats */}
-      <div className="flex items-center gap-6 mb-6 text-sm text-slate-300">
-        <span data-testid="deck-total-cards">{deck.total_cards} cards</span>
-        <span data-testid="deck-unique-cards">{deck.unique_cards} unique</span>
-        <span data-testid="deck-owned-cards">{deck.owned_cards} owned</span>
+      <div className="flex items-center gap-6 mb-6 text-sm text-tcg-muted">
+        <span data-testid="deck-total-cards">{t("decks.cardsCount", { count: deck.total_cards })}</span>
+        <span data-testid="deck-unique-cards">{t("decks.uniqueCount", { count: deck.unique_cards })}</span>
+        <span data-testid="deck-owned-cards">{t("decks.owned", { count: deck.owned_cards })}</span>
         <span
           className={
             deck.ownership_pct === 100
-              ? "text-green-400 font-semibold"
+              ? "text-tcg-gain font-semibold"
               : deck.ownership_pct > 50
-                ? "text-yellow-400"
-                : "text-red-400"
+                ? "text-tcg-warning"
+                : "text-tcg-loss"
           }
           data-testid="deck-ownership-pct"
         >
-          {deck.ownership_pct.toFixed(0)}% complete
+          {t("decks.completePct", { pct: deck.ownership_pct.toFixed(0) })}
         </span>
       </div>
 
       {/* Card Grid */}
       {deck.cards.length === 0 ? (
-        <p className="text-slate-400 text-center py-8" data-testid="deck-no-cards">
-          No cards in this deck.
+        <p className="text-tcg-muted text-center py-8" data-testid="deck-no-cards">
+          {t("decks.noCards")}
         </p>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -136,20 +138,19 @@ export function DeckView() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
           data-testid="delete-confirm-modal"
         >
-          <div className="bg-slate-800 rounded-lg shadow-xl p-6 mx-4 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-white mb-2">Delete Deck?</h3>
-            <p className="text-sm text-slate-400 mb-4">
-              This will permanently delete &quot;{deck.name}&quot; and all its
-              cards. This action cannot be undone.
+          <div className="bg-tcg-surface rounded-tcg-xl shadow-tcg-lg border border-tcg-border p-6 mx-4 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-white mb-2">{t("decks.deleteTitle")}</h3>
+            <p className="text-sm text-tcg-muted mb-4">
+              {t("decks.deleteMessage", { name: deck.name })}
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 rounded text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                className="px-4 py-2 rounded text-sm font-medium text-tcg-muted hover:text-white hover:bg-tcg-card transition-colors"
                 data-testid="cancel-delete-btn"
                 disabled={deleting}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleDelete}
@@ -157,7 +158,7 @@ export function DeckView() {
                 className="px-4 py-2 rounded text-sm font-medium bg-red-600 text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
                 data-testid="confirm-delete-btn"
               >
-                {deleting ? "Deleting..." : "Delete"}
+                {deleting ? t("common.deleting") : t("common.delete")}
               </button>
             </div>
           </div>

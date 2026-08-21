@@ -121,6 +121,7 @@ export interface CollectionSummary {
   total_cards: number;
   total_value: number | null;
   linked_count: number;
+  priced_count: number;
   sets_count: number;
   currency?: string;
 }

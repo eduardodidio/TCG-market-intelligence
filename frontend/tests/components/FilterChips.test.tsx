@@ -20,7 +20,7 @@ describe("FilterChips", () => {
   it("highlights the 'All' chip when nothing is selected", () => {
     render(<FilterChips options={OPTIONS} selected={null} onSelect={() => {}} />);
     const allChip = screen.getByTestId("filter-chip-all");
-    expect(allChip.className).toContain("bg-cyan-500");
+    expect(allChip.className).toContain("bg-tcg-primary");
   });
 
   it("highlights the selected chip and dims others", () => {
@@ -29,9 +29,9 @@ describe("FilterChips", () => {
     const allChip = screen.getByTestId("filter-chip-all");
     const dmrChip = screen.getByTestId("filter-chip-DMR");
 
-    expect(mh2Chip.className).toContain("bg-cyan-500");
-    expect(allChip.className).toContain("bg-slate-700");
-    expect(dmrChip.className).toContain("bg-slate-700");
+    expect(mh2Chip.className).toContain("bg-tcg-primary");
+    expect(allChip.className).toContain("bg-tcg-card");
+    expect(dmrChip.className).toContain("bg-tcg-card");
   });
 
   it("fires onSelect with the chip value when clicked", () => {

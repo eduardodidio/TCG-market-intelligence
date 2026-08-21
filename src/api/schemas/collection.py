@@ -40,6 +40,7 @@ class CollectionSummary(BaseModel):
     total_cards: int
     total_value: float | None = None
     linked_count: int
+    priced_count: int = 0
     sets_count: int
     currency: str = "BRL"
 

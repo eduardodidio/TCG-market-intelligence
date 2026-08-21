@@ -93,6 +93,7 @@ def get_me(user: User = Depends(get_current_user)):
         avatar_url=user.avatar_url,
         auth_provider=user.auth_provider,
         preferred_currency=user.preferred_currency,
+        preferred_language=user.preferred_language,
         is_active=user.is_active,
     )
     return success_response(data=profile)
@@ -104,8 +105,17 @@ def update_preferences(
     user: User = Depends(get_current_user),
     repo: Repository = Depends(get_db),
 ):
-    """Update the current user's preferences (e.g. preferred currency)."""
-    updated = repo.update_user(user.id, preferred_currency=body.preferred_currency)
+    """Update the current user's preferences (e.g. preferred currency, language)."""
+    updates: dict = {}
+    if body.preferred_currency is not None:
+        updates["preferred_currency"] = body.preferred_currency
+    if body.preferred_language is not None:
+        updates["preferred_language"] = body.preferred_language
+
+    if not updates:
+        raise HTTPException(status_code=422, detail="No preferences provided")
+
+    updated = repo.update_user(user.id, **updates)
     if not updated:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -116,6 +126,7 @@ def update_preferences(
         avatar_url=updated.avatar_url,
         auth_provider=updated.auth_provider,
         preferred_currency=updated.preferred_currency,
+        preferred_language=updated.preferred_language,
         is_active=bool(updated.is_active),
     )
     return success_response(data=profile)

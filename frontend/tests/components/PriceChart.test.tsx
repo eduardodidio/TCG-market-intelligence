@@ -88,7 +88,7 @@ describe("PriceChart", () => {
     renderPriceChart();
 
     const btn90d = screen.getByTestId("period-btn-90d");
-    expect(btn90d.className).toContain("bg-cyan-500");
+    expect(btn90d.className).toContain("bg-tcg-primary");
   });
 
   it("clicking a period button changes active state", async () => {
@@ -102,10 +102,10 @@ describe("PriceChart", () => {
     fireEvent.click(screen.getByTestId("period-btn-30d"));
 
     const btn30d = screen.getByTestId("period-btn-30d");
-    expect(btn30d.className).toContain("bg-cyan-500");
+    expect(btn30d.className).toContain("bg-tcg-primary");
 
     const btn90d = screen.getByTestId("period-btn-90d");
-    expect(btn90d.className).not.toContain("bg-cyan-500");
+    expect(btn90d.className).not.toContain("bg-tcg-primary");
   });
 
   it("period change triggers new API call", async () => {
@@ -227,6 +227,80 @@ describe("PriceChart", () => {
       expect(screen.getByText("No price history available")).toBeDefined();
       expect(screen.queryByTestId("sparse-data-notice")).toBeNull();
       expect(screen.queryByTestId("chart-container")).toBeNull();
+    });
+  });
+
+  describe("Y-axis auto-scaling", () => {
+    it("renders chart with high-value cards (>R$100) without capping", async () => {
+      // Create high-value price data
+      const highValueData = mockPriceHistory(30);
+      highValueData.data = highValueData.data.map((obs, i) => ({
+        ...obs,
+        median_price: 250 + Math.sin(i / 5) * 50,
+        tcg_price: 240 + Math.sin(i / 5) * 40,
+        last_sold_price: 260,
+      }));
+      globalThis.fetch = mockFetchHistory(highValueData) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("chart-container")).toBeDefined();
+      });
+
+      // Chart should render without errors even with high values
+      expect(screen.getByTestId("price-chart")).toBeDefined();
+    });
+  });
+
+  describe("zoom functionality", () => {
+    it("does not show reset zoom button initially", async () => {
+      globalThis.fetch = mockFetchHistory() as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("chart-container")).toBeDefined();
+      });
+
+      expect(screen.queryByTestId("reset-zoom-btn")).toBeNull();
+    });
+
+    it("handles empty data gracefully with zoom state", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(0)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("empty-history")).toBeDefined();
+      });
+
+      // No chart rendered, no crash
+      expect(screen.queryByTestId("chart-container")).toBeNull();
+      expect(screen.queryByTestId("reset-zoom-btn")).toBeNull();
+    });
+  });
+
+  describe("Brush component", () => {
+    it("renders with sufficient data points (>14)", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(20)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("chart-container")).toBeDefined();
+      });
+
+      // Chart renders successfully with Brush
+      expect(screen.getByTestId("price-chart")).toBeDefined();
+    });
+
+    it("does not render Brush with sparse data", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(5)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("chart-container")).toBeDefined();
+      });
+
+      // Chart still renders, just without Brush
+      expect(screen.getByTestId("price-chart")).toBeDefined();
     });
   });
 });

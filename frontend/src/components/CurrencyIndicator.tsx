@@ -31,7 +31,7 @@ export function CurrencyIndicator({
   const symbol = currency === "USD" ? "$" : "R$";
   return (
     <span
-      className="font-semibold text-slate-300"
+      className="font-semibold text-tcg-muted"
       style={{ fontSize: size * 0.75 }}
       data-testid={`currency-indicator-${currency.toLowerCase()}`}
     >

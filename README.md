@@ -620,6 +620,38 @@ contents with visual ownership indicators, and navigate to card detail pages.
 - **Navigation** -- "My Decks" nav item in sidebar (auth required),
   `/decks` and `/decks/:id` protected routes
 
+### F24 -- Platform Polish & Fixes (2026-08-21)
+
+Batch of bug fixes, UX improvements, and cross-cutting enhancements:
+
+- **Collection card detail fix** -- `apiGet` now sends JWT auth headers
+  (matching `apiPost`/`apiDelete`), and the collection detail endpoint
+  checks entry ownership (IDOR prevention). Clicking a card in My
+  Collection now correctly opens its detail page.
+- **Explore Cards images** -- image fallback chain uses `name_en` for
+  Scryfall lookups. Cards with Portuguese-only names show clean placeholders.
+- **Explore Cards prices** -- `formatPriceOrFallback()` helper shows
+  "No price data" (muted text) instead of misleading "R$ 0,00" for
+  unpriced cards.
+- **Dashboard coverage breakdown** -- new `priced_count` metric shows
+  both "linked" and "priced" percentages with explanatory text. Low
+  coverage hint suggests syncing with MYP.
+- **Interactive price chart** -- Recharts Brush for time range selection,
+  click-drag zoom via ReferenceArea, dynamic Y-axis (no more R$100 cap),
+  crosshair cursor, and reset zoom button.
+- **i18n (EN + PT-BR)** -- react-i18next setup with full string extraction
+  across all pages and components. LanguageContext with localStorage
+  persistence. LanguageSelector on login page and sidebar.
+- **Language preference** -- `preferred_language` column on users table,
+  synced via `PATCH /auth/me/preferences`. Language choice persists
+  across sessions.
+- **Visual redesign** -- dark theme with `tcg-*` design tokens (CSS custom
+  properties + Tailwind extend). Glass-morphism cards, vibrant accent
+  colors, consistent typography hierarchy, hover effects across all
+  components.
+- **New API helper** -- `apiPatch()` added to frontend API client.
+- **Tests:** 1179 backend (94.87% coverage), 479 frontend (48 files)
+
 ## Future
 
 Prepared for but not yet implemented:

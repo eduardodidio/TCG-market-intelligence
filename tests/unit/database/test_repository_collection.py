@@ -1,13 +1,14 @@
-"""Tests for Repository.list_collection sorting and offset pagination."""
+"""Tests for Repository.list_collection sorting, offset pagination, and summary."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 import pytest
 from sqlalchemy.orm import Session
 
-from src.database.models import UserCollectionRow
+from src.database.models import PriceObservationRow, SourceCardRow, UserCollectionRow
 from src.database.repository import Repository
 
 
@@ -218,3 +219,121 @@ class TestCountCollection:
 
     def test_count_zero(self, seeded_repo):
         assert seeded_repo.count_collection("nobody") == 0
+
+
+class TestCollectionSummaryPricedCount:
+    """Tests for priced_count in get_collection_summary."""
+
+    def test_priced_count_zero_when_no_linked(self, repo):
+        """No linked cards means priced_count = 0."""
+        with Session(repo.engine) as session:
+            session.add(
+                UserCollectionRow(
+                    user_id="u1",
+                    set_code="DMR",
+                    collector_number="1",
+                    name_en="Bolt",
+                    quantity=1,
+                )
+            )
+            session.commit()
+        summary = repo.get_collection_summary("u1")
+        assert summary["priced_count"] == 0
+        assert summary["linked_count"] == 0
+
+    def test_priced_count_zero_when_linked_but_no_observations(self, repo):
+        """Linked cards without price observations: priced_count = 0."""
+        with Session(repo.engine) as session:
+            session.add(
+                UserCollectionRow(
+                    user_id="u1",
+                    set_code="DMR",
+                    collector_number="1",
+                    name_en="Bolt",
+                    card_id=100,
+                    quantity=1,
+                )
+            )
+            session.add(
+                SourceCardRow(
+                    source="myp",
+                    external_id="ext1",
+                    card_id=100,
+                    url="https://example.com/1",
+                )
+            )
+            session.commit()
+        summary = repo.get_collection_summary("u1")
+        assert summary["linked_count"] == 1
+        assert summary["priced_count"] == 0
+
+    def test_priced_count_with_observations(self, repo):
+        """Linked cards with price observations are counted as priced."""
+        with Session(repo.engine) as session:
+            # Card 100: linked and has price observation
+            session.add(
+                UserCollectionRow(
+                    user_id="u1",
+                    set_code="DMR",
+                    collector_number="1",
+                    name_en="Bolt",
+                    card_id=100,
+                    quantity=1,
+                )
+            )
+            session.add(
+                SourceCardRow(
+                    source="myp",
+                    external_id="ext1",
+                    card_id=100,
+                    url="https://example.com/1",
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="ext1",
+                    observed_at=date(2026, 8, 1),
+                    median_price=Decimal("5.00"),
+                )
+            )
+            # Card 200: linked but no price observation
+            session.add(
+                UserCollectionRow(
+                    user_id="u1",
+                    set_code="MH2",
+                    collector_number="2",
+                    name_en="Vial",
+                    card_id=200,
+                    quantity=1,
+                )
+            )
+            session.add(
+                SourceCardRow(
+                    source="myp",
+                    external_id="ext2",
+                    card_id=200,
+                    url="https://example.com/2",
+                )
+            )
+            # Card with no link
+            session.add(
+                UserCollectionRow(
+                    user_id="u1",
+                    set_code="2XM",
+                    collector_number="3",
+                    name_en="Path",
+                    quantity=1,
+                )
+            )
+            session.commit()
+
+        summary = repo.get_collection_summary("u1")
+        assert summary["total_unique"] == 3
+        assert summary["linked_count"] == 2
+        assert summary["priced_count"] == 1
+
+    def test_priced_count_empty_user(self, repo):
+        """Non-existent user returns all zeros."""
+        summary = repo.get_collection_summary("nobody")
+        assert summary["priced_count"] == 0

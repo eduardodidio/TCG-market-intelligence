@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, inspect, select, text
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -33,6 +33,20 @@ class Repository:
     def __init__(self, db_url: str = "sqlite:///tcg_market.db"):
         self.engine = create_engine(db_url, echo=False)
         Base.metadata.create_all(self.engine)
+        self._ensure_columns()
+
+    def _ensure_columns(self) -> None:
+        """Add missing columns to existing tables (SQLite migration)."""
+        insp = inspect(self.engine)
+        if "users" in insp.get_table_names():
+            columns = {col["name"] for col in insp.get_columns("users")}
+            if "preferred_language" not in columns:
+                with self.engine.begin() as conn:
+                    sql = (
+                        "ALTER TABLE users ADD COLUMN"
+                        " preferred_language VARCHAR(10) DEFAULT 'en'"
+                    )
+                    conn.execute(text(sql))
 
     def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
         """Insert or update a source card. Returns the source_card id."""
@@ -687,10 +701,36 @@ class Repository:
                 ).scalar()
                 or 0
             )
+            # Count linked entries that have at least one price observation
+            priced_count = 0
+            if linked_count > 0:
+                priced_card_ids = (
+                    select(func.distinct(SourceCardRow.card_id))
+                    .join(
+                        PriceObservationRow,
+                        (PriceObservationRow.source == SourceCardRow.source)
+                        & (PriceObservationRow.external_id == SourceCardRow.external_id),
+                    )
+                    .where(SourceCardRow.card_id.isnot(None))
+                )
+                priced_count = (
+                    session.execute(
+                        select(func.count())
+                        .select_from(UserCollectionRow)
+                        .where(
+                            UserCollectionRow.user_id == user_id,
+                            UserCollectionRow.card_id.isnot(None),
+                            UserCollectionRow.card_id.in_(priced_card_ids),
+                        )
+                    ).scalar()
+                    or 0
+                )
+
             return {
                 "total_unique": total_unique,
                 "total_cards": int(total_cards),
                 "linked_count": linked_count,
+                "priced_count": priced_count,
                 "sets_count": sets_count,
             }
 

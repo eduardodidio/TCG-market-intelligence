@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { CardSummary } from "../types/api";
 import { useCurrency } from "../hooks/useCurrency";
-import { formatCurrency } from "../utils/format";
+import { formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
 interface CardTileProps {
@@ -10,8 +11,9 @@ interface CardTileProps {
 }
 
 export function CardTile({ card }: CardTileProps) {
+  const { t } = useTranslation();
   const { currency } = useCurrency();
-  const displayName = card.name_en || card.name_pt || "Unknown Card";
+  const displayName = card.name_en || card.name_pt || t("common.unknownCard");
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
 
@@ -28,14 +30,14 @@ export function CardTile({ card }: CardTileProps) {
   return (
     <Link
       to={`/cards/${card.id}`}
-      className="group block bg-slate-800 rounded-xl overflow-hidden
-        border border-slate-700 hover:border-cyan-500/50
-        transition-all duration-200 hover:scale-[1.02]"
+      className="group block bg-tcg-card rounded-tcg-lg overflow-hidden
+        border border-tcg-border hover:border-tcg-secondary/50
+        transition-all duration-200 hover:scale-[1.02] hover:shadow-tcg-glow-cyan"
       data-testid={`card-tile-${card.id}`}
     >
       {/* Card image */}
       <div
-        className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800
+        className="aspect-[5/7] bg-gradient-to-br from-tcg-card-alt to-tcg-card
           flex items-center justify-center overflow-hidden"
         data-testid="card-image-placeholder"
       >
@@ -55,7 +57,7 @@ export function CardTile({ card }: CardTileProps) {
           />
         ) : (
           <svg
-            className="h-12 w-12 text-slate-600"
+            className="h-12 w-12 text-tcg-dimmed"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -74,7 +76,7 @@ export function CardTile({ card }: CardTileProps) {
       {/* Card info */}
       <div className="p-3">
         <h3
-          className="text-sm font-semibold text-white truncate group-hover:text-cyan-400 transition-colors"
+          className="text-sm font-semibold text-white truncate group-hover:text-tcg-secondary transition-colors"
           title={displayName}
         >
           {displayName}
@@ -82,20 +84,29 @@ export function CardTile({ card }: CardTileProps) {
 
         <div className="flex items-center gap-2 mt-1">
           {card.set_code && (
-            <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-300 rounded">
+            <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-tcg-card-alt text-tcg-muted rounded-tcg-sm">
               {card.set_code}
             </span>
           )}
           {card.collector_number && (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-tcg-dimmed">
               #{card.collector_number}
             </span>
           )}
         </div>
 
-        <p className="mt-2 text-sm font-bold text-cyan-400" data-testid="card-price">
-          {formatCurrency(card.latest_price, currency)}
-        </p>
+        {(() => {
+          const formattedPrice = formatPriceOrFallback(card.latest_price, currency);
+          return formattedPrice ? (
+            <p className="mt-2 text-sm font-bold text-tcg-secondary" data-testid="card-price">
+              {formattedPrice}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-tcg-dimmed" data-testid="card-price">
+              {t("common.noPriceData")}
+            </p>
+          );
+        })()}
       </div>
     </Link>
   );

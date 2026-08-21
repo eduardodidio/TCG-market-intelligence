@@ -379,6 +379,7 @@ class User:
     avatar_url: str | None = None
     auth_provider: str = "email"
     preferred_currency: str = "BRL"
+    preferred_language: str = "en"
     is_active: bool = True
 
 

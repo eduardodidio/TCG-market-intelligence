@@ -1,14 +1,15 @@
+import { useTranslation } from "react-i18next";
 import type { ScanRun } from "../types/api";
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-700",
-  running: "bg-blue-100 text-blue-700",
-  completed: "bg-green-100 text-green-700",
-  failed: "bg-red-100 text-red-700",
+  pending: "bg-tcg-muted/20 text-tcg-muted",
+  running: "bg-tcg-info/20 text-tcg-info",
+  completed: "bg-tcg-gain/20 text-tcg-gain",
+  failed: "bg-tcg-loss/20 text-tcg-loss",
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const style = STATUS_STYLES[status] ?? "bg-gray-100 text-gray-700";
+  const style = STATUS_STYLES[status] ?? "bg-tcg-muted/20 text-tcg-muted";
   return (
     <span
       className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${style}`}
@@ -47,54 +48,56 @@ interface ScanHistoryTableProps {
 }
 
 export function ScanHistoryTable({ scans, onSelect }: ScanHistoryTableProps) {
+  const { t } = useTranslation();
+
   if (scans.length === 0) {
     return (
       <div
-        className="rounded-lg border border-slate-700 bg-slate-800 p-8 text-center text-slate-400"
+        className="rounded-tcg-md border border-tcg-border bg-tcg-card p-8 text-center text-tcg-muted"
         data-testid="scans-empty"
       >
-        No scan runs yet.
+        {t("scans.noScans")}
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-700" data-testid="scans-table">
+    <div className="overflow-x-auto rounded-tcg-md border border-tcg-border" data-testid="scans-table">
       <table className="w-full text-sm text-left">
-        <thead className="bg-slate-800 text-xs uppercase text-slate-400 border-b border-slate-700">
+        <thead className="bg-tcg-card-alt text-xs uppercase text-tcg-muted border-b border-tcg-border">
           <tr>
-            <th className="px-4 py-3">ID</th>
-            <th className="px-4 py-3">Type</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Cards</th>
-            <th className="px-4 py-3">Processed</th>
-            <th className="px-4 py-3">Failed</th>
-            <th className="px-4 py-3">Obs</th>
-            <th className="px-4 py-3">Started</th>
-            <th className="px-4 py-3">Duration</th>
+            <th className="px-4 py-3">{t("scans.columnId")}</th>
+            <th className="px-4 py-3">{t("scans.columnType")}</th>
+            <th className="px-4 py-3">{t("scans.columnStatus")}</th>
+            <th className="px-4 py-3">{t("scans.columnCards")}</th>
+            <th className="px-4 py-3">{t("scans.columnProcessed")}</th>
+            <th className="px-4 py-3">{t("scans.columnFailed")}</th>
+            <th className="px-4 py-3">{t("scans.columnObs")}</th>
+            <th className="px-4 py-3">{t("scans.columnStarted")}</th>
+            <th className="px-4 py-3">{t("scans.columnDuration")}</th>
           </tr>
         </thead>
         <tbody>
           {scans.map((scan) => (
             <tr
               key={scan.id}
-              className={`border-b border-slate-700 bg-slate-800/50 hover:bg-slate-700/50 transition-colors ${
+              className={`border-b border-tcg-border/50 bg-tcg-card/50 hover:bg-tcg-card-alt transition-colors ${
                 onSelect ? "cursor-pointer" : ""
               }`}
               onClick={() => onSelect?.(scan.id)}
               data-testid={`scan-row-${scan.id}`}
             >
-              <td className="px-4 py-3 font-mono text-slate-300">{scan.id}</td>
-              <td className="px-4 py-3 text-slate-300">{scan.scan_type}</td>
+              <td className="px-4 py-3 font-mono text-tcg-muted">{scan.id}</td>
+              <td className="px-4 py-3 text-tcg-muted">{scan.scan_type}</td>
               <td className="px-4 py-3">
                 <StatusBadge status={scan.status} />
               </td>
-              <td className="px-4 py-3 text-slate-300">{scan.cards_total}</td>
-              <td className="px-4 py-3 text-slate-300">{scan.cards_processed}</td>
-              <td className="px-4 py-3 text-slate-300">{scan.cards_failed}</td>
-              <td className="px-4 py-3 text-slate-300">{scan.observations_saved}</td>
-              <td className="px-4 py-3 text-slate-300">{formatDateTime(scan.started_at)}</td>
-              <td className="px-4 py-3 text-slate-300">
+              <td className="px-4 py-3 text-tcg-muted">{scan.cards_total}</td>
+              <td className="px-4 py-3 text-tcg-muted">{scan.cards_processed}</td>
+              <td className="px-4 py-3 text-tcg-muted">{scan.cards_failed}</td>
+              <td className="px-4 py-3 text-tcg-muted">{scan.observations_saved}</td>
+              <td className="px-4 py-3 text-tcg-muted">{formatDateTime(scan.started_at)}</td>
+              <td className="px-4 py-3 text-tcg-muted">
                 {formatDuration(scan.started_at, scan.finished_at)}
               </td>
             </tr>

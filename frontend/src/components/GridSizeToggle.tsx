@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { GridSize } from "../utils/constants";
 
 interface GridSizeToggleProps {
@@ -5,10 +6,10 @@ interface GridSizeToggleProps {
   onChange: (size: GridSize) => void;
 }
 
-const SIZES: { key: GridSize; label: string; icon: React.ReactNode }[] = [
+const SIZES: { key: GridSize; labelKey: string; icon: React.ReactNode }[] = [
   {
     key: "sm",
-    label: "Small grid",
+    labelKey: "gridSize.small",
     icon: (
       <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
         <rect x="1" y="1" width="4" height="4" rx="0.5" />
@@ -25,7 +26,7 @@ const SIZES: { key: GridSize; label: string; icon: React.ReactNode }[] = [
   },
   {
     key: "md",
-    label: "Medium grid",
+    labelKey: "gridSize.medium",
     icon: (
       <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
         <rect x="1" y="1" width="6.5" height="6.5" rx="0.5" />
@@ -37,7 +38,7 @@ const SIZES: { key: GridSize; label: string; icon: React.ReactNode }[] = [
   },
   {
     key: "lg",
-    label: "Large grid",
+    labelKey: "gridSize.large",
     icon: (
       <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
         <rect x="1" y="1" width="14" height="6.5" rx="0.5" />
@@ -48,17 +49,18 @@ const SIZES: { key: GridSize; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function GridSizeToggle({ value, onChange }: GridSizeToggleProps) {
+  const { t } = useTranslation();
   return (
-    <div className="flex" role="group" aria-label="Grid size">
+    <div className="flex" role="group" aria-label={t("gridSize.label")}>
       {SIZES.map((size, i) => (
         <button
           key={size.key}
           className={`px-2.5 py-2 transition-colors ${
             value === size.key
-              ? "bg-slate-600 text-cyan-400 border border-cyan-500/50"
-              : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
-          } ${i === 0 ? "rounded-l-lg" : ""} ${i === SIZES.length - 1 ? "rounded-r-lg" : ""}`}
-          aria-label={size.label}
+              ? "bg-tcg-card-alt text-tcg-secondary border border-tcg-secondary/50"
+              : "bg-tcg-card text-tcg-muted hover:text-white border border-tcg-border"
+          } ${i === 0 ? "rounded-l-tcg-md" : ""} ${i === SIZES.length - 1 ? "rounded-r-tcg-md" : ""}`}
+          aria-label={t(size.labelKey)}
           aria-pressed={value === size.key}
           onClick={() => onChange(size.key)}
         >

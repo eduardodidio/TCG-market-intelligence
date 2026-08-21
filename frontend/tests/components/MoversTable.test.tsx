@@ -83,7 +83,7 @@ describe("MoversTable", () => {
 
     // Title should have green class
     const title = screen.getByText("Top Gainers");
-    expect(title.className).toContain("text-green-400");
+    expect(title.className).toContain("text-tcg-gain");
   });
 
   it("applies red styling for losers type", () => {
@@ -94,14 +94,14 @@ describe("MoversTable", () => {
 
     // Title should have red class
     const title = screen.getByText("Top Losers");
-    expect(title.className).toContain("text-red-400");
+    expect(title.className).toContain("text-tcg-loss");
   });
 
   it("renders change percentage with green class for gainers", () => {
     renderMoversTable("gainers");
 
     const changeCell = screen.getByText("+10,0%");
-    expect(changeCell.className).toContain("text-green-400");
+    expect(changeCell.className).toContain("text-tcg-gain");
     expect(changeCell.className).toContain("font-bold");
   });
 
@@ -109,7 +109,7 @@ describe("MoversTable", () => {
     renderMoversTable("losers");
 
     const changeCell = screen.getByText("-10,0%");
-    expect(changeCell.className).toContain("text-red-400");
+    expect(changeCell.className).toContain("text-tcg-loss");
     expect(changeCell.className).toContain("font-bold");
   });
 

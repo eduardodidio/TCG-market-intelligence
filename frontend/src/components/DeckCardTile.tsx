@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { DeckCard } from "../types/api";
 import { formatBRL } from "../utils/format";
@@ -7,6 +8,7 @@ interface DeckCardTileProps {
 }
 
 export function DeckCardTile({ card }: DeckCardTileProps) {
+  const { t } = useTranslation();
   const linkTo = card.in_collection && card.collection_entry_id
     ? `/collection/${card.collection_entry_id}`
     : card.card_id
@@ -15,15 +17,15 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
 
   const content = (
     <div
-      className={`relative rounded-lg overflow-hidden bg-slate-800 border transition-colors ${
+      className={`relative rounded-tcg-lg overflow-hidden bg-tcg-card border transition-all duration-200 ${
         card.in_collection
-          ? "border-slate-700 hover:border-indigo-500"
-          : "border-slate-700/50"
+          ? "border-tcg-border hover:border-tcg-primary hover:shadow-tcg-glow"
+          : "border-tcg-border/50"
       }`}
       data-testid={`deck-card-tile-${card.id}`}
     >
       {/* Card image */}
-      <div className="aspect-[488/680] bg-slate-700 relative">
+      <div className="aspect-[488/680] bg-tcg-card-alt relative">
         {card.image_url ? (
           <img
             src={card.image_url}
@@ -38,11 +40,11 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
           />
         ) : (
           <div
-            className={`w-full h-full flex items-center justify-center text-slate-500 text-sm ${
+            className={`w-full h-full flex items-center justify-center text-tcg-dimmed text-sm ${
               !card.in_collection ? "opacity-50" : ""
             }`}
           >
-            No Image
+            {t("common.noImage")}
           </div>
         )}
 
@@ -51,10 +53,10 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
           <div
             className="absolute inset-0 bg-black/40 flex items-center justify-center"
             data-testid="not-owned-overlay"
-            title="Card nao esta na sua colecao"
+            title={t("common.notOwned")}
           >
-            <span className="text-xs text-slate-300 bg-black/60 px-2 py-1 rounded">
-              Not Owned
+            <span className="text-xs text-tcg-muted bg-black/60 px-2 py-1 rounded-tcg-sm">
+              {t("common.notOwned")}
             </span>
           </div>
         )}
@@ -62,7 +64,7 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
         {/* Quantity badge */}
         {card.quantity > 1 && (
           <span
-            className="absolute top-2 right-2 bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded"
+            className="absolute top-2 right-2 bg-tcg-primary text-white text-xs font-bold px-2 py-0.5 rounded-tcg-sm"
             data-testid="quantity-badge"
           >
             x{card.quantity}
@@ -82,19 +84,19 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center gap-1">
             {card.set_code && (
-              <span className="text-xs text-slate-400 uppercase" data-testid="set-badge">
+              <span className="text-xs text-tcg-muted uppercase" data-testid="set-badge">
                 {card.set_code}
               </span>
             )}
             {card.collector_number && (
-              <span className="text-xs text-slate-500" data-testid="collector-number">
+              <span className="text-xs text-tcg-dimmed" data-testid="collector-number">
                 #{card.collector_number}
               </span>
             )}
           </div>
 
           <span
-            className="text-xs text-slate-300"
+            className="text-xs text-tcg-muted"
             data-testid="card-price"
           >
             {card.latest_price != null ? formatBRL(card.latest_price) : "--"}

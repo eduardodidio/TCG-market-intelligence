@@ -175,6 +175,7 @@ class UserRow(Base):
     provider_id: Mapped[str | None] = mapped_column(String(200))
     password_hash: Mapped[str | None] = mapped_column(String(200))
     preferred_currency: Mapped[str] = mapped_column(String(10), default="BRL")
+    preferred_language: Mapped[str] = mapped_column(String(10), default="en")
     is_active: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(

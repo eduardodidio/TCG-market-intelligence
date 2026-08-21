@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { fetchCollection, fetchCollectionSummary, fetchCollectionSets } from "../api/collection";
@@ -23,19 +24,20 @@ import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 const RARITY_COLORS: Record<string, string> = {
   M: "text-amber-400",
   R: "text-yellow-500",
-  U: "text-slate-300",
-  C: "text-slate-500",
+  U: "text-tcg-muted",
+  C: "text-tcg-dimmed",
 };
 
-const RARITY_LABELS: Record<string, string> = {
-  M: "Mythic",
-  R: "Rare",
-  U: "Uncommon",
-  C: "Common",
+const RARITY_LABEL_KEYS: Record<string, string> = {
+  M: "rarity.mythic",
+  R: "rarity.rare",
+  U: "rarity.uncommon",
+  C: "rarity.common",
 };
 
 function CollectionCardTile({ card, compact = false, currencyOverride }: { card: CollectionCard; compact?: boolean; currencyOverride?: string }) {
-  const displayName = card.name_en || card.name_pt || "Unknown Card";
+  const { t } = useTranslation();
+  const displayName = card.name_en || card.name_pt || t("common.unknownCard");
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
 
@@ -48,14 +50,14 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
 
   const inner = (
     <div
-      className="group block bg-slate-800 rounded-xl overflow-hidden
-        border border-slate-700 hover:border-cyan-500/50
-        transition-all duration-200 hover:scale-[1.02] relative cursor-pointer"
+      className="group block bg-tcg-card rounded-tcg-lg overflow-hidden
+        border border-tcg-border hover:border-tcg-secondary/50
+        transition-all duration-200 hover:scale-[1.02] hover:shadow-tcg-glow-cyan relative cursor-pointer"
       data-testid={`collection-card-${card.id}`}
     >
       {/* Quantity badge */}
       {card.quantity > 1 && (
-        <span className="absolute top-2 right-2 z-10 bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+        <span className="absolute top-2 right-2 z-10 bg-tcg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
           x{card.quantity}
         </span>
       )}
@@ -68,7 +70,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
       )}
 
       {/* Card image */}
-      <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden">
+      <div className="aspect-[5/7] bg-gradient-to-br from-tcg-card-alt to-tcg-card flex items-center justify-center overflow-hidden">
         {showImage ? (
           <img
             src={currentUrl}
@@ -85,7 +87,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
           />
         ) : (
           <svg
-            className="h-12 w-12 text-slate-600"
+            className="h-12 w-12 text-tcg-dimmed"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -104,7 +106,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
       {/* Card info */}
       <div className="p-3">
         <h3
-          className="text-sm font-semibold text-white truncate group-hover:text-cyan-400 transition-colors"
+          className="text-sm font-semibold text-white truncate group-hover:text-tcg-secondary transition-colors"
           title={displayName}
         >
           {displayName}
@@ -113,18 +115,18 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
         {!compact && (
           <div className="flex items-center gap-2 mt-1">
             {card.set_code && (
-              <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-300 rounded">
+              <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-tcg-card-alt text-tcg-muted rounded-tcg-sm">
                 {card.set_code}
               </span>
             )}
             {card.collector_number && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-tcg-dimmed">
                 #{card.collector_number}
               </span>
             )}
             {card.rarity && (
-              <span className={`text-xs font-bold ${RARITY_COLORS[card.rarity] || "text-slate-400"}`}>
-                {RARITY_LABELS[card.rarity] || card.rarity}
+              <span className={`text-xs font-bold ${RARITY_COLORS[card.rarity] || "text-tcg-muted"}`}>
+                {RARITY_LABEL_KEYS[card.rarity] ? t(RARITY_LABEL_KEYS[card.rarity]) : card.rarity}
               </span>
             )}
           </div>
@@ -132,15 +134,15 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
 
         <div className="flex items-center justify-between mt-2">
           <p
-            className={`text-sm font-bold ${card.latest_price != null ? "text-cyan-400" : "text-slate-500"}`}
+            className={`text-sm font-bold ${card.latest_price != null ? "text-tcg-secondary" : "text-tcg-dimmed"}`}
             data-testid="card-price"
           >
             {formatCurrency(card.latest_price, currencyOverride || "BRL")}
           </p>
           {!compact && (
-            <div className="flex items-center gap-1 text-xs text-slate-400">
+            <div className="flex items-center gap-1 text-xs text-tcg-muted">
               {card.quality && <span>{card.quality}</span>}
-              {card.language && <span className="text-slate-500">({card.language})</span>}
+              {card.language && <span className="text-tcg-dimmed">({card.language})</span>}
             </div>
           )}
         </div>
@@ -153,9 +155,11 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
 }
 
 export function MyCollection() {
+  const { t } = useTranslation();
+
   useEffect(() => {
-    document.title = "My Collection | TCG Market";
-  }, []);
+    document.title = `${t("collection.title")} | TCG Market`;
+  }, [t]);
 
   const { currency } = useCurrency();
   const { gridSize, setGridSize } = useGridSize();
@@ -252,7 +256,7 @@ export function MyCollection() {
       })
       .catch((err: unknown) => {
         if (currentId !== fetchIdRef.current) return;
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : t("common.unknownError"));
       })
       .finally(() => {
         if (currentId === fetchIdRef.current) setLoading(false);
@@ -277,7 +281,7 @@ export function MyCollection() {
         }
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(err instanceof Error ? err.message : t("common.unknownError"));
       })
       .finally(() => setLoadingMore(false));
   }, [hasMore, loadingMore, offset, buildParams]);
@@ -308,17 +312,17 @@ export function MyCollection() {
 
   return (
     <div data-testid="page-collection">
-      <h2 className="text-2xl font-bold text-white mb-6">My Collection</h2>
+      <h2 className="text-2xl font-bold text-white mb-6">{t("collection.title")}</h2>
 
       {/* Summary KPIs */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <KpiCard title="Unique Cards" value={String(summary.total_unique)} />
-          <KpiCard title="Total Cards" value={String(summary.total_cards)} />
-          <KpiCard title="Sets" value={String(summary.sets_count)} />
+          <KpiCard title={t("collection.uniqueCards")} value={String(summary.total_unique)} />
+          <KpiCard title={t("collection.totalCards")} value={String(summary.total_cards)} />
+          <KpiCard title={t("collection.sets")} value={String(summary.sets_count)} />
           <KpiCard
-            title="Est. Value"
-            value={summary.total_value ? formatCurrency(summary.total_value, currency) : "--"}
+            title={t("collection.estValue")}
+            value={summary.total_value ? formatCurrency(summary.total_value, currency) : t("common.noData")}
             icon={<CurrencyIndicator currency={currency} size={20} />}
           />
         </div>
@@ -363,8 +367,8 @@ export function MyCollection() {
 
       {!loading && !error && cards.length === 0 && (
         <EmptyState
-          message="No cards in your collection. Import your CSV to get started."
-          action={{ label: "Clear filters", onClick: handleClearFilters }}
+          message={t("collection.emptyCollection")}
+          action={{ label: t("common.clearFilters"), onClick: handleClearFilters }}
         />
       )}
 
@@ -381,7 +385,7 @@ export function MyCollection() {
           <div ref={sentinelRef} data-testid="scroll-sentinel" />
           {loadingMore && (
             <div className="flex justify-center mt-4" data-testid="loading-more">
-              <div className="h-6 w-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+              <div className="h-6 w-6 border-2 border-tcg-secondary border-t-transparent rounded-full animate-spin" />
             </div>
           )}
         </>

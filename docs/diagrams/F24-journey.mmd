@@ -1,0 +1,19 @@
+graph TD
+    Start([User opens app]) --> CheckAuth{Authenticated?}
+
+    CheckAuth -->|No| LoginPage[Login Page]
+    LoginPage --> SelectLangLogin[Select language<br/>via LanguageSelector]
+    SelectLangLogin --> FormUpdates[Form labels update<br/>immediately via i18n]
+    FormUpdates --> Login[User logs in]
+    Login --> LoadPref[Load preferred_language<br/>from user profile]
+    LoadPref --> ApplyLang[Apply server language<br/>to i18n + localStorage]
+    ApplyLang --> Dashboard
+
+    CheckAuth -->|Yes| LoadProfile[Load profile<br/>from GET /auth/me]
+    LoadProfile --> SyncLang[Sync preferred_language<br/>to LanguageContext]
+    SyncLang --> Dashboard[Dashboard]
+
+    Dashboard --> ChangeLang[Change language<br/>via sidebar selector]
+    ChangeLang --> UpdateUI[All UI text updates<br/>instantly via t&lpar;&rpar;]
+    UpdateUI --> SavePref[PATCH /auth/me/preferences<br/>preferred_language]
+    SavePref --> Persisted([Preference saved<br/>server + localStorage])

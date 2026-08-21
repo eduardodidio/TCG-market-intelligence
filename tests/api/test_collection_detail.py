@@ -7,9 +7,11 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.api.deps import get_db
+from src.api.deps import get_db, require_auth_or_api_key
 from src.api.routers.collection import router
 from src.database.models import PriceObservationRow, SourceCardRow, UserCollectionRow
+
+_TEST_USER_ID = "eduardo"
 
 
 def _make_collection_row(**overrides) -> MagicMock:
@@ -78,10 +80,11 @@ def _make_price_obs(**overrides) -> MagicMock:
     return obs
 
 
-def _make_app(mock_repo: MagicMock) -> FastAPI:
+def _make_app(mock_repo: MagicMock, user_id: str = _TEST_USER_ID) -> FastAPI:
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_db] = lambda: mock_repo
+    app.dependency_overrides[require_auth_or_api_key] = lambda: user_id
     return app
 
 
@@ -259,3 +262,16 @@ class TestGetCollectionEntry:
 
         # bldmr should be mapped to dmr
         assert "/cards/dmr/437?" in data["image_url"]
+
+    def test_returns_404_when_entry_belongs_to_different_user(self) -> None:
+        """Entry exists but belongs to another user — should return 404."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row(
+            user_id="other_user",
+        )
+
+        app = _make_app(mock_repo, user_id=_TEST_USER_ID)
+        client = TestClient(app)
+
+        resp = client.get("/collection/1")
+        assert resp.status_code == 404

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBRL, formatPercent, formatDate } from "../../src/utils/format";
+import { formatBRL, formatPercent, formatDate, formatPriceOrFallback } from "../../src/utils/format";
 
 describe("formatBRL", () => {
   it("formats a positive number as BRL currency", () => {
@@ -69,6 +69,43 @@ describe("formatPercent", () => {
 
   it("formats small negative percentage", () => {
     expect(formatPercent(-0.3)).toBe("-0,3%");
+  });
+});
+
+describe("formatPriceOrFallback", () => {
+  it("returns formatted BRL for a valid price", () => {
+    const result = formatPriceOrFallback(8.5, "BRL");
+    expect(result).toContain("8,50");
+  });
+
+  it("returns null for null value", () => {
+    expect(formatPriceOrFallback(null, "BRL")).toBeNull();
+  });
+
+  it("returns null for undefined value", () => {
+    expect(formatPriceOrFallback(undefined, "BRL")).toBeNull();
+  });
+
+  it("returns null for zero value", () => {
+    expect(formatPriceOrFallback(0, "BRL")).toBeNull();
+  });
+
+  it("returns null for NaN string", () => {
+    expect(formatPriceOrFallback("abc" as unknown as number, "BRL")).toBeNull();
+  });
+
+  it("returns formatted USD for a valid price", () => {
+    const result = formatPriceOrFallback(10.99, "USD");
+    expect(result).toContain("10.99");
+  });
+
+  it("returns formatted PILA for a valid price", () => {
+    const result = formatPriceOrFallback(230.21, "PILA");
+    expect(result).toContain("230 pilas");
+  });
+
+  it("returns null for zero PILA", () => {
+    expect(formatPriceOrFallback(0, "PILA")).toBeNull();
   });
 });
 

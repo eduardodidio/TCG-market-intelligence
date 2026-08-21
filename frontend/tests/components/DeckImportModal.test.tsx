@@ -148,11 +148,11 @@ describe("DeckImportModal", () => {
     const csvBtn = screen.getByTestId("format-csv-btn");
 
     // Text is active by default
-    expect(textBtn.className).toContain("bg-indigo-600");
-    expect(csvBtn.className).not.toContain("bg-indigo-600");
+    expect(textBtn.className).toContain("bg-tcg-primary");
+    expect(csvBtn.className).not.toContain("bg-tcg-primary");
 
     fireEvent.click(csvBtn);
-    expect(csvBtn.className).toContain("bg-indigo-600");
-    expect(textBtn.className).not.toContain("bg-indigo-600");
+    expect(csvBtn.className).toContain("bg-tcg-primary");
+    expect(textBtn.className).not.toContain("bg-tcg-primary");
   });
 });

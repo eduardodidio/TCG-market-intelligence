@@ -1,51 +1,59 @@
+import { useTranslation } from "react-i18next";
+
 interface FreshnessIndicatorProps {
   lastCollectionAt: string | null;
   status: string;
 }
 
-function formatRelativeTime(isoDate: string): string {
-  const now = Date.now();
-  const then = new Date(isoDate).getTime();
-  const diffMs = now - then;
+function useRelativeTime() {
+  const { t } = useTranslation();
 
-  if (diffMs < 0 || Number.isNaN(diffMs)) {
-    return "just now";
-  }
+  return function formatRelativeTime(isoDate: string): string {
+    const now = Date.now();
+    const then = new Date(isoDate).getTime();
+    const diffMs = now - then;
 
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return "just now";
+    if (diffMs < 0 || Number.isNaN(diffMs)) {
+      return t("freshness.justNow");
+    }
 
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    const seconds = Math.floor(diffMs / 1000);
+    if (seconds < 60) return t("freshness.justNow");
 
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return t("freshness.minutesAgo", { count: minutes });
 
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return t("freshness.hoursAgo", { count: hours });
+
+    const days = Math.floor(hours / 24);
+    return t("freshness.daysAgo", { count: days });
+  };
 }
 
 const STATUS_DOT_CLASSES: Record<string, string> = {
-  healthy: "bg-green-400",
-  stale: "bg-yellow-400",
-  error: "bg-red-400",
+  healthy: "bg-tcg-gain",
+  stale: "bg-tcg-warning",
+  error: "bg-tcg-loss",
 };
 
 export function FreshnessIndicator({
   lastCollectionAt,
   status,
 }: FreshnessIndicatorProps) {
-  const dotClass = STATUS_DOT_CLASSES[status] ?? "bg-slate-400";
+  const { t } = useTranslation();
+  const formatRelativeTime = useRelativeTime();
+  const dotClass = STATUS_DOT_CLASSES[status] ?? "bg-tcg-muted";
 
   const label =
     lastCollectionAt !== null
-      ? `Last updated: ${formatRelativeTime(lastCollectionAt)}`
-      : "Data freshness: Unknown";
+      ? t("freshness.lastUpdated", { time: formatRelativeTime(lastCollectionAt) })
+      : t("freshness.unknown");
 
   return (
     <span
       data-testid="freshness-indicator"
-      className="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300"
+      className="inline-flex items-center gap-1.5 rounded-full bg-tcg-card border border-tcg-border px-3 py-1 text-xs text-tcg-muted"
     >
       <span
         data-testid="freshness-dot"

@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { LanguageSelector } from "../components/LanguageSelector";
 
 export function Login() {
+  const { t } = useTranslation();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +37,7 @@ export function Login() {
         setFormError(err);
       }
     } catch {
-      setFormError("An unexpected error occurred");
+      setFormError(t("auth.unexpectedError"));
     } finally {
       setSubmitting(false);
     }
@@ -42,21 +45,26 @@ export function Login() {
 
   const displayError = formError || authError;
 
+  const inputClasses = "w-full px-3 py-2 bg-tcg-card-alt border border-tcg-border rounded-tcg-md text-white placeholder-tcg-dimmed focus:outline-none focus:ring-2 focus:ring-tcg-primary transition-colors";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-tcg-bg px-4 relative">
+      <div className="absolute top-4 right-4" data-testid="login-language-selector">
+        <LanguageSelector variant="full" />
+      </div>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">TCG Market</h1>
-          <p className="text-slate-400 mt-2">
-            {isRegister ? "Create your account" : "Sign in to your account"}
+          <h1 className="text-3xl font-bold bg-tcg-gradient-hero bg-clip-text text-transparent">TCG Market</h1>
+          <p className="text-tcg-muted mt-2">
+            {isRegister ? t("auth.createAccount") : t("auth.signInAccount")}
           </p>
         </div>
 
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-8">
+        <div className="bg-tcg-surface rounded-tcg-xl border border-tcg-border p-8 shadow-tcg-lg">
           <form onSubmit={handleSubmit} data-testid="auth-form">
             {displayError && (
               <div
-                className="mb-4 p-3 rounded-lg bg-red-900/50 border border-red-700 text-red-300 text-sm"
+                className="mb-4 p-3 rounded-tcg-md bg-red-900/30 border border-red-700/50 text-tcg-loss text-sm"
                 data-testid="auth-error"
               >
                 {displayError}
@@ -67,17 +75,17 @@ export function Login() {
               <div className="mb-4">
                 <label
                   htmlFor="displayName"
-                  className="block text-sm font-medium text-slate-300 mb-1"
+                  className="block text-sm font-medium text-tcg-muted mb-1"
                 >
-                  Display Name
+                  {t("auth.displayName")}
                 </label>
                 <input
                   id="displayName"
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Your name"
+                  className={inputClasses}
+                  placeholder={t("auth.displayNamePlaceholder")}
                   data-testid="display-name-input"
                 />
               </div>
@@ -86,9 +94,9 @@ export function Login() {
             <div className="mb-4">
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-slate-300 mb-1"
+                className="block text-sm font-medium text-tcg-muted mb-1"
               >
-                Email
+                {t("auth.email")}
               </label>
               <input
                 id="email"
@@ -96,8 +104,8 @@ export function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="you@example.com"
+                className={inputClasses}
+                placeholder={t("auth.emailPlaceholder")}
                 data-testid="email-input"
               />
             </div>
@@ -105,9 +113,9 @@ export function Login() {
             <div className="mb-6">
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-slate-300 mb-1"
+                className="block text-sm font-medium text-tcg-muted mb-1"
               >
-                Password
+                {t("auth.password")}
               </label>
               <input
                 id="password"
@@ -116,8 +124,8 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Min. 8 characters"
+                className={inputClasses}
+                placeholder={t("auth.passwordPlaceholder")}
                 data-testid="password-input"
               />
             </div>
@@ -125,14 +133,14 @@ export function Login() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full py-2.5 px-4 bg-tcg-gradient-hero hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-tcg-md transition-all focus:outline-none focus:ring-2 focus:ring-tcg-primary shadow-tcg-glow"
               data-testid="submit-button"
             >
               {submitting
-                ? "Please wait..."
+                ? t("common.pleaseWait")
                 : isRegister
-                  ? "Create Account"
-                  : "Sign In"}
+                  ? t("auth.createAccountBtn")
+                  : t("auth.signIn")}
             </button>
           </form>
 
@@ -142,25 +150,25 @@ export function Login() {
                 setIsRegister(!isRegister);
                 setFormError(null);
               }}
-              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="text-sm text-tcg-primary-hover hover:text-tcg-accent transition-colors"
               data-testid="toggle-mode"
             >
               {isRegister
-                ? "Already have an account? Sign in"
-                : "Don't have an account? Create one"}
+                ? t("auth.alreadyHaveAccount")
+                : t("auth.dontHaveAccount")}
             </button>
           </div>
 
           {/* OAuth buttons placeholder */}
-          <div className="mt-6 pt-6 border-t border-slate-700">
-            <p className="text-xs text-slate-500 text-center mb-3">
-              Or continue with
+          <div className="mt-6 pt-6 border-t border-tcg-border">
+            <p className="text-xs text-tcg-dimmed text-center mb-3">
+              {t("auth.orContinueWith")}
             </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 disabled
-                className="flex-1 py-2 px-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-400 text-sm font-medium cursor-not-allowed opacity-50"
+                className="flex-1 py-2 px-3 bg-tcg-card border border-tcg-border rounded-tcg-md text-tcg-dimmed text-sm font-medium cursor-not-allowed opacity-50"
                 data-testid="oauth-google"
               >
                 Google
@@ -168,7 +176,7 @@ export function Login() {
               <button
                 type="button"
                 disabled
-                className="flex-1 py-2 px-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-400 text-sm font-medium cursor-not-allowed opacity-50"
+                className="flex-1 py-2 px-3 bg-tcg-card border border-tcg-border rounded-tcg-md text-tcg-dimmed text-sm font-medium cursor-not-allowed opacity-50"
                 data-testid="oauth-microsoft"
               >
                 Microsoft
@@ -176,7 +184,7 @@ export function Login() {
               <button
                 type="button"
                 disabled
-                className="flex-1 py-2 px-3 bg-slate-700 border border-slate-600 rounded-lg text-slate-400 text-sm font-medium cursor-not-allowed opacity-50"
+                className="flex-1 py-2 px-3 bg-tcg-card border border-tcg-border rounded-tcg-md text-tcg-dimmed text-sm font-medium cursor-not-allowed opacity-50"
                 data-testid="oauth-apple"
               >
                 Apple

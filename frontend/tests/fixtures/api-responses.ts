@@ -140,6 +140,7 @@ export function mockCollectionSummary(
     total_cards: 340,
     total_value: 2850.0,
     linked_count: 96,
+    priced_count: 80,
     sets_count: 5,
     ...overrides,
   });

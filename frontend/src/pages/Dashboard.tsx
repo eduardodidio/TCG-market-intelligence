@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useApi } from "../hooks/useApi";
 import { fetchMarketStats, fetchMovers } from "../api/market";
 import { fetchCollectionHealth } from "../api/collect";
@@ -20,9 +21,11 @@ import type {
 } from "../types/api";
 
 export function Dashboard() {
+  const { t } = useTranslation();
+
   useEffect(() => {
-    document.title = "Dashboard | TCG Market";
-  }, []);
+    document.title = `${t("nav.dashboard")} | TCG Market`;
+  }, [t]);
 
   const { currency } = useCurrency();
 
@@ -42,10 +45,15 @@ export function Dashboard() {
 
   // Collection summary is independent — never blocks dashboard rendering
   const summaryData = collectionSummary.data;
-  const coverage =
+  const linkedPct =
     summaryData && summaryData.total_unique > 0
       ? Math.round((summaryData.linked_count / summaryData.total_unique) * 100)
       : 0;
+  const pricedPct =
+    summaryData && summaryData.total_unique > 0
+      ? Math.round((summaryData.priced_count / summaryData.total_unique) * 100)
+      : 0;
+  const lowCoverage = linkedPct < 50;
 
   // Freshness indicator is independent — never blocks dashboard rendering
   const freshnessIndicator = !health.loading && !health.error && health.data ? (
@@ -59,7 +67,7 @@ export function Dashboard() {
     return (
       <div data-testid="page-dashboard">
         <div className="mb-6 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">My Collection</h1>
+          <h1 className="text-2xl font-bold text-white">{t("dashboard.title")}</h1>
           {freshnessIndicator}
         </div>
         <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -67,7 +75,7 @@ export function Dashboard() {
             <SkeletonKpi key={i} />
           ))}
         </div>
-        <h2 className="mb-4 text-xl font-semibold text-white">Market Overview</h2>
+        <h2 className="mb-4 text-xl font-semibold text-white">{t("dashboard.marketOverview")}</h2>
         <div className="grid gap-6 md:grid-cols-2">
           <SkeletonTable rows={5} />
           <SkeletonTable rows={5} />
@@ -80,7 +88,7 @@ export function Dashboard() {
     return (
       <div data-testid="page-dashboard">
         <div className="mb-6 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">My Collection</h1>
+          <h1 className="text-2xl font-bold text-white">{t("dashboard.title")}</h1>
           {freshnessIndicator}
         </div>
         <ErrorBanner
@@ -112,7 +120,7 @@ export function Dashboard() {
     <div data-testid="page-dashboard">
       {/* Collection hero section */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-white">My Collection</h1>
+        <h1 className="text-2xl font-bold text-white">{t("collection.title")}</h1>
         {freshnessIndicator}
       </div>
 
@@ -123,62 +131,72 @@ export function Dashboard() {
           data-testid="collection-kpis"
         >
           <KpiCard
-            title="Collection Cards"
+            title={t("dashboard.collectionCards")}
             value={String(summaryData.total_unique)}
-            subtitle="unique cards"
+            subtitle={t("dashboard.uniqueCards")}
           />
           <KpiCard
-            title="Total Copies"
+            title={t("dashboard.totalCopies")}
             value={String(summaryData.total_cards)}
-            subtitle="total quantity"
+            subtitle={t("dashboard.totalQuantity")}
           />
           <KpiCard
-            title="Est. Collection Value"
+            title={t("dashboard.estCollectionValue")}
             value={formatCurrency(summaryData.total_value, currency)}
-            subtitle="based on latest prices"
+            subtitle={t("dashboard.basedOnLatestPrices")}
             icon={<CurrencyIndicator currency={currency} size={20} />}
           />
-          <KpiCard
-            title="Coverage"
-            value={`${coverage}%`}
-            subtitle="cards with price data"
-          />
+          <div data-testid="coverage-breakdown">
+            <KpiCard
+              title={t("dashboard.coverage")}
+              value={`${linkedPct}%`}
+              subtitle={t("dashboard.coverageSubtitle", { linked: summaryData.linked_count, priced: summaryData.priced_count, pricedPct })}
+            />
+            {lowCoverage && (
+              <p
+                className="mt-2 text-xs text-tcg-warning"
+                data-testid="low-coverage-hint"
+              >
+                {t("dashboard.lowCoverageHint")}
+              </p>
+            )}
+          </div>
         </div>
       ) : !collectionSummary.loading ? (
         <div className="mb-8" data-testid="collection-empty">
-          <EmptyState message="Import your collection and sync with MYP to see your stats here." />
+          <EmptyState message={t("dashboard.emptyCollection")} />
         </div>
       ) : null}
 
       {/* Market Overview section */}
-      <h2 className="mb-4 text-xl font-semibold text-white">Market Overview</h2>
+      <h2 className="mb-4 text-xl font-semibold text-white">{t("dashboard.marketOverview")}</h2>
 
       {hasMarketData ? (
         <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4" data-testid="market-kpis">
           <KpiCard
-            title="Total Cards"
+            title={t("dashboard.totalCards")}
             value={String(marketStats?.total_cards ?? 0)}
-            subtitle="cards tracked"
+            subtitle={t("dashboard.cardsTracked")}
           />
           <KpiCard
-            title="Total Observations"
+            title={t("dashboard.totalObservations")}
             value={String(marketStats?.total_observations ?? 0)}
-            subtitle="price points"
+            subtitle={t("dashboard.pricePoints")}
           />
           <KpiCard
-            title="Average Price"
+            title={t("dashboard.averagePrice")}
             value={formatCurrency(marketStats?.avg_price ?? null, currency)}
-            subtitle="across all cards"
+            subtitle={t("dashboard.acrossAllCards")}
           />
           <KpiCard
-            title="Data Range"
+            title={t("dashboard.dataRange")}
             value={dateRange}
-            subtitle="collection period"
+            subtitle={t("dashboard.collectionPeriod")}
           />
         </div>
       ) : (
         <div className="mb-8" data-testid="market-empty">
-          <EmptyState message="Import your collection and sync with MYP to see market data here." />
+          <EmptyState message={t("dashboard.emptyMarket")} />
         </div>
       )}
 
@@ -190,7 +208,7 @@ export function Dashboard() {
       ) : (
         !hasMarketData && (
           <div data-testid="movers-empty">
-            <EmptyState message="Not enough price history for movers. Run a sync and check back." />
+            <EmptyState message={t("dashboard.emptyMovers")} />
           </div>
         )
       )}

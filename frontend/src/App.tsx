@@ -1,10 +1,14 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CurrencyProvider } from "./contexts/CurrencyContext";
+import { LanguageProvider } from "./contexts/LanguageContext";
+import type { SupportedLanguage } from "./contexts/LanguageContext";
+import { useAuth } from "./hooks/useAuth";
+import { useLanguage } from "./hooks/useLanguage";
 
 const Dashboard = lazy(() =>
   import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })),
@@ -39,9 +43,36 @@ const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login })),
 );
 
+/**
+ * Syncs user's preferred_language from their profile to the LanguageContext
+ * whenever the user changes (login, session restore).
+ */
+function LanguageSyncEffect() {
+  const { user } = useAuth();
+  const { setLanguage } = useLanguage();
+  const syncedRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (user && user.preferred_language && syncedRef.current !== user.id) {
+      const lang = user.preferred_language;
+      if (lang === "en" || lang === "pt-BR") {
+        setLanguage(lang as SupportedLanguage);
+      }
+      syncedRef.current = user.id;
+    }
+    if (!user) {
+      syncedRef.current = null;
+    }
+  }, [user, setLanguage]);
+
+  return null;
+}
+
 export default function App() {
   return (
+    <LanguageProvider>
     <AuthProvider>
+      <LanguageSyncEffect />
       <CurrencyProvider>
         <BrowserRouter>
           <Routes>
@@ -167,5 +198,6 @@ export default function App() {
         </BrowserRouter>
       </CurrencyProvider>
     </AuthProvider>
+    </LanguageProvider>
   );
 }

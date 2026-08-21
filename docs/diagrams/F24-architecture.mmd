@@ -1,0 +1,39 @@
+graph TD
+    subgraph Frontend
+        App[App.tsx]
+        LP[LanguageProvider]
+        LC[LanguageContext]
+        LS[LanguageSelector]
+        i18n[i18next Config]
+        EN[locales/en.json]
+        PTBR[locales/pt-BR.json]
+        DT[design-tokens.css]
+        TW[tailwind.config.ts<br/>tcg-* tokens]
+
+        App --> LP
+        LP --> LC
+        LS --> LC
+        LC --> i18n
+        i18n --> EN
+        i18n --> PTBR
+        DT --> TW
+    end
+
+    subgraph Pages & Components
+        Pages[All Pages<br/>use t&lpar;&rpar; calls]
+        Components[All Components<br/>tcg-* classes]
+        Pages --> i18n
+        Components --> TW
+    end
+
+    subgraph Backend
+        AuthRouter[auth.py<br/>PATCH /me/preferences]
+        UserModel[UserRow<br/>preferred_language]
+        Repo[Repository<br/>_ensure_columns&lpar;&rpar;]
+
+        AuthRouter --> UserModel
+        UserModel --> Repo
+    end
+
+    LS -->|PATCH preferred_language| AuthRouter
+    AuthRouter -->|GET /me response| App

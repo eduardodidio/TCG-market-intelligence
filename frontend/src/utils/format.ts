@@ -88,6 +88,20 @@ export function formatCurrency(
 }
 
 /**
+ * Format a price value or return null if the price is absent/zero.
+ * Use this for display contexts where 0 means "no data" (e.g. Explore Cards).
+ */
+export function formatPriceOrFallback(
+  value: number | string | null | undefined,
+  currency: string = "BRL",
+): string | null {
+  if (value == null) return null;
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num) || num === 0) return null;
+  return formatCurrency(num, currency);
+}
+
+/**
  * Format a percentage with sign prefix.
  * Returns object with formatted string and direction for styling.
  * Example: formatPercent(12.3) -> "+12,3%"

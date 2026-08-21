@@ -155,6 +155,35 @@ describe("apiGet", () => {
     expect(result.errors[0].code).toBe("TIMEOUT");
   });
 
+  it("sends Authorization header when token exists in localStorage", async () => {
+    localStorage.setItem("tcg_access_token", "test-jwt-token");
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockCardSummaries()),
+    });
+
+    await apiGet("/api/v1/cards");
+
+    const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const headers = fetchCall[1]?.headers as Record<string, string>;
+    expect(headers["Authorization"]).toBe("Bearer test-jwt-token");
+    localStorage.removeItem("tcg_access_token");
+  });
+
+  it("omits Authorization header when no token in localStorage", async () => {
+    localStorage.removeItem("tcg_access_token");
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockCardSummaries()),
+    });
+
+    await apiGet("/api/v1/cards");
+
+    const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const headers = fetchCall[1]?.headers as Record<string, string>;
+    expect(headers["Authorization"]).toBeUndefined();
+  });
+
   it("returns TIMEOUT error when request exceeds timeout", async () => {
     // Mock fetch that never resolves (simulates hang)
     globalThis.fetch = vi.fn().mockImplementation(

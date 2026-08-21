@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { fetchDecks } from "../api/decks";
 import { DeckImportModal } from "../components/DeckImportModal";
 import type { DeckSummary } from "../types/api";
 
 export function DeckList() {
+  const { t } = useTranslation();
   const [decks, setDecks] = useState<DeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,19 +31,19 @@ export function DeckList() {
   return (
     <div data-testid="page-decks">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">My Decks</h1>
+        <h1 className="text-2xl font-bold text-white">{t("decks.title")}</h1>
         <button
           onClick={() => setShowImport(true)}
-          className="px-4 py-2 rounded text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors"
+          className="px-4 py-2 rounded-tcg-md text-sm font-medium bg-tcg-primary text-white hover:bg-tcg-primary-hover transition-colors shadow-tcg-glow"
           data-testid="import-deck-btn"
         >
-          Import Deck
+          {t("decks.importDeck")}
         </button>
       </div>
 
       {error && (
         <div
-          className="mb-4 p-3 rounded bg-red-900/50 text-red-300 text-sm"
+          className="mb-4 p-3 rounded-tcg-md bg-red-900/20 border border-red-700/50 text-tcg-loss text-sm"
           data-testid="deck-list-error"
         >
           {error}
@@ -53,7 +55,7 @@ export function DeckList() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-32 rounded-lg bg-slate-800 animate-pulse"
+              className="h-32 rounded-tcg-lg bg-tcg-card animate-pulse"
               data-testid="deck-skeleton"
             />
           ))}
@@ -62,12 +64,12 @@ export function DeckList() {
 
       {!loading && decks.length === 0 && !error && (
         <div
-          className="text-center py-12 text-slate-400"
+          className="text-center py-12 text-tcg-muted"
           data-testid="deck-empty-state"
         >
-          <p className="text-lg mb-2">No decks yet</p>
+          <p className="text-lg mb-2">{t("decks.noDecks")}</p>
           <p className="text-sm">
-            Click &quot;Import Deck&quot; to add your first deck.
+            {t("decks.noDecksHint")}
           </p>
         </div>
       )}
@@ -78,35 +80,35 @@ export function DeckList() {
             <Link
               key={deck.id}
               to={`/decks/${deck.id}`}
-              className="block p-4 rounded-lg bg-slate-800 border border-slate-700 hover:border-indigo-500 transition-colors"
+              className="block p-4 rounded-tcg-lg bg-tcg-card border border-tcg-border hover:border-tcg-primary/50 hover:shadow-tcg-glow transition-all duration-200"
               data-testid={`deck-card-${deck.id}`}
             >
               <h3 className="text-lg font-semibold text-white mb-1">
                 {deck.name}
               </h3>
               {deck.description && (
-                <p className="text-sm text-slate-400 mb-3 line-clamp-2">
+                <p className="text-sm text-tcg-muted mb-3 line-clamp-2">
                   {deck.description}
                 </p>
               )}
-              <div className="flex items-center gap-4 text-sm text-slate-300">
+              <div className="flex items-center gap-4 text-sm text-tcg-muted">
                 <span data-testid="deck-card-count">
-                  {deck.total_cards} cards
+                  {t("decks.cardsCount", { count: deck.total_cards })}
                 </span>
                 <span data-testid="deck-unique-count">
-                  {deck.unique_cards} unique
+                  {t("decks.uniqueCount", { count: deck.unique_cards })}
                 </span>
                 <span
                   className={
                     deck.ownership_pct === 100
-                      ? "text-green-400"
+                      ? "text-tcg-gain"
                       : deck.ownership_pct > 50
-                        ? "text-yellow-400"
-                        : "text-red-400"
+                        ? "text-tcg-warning"
+                        : "text-tcg-loss"
                   }
                   data-testid="deck-ownership"
                 >
-                  {deck.ownership_pct.toFixed(0)}% owned
+                  {t("decks.ownershipPct", { pct: deck.ownership_pct.toFixed(0) })}
                 </span>
               </div>
             </Link>

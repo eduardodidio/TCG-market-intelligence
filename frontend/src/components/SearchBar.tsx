@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
@@ -7,12 +9,14 @@ interface SearchBarProps {
 export function SearchBar({
   value,
   onChange,
-  placeholder = "Search cards by name...",
+  placeholder,
 }: SearchBarProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t("cards.searchPlaceholder");
   return (
     <div className="relative">
       <svg
-        className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"
+        className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-tcg-dimmed"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -30,10 +34,11 @@ export function SearchBar({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg
-          text-white placeholder-slate-400
-          focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+        placeholder={resolvedPlaceholder}
+        className="w-full pl-10 pr-4 py-2 bg-tcg-card border border-tcg-border rounded-tcg-md
+          text-white placeholder-tcg-dimmed
+          focus:outline-none focus:ring-2 focus:ring-tcg-primary focus:border-transparent
+          transition-colors"
         data-testid="search-input"
       />
     </div>

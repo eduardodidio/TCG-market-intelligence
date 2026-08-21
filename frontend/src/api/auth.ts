@@ -13,6 +13,7 @@ export interface UserProfile {
   display_name: string | null;
   avatar_url: string | null;
   auth_provider: string;
+  preferred_language: string | null;
   is_active: boolean;
 }
 

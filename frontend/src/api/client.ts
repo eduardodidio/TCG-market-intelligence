@@ -30,9 +30,18 @@ export async function apiGet<T>(
     ? composeAbortSignals(options.signal, controller.signal)
     : controller.signal;
 
+  // Include auth token if available (same as apiPost/apiDelete)
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+  const token = localStorage.getItem("tcg_access_token");
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   try {
     const response = await fetch(url.toString(), {
-      headers: { Accept: "application/json" },
+      headers,
       signal,
     });
 
@@ -109,6 +118,81 @@ export async function apiPost<T>(
   try {
     const response = await fetch(url.toString(), {
       method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      if (errorBody && Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
+        return errorBody as ApiResponse<T>;
+      }
+      return {
+        data: null,
+        meta: { cursor: null, total: null, offset: null, request_id: "" },
+        errors: [
+          {
+            code: `HTTP_${response.status}`,
+            message: errorBody?.detail || response.statusText,
+          },
+        ],
+      };
+    }
+
+    return (await response.json()) as ApiResponse<T>;
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+
+    const isAbort =
+      err instanceof DOMException && err.name === "AbortError";
+    const message = isAbort
+      ? "Request timed out"
+      : err instanceof Error
+        ? err.message
+        : "Unknown error";
+    const code = isAbort ? "TIMEOUT" : "NETWORK_ERROR";
+
+    return {
+      data: null,
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
+      errors: [{ code, message }],
+    };
+  }
+}
+
+/**
+ * Typed PATCH wrapper that sends JSON and returns the standard API envelope.
+ */
+export async function apiPatch<T>(
+  path: string,
+  body: unknown,
+  options?: { signal?: AbortSignal; timeoutMs?: number },
+): Promise<ApiResponse<T>> {
+  const url = new URL(path, API_BASE_URL || window.location.origin);
+
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  const signal = options?.signal
+    ? composeAbortSignals(options.signal, controller.signal)
+    : controller.signal;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  const token = localStorage.getItem("tcg_access_token");
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "PATCH",
       headers,
       body: JSON.stringify(body),
       signal,

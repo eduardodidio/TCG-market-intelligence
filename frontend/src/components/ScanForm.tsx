@@ -1,12 +1,13 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useTriggerScan } from "../hooks/useScans";
 import type { ScanRequest } from "../types/api";
 
-const SCAN_TYPES = [
-  { value: "collection", label: "Collection" },
-  { value: "set", label: "By Set" },
-  { value: "format", label: "By Format" },
-  { value: "custom", label: "Custom" },
+const SCAN_TYPE_KEYS = [
+  { value: "collection", labelKey: "scanForm.typeCollection" },
+  { value: "set", labelKey: "scanForm.typeSet" },
+  { value: "format", labelKey: "scanForm.typeFormat" },
+  { value: "custom", labelKey: "scanForm.typeCustom" },
 ] as const;
 
 interface ScanFormProps {
@@ -14,6 +15,7 @@ interface ScanFormProps {
 }
 
 export function ScanForm({ onSuccess }: ScanFormProps) {
+  const { t } = useTranslation();
   const [scanType, setScanType] = useState("collection");
   const [setCode, setSetCode] = useState("");
   const [formatName, setFormatName] = useState("");
@@ -56,30 +58,32 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
     }
   };
 
+  const inputClasses = "w-full rounded-tcg-md border border-tcg-border bg-tcg-card-alt px-3 py-2 text-sm text-white placeholder-tcg-dimmed focus:border-tcg-primary focus:outline-none focus:ring-1 focus:ring-tcg-primary transition-colors";
+
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-lg border border-slate-700 bg-slate-800 p-4 space-y-4"
+      className="rounded-tcg-lg border border-tcg-border bg-tcg-card p-4 space-y-4"
       data-testid="scan-form"
     >
       {/* Scan type */}
       <div>
         <label
           htmlFor="scan-type"
-          className="block text-sm font-medium text-slate-300 mb-1"
+          className="block text-sm font-medium text-tcg-muted mb-1"
         >
-          Scan Type
+          {t("scanForm.scanType")}
         </label>
         <select
           id="scan-type"
           value={scanType}
           onChange={(e) => setScanType(e.target.value)}
-          className="w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+          className={inputClasses}
           data-testid="scan-type-select"
         >
-          {SCAN_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
+          {SCAN_TYPE_KEYS.map((st) => (
+            <option key={st.value} value={st.value}>
+              {t(st.labelKey)}
             </option>
           ))}
         </select>
@@ -90,17 +94,17 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
         <div>
           <label
             htmlFor="set-code"
-            className="block text-sm font-medium text-slate-300 mb-1"
+            className="block text-sm font-medium text-tcg-muted mb-1"
           >
-            Set Code(s)
+            {t("scanForm.setCodes")}
           </label>
           <input
             id="set-code"
             type="text"
             value={setCode}
             onChange={(e) => setSetCode(e.target.value)}
-            placeholder="e.g. DMR, MH2"
-            className="w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            placeholder={t("scanForm.setCodesPlaceholder")}
+            className={inputClasses}
             data-testid="set-code-input"
           />
         </div>
@@ -110,17 +114,17 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
         <div>
           <label
             htmlFor="format-name"
-            className="block text-sm font-medium text-slate-300 mb-1"
+            className="block text-sm font-medium text-tcg-muted mb-1"
           >
-            Format Name
+            {t("scanForm.formatName")}
           </label>
           <input
             id="format-name"
             type="text"
             value={formatName}
             onChange={(e) => setFormatName(e.target.value)}
-            placeholder="e.g. modern, standard"
-            className="w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            placeholder={t("scanForm.formatNamePlaceholder")}
+            className={inputClasses}
             data-testid="format-name-input"
           />
         </div>
@@ -130,17 +134,17 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
         <div>
           <label
             htmlFor="card-ids"
-            className="block text-sm font-medium text-slate-300 mb-1"
+            className="block text-sm font-medium text-tcg-muted mb-1"
           >
-            Card IDs
+            {t("scanForm.cardIds")}
           </label>
           <textarea
             id="card-ids"
             value={cardIdsText}
             onChange={(e) => setCardIdsText(e.target.value)}
-            placeholder="Comma-separated IDs, e.g. 1, 42, 99"
+            placeholder={t("scanForm.cardIdsPlaceholder")}
             rows={3}
-            className="w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className={inputClasses}
             data-testid="card-ids-input"
           />
         </div>
@@ -150,24 +154,24 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
       <div>
         <label
           htmlFor="scan-limit"
-          className="block text-sm font-medium text-slate-300 mb-1"
+          className="block text-sm font-medium text-tcg-muted mb-1"
         >
-          Limit (optional)
+          {t("scanForm.limitLabel")}
         </label>
         <input
           id="scan-limit"
           type="number"
           value={limit}
           onChange={(e) => setLimit(e.target.value)}
-          placeholder="Max cards to scan"
+          placeholder={t("scanForm.limitPlaceholder")}
           min={1}
-          className="w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+          className={inputClasses}
           data-testid="scan-limit-input"
         />
       </div>
 
       {error && (
-        <p className="text-sm text-red-400" data-testid="scan-form-error">
+        <p className="text-sm text-tcg-loss" data-testid="scan-form-error">
           {error}
         </p>
       )}
@@ -175,10 +179,10 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
       <button
         type="submit"
         disabled={loading}
-        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="rounded-tcg-md bg-tcg-primary px-4 py-2 text-sm font-medium text-white hover:bg-tcg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-tcg-glow"
         data-testid="scan-submit-button"
       >
-        {loading ? "Starting..." : "Start Scan"}
+        {loading ? t("scanForm.starting") : t("scanForm.startScan")}
       </button>
     </form>
   );

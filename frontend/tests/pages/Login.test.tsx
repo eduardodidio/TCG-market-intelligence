@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { Login } from "../../src/pages/Login";
 import { AuthContext } from "../../src/contexts/AuthContext";
 import type { AuthContextValue } from "../../src/contexts/AuthContext";
+import { LanguageProvider } from "../../src/contexts/LanguageContext";
 
 function renderLogin(authOverrides: Partial<AuthContextValue> = {}) {
   const mockAuth: AuthContextValue = {
@@ -18,11 +19,13 @@ function renderLogin(authOverrides: Partial<AuthContextValue> = {}) {
   };
 
   return render(
-    <AuthContext.Provider value={mockAuth}>
-      <MemoryRouter initialEntries={["/login"]}>
-        <Login />
-      </MemoryRouter>
-    </AuthContext.Provider>,
+    <LanguageProvider>
+      <AuthContext.Provider value={mockAuth}>
+        <MemoryRouter initialEntries={["/login"]}>
+          <Login />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    </LanguageProvider>,
   );
 }
 
@@ -72,5 +75,11 @@ describe("Login page", () => {
   it("renders page title", () => {
     renderLogin();
     expect(screen.getByText("TCG Market")).toBeDefined();
+  });
+
+  it("contains a language selector", () => {
+    renderLogin();
+    expect(screen.getByTestId("login-language-selector")).toBeDefined();
+    expect(screen.getByTestId("language-selector")).toBeDefined();
   });
 });
