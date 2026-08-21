@@ -1,0 +1,21 @@
+%%{ init: { 'theme': 'dark' } }%%
+journey
+    title User Journey: Selecting Pila Currency
+    section Discovery
+        User sees currency toggle in sidebar: 5: User
+        Toggle shows BRL, USD, Pila options: 5: System
+    section Selection
+        User clicks Pila button: 5: User
+        RS flag appears on button: 5: System
+        Currency context updates to PILA: 5: System
+        localStorage saves preference: 4: System
+    section Display
+        Prices re-render in extenso format: 5: System
+        "230 pilas e 21 centavos" shown: 5: System
+        CurrencyIndicator shows RS flag: 5: System
+        KPI cards show flag icon: 5: System
+    section Persistence
+        User logs in: 4: User
+        Profile loaded with preferred_currency: 4: System
+        PATCH /auth/me/preferences saves choice: 4: System
+        Next session restores Pila selection: 5: System

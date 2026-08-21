@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 84">
+  <!-- Rio Grande do Sul flag: green-red-yellow horizontal tricolor with coat of arms -->
+  <!-- Green stripe -->
+  <rect width="120" height="28" fill="#007A33"/>
+  <!-- Red stripe -->
+  <rect y="28" width="120" height="28" fill="#CE1126"/>
+  <!-- Yellow stripe -->
+  <rect y="56" width="120" height="28" fill="#FCD116"/>
+  <!-- Coat of arms (simplified) -->
+  <!-- Shield background -->
+  <ellipse cx="60" cy="42" rx="14" ry="16" fill="#FCD116" stroke="#007A33" stroke-width="1.5"/>
+  <!-- Inner shield -->
+  <ellipse cx="60" cy="42" rx="10" ry="12" fill="#CE1126"/>
+  <!-- Mountain/landscape simplified -->
+  <polygon points="50,48 60,36 70,48" fill="#007A33"/>
+  <!-- Sun rays -->
+  <circle cx="60" cy="38" r="3" fill="#FCD116"/>
+</svg>

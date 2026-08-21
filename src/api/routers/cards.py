@@ -50,7 +50,7 @@ def list_cards(
     name: str | None = None,
     cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
-    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
@@ -97,7 +97,7 @@ def list_cards(
 @router.get("/{card_id}", response_model=ApiResponse[CardDetail])
 def get_card(
     card_id: int,
-    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
@@ -135,7 +135,7 @@ def get_card(
 def get_history(
     card_id: int,
     period: str = Query(default="90d"),
-    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):

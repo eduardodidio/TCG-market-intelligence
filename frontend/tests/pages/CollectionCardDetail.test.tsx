@@ -279,6 +279,6 @@ describe("CollectionCardDetail page", () => {
       expect(screen.getByTestId("latest-price")).toBeDefined();
     });
 
-    expect(screen.getByTestId("latest-price").textContent).toBe("--");
+    expect(screen.getByTestId("latest-price").textContent).toContain("--");
   });
 });

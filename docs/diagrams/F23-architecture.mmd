@@ -1,0 +1,47 @@
+flowchart TB
+    subgraph Frontend["Frontend (React SPA)"]
+        DeckList["DeckList Page"]
+        DeckView["DeckView Page"]
+        DeckImportModal["DeckImportModal"]
+        DeckCardTile["DeckCardTile"]
+        DeckAPI["api/decks.ts"]
+    end
+
+    subgraph API["FastAPI Backend"]
+        DeckRouter["routers/decks.py"]
+        DeckSchemas["schemas/decks.py"]
+        AuthDep["require_auth_or_api_key"]
+    end
+
+    subgraph Core["Domain / Orchestration"]
+        DeckParser["decks/parser.py"]
+        DeckImporter["decks/importer.py"]
+    end
+
+    subgraph Database["SQLite Database"]
+        DeckRow["decks table"]
+        DeckCardRow["deck_cards table"]
+        CardRow["cards table"]
+        UserCollection["user_collection table"]
+        Repository["Repository (CRUD + ownership)"]
+    end
+
+    DeckList -->|fetchDecks| DeckAPI
+    DeckView -->|fetchDeck| DeckAPI
+    DeckImportModal -->|importDeck| DeckAPI
+    DeckView -->|deleteDeck| DeckAPI
+    DeckView --> DeckCardTile
+
+    DeckAPI -->|HTTP| DeckRouter
+    DeckRouter --> AuthDep
+    DeckRouter --> DeckSchemas
+    DeckRouter -->|POST /decks| DeckImporter
+    DeckRouter -->|GET/DELETE| Repository
+
+    DeckImporter --> DeckParser
+    DeckImporter --> Repository
+
+    Repository --> DeckRow
+    Repository --> DeckCardRow
+    Repository -->|link cards| CardRow
+    Repository -->|ownership query| UserCollection

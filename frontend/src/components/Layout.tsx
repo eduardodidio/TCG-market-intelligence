@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: "/collection", label: "My Collection", requiresAuth: true },
   { to: "/cards", label: "Explore Cards", requiresAuth: false },
   { to: "/market/movers", label: "Market Movers", requiresAuth: false },
+  { to: "/decks", label: "My Decks", requiresAuth: true },
   { to: "/scans", label: "Price Scans", requiresAuth: true },
 ] as const;
 

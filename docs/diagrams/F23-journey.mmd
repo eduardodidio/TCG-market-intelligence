@@ -1,0 +1,34 @@
+flowchart TD
+    Start([User logs in]) --> NavDecks[Clicks 'My Decks' in sidebar]
+    NavDecks --> DeckListPage[DeckList page loads]
+    DeckListPage --> HasDecks{Has decks?}
+
+    HasDecks -->|No| EmptyState[Shows empty state]
+    EmptyState --> ClickImport[Clicks 'Import Deck']
+    HasDecks -->|Yes| ShowGrid[Shows deck grid cards]
+    ShowGrid --> ClickImport
+    ShowGrid --> ClickDeck[Clicks a deck card]
+
+    ClickImport --> ImportModal[Import modal opens]
+    ImportModal --> FillForm[Fills name, format, content]
+    FillForm --> Submit[Clicks 'Import']
+    Submit --> ParseDeck{Parse deck text/CSV}
+    ParseDeck --> LinkCards[Match cards to canonical DB]
+    LinkCards --> StoreDeck[Store deck + cards in DB]
+    StoreDeck --> RefreshList[Refresh deck list]
+    RefreshList --> ShowGrid
+
+    ClickDeck --> DeckViewPage[DeckView page loads]
+    DeckViewPage --> ShowHeader[Show deck name, description, stats]
+    DeckViewPage --> ShowCards[Show card grid with ownership overlay]
+
+    ShowCards --> OwnedCard{Card in collection?}
+    OwnedCard -->|Yes| ClickOwned[Click navigates to /collection/:id]
+    OwnedCard -->|No| ShowOverlay[Darkened overlay + 'Not Owned']
+    ShowOverlay --> ClickUnowned[Click navigates to /cards/:card_id]
+
+    DeckViewPage --> ClickDelete[Clicks 'Delete']
+    ClickDelete --> ConfirmModal[Confirmation dialog]
+    ConfirmModal -->|Confirm| DeleteDeck[DELETE /api/v1/decks/:id]
+    DeleteDeck --> RedirectList[Redirect to /decks]
+    ConfirmModal -->|Cancel| DeckViewPage

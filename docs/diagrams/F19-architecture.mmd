@@ -1,0 +1,44 @@
+%%{ init: { 'theme': 'dark' } }%%
+flowchart TD
+    subgraph Frontend["Frontend (React)"]
+        CT[CurrencyToggle<br/>BRL / USD / Pila]
+        CC[CurrencyContext<br/>CurrencyCode type]
+        FP[formatPila&#40;&#41;<br/>extenso formatter]
+        FC[formatCurrency&#40;&#41;<br/>dispatcher]
+        CI[CurrencyIndicator<br/>flag / symbol]
+        Pages[Dashboard, MyCollection,<br/>CollectionCardDetail, etc.]
+    end
+
+    subgraph Backend["Backend (FastAPI)"]
+        Routers[API Routers<br/>currency=BRL|USD|PILA]
+        CV[CurrencyConverter<br/>convert&#40;value, date, currency&#41;]
+        PF[pila_formatter.py<br/>format_pila&#40;value&#41;]
+        Prefs[PATCH /auth/me/preferences<br/>preferred_currency]
+    end
+
+    subgraph Storage["Storage"]
+        DB[(SQLite)]
+        LS[localStorage<br/>tcg_currency]
+    end
+
+    CT -->|setCurrency| CC
+    CC -->|currency| Pages
+    Pages -->|formatCurrency&#40;v, c&#41;| FC
+    FC -->|PILA| FP
+    FC -->|BRL/USD| FC
+    Pages --> CI
+
+    Pages -->|API call ?currency=PILA| Routers
+    Routers -->|convert&#40;v, d, PILA&#41;| CV
+    CV -->|PILA: 1:1 passthrough| CV
+    CV -->|USD: rate lookup| DB
+
+    Prefs -->|update preferred_currency| DB
+    CC -->|persist| LS
+
+    PF -.->|mirrors| FP
+
+    style CT fill:#0891b2,color:#fff
+    style FP fill:#059669,color:#fff
+    style PF fill:#059669,color:#fff
+    style CI fill:#d97706,color:#fff

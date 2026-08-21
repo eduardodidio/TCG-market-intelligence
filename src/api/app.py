@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     from src.api.routers.cards import router as cards_router
     from src.api.routers.collect import router as collect_router
     from src.api.routers.collection import router as collection_router
+    from src.api.routers.decks import router as decks_router
     from src.api.routers.exchange_rates import router as exchange_rates_router
     from src.api.routers.market import router as market_router
     from src.api.routers.scans import router as scans_router
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(market_router, prefix="/api/v1")
     app.include_router(collect_router, prefix="/api/v1")
     app.include_router(collection_router, prefix="/api/v1")
+    app.include_router(decks_router, prefix="/api/v1")
     app.include_router(scans_router, prefix="/api/v1")
     app.include_router(exchange_rates_router, prefix="/api/v1")
 

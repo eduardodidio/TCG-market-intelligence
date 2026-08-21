@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useState, type ReactNode } from "react";
 
-export type CurrencyCode = "BRL" | "USD";
+export type CurrencyCode = "BRL" | "USD" | "PILA";
 
 export interface CurrencyContextValue {
   currency: CurrencyCode;
@@ -13,7 +13,7 @@ const STORAGE_KEY = "tcg_currency";
 function loadCurrency(): CurrencyCode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "USD" || stored === "BRL") return stored;
+    if (stored === "USD" || stored === "BRL" || stored === "PILA") return stored;
   } catch {
     // localStorage unavailable (SSR, privacy mode)
   }
@@ -39,13 +39,15 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggle = useCallback(() => {
-    setCurrency(currency === "BRL" ? "USD" : "BRL");
+    const order: CurrencyCode[] = ["BRL", "USD", "PILA"];
+    const idx = order.indexOf(currency);
+    setCurrency(order[(idx + 1) % order.length]);
   }, [currency, setCurrency]);
 
   // Sync if localStorage changes in another tab
   useEffect(() => {
     const handler = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && (e.newValue === "BRL" || e.newValue === "USD")) {
+      if (e.key === STORAGE_KEY && (e.newValue === "BRL" || e.newValue === "USD" || e.newValue === "PILA")) {
         setCurrencyState(e.newValue);
       }
     };

@@ -5,6 +5,7 @@ import { fetchCollection, fetchCollectionSummary, fetchCollectionSets } from "..
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { GridSizeToggle } from "../components/GridSizeToggle";
+import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { KpiCard } from "../components/KpiCard";
 import { SearchBar } from "../components/SearchBar";
 import { SetIconFilter } from "../components/SetIconFilter";
@@ -318,6 +319,7 @@ export function MyCollection() {
           <KpiCard
             title="Est. Value"
             value={summary.total_value ? formatCurrency(summary.total_value, currency) : "--"}
+            icon={<CurrencyIndicator currency={currency} size={20} />}
           />
         </div>
       )}

@@ -56,7 +56,7 @@ def list_collection(
     sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
     offset: int | None = Query(default=None, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
-    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
@@ -125,7 +125,7 @@ def list_collection(
 
 @router.get("/summary", response_model=ApiResponse[CollectionSummary])
 def collection_summary(
-    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
@@ -159,7 +159,7 @@ def collection_sets(
 @router.get("/{entry_id}", response_model=ApiResponse[CollectionCardDetail])
 def get_collection_entry(
     entry_id: int,
-    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):

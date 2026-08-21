@@ -65,13 +65,14 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(6);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Market Movers");
+    expect(linkTexts).toContain("My Decks");
     expect(linkTexts).toContain("Price Scans");
   });
 

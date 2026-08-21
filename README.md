@@ -564,6 +564,62 @@ currency conversion using BCB PTAX exchange rates:
 - **Architecture decision:** [ADR-0005](docs/adr/0005-multi-currency-read-time-conversion.md)
   documents the read-time conversion approach.
 
+### F19 -- Moeda Pila (Regional Currency) (2026-08-21)
+
+Added "Pila" as a third currency option -- a regional currency used in
+Rio Grande do Sul (Brazil), 1:1 with BRL, displayed in extenso format
+(e.g., "230 pilas e 21 centavos"):
+
+- **Pila formatter** -- `src/currency/pila_formatter.py` with `format_pila()`
+  function using pt-BR thousands separator, singular/plural inflection for
+  "pila"/"pilas" and "centavo"/"centavos", centavos omitted when zero.
+  Mirrored as `formatPila()` in `frontend/src/utils/format.ts`.
+- **Currency enum** -- `PILA` added to `Currency` enum in domain models.
+  `CurrencyConverter.convert()` treats PILA as 1:1 with BRL (no exchange
+  rate lookup). All API router `?currency=` validators updated to accept
+  `BRL|USD|PILA`.
+- **Frontend formatter** -- `formatCurrency()` dispatcher routes `PILA` to
+  `formatPila()`. `CurrencyCode` type extended to include `"PILA"`.
+- **RS flag** -- simplified Rio Grande do Sul state flag SVG at
+  `frontend/src/assets/rs-flag.svg`. `CurrencyIndicator` component renders
+  the flag for PILA, "R$" for BRL, "$" for USD. Integrated into Dashboard,
+  MyCollection, and CollectionCardDetail price displays.
+- **CurrencyToggle** -- 3-button toggle (BRL / USD / Pila) with RS flag
+  icon on the Pila button. `toggle()` cycles through all three currencies.
+- **User preference** -- `preferred_currency` field on `UserRow` and `User`
+  models (default "BRL"). `PATCH /api/v1/auth/me/preferences` endpoint
+  accepts `{"preferred_currency": "BRL"|"USD"|"PILA"}`. Profile endpoint
+  includes `preferred_currency` in response.
+
+### F23 -- Deck Import (2026-08-21)
+
+Added deck management: import deck lists from text or CSV, view deck
+contents with visual ownership indicators, and navigate to card detail pages.
+
+- **Database models** -- new `decks` and `deck_cards` tables with indexes
+  for user and card lookups
+- **Deck parser** -- text format parser supporting `{qty} {name}`,
+  `{qty} {name} [{set}]`, `{qty} {name} [{set}:{number}]` with comments
+  and blank line handling. CSV parser reuses collection column mapping.
+- **Deck importer** -- orchestrates parsing, card linking (set+number
+  exact match, then unique name match), and storage
+- **Repository methods** -- 9 new methods: create_deck, add_deck_cards,
+  get_deck, list_decks, delete_deck, get_deck_cards,
+  get_deck_cards_with_ownership (3-tier matching: card_id, set+number,
+  name), get_deck_summary, link_deck_card
+- **API endpoints** -- `POST /api/v1/decks` (import from text/CSV),
+  `GET /api/v1/decks` (list with summaries), `GET /api/v1/decks/{id}`
+  (detail with ownership + images + prices), `DELETE /api/v1/decks/{id}`
+- **Frontend** -- DeckList page (grid of deck cards with ownership %),
+  DeckView page (card grid with darkened overlay for unowned cards),
+  DeckImportModal (name, format toggle, content textarea, description),
+  DeckCardTile (ownership overlay, quantity badge, navigation to
+  collection or card detail)
+- **API client** -- `apiPost` and `apiDelete` helpers added to client.ts
+  for non-GET requests with auth token support
+- **Navigation** -- "My Decks" nav item in sidebar (auth required),
+  `/decks` and `/decks/:id` protected routes
+
 ## Future
 
 Prepared for but not yet implemented:

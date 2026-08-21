@@ -11,6 +11,8 @@ from src.database.models import (
     Base,
     CardRow,
     CollectionErrorRow,
+    DeckCardRow,
+    DeckRow,
     ExchangeRateRow,
     PriceObservationRow,
     ScanRunRow,
@@ -1081,3 +1083,189 @@ class Repository:
             )
             session.commit()
             return result.rowcount
+
+    # --- Deck methods ---
+
+    def create_deck(self, user_id: str, name: str, description: str | None = None) -> DeckRow:
+        """Create a new deck and return it."""
+        with Session(self.engine) as session:
+            deck = DeckRow(user_id=user_id, name=name, description=description)
+            session.add(deck)
+            session.commit()
+            session.refresh(deck)
+            session.expunge(deck)
+            return deck
+
+    def add_deck_cards(self, deck_id: int, cards: list[dict]) -> int:
+        """Bulk insert cards into a deck. Returns the count inserted."""
+        if not cards:
+            return 0
+        with Session(self.engine) as session:
+            rows = []
+            for c in cards:
+                rows.append(
+                    DeckCardRow(
+                        deck_id=deck_id,
+                        name_en=c["name_en"],
+                        set_code=c.get("set_code"),
+                        collector_number=c.get("collector_number"),
+                        quantity=c.get("quantity", 1),
+                        card_id=c.get("card_id"),
+                    )
+                )
+            session.add_all(rows)
+            session.commit()
+            return len(rows)
+
+    def get_deck(self, deck_id: int) -> DeckRow | None:
+        """Get a single deck by ID."""
+        with Session(self.engine) as session:
+            deck = session.execute(
+                select(DeckRow).where(DeckRow.id == deck_id)
+            ).scalar_one_or_none()
+            if deck:
+                session.expunge(deck)
+            return deck
+
+    def list_decks(self, user_id: str) -> list[DeckRow]:
+        """List all decks for a user, newest first."""
+        with Session(self.engine) as session:
+            rows = (
+                session.execute(
+                    select(DeckRow)
+                    .where(DeckRow.user_id == user_id)
+                    .order_by(DeckRow.created_at.desc())
+                )
+                .scalars()
+                .all()
+            )
+            for r in rows:
+                session.expunge(r)
+            return list(rows)
+
+    def delete_deck(self, deck_id: int, user_id: str) -> bool:
+        """Delete a deck and its cards. Only if user_id matches.
+
+        Returns True if the deck was deleted, False otherwise.
+        """
+        with Session(self.engine) as session:
+            deck = session.execute(
+                select(DeckRow).where(DeckRow.id == deck_id, DeckRow.user_id == user_id)
+            ).scalar_one_or_none()
+            if not deck:
+                return False
+            # Delete cards first
+            session.query(DeckCardRow).filter(DeckCardRow.deck_id == deck_id).delete()
+            session.delete(deck)
+            session.commit()
+            return True
+
+    def get_deck_cards(self, deck_id: int) -> list[DeckCardRow]:
+        """Get all cards for a deck."""
+        with Session(self.engine) as session:
+            rows = (
+                session.execute(select(DeckCardRow).where(DeckCardRow.deck_id == deck_id))
+                .scalars()
+                .all()
+            )
+            for r in rows:
+                session.expunge(r)
+            return list(rows)
+
+    def get_deck_cards_with_ownership(self, deck_id: int, user_id: str) -> list[dict]:
+        """Get deck cards with ownership info from user_collection.
+
+        Uses 3-tier matching:
+        (a) card_id match
+        (b) set_code + collector_number match
+        (c) name_en case-insensitive match
+        """
+        with Session(self.engine) as session:
+            deck_cards = (
+                session.execute(select(DeckCardRow).where(DeckCardRow.deck_id == deck_id))
+                .scalars()
+                .all()
+            )
+
+            # Pre-load user collection for matching
+            collection = (
+                session.execute(
+                    select(UserCollectionRow).where(UserCollectionRow.user_id == user_id)
+                )
+                .scalars()
+                .all()
+            )
+
+            # Build lookup indexes
+            by_card_id: dict[int, UserCollectionRow] = {}
+            by_set_num: dict[tuple[str, str], UserCollectionRow] = {}
+            by_name: dict[str, list[UserCollectionRow]] = {}
+            for uc in collection:
+                if uc.card_id is not None:
+                    by_card_id[uc.card_id] = uc
+                if uc.set_code and uc.collector_number:
+                    by_set_num[(uc.set_code.lower(), uc.collector_number.lower())] = uc
+                if uc.name_en:
+                    key = uc.name_en.lower()
+                    by_name.setdefault(key, []).append(uc)
+
+            results = []
+            for dc in deck_cards:
+                match: UserCollectionRow | None = None
+
+                # Tier (a): card_id match
+                if dc.card_id is not None and dc.card_id in by_card_id:
+                    match = by_card_id[dc.card_id]
+
+                # Tier (b): set_code + collector_number
+                if match is None and dc.set_code and dc.collector_number:
+                    key = (dc.set_code.lower(), dc.collector_number.lower())
+                    if key in by_set_num:
+                        match = by_set_num[key]
+
+                # Tier (c): name_en case-insensitive
+                if match is None and dc.name_en:
+                    candidates = by_name.get(dc.name_en.lower(), [])
+                    if len(candidates) == 1:
+                        match = candidates[0]
+
+                results.append(
+                    {
+                        "id": dc.id,
+                        "deck_id": dc.deck_id,
+                        "name_en": dc.name_en,
+                        "set_code": dc.set_code,
+                        "collector_number": dc.collector_number,
+                        "quantity": dc.quantity,
+                        "card_id": dc.card_id,
+                        "in_collection": match is not None,
+                        "owned_quantity": match.quantity if match else 0,
+                        "collection_entry_id": match.id if match else None,
+                    }
+                )
+
+            return results
+
+    def get_deck_summary(self, deck_id: int, user_id: str) -> dict:
+        """Get aggregated deck summary with ownership stats."""
+        cards_with_ownership = self.get_deck_cards_with_ownership(deck_id, user_id)
+        total_cards = sum(c["quantity"] for c in cards_with_ownership)
+        unique_cards = len(cards_with_ownership)
+        owned_cards = sum(1 for c in cards_with_ownership if c["in_collection"])
+        ownership_pct = round(owned_cards / unique_cards * 100, 2) if unique_cards > 0 else 0.0
+        return {
+            "total_cards": total_cards,
+            "unique_cards": unique_cards,
+            "owned_cards": owned_cards,
+            "ownership_pct": ownership_pct,
+        }
+
+    def link_deck_card(self, deck_card_id: int, card_id: int) -> None:
+        """Link a deck card to a canonical card."""
+        from sqlalchemy import update
+
+        with Session(self.engine) as session:
+            session.execute(
+                update(DeckCardRow).where(DeckCardRow.id == deck_card_id).values(card_id=card_id)
+            )
+            session.commit()

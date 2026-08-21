@@ -8,6 +8,7 @@ from src.api.deps import get_current_user, get_db
 from src.api.schemas.auth import (
     AuthTokens,
     LoginRequest,
+    PreferencesUpdate,
     RefreshRequest,
     RegisterRequest,
     UserProfile,
@@ -91,7 +92,31 @@ def get_me(user: User = Depends(get_current_user)):
         display_name=user.display_name,
         avatar_url=user.avatar_url,
         auth_provider=user.auth_provider,
+        preferred_currency=user.preferred_currency,
         is_active=user.is_active,
+    )
+    return success_response(data=profile)
+
+
+@router.patch("/me/preferences", response_model=ApiResponse[UserProfile])
+def update_preferences(
+    body: PreferencesUpdate,
+    user: User = Depends(get_current_user),
+    repo: Repository = Depends(get_db),
+):
+    """Update the current user's preferences (e.g. preferred currency)."""
+    updated = repo.update_user(user.id, preferred_currency=body.preferred_currency)
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    profile = UserProfile(
+        id=updated.id,
+        email=updated.email,
+        display_name=updated.display_name,
+        avatar_url=updated.avatar_url,
+        auth_provider=updated.auth_provider,
+        preferred_currency=updated.preferred_currency,
+        is_active=bool(updated.is_active),
     )
     return success_response(data=profile)
 

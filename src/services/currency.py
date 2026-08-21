@@ -30,7 +30,7 @@ class CurrencyConverter:
         Returns the original value unchanged if to_currency is BRL.
         Returns None if the value is None or no exchange rate is available.
         """
-        if to_currency == "BRL" or value is None:
+        if to_currency in ("BRL", "PILA") or value is None:
             return Decimal(str(value)) if value is not None else None
 
         rate = self._get_rate(from_date)

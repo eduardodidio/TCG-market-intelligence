@@ -6,6 +6,7 @@ import { fetchCollectionSummary } from "../api/collection";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency, formatDate } from "../utils/format";
 import { KpiCard } from "../components/KpiCard";
+import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { MoversPreview } from "../components/MoversPreview";
 import { EmptyState } from "../components/EmptyState";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
@@ -135,6 +136,7 @@ export function Dashboard() {
             title="Est. Collection Value"
             value={formatCurrency(summaryData.total_value, currency)}
             subtitle="based on latest prices"
+            icon={<CurrencyIndicator currency={currency} size={20} />}
           />
           <KpiCard
             title="Coverage"

@@ -29,6 +29,12 @@ const CollectionCardDetail = lazy(() =>
 const Scans = lazy(() =>
   import("./pages/Scans").then((m) => ({ default: m.Scans })),
 );
+const DeckList = lazy(() =>
+  import("./pages/DeckList").then((m) => ({ default: m.DeckList })),
+);
+const DeckView = lazy(() =>
+  import("./pages/DeckView").then((m) => ({ default: m.DeckView })),
+);
 const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login })),
 );
@@ -116,6 +122,30 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <CollectionCardDetail />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/decks"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <DeckList />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/decks/:id"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <DeckView />
                     </ProtectedRoute>
                   </Suspense>
                 }

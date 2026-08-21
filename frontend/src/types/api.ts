@@ -173,6 +173,54 @@ export interface ScanRequest {
   dry_run?: boolean;
 }
 
+// Deck types
+
+export interface DeckSummary {
+  id: number;
+  name: string;
+  description: string | null;
+  total_cards: number;
+  unique_cards: number;
+  owned_cards: number;
+  ownership_pct: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeckCard {
+  id: number;
+  name_en: string;
+  set_code: string | null;
+  collector_number: string | null;
+  quantity: number;
+  card_id: number | null;
+  in_collection: boolean;
+  owned_quantity: number;
+  collection_entry_id: number | null;
+  image_url: string | null;
+  latest_price: number | null;
+}
+
+export interface DeckDetail {
+  id: number;
+  name: string;
+  description: string | null;
+  cards: DeckCard[];
+  total_cards: number;
+  unique_cards: number;
+  owned_cards: number;
+  ownership_pct: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeckImportResult {
+  deck_id: number;
+  name: string;
+  cards_imported: number;
+  cards_linked: number;
+}
+
 // Auth types
 
 export interface UserProfile {

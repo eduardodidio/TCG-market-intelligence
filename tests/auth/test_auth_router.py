@@ -23,6 +23,7 @@ def _mock_user_row(**overrides):
         "auth_provider": "email",
         "provider_id": None,
         "password_hash": hash_password("validpass123"),
+        "preferred_currency": "BRL",
         "is_active": 1,
     }
     defaults.update(overrides)
@@ -211,6 +212,77 @@ class TestGetMe:
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/api/v1/auth/me")
         assert resp.status_code == 401
+
+
+class TestUpdatePreferences:
+    def test_set_pila_currency(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row()
+        mock_repo.update_user.return_value = _mock_user_row(preferred_currency="PILA")
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.patch(
+            "/api/v1/auth/me/preferences",
+            json={"preferred_currency": "PILA"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["preferred_currency"] == "PILA"
+        mock_repo.update_user.assert_called_once_with(1, preferred_currency="PILA")
+
+    def test_set_usd_currency(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row()
+        mock_repo.update_user.return_value = _mock_user_row(preferred_currency="USD")
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.patch(
+            "/api/v1/auth/me/preferences",
+            json={"preferred_currency": "USD"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["preferred_currency"] == "USD"
+
+    def test_invalid_currency_returns_422(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row()
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.patch(
+            "/api/v1/auth/me/preferences",
+            json={"preferred_currency": "EUR"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+    def test_unauthenticated_returns_401(self):
+        mock_repo = MagicMock()
+        client = TestClient(_make_app(mock_repo))
+        resp = client.patch(
+            "/api/v1/auth/me/preferences",
+            json={"preferred_currency": "PILA"},
+        )
+        assert resp.status_code == 401
+
+    def test_profile_includes_preferred_currency(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = _mock_user_row(preferred_currency="PILA")
+
+        client = TestClient(_make_app(mock_repo))
+        token = create_access_token(user_id=1, email="test@example.com")
+        resp = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["preferred_currency"] == "PILA"
 
 
 class TestOAuthRedirect:

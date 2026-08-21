@@ -25,7 +25,7 @@ MOVERS_PERIOD_MAP = {"7d": 7, "30d": 30, "90d": 90}
 def get_movers(
     period: str = Query(default="30d"),
     limit: int = Query(default=10, ge=1, le=50),
-    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
@@ -71,7 +71,7 @@ def get_movers(
 @router.get("/stats", response_model=ApiResponse[MarketStats])
 def get_stats(
     game: str | None = None,
-    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):

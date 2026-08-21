@@ -94,6 +94,23 @@ class TestConvert:
         result = converter.convert(Decimal("0"), date(2026, 8, 20), "USD")
         assert result == Decimal("0.00")
 
+    def test_pila_returns_value_unchanged(self, converter):
+        """PILA is 1:1 with BRL — no exchange rate lookup needed."""
+        result = converter.convert(Decimal("230.21"), date(2026, 8, 20), "PILA")
+        assert result == Decimal("230.21")
+
+    def test_pila_none_returns_none(self, converter):
+        result = converter.convert(None, date(2026, 8, 20), "PILA")
+        assert result is None
+
+    def test_pila_float_value(self, converter):
+        result = converter.convert(99.99, date(2026, 8, 20), "PILA")
+        assert result == Decimal("99.99")
+
+    def test_pila_does_not_call_rate_lookup(self, converter, mock_repo):
+        converter.convert(Decimal("100.00"), date(2026, 8, 20), "PILA")
+        mock_repo.get_closest_rate.assert_not_called()
+
 
 class TestGetDisplayRate:
     def test_returns_rate(self, converter, mock_repo):

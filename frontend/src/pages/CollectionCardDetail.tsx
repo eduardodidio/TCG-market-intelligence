@@ -5,6 +5,7 @@ import { fetchCollectionEntry } from "../api/collection";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
+import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PriceChart } from "../components/PriceChart";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
@@ -195,7 +196,8 @@ export function CollectionCardDetail() {
           {/* Latest price */}
           <div className="mb-6">
             <p className="text-sm text-slate-400 mb-1">Latest Price</p>
-            <p data-testid="latest-price" className="text-3xl font-bold text-white">
+            <p data-testid="latest-price" className="text-3xl font-bold text-white flex items-center gap-2">
+              <CurrencyIndicator currency={currency} size={24} />
               {formatCurrency(entry.latest_price, currency)}
             </p>
           </div>

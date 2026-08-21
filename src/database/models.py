@@ -174,6 +174,7 @@ class UserRow(Base):
     auth_provider: Mapped[str] = mapped_column(String(20), nullable=False)
     provider_id: Mapped[str | None] = mapped_column(String(200))
     password_hash: Mapped[str | None] = mapped_column(String(200))
+    preferred_currency: Mapped[str] = mapped_column(String(10), default="BRL")
     is_active: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
@@ -184,4 +185,36 @@ class UserRow(Base):
         Index("ix_users_email", "email"),
         Index("ix_users_provider", "auth_provider"),
         UniqueConstraint("auth_provider", "provider_id", name="uq_user_provider"),
+    )
+
+
+class DeckRow(Base):
+    __tablename__ = "decks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    __table_args__ = (Index("ix_decks_user", "user_id"),)
+
+
+class DeckCardRow(Base):
+    __tablename__ = "deck_cards"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    deck_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    set_code: Mapped[str | None] = mapped_column(String(20))
+    collector_number: Mapped[str | None] = mapped_column(String(20))
+    name_en: Mapped[str] = mapped_column(String(500), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    card_id: Mapped[int | None] = mapped_column(Integer)
+
+    __table_args__ = (
+        Index("ix_deck_cards_deck", "deck_id"),
+        Index("ix_deck_cards_card", "card_id"),
     )
