@@ -91,11 +91,24 @@ ML-based buy/sell signal generation:
 - Trend prediction models
 - Configurable alert thresholds
 
+## Phase 9: Collection Scans -- DONE
+
+**Feature:** F13 -- Collection Scans
+
+Unified scan orchestrator with filter support and persistent tracking:
+
+- Filterable scans by set, format, rarity, or custom card list
+- Persistent `scan_runs` table with full metrics (total, processed, failed, observations)
+- CLI: `scan` (trigger) + `scan-history` (view past runs)
+- API: `POST /api/v1/scans`, `GET /api/v1/scans`, `GET /api/v1/scans/{id}`
+- Frontend: Price Scans page with trigger form and history table
+- Error isolation: per-card failures do not abort the scan
+
 ## Full Backlog
 
 See [BACKLOG.md](BACKLOG.md) for the complete prioritized backlog including:
 
-- **F13-F26**: Motor de Market Intelligence (varredura, historico, tendencias, ticker, mercado, banlist)
+- **F14-F26**: Motor de Market Intelligence (historico, tendencias, ticker, mercado, banlist)
 - **E01-E15**: Ecossistema de Aluguel, Trade e Marketplace
 
 ## Contributing

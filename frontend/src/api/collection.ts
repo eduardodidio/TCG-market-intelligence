@@ -1,10 +1,16 @@
-import type { ApiResponse, CollectionCard, CollectionSummary } from "../types/api";
+import type { ApiResponse, CollectionCard, CollectionCardDetail, CollectionSummary } from "../types/api";
 import { apiGet } from "./client";
 
 export function fetchCollection(
   params?: Record<string, string>,
 ): Promise<ApiResponse<CollectionCard[]>> {
   return apiGet<CollectionCard[]>("/api/v1/collection", params);
+}
+
+export function fetchCollectionEntry(
+  id: number,
+): Promise<ApiResponse<CollectionCardDetail>> {
+  return apiGet<CollectionCardDetail>(`/api/v1/collection/${id}`);
 }
 
 export function fetchCollectionSummary(): Promise<ApiResponse<CollectionSummary>> {

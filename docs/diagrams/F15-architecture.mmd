@@ -1,0 +1,58 @@
+%% F15 -- Collection Display Fixes: Architecture
+%% Component diagram: set code mapping flow and collection detail data flow
+
+graph TD
+    subgraph "Frontend"
+        MYC[MyCollection.tsx]
+        CCD[CollectionCardDetail.tsx]
+        SCM_FE["setCodeMap.ts<br/>mapToScryfallSetCode()"]
+        SF_FE["scryfall.ts<br/>scryfallImageUrl()"]
+        LAY[Layout.tsx<br/>BRL indicator]
+    end
+
+    subgraph "Backend API"
+        CR["collection router<br/>GET /collection/{id}"]
+        CR_LIST["collection router<br/>GET /collection"]
+        SCM_BE["set_code_map.py<br/>map_to_scryfall_set_code()"]
+        IMG["_scryfall_image_url()"]
+        SCH["CollectionCardDetail schema"]
+    end
+
+    subgraph "Database"
+        UC[(user_collection)]
+        SC[(source_cards)]
+        PO[(price_observations)]
+    end
+
+    subgraph "External"
+        SCRY["Scryfall API<br/>Card Images"]
+    end
+
+    %% Set code mapping flow
+    MYC -- "variant set code<br/>(e.g. bldmr)" --> SCM_FE
+    SCM_FE -- "mapped code<br/>(e.g. dmr)" --> SF_FE
+    SF_FE -- "image URL" --> SCRY
+
+    CR_LIST -- "set_code from DB" --> IMG
+    IMG -- "calls" --> SCM_BE
+    SCM_BE -- "mapped code" --> IMG
+    IMG -- "image_url in response" --> MYC
+
+    %% Collection detail flow
+    MYC -- "click card<br/>/collection/:id" --> CCD
+    CCD -- "GET /api/v1/collection/{id}" --> CR
+    CR -- "entry_id" --> UC
+    CR -- "card_id (if linked)" --> SC
+    CR -- "card_id (if linked)" --> PO
+    CR -- "enriched response" --> SCH
+    SCH -- "JSON response" --> CCD
+
+    %% Mapping resolution (3-tier)
+    SCM_BE -. "1. static lookup table" .-> SCM_BE
+    SCM_BE -. "2. Secret Lair regex" .-> SCM_BE
+    SCM_BE -. "3. prefix heuristic" .-> SCM_BE
+
+    style SCM_FE fill:#4f46e5,color:#fff
+    style SCM_BE fill:#4f46e5,color:#fff
+    style LAY fill:#059669,color:#fff
+    style CCD fill:#0891b2,color:#fff

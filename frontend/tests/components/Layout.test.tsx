@@ -19,13 +19,14 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(5);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Market Movers");
+    expect(linkTexts).toContain("Price Scans");
   });
 
   it("renders the main content area (Outlet)", () => {
@@ -64,6 +65,7 @@ describe("Layout", () => {
     expect(hrefs).toContain("/collection");
     expect(hrefs).toContain("/cards");
     expect(hrefs).toContain("/market/movers");
+    expect(hrefs).toContain("/scans");
   });
 
   // --- F07-T07: Responsive toggle tests ---
@@ -99,6 +101,35 @@ describe("Layout", () => {
     fireEvent.click(overlay);
     const sidebar = screen.getByTestId("sidebar");
     expect(sidebar.className).toContain("-translate-x-full");
+  });
+
+  // --- F15-T03: BRL currency indicator tests ---
+
+  it("renders BRL text in sidebar", () => {
+    renderLayout();
+    const sidebar = screen.getByTestId("sidebar");
+    const brlElement = sidebar.querySelector("span");
+    const brlTexts = Array.from(sidebar.querySelectorAll("span")).filter(
+      (el) => el.textContent === "BRL",
+    );
+    expect(brlTexts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders element with aria-label 'Brazilian flag'", () => {
+    renderLayout();
+    const flag = screen.getByLabelText("Brazilian flag");
+    expect(flag).toBeDefined();
+    expect(flag.getAttribute("role")).toBe("img");
+  });
+
+  it("currency indicator is present in the DOM on initial render", () => {
+    renderLayout();
+    const sidebar = screen.getByTestId("sidebar");
+    const flag = screen.getByLabelText("Brazilian flag");
+    const brl = screen.getByText("BRL");
+    // Both elements should be within the sidebar
+    expect(sidebar.contains(flag)).toBe(true);
+    expect(sidebar.contains(brl)).toBe(true);
   });
 
   it("nav links have focus-visible ring classes", () => {

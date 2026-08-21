@@ -249,3 +249,81 @@ class SnapshotSummary:
     error_details: list[CollectionError] = field(default_factory=list)
     started_at: datetime = field(default_factory=datetime.now)
     finished_at: datetime | None = None
+
+
+# --- Collection scan domain models ---
+
+
+class ScanStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class ScanType(str, Enum):
+    COLLECTION = "collection"
+    SET = "set"
+    FORMAT = "format"
+    CUSTOM = "custom"
+
+
+@dataclass
+class ScanFilter:
+    """Filter criteria for a collection scan run."""
+
+    scan_type: ScanType = ScanType.COLLECTION
+    set_codes: list[str] | None = None
+    format_name: str | None = None
+    rarities: list[str] | None = None
+    card_ids: list[int] | None = None
+    collection_only: bool = True
+    limit: int | None = None
+
+    def to_json(self) -> str:
+        import json
+
+        return json.dumps(
+            {
+                "scan_type": self.scan_type.value,
+                "set_codes": self.set_codes,
+                "format_name": self.format_name,
+                "rarities": self.rarities,
+                "card_ids": self.card_ids,
+                "collection_only": self.collection_only,
+                "limit": self.limit,
+            }
+        )
+
+    @classmethod
+    def from_json(cls, raw: str) -> "ScanFilter":
+        import json
+
+        data = json.loads(raw)
+        return cls(
+            scan_type=ScanType(data.get("scan_type", "collection")),
+            set_codes=data.get("set_codes"),
+            format_name=data.get("format_name"),
+            rarities=data.get("rarities"),
+            card_ids=data.get("card_ids"),
+            collection_only=data.get("collection_only", True),
+            limit=data.get("limit"),
+        )
+
+
+@dataclass
+class ScanRun:
+    """State of a single collection scan execution."""
+
+    id: int | None = None
+    scan_type: str = "collection"
+    filters_json: str = "{}"
+    status: str = "pending"
+    cards_total: int = 0
+    cards_processed: int = 0
+    cards_failed: int = 0
+    observations_saved: int = 0
+    error_summary: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None

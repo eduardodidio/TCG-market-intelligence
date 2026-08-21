@@ -1,0 +1,10 @@
+{
+  "id": "D-20260820-003",
+  "feature": "F15",
+  "type": "feature_start",
+  "status": "executed",
+  "action": "create-feature",
+  "rationale": "F15 is a low-risk collection display improvement feature with 4 well-scoped tasks across 2 waves. The architect plan already exists with clear task definitions: a set code mapping utility (T01/Wave 0), image fixes and currency indicator (T02-T03/Wave 1), and a card detail view (T04/Wave 1). All tasks are frontend/display concerns with no destructive database or infrastructure changes. The project has strong test coverage (715 backend + 192 frontend tests, 91.80% coverage) providing a safety net. No blockers identified — proceeding through the full pipeline.",
+  "actions": [{"action": "create-feature", "target": "F15"}],
+  "created_at": "2026-08-20T22:00:00Z"
+}

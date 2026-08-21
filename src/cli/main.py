@@ -369,6 +369,97 @@ def _print_snapshot_summary(summary, dry_run):
 
 
 @cli.command()
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--type",
+    "scan_type",
+    type=click.Choice(["collection", "set", "format", "custom"]),
+    default="collection",
+    help="Scan type",
+)
+@click.option("--set", "set_codes", default=None, help="Comma-separated set codes")
+@click.option("--format", "format_name", default=None, help="Format name filter")
+@click.option("--rarity", default=None, help="Comma-separated rarities")
+@click.option("--card-ids", default=None, help="Comma-separated card IDs")
+@click.option("--limit", default=None, type=int, help="Max cards to process")
+@click.option("--dry-run", is_flag=True, help="Don't write to database")
+@click.option("--delay", default=1.0, type=float, help="Seconds between requests")
+@click.option("--concurrency", default=3, type=int, help="Max concurrent requests")
+def scan(
+    db, scan_type, set_codes, format_name, rarity, card_ids, limit, dry_run, delay, concurrency
+):
+    """Run a price scan with optional filters."""
+    from src.collectors.scan import run_scan
+    from src.domain.models import ScanFilter, ScanType
+
+    sf = ScanFilter(
+        scan_type=ScanType(scan_type),
+        set_codes=set_codes.split(",") if set_codes else None,
+        format_name=format_name,
+        rarities=rarity.split(",") if rarity else None,
+        card_ids=[int(x) for x in card_ids.split(",")] if card_ids else None,
+        limit=limit,
+    )
+
+    result = asyncio.run(
+        run_scan(
+            db_url=db,
+            scan_filter=sf,
+            dry_run=dry_run,
+            delay=delay,
+            concurrency=concurrency,
+        )
+    )
+    _print_scan_summary(result, dry_run)
+
+
+@cli.command("scan-history")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--limit", default=20, type=int, help="Max runs to show")
+@click.option("--type", "scan_type", default=None, help="Filter by scan type")
+@click.option("--status", default=None, help="Filter by status")
+def scan_history(db, limit, scan_type, status):
+    """List past scan runs with metrics."""
+    from src.database.repository import Repository
+
+    repo = Repository(db)
+    runs = repo.list_scan_runs(limit=limit, scan_type=scan_type, status=status)
+    _print_scan_history(runs)
+
+
+def _print_scan_summary(scan_run, dry_run=False):
+    """Print scan result summary."""
+    prefix = "[DRY RUN] " if dry_run else ""
+    click.echo(f"\n{prefix}Scan #{scan_run.id} — {scan_run.status}")
+    click.echo(f"  Type:         {scan_run.scan_type}")
+    click.echo(f"  Cards total:  {scan_run.cards_total}")
+    click.echo(f"  Processed:    {scan_run.cards_processed}")
+    click.echo(f"  Failed:       {scan_run.cards_failed}")
+    click.echo(f"  Observations: {scan_run.observations_saved}")
+    if scan_run.error_summary:
+        click.echo(f"  Errors:       {scan_run.error_summary}")
+
+
+def _print_scan_history(runs):
+    """Print scan history table."""
+    if not runs:
+        click.echo("No scan runs found.")
+        return
+    click.echo(
+        f"{'ID':>5} {'Type':<12} {'Status':<10} {'Total':>6} {'OK':>5} "
+        f"{'Fail':>5} {'Obs':>5} {'Started':<20}"
+    )
+    click.echo("-" * 75)
+    for r in runs:
+        started = str(r.get("started_at", ""))[:19] if r.get("started_at") else "-"
+        click.echo(
+            f"{r['id']:>5} {r.get('scan_type', '?'):<12} {r.get('status', '?'):<10} "
+            f"{r.get('cards_total', 0):>6} {r.get('cards_processed', 0):>5} "
+            f"{r.get('cards_failed', 0):>5} {r.get('observations_saved', 0):>5} {started:<20}"
+        )
+
+
+@cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")
 def serve(host, port):

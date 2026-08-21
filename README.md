@@ -61,6 +61,8 @@ python -m src.cli.main retry-failed
 | `update` | Incremental: fetch recent data for known cards only |
 | `retry-failed` | Reprocess previously failed cards |
 | `snapshot-prices` | Daily price snapshot from JSON-LD on product pages |
+| `scan` | Trigger a collection price scan with optional filters |
+| `scan-history` | List past scan runs with metrics |
 | `analyze list` | List all cards with observation counts |
 | `analyze card <id>` | Compute analytics for a single card by external ID |
 
@@ -167,7 +169,11 @@ Auto-generated interactive docs are available at `/docs` (Swagger UI) and
 | POST | `/api/v1/collect/backfill` | Trigger backfill job (async, requires API key) |
 | POST | `/api/v1/collect/update` | Trigger update job (async, requires API key) |
 | GET | `/api/v1/collect/health` | Collection pipeline health (last run, stale cards, errors) |
+| GET | `/api/v1/collection/{id}` | Collection entry detail (metadata, price history, external links) |
 | POST | `/api/v1/collection/snapshot-prices` | Trigger daily JSON-LD price snapshot (async, requires API key) |
+| POST | `/api/v1/scans` | Trigger a collection price scan with filters (async, requires API key) |
+| GET | `/api/v1/scans` | List scan history with pagination |
+| GET | `/api/v1/scans/{id}` | Scan detail with error summary |
 
 All responses use a standard envelope: `{"data": ..., "meta": {...}, "errors": []}`.
 Every response includes a `X-Request-ID` header and `meta.request_id` for tracing.
@@ -417,6 +423,41 @@ auth-walled price history endpoint that MYP Cards locked down on 2026-08-20:
 
 Price history builds organically: after 7 daily runs, charts show trends;
 after 30 days, analytics (MA, ATH/ATL, volatility) have sufficient data.
+
+### F13 -- Collection Scans (2026-08-20)
+
+Unified scan orchestrator with filter support (by collection, set, format,
+rarity, or custom card list). Each scan run is persisted with full metrics
+(cards total/processed/failed, observations saved) for auditing and
+historical analysis.
+
+- **Scan orchestrator** -- `src/collectors/scan.py` replaces ad-hoc
+  snapshot/sync commands with a structured, trackable scan model
+- **Filters** -- scans can target a specific set code, format, rarity,
+  or an explicit list of card IDs
+- **Persistent tracking** -- new `scan_runs` table stores every execution
+  with status, timestamps, filter JSON, and card count metrics
+- **CLI** -- `scan` (trigger with filters) + `scan-history` (view past runs)
+- **API** -- `POST /api/v1/scans` (trigger), `GET /api/v1/scans` (list),
+  `GET /api/v1/scans/{id}` (detail with error summary)
+- **Frontend** -- Price Scans page with trigger form and history table
+
+### F15 -- Collection Display Fixes (2026-08-20)
+
+Three display fixes for the collection experience:
+
+- **Variant card images** -- MYP uses non-standard set codes for variant
+  printings (borderless, extended art, showcase, Secret Lair). A mapping
+  utility (`set_code_map`) translates these to Scryfall-compatible codes
+  so card images load correctly. Three-tier resolution: static lookup
+  table, Secret Lair regex, prefix-stripping heuristic.
+- **BRL currency indicator** -- Sidebar now shows the Brazilian flag and
+  "BRL" label so users always know the active currency.
+- **Collection card detail view** -- New `/collection/:id` route with
+  dedicated detail page. Shows collection metadata (quantity, quality,
+  language, extras), card image, latest price, price chart (if linked),
+  source links, and external links (Scryfall, LigaMagic). Eliminates
+  dead-end navigation for unlinked cards.
 
 ## Future
 

@@ -31,3 +31,13 @@ Each entry is a lesson that generalizes beyond a single bug.)
 ## F10 -- Collection-Centric Pivot (2026-08-19)
 - **Layering violations in API routers should be flagged as IMPORTANT, not MINOR.** The `collection_summary` endpoint bypassed Repository with raw SQLAlchemy session access. This was correctly flagged as IMPORTANT because it sets a bad precedent -- once one endpoint breaks the pattern, future developers will copy it. Any direct database access from the API layer should be caught and escalated during review.
 - **Integration tests with real DB + mocked provider are the highest-value test tier for pipeline features.** The 9 integration tests in `test_sync_integration.py` verified actual DB state (card rows created, collection entries linked, no duplicate observations on resume) that unit tests with fully mocked Repository cannot catch. For any feature with a multi-step data pipeline, require at least one integration test tier that exercises real DB writes.
+
+## F13 -- Collection Scans (2026-08-20)
+
+- **Catch the double-creation bug pattern in background job APIs.** When a router pre-creates a DB row and then spawns a background worker, the worker must receive the pre-created ID. Without this, the worker creates a second row and the API-returned ID points to an orphan. This was caught as B1 in the TechLead review. Always check: does the background function accept and reuse the tracking ID that the router created?
+- **Verify enum values match across all layers during review.** Frontend scan type values ("set", "format") must match backend `ScanType` enum values exactly. A mismatch (e.g., "by_set" vs "set") would cause silent 422 errors. Add cross-layer enum consistency as a standard review checklist item for any feature that introduces new enum types used by both frontend and backend.
+
+## F15 -- Collection Display Fixes (2026-08-20)
+
+- **Escalate missing documentation deliverables to MAJOR in review.** The review correctly flagged missing diagrams and README update as MAJOR items, which ensured QA addressed them. Documentation gates in CLAUDE.md exist for a reason -- downgrading them to MINOR would allow documentation debt to accumulate silently across features.
+- **When reviewing string-building code for URLs, always check for URL encoding.** The `scryfall_url` f-string in `get_collection_entry` was flagged as a MINOR URL-encoding concern. This is the right severity -- Scryfall tolerates unencoded queries -- but the pattern should be caught consistently. Add "URL parameters are encoded" as a standard review checklist item for any endpoint that constructs external URLs.

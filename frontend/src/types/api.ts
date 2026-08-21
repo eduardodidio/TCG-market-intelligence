@@ -104,6 +104,13 @@ export interface CollectionCard {
   image_url: string | null;
 }
 
+export interface CollectionCardDetail extends CollectionCard {
+  price_history: PriceObservation[];
+  source_cards: SourceCard[];
+  scryfall_url: string | null;
+  ligamagic_url: string | null;
+}
+
 export interface CollectionSummary {
   total_unique: number;
   total_cards: number;
@@ -121,4 +128,41 @@ export interface CollectionHealth {
   stale_cards_count: number;
   recent_errors_count: number;
   status: "healthy" | "stale" | "error";
+}
+
+// Scan types
+
+export interface ScanRun {
+  id: number;
+  scan_type: string;
+  filters_json: string;
+  status: string;
+  cards_total: number;
+  cards_processed: number;
+  cards_failed: number;
+  observations_saved: number;
+  error_summary: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+}
+
+export interface ScanListResponse {
+  scans: ScanRun[];
+  total: number;
+}
+
+export interface ScanTriggerResponse {
+  scan_id: number;
+  status: string;
+}
+
+export interface ScanRequest {
+  scan_type: string;
+  set_codes?: string[];
+  format_name?: string;
+  rarities?: string[];
+  card_ids?: number[];
+  limit?: number;
+  dry_run?: boolean;
 }

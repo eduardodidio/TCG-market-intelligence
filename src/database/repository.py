@@ -12,10 +12,11 @@ from src.database.models import (
     CardRow,
     CollectionErrorRow,
     PriceObservationRow,
+    ScanRunRow,
     SourceCardRow,
     UserCollectionRow,
 )
-from src.domain.models import CollectionError, HistoricalPrice, SourceCard
+from src.domain.models import CollectionError, HistoricalPrice, ScanFilter, SourceCard
 
 
 class Repository:
@@ -540,6 +541,13 @@ class Repository:
 
     # ── User Collection ──────────────────────────────────────────────
 
+    def get_collection_entry(self, entry_id: int) -> UserCollectionRow | None:
+        """Get a single user_collection entry by ID."""
+        with Session(self.engine) as session:
+            return session.execute(
+                select(UserCollectionRow).where(UserCollectionRow.id == entry_id)
+            ).scalar_one_or_none()
+
     def link_collection_entry(self, entry_id: int, card_id: int) -> None:
         """Set card_id on a user_collection entry."""
         with Session(self.engine) as session:
@@ -752,3 +760,130 @@ class Repository:
                 .limit(1)
             )
             return session.execute(stmt).scalar_one_or_none() is not None
+
+    # ── Scan Runs ────────────────────────────────────────────────
+
+    def create_scan_run(self, scan_type: str, filters_json: str = "{}") -> int:
+        """Insert a new scan run row and return its ID."""
+        with Session(self.engine) as session:
+            row = ScanRunRow(scan_type=scan_type, filters_json=filters_json)
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return row.id
+
+    def update_scan_run(self, run_id: int, **fields) -> None:
+        """Update a scan run with the given fields."""
+        from sqlalchemy import update
+
+        with Session(self.engine) as session:
+            stmt = update(ScanRunRow).where(ScanRunRow.id == run_id).values(**fields)
+            session.execute(stmt)
+            session.commit()
+
+    def get_scan_run(self, run_id: int) -> dict | None:
+        """Return a scan run as a dict, or None if not found."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(ScanRunRow).where(ScanRunRow.id == run_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            return {
+                "id": row.id,
+                "scan_type": row.scan_type,
+                "filters_json": row.filters_json,
+                "status": row.status,
+                "cards_total": row.cards_total,
+                "cards_processed": row.cards_processed,
+                "cards_failed": row.cards_failed,
+                "observations_saved": row.observations_saved,
+                "error_summary": row.error_summary,
+                "started_at": row.started_at,
+                "finished_at": row.finished_at,
+                "created_at": row.created_at,
+            }
+
+    def list_scan_runs(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        scan_type: str | None = None,
+        status: str | None = None,
+    ) -> list[dict]:
+        """List scan runs with optional filters, ordered by created_at desc."""
+        with Session(self.engine) as session:
+            stmt = select(ScanRunRow).order_by(ScanRunRow.created_at.desc())
+            if scan_type is not None:
+                stmt = stmt.where(ScanRunRow.scan_type == scan_type)
+            if status is not None:
+                stmt = stmt.where(ScanRunRow.status == status)
+            stmt = stmt.offset(offset).limit(limit)
+            rows = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "id": r.id,
+                    "scan_type": r.scan_type,
+                    "filters_json": r.filters_json,
+                    "status": r.status,
+                    "cards_total": r.cards_total,
+                    "cards_processed": r.cards_processed,
+                    "cards_failed": r.cards_failed,
+                    "observations_saved": r.observations_saved,
+                    "error_summary": r.error_summary,
+                    "started_at": r.started_at,
+                    "finished_at": r.finished_at,
+                    "created_at": r.created_at,
+                }
+                for r in rows
+            ]
+
+    def get_cards_for_scan(self, scan_filter: ScanFilter) -> list[dict]:
+        """Return cards matching the scan filter.
+
+        Returns list of {external_id, slug, card_id, set_code, name_en}.
+        """
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    SourceCardRow.external_id,
+                    SourceCardRow.url,
+                    UserCollectionRow.card_id,
+                    UserCollectionRow.set_code,
+                    UserCollectionRow.name_en,
+                )
+                .join(
+                    SourceCardRow,
+                    SourceCardRow.card_id == UserCollectionRow.card_id,
+                )
+                .where(
+                    UserCollectionRow.card_id.isnot(None),
+                    SourceCardRow.source == "myp",
+                )
+                .order_by(UserCollectionRow.id.asc())
+            )
+
+            if scan_filter.set_codes:
+                stmt = stmt.where(UserCollectionRow.set_code.in_(scan_filter.set_codes))
+            if scan_filter.rarities:
+                stmt = stmt.where(UserCollectionRow.rarity.in_(scan_filter.rarities))
+            if scan_filter.card_ids:
+                stmt = stmt.where(UserCollectionRow.card_id.in_(scan_filter.card_ids))
+            if scan_filter.limit:
+                stmt = stmt.limit(scan_filter.limit)
+
+            rows = session.execute(stmt).all()
+            results = []
+            for r in rows:
+                url = r.url or ""
+                slug = url.rsplit("/", 1)[-1] if "/" in url else ""
+                results.append(
+                    {
+                        "external_id": r.external_id,
+                        "slug": slug,
+                        "card_id": r.card_id,
+                        "set_code": r.set_code,
+                        "name_en": r.name_en,
+                    }
+                )
+            return results

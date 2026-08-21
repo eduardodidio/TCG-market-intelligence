@@ -139,16 +139,8 @@ function CollectionCardTile({ card }: { card: CollectionCard }) {
     </div>
   );
 
-  // Always clickable: internal link for all cards
-  if (card.card_id) {
-    return <Link to={`/cards/${card.card_id}`}>{inner}</Link>;
-  }
-
-  // Unlinked cards: navigate to Explore page pre-filtered by name/set
-  const params = new URLSearchParams();
-  if (displayName !== "Unknown Card") params.set("name", displayName);
-  if (card.set_code) params.set("set", card.set_code);
-  return <Link to={`/cards?${params.toString()}`}>{inner}</Link>;
+  // All collection cards link to the collection detail page
+  return <Link to={`/collection/${card.id}`}>{inner}</Link>;
 }
 
 export function MyCollection() {

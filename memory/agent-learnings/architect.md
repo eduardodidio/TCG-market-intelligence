@@ -39,3 +39,13 @@ Each entry is a lesson that generalizes beyond a single bug.)
 
 - **Operational features should include a "live validation" wave before the full run.** F11's match-report wave (dry-run) discovered a parser bug before the sync wave committed any data. Without this sequencing, the sync would have silently matched 0 cards and the bug would have been harder to diagnose. For any feature that runs existing pipelines against production data, plan a read-only validation step first.
 - **Plan for upstream API changes as a first-class risk.** MYP changed both field names and page structure between F10 and F11 (days apart). Architect should include "parser resilience" tasks (fallback chains, field name mapping tables) when the feature depends on external scraped APIs. Assume the API will change.
+
+## F13 -- Collection Scans (2026-08-20)
+
+- **Reuse existing collector logic rather than rebuilding.** F13's scan orchestrator wraps the same `fetch_current_price` + `insert_price_observations` pattern from F12's snapshot collector into a generic, filterable framework. The architecture correctly avoided duplicating fetch/store logic and instead composed it behind a new orchestration layer. When planning features that extend existing pipelines, design the new layer as composition over the old, not replacement.
+- **Pre-creating DB rows for async operations enables clean API responses.** The architecture decision to create the `scan_runs` row before launching the background thread meant the API could return a stable `scan_id` immediately. This pattern (create tracking row -> return ID -> update row asynchronously) should be the standard for any background job API.
+
+## F15 -- Collection Display Fixes (2026-08-20)
+
+- **Static lookup + heuristic fallback is the right pattern for external code mappings.** The set code mapping utility uses a three-tier resolution (static table, regex, prefix heuristic) that handles all known codes deterministically while degrading gracefully for unknown codes. This pattern works well when the mapping space is large but partially predictable. The static table handles the known universe, and the heuristic catches new codes without requiring code changes.
+- **Dedicated detail routes eliminate dead-end navigation.** Creating `/collection/:id` as a dedicated route (rather than overloading the existing `/cards/:id` route or using query params) ensured that every collection card has a guaranteed clickable destination, regardless of whether it is linked to a canonical card. When two entity types share visual similarity but differ in data availability, separate routes with separate pages produce a cleaner UX than conditional rendering on a shared page.

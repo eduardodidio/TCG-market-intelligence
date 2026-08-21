@@ -5,12 +5,15 @@ import base64
 import os
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.exceptions import HTTPException
 
 from src.api.deps import get_db, verify_api_key
 from src.api.jobs import job_tracker
+from src.api.schemas.cards import PriceObservation, SourceCardSchema
 from src.api.schemas.collect import JobStatus
 from src.api.schemas.collection import (
     CollectionCard,
+    CollectionCardDetail,
     CollectionSummary,
     ImportResult,
     SnapshotRequest,
@@ -18,6 +21,7 @@ from src.api.schemas.collection import (
 )
 from src.api.schemas.envelope import ApiResponse, paginated_response, success_response
 from src.database.repository import Repository
+from src.utils.set_code_map import map_to_scryfall_set_code
 
 router = APIRouter(prefix="/collection", tags=["collection"])
 
@@ -36,8 +40,9 @@ def _decode_cursor(cursor: str) -> int | None:
 
 
 def _scryfall_image_url(set_code: str, collector_number: str) -> str:
+    mapped = map_to_scryfall_set_code(set_code)
     return (
-        f"https://api.scryfall.com/cards/{set_code.lower()}/{collector_number}"
+        f"https://api.scryfall.com/cards/{mapped}/{collector_number}"
         f"?format=image&version=normal"
     )
 
@@ -119,6 +124,83 @@ def collection_sets(repo: Repository = Depends(get_db)):
     return success_response(data=data)
 
 
+@router.get("/{entry_id}", response_model=ApiResponse[CollectionCardDetail])
+def get_collection_entry(entry_id: int, repo: Repository = Depends(get_db)):
+    """Get a single collection entry with full detail."""
+    entry = repo.get_collection_entry(entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+
+    image_url = _scryfall_image_url(entry.set_code, entry.collector_number)
+    latest_price = None
+    price_history: list[PriceObservation] = []
+    source_cards_data: list[SourceCardSchema] = []
+
+    # If linked to a canonical card, fetch price and source data
+    if entry.card_id is not None:
+        prices = repo.get_latest_prices_batch([entry.card_id])
+        obs = prices.get(entry.card_id)
+        if obs and obs.median_price:
+            latest_price = obs.median_price
+
+        source_cards = repo.get_source_cards_for_card(entry.card_id)
+        source_cards_data = [SourceCardSchema.model_validate(sc) for sc in source_cards]
+
+        # Fetch price history from all sources
+        for sc in source_cards:
+            series = repo.get_price_series(
+                source=[sc.source, "jsonld_snapshot"],
+                external_id=sc.external_id,
+            )
+            price_history.extend(
+                PriceObservation(
+                    observed_at=p.observed_at,
+                    median_price=p.median_price,
+                    tcg_price=p.tcg_price,
+                    last_sold_price=p.last_sold_price,
+                    quantity_available=p.quantity_available,
+                    currency=p.currency,
+                )
+                for p in series
+            )
+        price_history.sort(key=lambda p: p.observed_at)
+
+    # Build external links
+    name = entry.name_en or entry.name_pt or ""
+    scryfall_url = None
+    ligamagic_url = None
+    if name:
+        scryfall_q = name
+        if entry.set_code:
+            scryfall_q += f"+set:{entry.set_code}"
+        scryfall_url = f"https://scryfall.com/search?q={scryfall_q}"
+        ligamagic_url = f"https://www.ligamagic.com.br/?view=cards/card&card={name}"
+
+    data = CollectionCardDetail(
+        id=entry.id,
+        card_id=entry.card_id,
+        set_code=entry.set_code,
+        collector_number=entry.collector_number,
+        name_en=entry.name_en,
+        name_pt=entry.name_pt,
+        set_name_en=entry.set_name_en,
+        quantity=entry.quantity,
+        quality=entry.quality,
+        language=entry.language,
+        rarity=entry.rarity,
+        color=entry.color,
+        extras=entry.extras,
+        latest_price=latest_price,
+        image_url=image_url,
+        price_history=price_history,
+        source_cards=source_cards_data,
+        scryfall_url=scryfall_url,
+        ligamagic_url=ligamagic_url,
+    )
+
+    return success_response(data=data)
+
+
 @router.post("/import", response_model=ApiResponse[ImportResult])
 def import_collection(repo: Repository = Depends(get_db)):
     """Import collection from the default CSV file."""
@@ -128,8 +210,6 @@ def import_collection(repo: Repository = Depends(get_db)):
 
     csv_path = Path("docs/colecaoImport/export_1b19325b553f22c3260d042d65c1d7dcb07f2743.csv")
     if not csv_path.exists():
-        from fastapi.exceptions import HTTPException
-
         raise HTTPException(status_code=404, detail="Collection CSV not found")
 
     result = import_collection_csv(

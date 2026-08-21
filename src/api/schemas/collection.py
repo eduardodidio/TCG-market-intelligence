@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from src.api.schemas.cards import PriceObservation, SourceCardSchema
+
 
 class CollectionCard(BaseModel):
     id: int
@@ -21,6 +23,15 @@ class CollectionCard(BaseModel):
     image_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CollectionCardDetail(CollectionCard):
+    """Extended detail view for a single collection entry."""
+
+    price_history: list[PriceObservation] = []
+    source_cards: list[SourceCardSchema] = []
+    scryfall_url: str | None = None
+    ligamagic_url: str | None = None
 
 
 class CollectionSummary(BaseModel):

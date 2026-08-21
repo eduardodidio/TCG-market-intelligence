@@ -1,13 +1,17 @@
+import { mapToScryfallSetCode } from "./setCodeMap";
+
 /**
  * Build a Scryfall image URL for a card.
  * Uses the redirect endpoint — browser follows 302 to CDN.
+ * Applies MYP variant set code mapping before building the URL.
  */
 export function scryfallImageUrl(
   setCode: string,
   collectorNumber: string,
   version: "small" | "normal" | "large" = "normal",
 ): string {
-  return `https://api.scryfall.com/cards/${setCode.toLowerCase()}/${collectorNumber}?format=image&version=${version}`;
+  const mapped = mapToScryfallSetCode(setCode);
+  return `https://api.scryfall.com/cards/${mapped}/${collectorNumber}?format=image&version=${version}`;
 }
 
 /**

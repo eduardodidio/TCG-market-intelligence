@@ -1,0 +1,71 @@
+%% F15 -- Collection Display Fixes: User Journey
+%% BPMN-style flow for viewing collection card detail
+
+graph TD
+    START((User opens app))
+    SIDEBAR[Sidebar loads<br/>Shows BRL currency indicator]
+    NAV[Clicks 'My Collection']
+    GRID[Collection grid loads<br/>Cards display with mapped images]
+
+    subgraph "Image Resolution"
+        IMG_CHECK{Set code is<br/>MYP variant?}
+        MAP[Map via setCodeMap<br/>e.g. bldmr -> dmr]
+        STD[Use standard set code]
+        BUILD[Build Scryfall image URL]
+        LOAD{Image loads?}
+        FALLBACK[Try name-based<br/>Scryfall URL]
+        LOAD2{Fallback loads?}
+        PLACEHOLDER[Show placeholder SVG]
+        SHOW_IMG[Display card image]
+    end
+
+    CLICK[User clicks a card tile]
+    ROUTE["Navigate to /collection/:id"]
+
+    subgraph "Detail Page"
+        FETCH[Fetch GET /api/v1/collection/:id]
+        RENDER[Render card info panel]
+        META[Show collection metadata<br/>quantity, quality, language, extras]
+        LINKED{Card is linked<br/>to price data?}
+        PRICE[Show latest price<br/>+ price chart]
+        UNLINKED[Show 'Not yet linked'<br/>notice + empty chart]
+        LINKS[Show external links<br/>Scryfall, LigaMagic]
+        BREAD[Breadcrumb:<br/>Collection > Card Name]
+    end
+
+    BACK[User clicks breadcrumb<br/>Returns to Collection]
+
+    START --> SIDEBAR
+    SIDEBAR --> NAV
+    NAV --> GRID
+
+    GRID --> IMG_CHECK
+    IMG_CHECK -- Yes --> MAP
+    IMG_CHECK -- No --> STD
+    MAP --> BUILD
+    STD --> BUILD
+    BUILD --> LOAD
+    LOAD -- Yes --> SHOW_IMG
+    LOAD -- No --> FALLBACK
+    FALLBACK --> LOAD2
+    LOAD2 -- Yes --> SHOW_IMG
+    LOAD2 -- No --> PLACEHOLDER
+
+    GRID --> CLICK
+    CLICK --> ROUTE
+    ROUTE --> FETCH
+    FETCH --> RENDER
+    RENDER --> META
+    META --> LINKED
+    LINKED -- Yes --> PRICE
+    LINKED -- No --> UNLINKED
+    PRICE --> LINKS
+    UNLINKED --> LINKS
+    LINKS --> BREAD
+    BREAD --> BACK
+    BACK --> GRID
+
+    style SIDEBAR fill:#059669,color:#fff
+    style MAP fill:#4f46e5,color:#fff
+    style META fill:#0891b2,color:#fff
+    style UNLINKED fill:#d97706,color:#fff

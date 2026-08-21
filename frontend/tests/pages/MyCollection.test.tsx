@@ -129,7 +129,7 @@ describe("MyCollection — card navigation", () => {
     vi.restoreAllMocks();
   });
 
-  it("linked card (with card_id) navigates to /cards/{card_id}", async () => {
+  it("linked card (with card_id) navigates to /collection/{id}", async () => {
     const card = makeCollectionCard({ id: 10, card_id: 42 });
     globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
     renderMyCollection();
@@ -141,12 +141,12 @@ describe("MyCollection — card navigation", () => {
     const tile = screen.getByTestId("collection-card-10");
     const link = tile.closest("a");
     expect(link).not.toBeNull();
-    expect(link?.getAttribute("href")).toBe("/cards/42");
+    expect(link?.getAttribute("href")).toBe("/collection/10");
     // Should be an internal link (no target="_blank")
     expect(link?.getAttribute("target")).toBeNull();
   });
 
-  it("unlinked card (no card_id) navigates to internal Explore page with filters", async () => {
+  it("unlinked card (no card_id) navigates to /collection/{id}", async () => {
     const card = makeCollectionCard({ id: 20, card_id: null, name_en: "Counterspell", set_code: "MH2" });
     globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
     renderMyCollection();
@@ -158,14 +158,12 @@ describe("MyCollection — card navigation", () => {
     const tile = screen.getByTestId("collection-card-20");
     const link = tile.closest("a");
     expect(link).not.toBeNull();
-    expect(link?.getAttribute("href")).toBe(
-      `/cards?name=${encodeURIComponent("Counterspell")}&set=MH2`,
-    );
+    expect(link?.getAttribute("href")).toBe("/collection/20");
     // Should be an internal link (no target="_blank")
     expect(link?.getAttribute("target")).toBeNull();
   });
 
-  it("unlinked card without name uses only set filter", async () => {
+  it("unlinked card without name also navigates to /collection/{id}", async () => {
     const card = makeCollectionCard({ id: 30, card_id: null, name_en: null, name_pt: null, set_code: "DMR" });
     globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
     renderMyCollection();
@@ -177,8 +175,7 @@ describe("MyCollection — card navigation", () => {
     const tile = screen.getByTestId("collection-card-30");
     const link = tile.closest("a");
     expect(link).not.toBeNull();
-    // "Unknown Card" should NOT be sent as the name filter
-    expect(link?.getAttribute("href")).toBe("/cards?set=DMR");
+    expect(link?.getAttribute("href")).toBe("/collection/30");
   });
 });
 

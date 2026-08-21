@@ -1,0 +1,27 @@
+flowchart TD
+    CLI[CLI: scan / scan-history] --> Orch[Scan Orchestrator]
+    API[API: POST /api/v1/scans] --> Orch
+    FE[Frontend: Scans page] --> API
+
+    Orch --> Create[create_scan_run]
+    Create --> DB[(scan_runs table)]
+
+    Orch --> Filter[get_cards_for_scan]
+    Filter --> SF{ScanFilter}
+    SF -->|set_code, format, rarity| UC[(user_collection)]
+    SF -->|card_ids| UC
+
+    Orch --> Provider[MypCardsProvider]
+    Provider --> MYP[MYP Cards]
+    Provider --> Parser[parse_jsonld_price]
+
+    Orch --> Store[insert_price_observations]
+    Store --> OBS[(price_observations)]
+
+    Orch --> Update[update_scan_run]
+    Update --> DB
+
+    API2[GET /api/v1/scans] --> Repo[list_scan_runs]
+    API3[GET /api/v1/scans/id] --> Repo
+    Repo --> DB
+    CLI2[CLI: scan-history] --> Repo

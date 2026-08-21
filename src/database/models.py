@@ -126,3 +126,25 @@ class CollectionErrorRow(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     __table_args__ = (Index("ix_error_unresolved", "resolved", "source"),)
+
+
+class ScanRunRow(Base):
+    __tablename__ = "scan_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    scan_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    filters_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    cards_total: Mapped[int] = mapped_column(Integer, default=0)
+    cards_processed: Mapped[int] = mapped_column(Integer, default=0)
+    cards_failed: Mapped[int] = mapped_column(Integer, default=0)
+    observations_saved: Mapped[int] = mapped_column(Integer, default=0)
+    error_summary: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        Index("ix_scan_runs_status", "status"),
+        Index("ix_scan_runs_type_date", "scan_type", "created_at"),
+    )

@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { to: "/collection", label: "My Collection" },
   { to: "/cards", label: "Explore Cards" },
   { to: "/market/movers", label: "Market Movers" },
+  { to: "/scans", label: "Price Scans" },
 ] as const;
 
 const FAKE_USER = {
@@ -55,6 +56,11 @@ export function Layout() {
             <p className="text-sm font-medium text-white">{FAKE_USER.name}</p>
             <p className="text-xs text-slate-400">Collector</p>
           </div>
+        </div>
+        {/* Currency indicator */}
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-700">
+          <span role="img" aria-label="Brazilian flag">🇧🇷</span>
+          <span className="text-sm font-medium text-slate-300">BRL</span>
         </div>
         <nav className="mt-4 px-3" data-testid="sidebar-nav">
           {NAV_ITEMS.map((item) => {

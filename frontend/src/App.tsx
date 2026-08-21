@@ -18,6 +18,12 @@ const MarketMovers = lazy(() =>
 const MyCollection = lazy(() =>
   import("./pages/MyCollection").then((m) => ({ default: m.MyCollection })),
 );
+const CollectionCardDetail = lazy(() =>
+  import("./pages/CollectionCardDetail").then((m) => ({ default: m.CollectionCardDetail })),
+);
+const Scans = lazy(() =>
+  import("./pages/Scans").then((m) => ({ default: m.Scans })),
+);
 
 export default function App() {
   return (
@@ -37,6 +43,14 @@ export default function App() {
             element={
               <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                 <MyCollection />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/collection/:id"
+            element={
+              <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
+                <CollectionCardDetail />
               </Suspense>
             }
           />
@@ -61,6 +75,14 @@ export default function App() {
             element={
               <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                 <MarketMovers />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/scans"
+            element={
+              <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
+                <Scans />
               </Suspense>
             }
           />

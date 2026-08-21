@@ -1,0 +1,22 @@
+flowchart LR
+    subgraph User
+        A[Open Scans page] --> B{New Scan?}
+        B -->|Yes| C[Select scan type]
+        C --> C2[Apply filters: set, format, rarity]
+        C2 --> D[Click Start Scan]
+        B -->|No| G
+    end
+    subgraph System
+        D --> E[POST /api/v1/scans]
+        E --> F[Background scan runs]
+        F --> F2[Per-card: fetch price, store observation]
+        F2 --> F3[Update scan_run metrics]
+        F3 --> G[Scan appears in history]
+    end
+    subgraph Review[User Reviews]
+        G --> H[View scan details]
+        H --> I[Check cards processed / failed / observations]
+        I --> J{Errors?}
+        J -->|Yes| K[Review error summary]
+        J -->|No| L[Done]
+    end
