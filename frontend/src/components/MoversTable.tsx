@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { MoverEntry } from "../types/api";
+import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency, formatPercent } from "../utils/format";
 
@@ -28,6 +29,7 @@ function DirectionArrow({ type }: { type: "gainers" | "losers" }) {
 export function MoversTable({ entries, title, type }: MoversTableProps) {
   const { t } = useTranslation();
   const { currency } = useCurrency();
+  const { getCardName } = useCardName();
   const accentClass = type === "gainers" ? "text-green-400" : "text-red-400";
   const changeColorClass =
     type === "gainers" ? "text-green-400" : "text-red-400";
@@ -66,7 +68,7 @@ export function MoversTable({ entries, title, type }: MoversTableProps) {
                     to={`/cards/${entry.card_id}`}
                     className="text-white hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
                   >
-                    {entry.name_en}
+                    {getCardName(entry.name_en, entry.name_pt, t("common.unknownCard"))}
                   </Link>
                   {entry.set_code && (
                     <span className="ml-2 text-xs text-slate-500">

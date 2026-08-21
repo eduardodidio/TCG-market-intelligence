@@ -33,6 +33,7 @@ const mockAuthAuthenticated: AuthContextValue = {
     display_name: "Test User",
     avatar_url: null,
     auth_provider: "email",
+    preferred_language: null,
     is_active: true,
   },
   loading: false,

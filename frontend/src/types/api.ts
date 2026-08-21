@@ -67,6 +67,7 @@ export interface SetSummary {
 export interface MoverEntry {
   card_id: number;
   name_en: string;
+  name_pt?: string;
   set_code: string | null;
   price_start: number;
   price_end: number;
@@ -230,6 +231,7 @@ export interface UserProfile {
   display_name: string | null;
   avatar_url: string | null;
   auth_provider: string;
+  preferred_language: string | null;
   is_active: boolean;
 }
 

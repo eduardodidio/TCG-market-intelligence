@@ -5,41 +5,57 @@ import { CurrencyIndicator } from "../../src/components/CurrencyIndicator";
 describe("CurrencyIndicator", () => {
   it("renders RS flag for PILA", () => {
     render(<CurrencyIndicator currency="PILA" />);
-    const img = screen.getByTestId("currency-indicator-pila");
-    expect(img).toBeDefined();
-    expect(img.tagName).toBe("IMG");
-    expect(img.getAttribute("alt")).toBe("RS flag");
+    const container = screen.getByTestId("currency-indicator-pila");
+    expect(container).toBeDefined();
+    const img = container.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("alt")).toBe("RS flag");
   });
 
-  it("renders R$ for BRL", () => {
+  it("renders Brazil flag + R$ for BRL", () => {
     render(<CurrencyIndicator currency="BRL" />);
-    const span = screen.getByTestId("currency-indicator-brl");
-    expect(span).toBeDefined();
-    expect(span.textContent).toBe("R$");
+    const container = screen.getByTestId("currency-indicator-brl");
+    expect(container).toBeDefined();
+    const img = container.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("alt")).toBe("Brazil flag");
+    expect(container.textContent).toBe("R$");
   });
 
-  it("renders $ for USD", () => {
+  it("renders US flag + $ for USD", () => {
     render(<CurrencyIndicator currency="USD" />);
-    const span = screen.getByTestId("currency-indicator-usd");
-    expect(span).toBeDefined();
-    expect(span.textContent).toBe("$");
+    const container = screen.getByTestId("currency-indicator-usd");
+    expect(container).toBeDefined();
+    const img = container.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("alt")).toBe("US flag");
+    expect(container.textContent).toBe("$");
   });
 
   it("uses custom size for PILA flag", () => {
     render(<CurrencyIndicator currency="PILA" size={24} />);
-    const img = screen.getByTestId("currency-indicator-pila");
-    expect(img.getAttribute("width")).toBe("24");
+    const container = screen.getByTestId("currency-indicator-pila");
+    const img = container.querySelector("img");
+    expect(img!.getAttribute("width")).toBe("24");
   });
 
   it("uses default size of 16", () => {
     render(<CurrencyIndicator currency="PILA" />);
-    const img = screen.getByTestId("currency-indicator-pila");
-    expect(img.getAttribute("width")).toBe("16");
+    const container = screen.getByTestId("currency-indicator-pila");
+    const img = container.querySelector("img");
+    expect(img!.getAttribute("width")).toBe("16");
   });
 
-  it("renders R$ for unknown currency (fallback)", () => {
+  it("renders currency code for unknown currency (fallback)", () => {
     render(<CurrencyIndicator currency="EUR" />);
     const span = screen.getByTestId("currency-indicator-eur");
-    expect(span.textContent).toBe("R$");
+    expect(span.textContent).toBe("EUR");
+  });
+
+  it("PILA does not render a text symbol", () => {
+    render(<CurrencyIndicator currency="PILA" />);
+    const container = screen.getByTestId("currency-indicator-pila");
+    // PILA only has the flag, no text symbol
+    expect(container.textContent).toBe("");
   });
 });

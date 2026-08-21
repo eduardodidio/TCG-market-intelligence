@@ -1,0 +1,11 @@
+{
+  "id": "D-F27-F28-001",
+  "feature": "F27+F28",
+  "type": "feature_start",
+  "status": "executed",
+  "action": "plan-feature",
+  "rationale": "F27 and F28 are independent features that can be planned and executed in parallel. F27 fixes currency conversion, adds flags, exchange rate display, and diagnoses missing prices. F28 adds language-aware card names, updates seed user data, and adds name_pt to movers. Both build on stable F18/F22/F24 infrastructure. Risk is low: no new external dependencies, no schema migrations, no destructive changes.",
+  "risk_level": "low",
+  "actions": ["plan-feature"],
+  "created_at": "2026-08-21T21:36:53Z"
+}

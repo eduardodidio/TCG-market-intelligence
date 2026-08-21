@@ -17,6 +17,7 @@ import { useGridSize } from "../hooks/useGridSize";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CollectionCard, CollectionSummary } from "../types/api";
 import { DEFAULT_PAGE_LIMIT, GRID_SIZE_CONFIG } from "../utils/constants";
+import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
@@ -37,7 +38,8 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
 
 function CollectionCardTile({ card, compact = false, currencyOverride }: { card: CollectionCard; compact?: boolean; currencyOverride?: string }) {
   const { t } = useTranslation();
-  const displayName = card.name_en || card.name_pt || t("common.unknownCard");
+  const { getCardName } = useCardName();
+  const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
 

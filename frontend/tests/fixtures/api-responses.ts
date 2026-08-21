@@ -42,6 +42,7 @@ function makeMoverEntry(i: number, positive: boolean): MoverEntry {
   return {
     card_id: 100 + i,
     name_en: `Card ${positive ? "Gainer" : "Loser"} ${i + 1}`,
+    name_pt: `Carta ${positive ? "Ganhadora" : "Perdedora"} ${i + 1}`,
     set_code: "DMR",
     price_start: 10,
     price_end: positive ? 10 + i + 1 : Math.max(1, 10 - i - 1),

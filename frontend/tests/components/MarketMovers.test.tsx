@@ -36,7 +36,7 @@ describe("MarketMovers page", () => {
   function mockFetchEmpty() {
     const emptyResponse: ApiResponse<MoversResponse> = {
       data: { gainers: [], losers: [] },
-      meta: { cursor: null, total: null, request_id: "req-test-empty" },
+      meta: { cursor: null, total: null, offset: null, request_id: "req-test-empty" },
       errors: [],
     };
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({

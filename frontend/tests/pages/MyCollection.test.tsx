@@ -308,7 +308,7 @@ describe("MyCollection -- sort dropdown", () => {
     });
 
     const callCountBefore = mockFetch.mock.calls.filter(
-      (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+      (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
     ).length;
 
     const select = screen.getByTestId("sort-select");
@@ -316,7 +316,7 @@ describe("MyCollection -- sort dropdown", () => {
 
     await waitFor(() => {
       const callCountAfter = mockFetch.mock.calls.filter(
-        (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+        (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
       ).length;
       expect(callCountAfter).toBeGreaterThan(callCountBefore);
     });
@@ -337,7 +337,7 @@ describe("MyCollection -- sort dropdown", () => {
 
     await waitFor(() => {
       const collectionCalls = mockFetch.mock.calls.filter(
-        (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+        (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
       );
       const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
       expect(lastCall).toContain("sort_by=added");
@@ -360,7 +360,7 @@ describe("MyCollection -- sort dropdown", () => {
 
     await waitFor(() => {
       const collectionCalls = mockFetch.mock.calls.filter(
-        (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+        (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
       );
       const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
       expect(lastCall).not.toContain("sort_by=price");
@@ -447,7 +447,7 @@ describe("MyCollection -- sort dropdown", () => {
 
     // The initial fetch should include offset=0
     const collectionCalls = mockFetch.mock.calls.filter(
-      (c: [string]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+      (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
     );
     const firstCall = String(collectionCalls[0][0]);
     expect(firstCall).toContain("offset=0");

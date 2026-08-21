@@ -70,7 +70,7 @@ describe("DeckView page", () => {
     vi.restoreAllMocks();
   });
 
-  function mockFetchSuccess(data = MOCK_DECK_DETAIL) {
+  function mockFetchSuccess(data: unknown = MOCK_DECK_DETAIL) {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(data),

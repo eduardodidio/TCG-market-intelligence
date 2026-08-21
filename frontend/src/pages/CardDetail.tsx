@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { fetchCardDetail } from "../api/cards";
+import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency, formatDate } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
@@ -24,6 +25,7 @@ export function CardDetail() {
   const cardId = Number(id);
 
   const { currency } = useCurrency();
+  const { getCardName, getSubtitleName } = useCardName();
 
   const detailFetcher = useCallback(
     () => fetchCardDetail(cardId, { currency }),
@@ -38,7 +40,7 @@ export function CardDetail() {
   // Set page title
   useEffect(() => {
     if (card) {
-      document.title = `${card.name_en} | TCG Market`;
+      document.title = `${getCardName(card.name_en, card.name_pt, t("common.unknownCard"))} | TCG Market`;
     } else {
       document.title = t("cardDetail.pageTitle");
     }
@@ -115,7 +117,7 @@ export function CardDetail() {
           {t("cardDetail.breadcrumbCards")}
         </Link>
         <span className="mx-2" aria-hidden="true">&gt;</span>
-        <span className="text-white">{card.name_en}</span>
+        <span className="text-white">{getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}</span>
       </nav>
 
       {/* Two-column layout */}
@@ -127,7 +129,7 @@ export function CardDetail() {
             <div className="mb-6 flex justify-center">
               <img
                 src={scryfallImageUrl(card.set_code, card.collector_number, "normal")}
-                alt={card.name_en}
+                alt={getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}
                 data-testid="card-image"
                 className="rounded-lg shadow-lg max-w-[250px] w-full"
                 loading="eager"
@@ -137,10 +139,13 @@ export function CardDetail() {
           )}
 
           {/* Card name */}
-          <h1 className="text-2xl font-bold text-white mb-1">{card.name_en}</h1>
-          {card.name_pt && card.name_pt !== card.name_en && (
-            <p className="text-sm text-slate-400 mb-4">{card.name_pt}</p>
-          )}
+          <h1 className="text-2xl font-bold text-white mb-1">{getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}</h1>
+          {(() => {
+            const subtitle = getSubtitleName(card.name_en, card.name_pt, t("common.unknownCard"));
+            return subtitle ? (
+              <p className="text-sm text-slate-400 mb-4" data-testid="card-name-subtitle">{subtitle}</p>
+            ) : null;
+          })()}
 
           {/* Set and collector number */}
           <div className="flex items-center gap-3 mb-4">

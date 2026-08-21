@@ -8,14 +8,16 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from src.api.deps import get_db
+from src.api.deps import get_currency_converter_dep, get_db
 from src.api.routers.market import router
 from src.database.models import (
     CardRow,
+    ExchangeRateRow,
     PriceObservationRow,
     SourceCardRow,
 )
 from src.database.repository import Repository
+from src.services.currency import CurrencyConverter
 
 
 @pytest.fixture()
@@ -29,6 +31,7 @@ def client(repo):
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_db] = lambda: repo
+    app.dependency_overrides[get_currency_converter_dep] = lambda: CurrencyConverter(repo)
     return TestClient(app)
 
 
@@ -40,6 +43,7 @@ def _seed_movers_data(repo):
         c1 = CardRow(
             game="magic",
             name_en="Rising Star",
+            name_pt="Estrela Ascendente",
             set_code="SET1",
             collector_number="1",
         )
@@ -47,6 +51,7 @@ def _seed_movers_data(repo):
         c2 = CardRow(
             game="magic",
             name_en="Falling Stone",
+            name_pt="Pedra Cadente",
             set_code="SET1",
             collector_number="2",
         )
@@ -213,6 +218,66 @@ class TestGetMovers:
         assert "data" in body
         assert "meta" in body
 
+    def test_movers_usd_no_rate_falls_back_to_brl(self, client, repo):
+        """When currency=USD but no exchange rate exists, response falls back to BRL."""
+        _seed_movers_data(repo)
+        resp = client.get("/market/movers?period=30d&currency=USD")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        # Should fall back to BRL since no exchange rate is seeded
+        for g in data["gainers"]:
+            assert g["currency"] == "BRL"
+            assert g["price_start"] is not None
+            assert g["price_end"] is not None
+        for lo in data["losers"]:
+            assert lo["currency"] == "BRL"
+
+    def test_movers_usd_with_rate_converts(self, client, repo):
+        """When currency=USD and exchange rate exists, prices are converted."""
+        _seed_movers_data(repo)
+        # Seed an exchange rate
+        with Session(repo.engine) as session:
+            session.add(
+                ExchangeRateRow(
+                    rate_date=date.today(),
+                    from_currency="USD",
+                    to_currency="BRL",
+                    rate=Decimal("5.00"),
+                    source="bcb_ptax",
+                )
+            )
+            session.commit()
+        resp = client.get("/market/movers?period=30d&currency=USD")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        for g in data["gainers"]:
+            assert g["currency"] == "USD"
+        # Rising Star: price_start was 10 BRL -> 2.00 USD at rate 5.00
+        gainer = next(g for g in data["gainers"] if g["name_en"] == "Rising Star")
+        assert float(gainer["price_start"]) == pytest.approx(2.00)
+        assert float(gainer["price_end"]) == pytest.approx(3.00)
+
+    def test_movers_include_name_pt(self, client, repo):
+        """Movers response includes name_pt field from CardRow."""
+        _seed_movers_data(repo)
+        resp = client.get("/market/movers?period=30d")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        gainer = next(g for g in data["gainers"] if g["name_en"] == "Rising Star")
+        assert gainer["name_pt"] == "Estrela Ascendente"
+        loser = next(lo for lo in data["losers"] if lo["name_en"] == "Falling Stone")
+        assert loser["name_pt"] == "Pedra Cadente"
+
+    def test_movers_brl_always_works(self, client, repo):
+        """BRL currency never falls back, prices are always present."""
+        _seed_movers_data(repo)
+        resp = client.get("/market/movers?period=30d&currency=BRL")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        for g in data["gainers"]:
+            assert g["currency"] == "BRL"
+            assert g["price_start"] is not None
+
 
 class TestGetStats:
     def test_stats_aggregation(self, client, repo):
@@ -251,3 +316,33 @@ class TestGetStats:
         assert "data" in body
         assert "meta" in body
         assert "request_id" in body["meta"]
+
+    def test_stats_usd_no_rate_falls_back_to_brl(self, client, repo):
+        """When currency=USD but no exchange rate exists, response falls back to BRL."""
+        _seed_stats_data(repo)
+        resp = client.get("/market/stats?currency=USD")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["currency"] == "BRL"
+        assert data["avg_price"] is not None
+
+    def test_stats_usd_with_rate_converts(self, client, repo):
+        """When currency=USD and exchange rate exists, avg_price is converted."""
+        _seed_stats_data(repo)
+        with Session(repo.engine) as session:
+            session.add(
+                ExchangeRateRow(
+                    rate_date=date.today(),
+                    from_currency="USD",
+                    to_currency="BRL",
+                    rate=Decimal("5.00"),
+                    source="bcb_ptax",
+                )
+            )
+            session.commit()
+        resp = client.get("/market/stats?currency=USD")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["currency"] == "USD"
+        # avg_price was 20.00 BRL -> 4.00 USD at rate 5.00
+        assert float(data["avg_price"]) == pytest.approx(4.00)

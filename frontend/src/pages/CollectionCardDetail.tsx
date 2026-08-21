@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { fetchCollectionEntry } from "../api/collection";
+import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
@@ -32,6 +33,7 @@ export function CollectionCardDetail() {
   const entryId = Number(id);
 
   const { currency } = useCurrency();
+  const { getCardName, getSubtitleName } = useCardName();
 
   const detailFetcher = useCallback(
     () => fetchCollectionEntry(entryId, { currency }),
@@ -45,7 +47,7 @@ export function CollectionCardDetail() {
 
   useEffect(() => {
     if (entry) {
-      document.title = `${entry.name_en || entry.name_pt || t("common.unknownCard")} | TCG Market`;
+      document.title = `${getCardName(entry.name_en, entry.name_pt, t("common.unknownCard"))} | TCG Market`;
     } else {
       document.title = `${t("collection.breadcrumbCollection")} | TCG Market`;
     }
@@ -113,7 +115,7 @@ export function CollectionCardDetail() {
     );
   }
 
-  const displayName = entry.name_en || entry.name_pt || t("common.unknownCard");
+  const displayName = getCardName(entry.name_en, entry.name_pt, t("common.unknownCard"));
   const imageUrl = entry.image_url || scryfallImageUrl(entry.set_code, entry.collector_number);
 
   return (
@@ -144,10 +146,13 @@ export function CollectionCardDetail() {
           </div>
 
           {/* Card name */}
-          <h1 className="text-2xl font-bold text-white mb-1">{entry.name_en || t("common.unknownCard")}</h1>
-          {entry.name_pt && entry.name_pt !== entry.name_en && (
-            <p className="text-sm text-slate-400 mb-4" data-testid="name-pt">{entry.name_pt}</p>
-          )}
+          <h1 className="text-2xl font-bold text-white mb-1">{displayName}</h1>
+          {(() => {
+            const subtitle = getSubtitleName(entry.name_en, entry.name_pt, t("common.unknownCard"));
+            return subtitle ? (
+              <p className="text-sm text-slate-400 mb-4" data-testid="name-pt">{subtitle}</p>
+            ) : null;
+          })()}
 
           {/* Set and collector number */}
           <div className="flex items-center gap-3 mb-4">

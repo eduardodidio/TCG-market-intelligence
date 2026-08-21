@@ -32,22 +32,31 @@ def get_movers(
     if period not in MOVERS_PERIOD_MAP:
         raise HTTPException(
             status_code=422,
-            detail=("Invalid period. Must be one of: " f"{', '.join(MOVERS_PERIOD_MAP.keys())}"),
+            detail=(f"Invalid period. Must be one of: {', '.join(MOVERS_PERIOD_MAP.keys())}"),
         )
 
     days = MOVERS_PERIOD_MAP[period]
     gainers_raw, losers_raw = repo.get_movers(days=days, limit=limit)
     today = date.today()
 
+    # If no exchange rate available for non-BRL currency, fall back entire
+    # response to BRL so prices aren't shown with the wrong currency symbol.
+    actual_currency = currency
+    if currency not in ("BRL", "PILA"):
+        rate = converter.get_display_rate()
+        if rate is None:
+            actual_currency = "BRL"
+
     gainers = [
         MoverEntry(
             card_id=g[0],
             name_en=g[1],
-            set_code=g[2],
-            price_start=converter.convert(g[3], today, currency) or g[3],
-            price_end=converter.convert(g[4], today, currency) or g[4],
-            change_pct=g[5],
-            currency=currency,
+            name_pt=g[2],
+            set_code=g[3],
+            price_start=converter.convert(g[4], today, actual_currency),
+            price_end=converter.convert(g[5], today, actual_currency),
+            change_pct=g[6],
+            currency=actual_currency,
         )
         for g in gainers_raw
     ]
@@ -55,11 +64,12 @@ def get_movers(
         MoverEntry(
             card_id=lo[0],
             name_en=lo[1],
-            set_code=lo[2],
-            price_start=converter.convert(lo[3], today, currency) or lo[3],
-            price_end=converter.convert(lo[4], today, currency) or lo[4],
-            change_pct=lo[5],
-            currency=currency,
+            name_pt=lo[2],
+            set_code=lo[3],
+            price_start=converter.convert(lo[4], today, actual_currency),
+            price_end=converter.convert(lo[5], today, actual_currency),
+            change_pct=lo[6],
+            currency=actual_currency,
         )
         for lo in losers_raw
     ]
@@ -77,10 +87,17 @@ def get_stats(
 ):
     stats = repo.get_market_stats(game=game)
 
+    # If no exchange rate available for non-BRL currency, fall back to BRL.
+    actual_currency = currency
+    if currency not in ("BRL", "PILA"):
+        rate = converter.get_display_rate()
+        if rate is None:
+            actual_currency = "BRL"
+
     avg = stats["avg_price"]
     if avg is not None:
         avg = Decimal(str(round(float(avg), 2)))
-        avg = converter.convert(avg, date.today(), currency) or avg
+        avg = converter.convert(avg, date.today(), actual_currency)
 
     data = MarketStats(
         total_cards=stats["total_cards"],
@@ -88,6 +105,6 @@ def get_stats(
         avg_price=avg,
         date_range_start=stats["date_range_start"],
         date_range_end=stats["date_range_end"],
-        currency=currency,
+        currency=actual_currency,
     )
     return success_response(data=data)

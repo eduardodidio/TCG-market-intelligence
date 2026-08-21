@@ -50,7 +50,7 @@ function makeLinkedEntry(
       ligamagic_url: "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt",
       ...overrides,
     },
-    meta: { cursor: null, total: null, request_id: "test-001" },
+    meta: { cursor: null, total: null, offset: null, request_id: "test-001" },
     errors: [],
   };
 }
@@ -67,7 +67,7 @@ function makeUnlinkedEntry(): ApiResponse<CollectionCardDetailType> {
 function make404Response(): ApiResponse<null> {
   return {
     data: null,
-    meta: { cursor: null, total: null, request_id: "err-001" },
+    meta: { cursor: null, total: null, offset: null, request_id: "err-001" },
     errors: [{ code: "HTTP_404", message: "Collection entry not found" }],
   };
 }

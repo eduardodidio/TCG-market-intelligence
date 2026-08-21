@@ -42,10 +42,7 @@ class Repository:
             columns = {col["name"] for col in insp.get_columns("users")}
             if "preferred_language" not in columns:
                 with self.engine.begin() as conn:
-                    sql = (
-                        "ALTER TABLE users ADD COLUMN"
-                        " preferred_language VARCHAR(10) DEFAULT 'en'"
-                    )
+                    sql = "ALTER TABLE users ADD COLUMN preferred_language VARCHAR(10) DEFAULT 'en'"
                     conn.execute(text(sql))
 
     def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
@@ -394,7 +391,7 @@ class Repository:
         """Get top price gainers and losers over a period.
 
         Returns (gainers, losers) as lists of tuples:
-        (card_id, name_en, set_code, price_start, price_end, change_pct)
+        (card_id, name_en, name_pt, set_code, price_start, price_end, change_pct)
         """
         from decimal import Decimal
 
@@ -451,6 +448,7 @@ class Repository:
                         (
                             card.id,
                             card.name_en,
+                            card.name_pt,
                             card.set_code,
                             earliest_price,
                             latest_price,
@@ -458,8 +456,8 @@ class Repository:
                         )
                     )
 
-            gainers = sorted(movers, key=lambda x: x[5], reverse=True)[:limit]
-            losers = sorted(movers, key=lambda x: x[5])[:limit]
+            gainers = sorted(movers, key=lambda x: x[6], reverse=True)[:limit]
+            losers = sorted(movers, key=lambda x: x[6])[:limit]
 
             return gainers, losers
 

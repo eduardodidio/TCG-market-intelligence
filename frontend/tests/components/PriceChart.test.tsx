@@ -234,7 +234,7 @@ describe("PriceChart", () => {
     it("renders chart with high-value cards (>R$100) without capping", async () => {
       // Create high-value price data
       const highValueData = mockPriceHistory(30);
-      highValueData.data = highValueData.data.map((obs, i) => ({
+      highValueData.data = highValueData.data!.map((obs, i) => ({
         ...obs,
         median_price: 250 + Math.sin(i / 5) * 50,
         tcg_price: 240 + Math.sin(i / 5) * 40,

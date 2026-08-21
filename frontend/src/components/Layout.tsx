@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { CurrencyToggle } from "./CurrencyToggle";
+import { ExchangeRateBanner } from "./ExchangeRateBanner";
 import { LanguageSelector } from "./LanguageSelector";
 
 const NAV_ITEMS = [
@@ -170,6 +171,9 @@ export function Layout() {
           </button>
           <span className="ml-3 text-lg font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">TCG Market</span>
         </header>
+
+        {/* Exchange rate banner */}
+        <ExchangeRateBanner />
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6" data-testid="main-content">

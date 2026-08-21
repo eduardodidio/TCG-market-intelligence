@@ -215,7 +215,10 @@
     "daysAgo_one": "{{count}} dia atras"
   },
   "currency": {
-    "selector": "Seletor de moeda"
+    "selector": "Seletor de moeda",
+    "exchangeRate": "USD 1 = R$ {{rate}}",
+    "rateUnavailable": "Taxa de cambio indisponivel",
+    "rateDate": "Cotacao de {{date}}"
   },
   "language": {
     "selector": "Seletor de idioma"

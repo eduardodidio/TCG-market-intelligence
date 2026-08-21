@@ -2,15 +2,17 @@ import { useTranslation } from "react-i18next";
 import { useCurrency } from "../hooks/useCurrency";
 import type { CurrencyCode } from "../contexts/CurrencyContext";
 import rsFlag from "../assets/rs-flag.svg";
+import brFlag from "../assets/br-flag.svg";
+import usFlag from "../assets/us-flag.svg";
 
 export function CurrencyToggle() {
   const { t } = useTranslation();
   const { currency, setCurrency } = useCurrency();
 
   const options: { code: CurrencyCode; label: string; icon?: string }[] = [
-    { code: "BRL", label: "BRL" },
-    { code: "USD", label: "USD" },
-    { code: "PILA", label: "Pila", icon: rsFlag },
+    { code: "BRL", label: "BRL", icon: brFlag },
+    { code: "USD", label: "USD", icon: usFlag },
+    { code: "PILA", label: "PILA", icon: rsFlag },
   ];
 
   return (

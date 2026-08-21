@@ -52,6 +52,7 @@ describe("ProtectedRoute", () => {
         display_name: null,
         avatar_url: null,
         auth_provider: "email",
+        preferred_language: null,
         is_active: true,
       },
     });

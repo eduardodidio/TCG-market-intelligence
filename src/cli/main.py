@@ -523,7 +523,11 @@ def seed_users(db):
     log = structlog.get_logger()
 
     SEED_USERS = [
-        {"email": "eduardo.didio", "display_name": "Eduardo Didio", "password": "mudar@123"},
+        {
+            "email": "eduardorutkoskididio@gmail.com",
+            "display_name": "Eduardo Didio",
+            "password": "mudar@123",
+        },
         {"email": "anderson.serafim", "display_name": "Anderson Serafim", "password": "mudar@123"},
     ]
 
@@ -544,6 +548,30 @@ def seed_users(db):
         )
         log.info("user_created", email=user_data["email"])
         click.echo(f"  Created: {user_data['email']}")
+
+    # Associate all collection entries with the primary (first) seed user
+    primary = repo.get_user_by_email(SEED_USERS[0]["email"])
+    if primary:
+        primary_uid = str(primary.id)
+        from sqlalchemy import update
+        from sqlalchemy.orm import Session as SaSession
+
+        from src.database.models import UserCollectionRow
+
+        with SaSession(repo.engine) as session:
+            result = session.execute(
+                update(UserCollectionRow)
+                .where(UserCollectionRow.user_id != primary_uid)
+                .values(user_id=primary_uid)
+            )
+            session.commit()
+            reassigned = result.rowcount  # type: ignore[union-attr]
+
+        if reassigned:
+            log.info("collection_reassigned", user_id=primary_uid, count=reassigned)
+            click.echo(f"  Reassigned {reassigned} collection entries to user {primary.email}")
+        else:
+            click.echo("  No collection entries needed reassignment.")
 
     click.echo("\nSeed users done.")
 

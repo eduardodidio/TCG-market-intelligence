@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class MoverEntry(BaseModel):
     card_id: int
     name_en: str
+    name_pt: str | None = None
     set_code: str | None = None
     price_start: Decimal
     price_end: Decimal

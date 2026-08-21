@@ -6,9 +6,6 @@ interface ErrorBannerProps {
   variant?: "full" | "inline";
 }
 
-const NETWORK_ERROR_MESSAGE =
-  "Unable to connect to the server. Please check your connection.";
-
 function isNetworkError(message: string): boolean {
   return (
     message.toLowerCase().includes("failed to fetch") ||

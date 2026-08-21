@@ -12,7 +12,7 @@ function renderWithProvider() {
 }
 
 describe("CurrencyToggle", () => {
-  it("renders BRL, USD, and Pila buttons", () => {
+  it("renders BRL, USD, and PILA buttons", () => {
     renderWithProvider();
     expect(screen.getByTestId("currency-btn-BRL")).toBeDefined();
     expect(screen.getByTestId("currency-btn-USD")).toBeDefined();
@@ -39,16 +39,18 @@ describe("CurrencyToggle", () => {
     expect(screen.getByTestId("currency-btn-USD").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("Pila button label contains 'Pila'", () => {
+  it("PILA button label contains 'PILA' (uppercase)", () => {
     renderWithProvider();
-    expect(screen.getByTestId("currency-btn-PILA").textContent).toContain("Pila");
+    expect(screen.getByTestId("currency-btn-PILA").textContent).toContain("PILA");
   });
 
-  it("renders RS flag image in Pila button", () => {
+  it("renders flag images in all currency buttons", () => {
     renderWithProvider();
+    const brlBtn = screen.getByTestId("currency-btn-BRL");
+    const usdBtn = screen.getByTestId("currency-btn-USD");
     const pilaBtn = screen.getByTestId("currency-btn-PILA");
-    const img = pilaBtn.querySelector("img");
-    expect(img).toBeDefined();
-    expect(img).not.toBeNull();
+    expect(brlBtn.querySelector("img")).not.toBeNull();
+    expect(usdBtn.querySelector("img")).not.toBeNull();
+    expect(pilaBtn.querySelector("img")).not.toBeNull();
   });
 });

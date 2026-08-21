@@ -20,6 +20,7 @@ describe("useAuth", () => {
         display_name: "Test",
         avatar_url: null,
         auth_provider: "email",
+        preferred_language: null,
         is_active: true,
       },
       loading: false,

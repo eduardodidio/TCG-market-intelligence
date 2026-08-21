@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { CardSummary } from "../types/api";
+import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
@@ -13,7 +14,8 @@ interface CardTileProps {
 export function CardTile({ card }: CardTileProps) {
   const { t } = useTranslation();
   const { currency } = useCurrency();
-  const displayName = card.name_en || card.name_pt || t("common.unknownCard");
+  const { getCardName } = useCardName();
+  const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
 

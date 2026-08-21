@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { MoverEntry } from "../types/api";
+import { useCardName } from "../hooks/useCardName";
 import { formatPercent } from "../utils/format";
 
 interface MoversPreviewProps {
@@ -24,6 +25,8 @@ function DirectionArrow({ type }: { type: "gainer" | "loser" }) {
 }
 
 function MoverRow({ entry, type }: { entry: MoverEntry; type: "gainer" | "loser" }) {
+  const { t } = useTranslation();
+  const { getCardName } = useCardName();
   const colorClass = type === "gainer" ? "text-green-400" : "text-red-400";
 
   return (
@@ -33,7 +36,7 @@ function MoverRow({ entry, type }: { entry: MoverEntry; type: "gainer" | "loser"
           to={`/cards/${entry.card_id}`}
           className="truncate text-sm text-white hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
         >
-          {entry.name_en}
+          {getCardName(entry.name_en, entry.name_pt, t("common.unknownCard"))}
         </Link>
         {entry.set_code && (
           <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-xs text-slate-400">

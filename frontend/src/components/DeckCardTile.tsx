@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { DeckCard } from "../types/api";
+import { useCardName } from "../hooks/useCardName";
 import { formatBRL } from "../utils/format";
 
 interface DeckCardTileProps {
@@ -9,6 +10,8 @@ interface DeckCardTileProps {
 
 export function DeckCardTile({ card }: DeckCardTileProps) {
   const { t } = useTranslation();
+  const { getCardName } = useCardName();
+  const displayName = getCardName(card.name_en, (card as any).name_pt, t("common.unknownCard"));
   const linkTo = card.in_collection && card.collection_entry_id
     ? `/collection/${card.collection_entry_id}`
     : card.card_id
@@ -29,7 +32,7 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
         {card.image_url ? (
           <img
             src={card.image_url}
-            alt={card.name_en}
+            alt={displayName}
             className={`w-full h-full object-cover ${
               !card.in_collection ? "opacity-50" : ""
             }`}
@@ -78,7 +81,7 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
           className="text-sm font-medium text-white truncate"
           data-testid="card-name"
         >
-          {card.name_en}
+          {displayName}
         </p>
 
         <div className="flex items-center justify-between mt-1">
