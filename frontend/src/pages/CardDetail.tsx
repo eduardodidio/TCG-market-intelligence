@@ -2,7 +2,8 @@ import { useCallback, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { fetchCardDetail } from "../api/cards";
-import { formatBRL, formatDate } from "../utils/format";
+import { useCurrency } from "../hooks/useCurrency";
+import { formatCurrency, formatDate } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PriceChart } from "../components/PriceChart";
@@ -20,14 +21,16 @@ export function CardDetail() {
   const { id } = useParams<{ id: string }>();
   const cardId = Number(id);
 
+  const { currency } = useCurrency();
+
   const detailFetcher = useCallback(
-    () => fetchCardDetail(cardId),
-    [cardId],
+    () => fetchCardDetail(cardId, { currency }),
+    [cardId, currency],
   );
 
   const { data: card, loading, error, refetch } = useApi<CardDetailType>(
     detailFetcher,
-    [cardId],
+    [cardId, currency],
   );
 
   // Set page title
@@ -160,7 +163,7 @@ export function CardDetail() {
           <div className="mb-6">
             <p className="text-sm text-slate-400 mb-1">Latest Price</p>
             <p data-testid="latest-price" className="text-3xl font-bold text-white">
-              {formatBRL(card.latest_price)}
+              {formatCurrency(card.latest_price, currency)}
             </p>
           </div>
 
@@ -267,7 +270,7 @@ export function CardDetail() {
 
         {/* Right panel: Price chart */}
         <div>
-          <PriceChart cardId={cardId} />
+          <PriceChart cardId={cardId} currency={currency} />
         </div>
       </div>
     </div>

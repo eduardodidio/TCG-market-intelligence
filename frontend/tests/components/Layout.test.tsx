@@ -1,18 +1,64 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Layout } from "../../src/components/Layout";
+import { AuthContext } from "../../src/contexts/AuthContext";
+import type { AuthContextValue } from "../../src/contexts/AuthContext";
+import { CurrencyProvider } from "../../src/contexts/CurrencyContext";
 
-function renderLayout(initialPath = "/") {
+// Mock localStorage for CurrencyContext
+beforeEach(() => {
+  vi.stubGlobal("localStorage", {
+    getItem: vi.fn().mockReturnValue(null),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+  });
+});
+
+const mockAuthUnauthenticated: AuthContextValue = {
+  user: null,
+  loading: false,
+  error: null,
+  isAuthenticated: false,
+  login: vi.fn().mockResolvedValue(null),
+  register: vi.fn().mockResolvedValue(null),
+  logout: vi.fn().mockResolvedValue(undefined),
+};
+
+const mockAuthAuthenticated: AuthContextValue = {
+  user: {
+    id: 1,
+    email: "test@example.com",
+    display_name: "Test User",
+    avatar_url: null,
+    auth_provider: "email",
+    is_active: true,
+  },
+  loading: false,
+  error: null,
+  isAuthenticated: true,
+  login: vi.fn().mockResolvedValue(null),
+  register: vi.fn().mockResolvedValue(null),
+  logout: vi.fn().mockResolvedValue(undefined),
+};
+
+function renderLayout(
+  initialPath = "/",
+  auth: AuthContextValue = mockAuthAuthenticated,
+) {
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <Layout />
-    </MemoryRouter>,
+    <AuthContext.Provider value={auth}>
+      <CurrencyProvider>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <Layout />
+        </MemoryRouter>
+      </CurrencyProvider>
+    </AuthContext.Provider>,
   );
 }
 
 describe("Layout", () => {
-  it("renders the sidebar with navigation links", () => {
+  it("renders the sidebar with navigation links when authenticated", () => {
     renderLayout();
 
     const nav = screen.getByTestId("sidebar-nav");
@@ -27,6 +73,22 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Market Movers");
     expect(linkTexts).toContain("Price Scans");
+  });
+
+  it("hides protected nav items when unauthenticated", () => {
+    renderLayout("/", mockAuthUnauthenticated);
+
+    const nav = screen.getByTestId("sidebar-nav");
+    const links = nav.querySelectorAll("a");
+    // Only public items: Dashboard, Explore Cards, Market Movers
+    expect(links).toHaveLength(3);
+
+    const linkTexts = Array.from(links).map((a) => a.textContent);
+    expect(linkTexts).toContain("Dashboard");
+    expect(linkTexts).toContain("Explore Cards");
+    expect(linkTexts).toContain("Market Movers");
+    expect(linkTexts).not.toContain("My Collection");
+    expect(linkTexts).not.toContain("Price Scans");
   });
 
   it("renders the main content area (Outlet)", () => {
@@ -55,7 +117,7 @@ describe("Layout", () => {
     expect(titles.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("links have correct href attributes", () => {
+  it("links have correct href attributes when authenticated", () => {
     renderLayout();
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
@@ -103,35 +165,6 @@ describe("Layout", () => {
     expect(sidebar.className).toContain("-translate-x-full");
   });
 
-  // --- F15-T03: BRL currency indicator tests ---
-
-  it("renders BRL text in sidebar", () => {
-    renderLayout();
-    const sidebar = screen.getByTestId("sidebar");
-    const brlElement = sidebar.querySelector("span");
-    const brlTexts = Array.from(sidebar.querySelectorAll("span")).filter(
-      (el) => el.textContent === "BRL",
-    );
-    expect(brlTexts.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("renders element with aria-label 'Brazilian flag'", () => {
-    renderLayout();
-    const flag = screen.getByLabelText("Brazilian flag");
-    expect(flag).toBeDefined();
-    expect(flag.getAttribute("role")).toBe("img");
-  });
-
-  it("currency indicator is present in the DOM on initial render", () => {
-    renderLayout();
-    const sidebar = screen.getByTestId("sidebar");
-    const flag = screen.getByLabelText("Brazilian flag");
-    const brl = screen.getByText("BRL");
-    // Both elements should be within the sidebar
-    expect(sidebar.contains(flag)).toBe(true);
-    expect(sidebar.contains(brl)).toBe(true);
-  });
-
   it("nav links have focus-visible ring classes", () => {
     renderLayout();
     const nav = screen.getByTestId("sidebar-nav");
@@ -141,5 +174,24 @@ describe("Layout", () => {
       expect(link.className).toContain("focus-visible:ring-2");
       expect(link.className).toContain("focus-visible:ring-cyan-400");
     });
+  });
+
+  // --- Auth-aware user section tests ---
+
+  it("shows sign-in link when unauthenticated", () => {
+    renderLayout("/", mockAuthUnauthenticated);
+    const signInLink = screen.getByTestId("sign-in-link");
+    expect(signInLink).toBeDefined();
+    expect(signInLink.textContent).toContain("Sign in");
+  });
+
+  it("shows user name and logout when authenticated", () => {
+    renderLayout();
+    const userSection = screen.getByTestId("user-section");
+    expect(userSection.textContent).toContain("Test User");
+
+    const logoutBtn = screen.getByTestId("logout-button");
+    expect(logoutBtn).toBeDefined();
+    expect(logoutBtn.textContent).toContain("Sign out");
   });
 });

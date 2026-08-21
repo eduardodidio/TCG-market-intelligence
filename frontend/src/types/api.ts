@@ -29,6 +29,7 @@ export interface CardSummary {
   set_code: string | null;
   collector_number: string | null;
   latest_price: number | null;
+  currency?: string;
 }
 
 export interface SourceCard {
@@ -70,6 +71,7 @@ export interface MoverEntry {
   price_start: number;
   price_end: number;
   change_pct: number;
+  currency?: string;
 }
 
 export interface MoversResponse {
@@ -83,6 +85,7 @@ export interface MarketStats {
   avg_price: number | null;
   date_range_start: string | null;
   date_range_end: string | null;
+  currency?: string;
 }
 
 // User collection types
@@ -102,6 +105,7 @@ export interface CollectionCard {
   color: string | null;
   extras: string | null;
   latest_price: number | null;
+  currency?: string;
   image_url: string | null;
 }
 
@@ -118,6 +122,7 @@ export interface CollectionSummary {
   total_value: number | null;
   linked_count: number;
   sets_count: number;
+  currency?: string;
 }
 
 // Collection health types
@@ -166,4 +171,21 @@ export interface ScanRequest {
   card_ids?: number[];
   limit?: number;
   dry_run?: boolean;
+}
+
+// Auth types
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  auth_provider: string;
+  is_active: boolean;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
 }

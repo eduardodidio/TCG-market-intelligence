@@ -15,6 +15,29 @@ export function formatBRL(value: number | string | null | undefined): string {
 }
 
 /**
+ * Format a number in the given currency.
+ * BRL: R$ 1.234,56 (pt-BR locale)
+ * USD: $1,234.56 (en-US locale)
+ * Returns "--" for null/undefined values.
+ */
+export function formatCurrency(
+  value: number | string | null | undefined,
+  currency: string = "BRL",
+): string {
+  if (value == null) return "--";
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "--";
+
+  const locale = currency === "USD" ? "en-US" : "pt-BR";
+  return num.toLocaleString(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
  * Format a percentage with sign prefix.
  * Returns object with formatted string and direction for styling.
  * Example: formatPercent(12.3) -> "+12,3%"

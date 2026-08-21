@@ -7,6 +7,8 @@ export function fetchMovers(
   return apiGet<MoversResponse>("/api/v1/market/movers", params);
 }
 
-export function fetchMarketStats(): Promise<ApiResponse<MarketStats>> {
-  return apiGet<MarketStats>("/api/v1/market/stats");
+export function fetchMarketStats(
+  params?: Record<string, string>,
+): Promise<ApiResponse<MarketStats>> {
+  return apiGet<MarketStats>("/api/v1/market/stats", params);
 }

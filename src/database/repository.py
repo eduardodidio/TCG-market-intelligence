@@ -11,12 +11,20 @@ from src.database.models import (
     Base,
     CardRow,
     CollectionErrorRow,
+    ExchangeRateRow,
     PriceObservationRow,
     ScanRunRow,
     SourceCardRow,
     UserCollectionRow,
+    UserRow,
 )
-from src.domain.models import CollectionError, HistoricalPrice, ScanFilter, SourceCard
+from src.domain.models import (
+    CollectionError,
+    ExchangeRate,
+    HistoricalPrice,
+    ScanFilter,
+    SourceCard,
+)
 
 
 class Repository:
@@ -912,3 +920,164 @@ class Repository:
                     }
                 )
             return results
+
+    # ── Exchange Rates ──────────────────────────────────────────
+
+    def upsert_exchange_rate(self, rate: ExchangeRate) -> None:
+        """Insert or update an exchange rate by rate_date."""
+        with Session(self.engine) as session:
+            stmt = (
+                sqlite_insert(ExchangeRateRow)
+                .values(
+                    rate_date=rate.rate_date,
+                    from_currency=rate.from_currency,
+                    to_currency=rate.to_currency,
+                    rate=rate.rate,
+                    source=rate.source,
+                )
+                .on_conflict_do_update(
+                    index_elements=["rate_date"],
+                    set_={
+                        "rate": rate.rate,
+                        "from_currency": rate.from_currency,
+                        "to_currency": rate.to_currency,
+                        "source": rate.source,
+                    },
+                )
+            )
+            session.execute(stmt)
+            session.commit()
+
+    def get_exchange_rate(self, rate_date: date) -> ExchangeRateRow | None:
+        """Get an exchange rate for an exact date."""
+        with Session(self.engine) as session:
+            return session.execute(
+                select(ExchangeRateRow).where(ExchangeRateRow.rate_date == rate_date)
+            ).scalar_one_or_none()
+
+    def get_closest_rate(self, target_date: date) -> ExchangeRateRow | None:
+        """Get the closest exchange rate on or before target_date."""
+        with Session(self.engine) as session:
+            return session.execute(
+                select(ExchangeRateRow)
+                .where(ExchangeRateRow.rate_date <= target_date)
+                .order_by(ExchangeRateRow.rate_date.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+
+    def get_latest_rate(self) -> ExchangeRateRow | None:
+        """Get the most recent exchange rate."""
+        with Session(self.engine) as session:
+            return session.execute(
+                select(ExchangeRateRow).order_by(ExchangeRateRow.rate_date.desc()).limit(1)
+            ).scalar_one_or_none()
+
+    def get_rate_history(self, days: int = 30) -> list[ExchangeRateRow]:
+        """Get exchange rates for the last N days."""
+        cutoff = date.today() - timedelta(days=days)
+        with Session(self.engine) as session:
+            return list(
+                session.execute(
+                    select(ExchangeRateRow)
+                    .where(ExchangeRateRow.rate_date >= cutoff)
+                    .order_by(ExchangeRateRow.rate_date.desc())
+                )
+                .scalars()
+                .all()
+            )
+
+    def bulk_upsert_rates(self, rates: list[ExchangeRate]) -> None:
+        """Bulk insert or update exchange rates."""
+        for rate in rates:
+            self.upsert_exchange_rate(rate)
+
+    # ── Users ───────────────────────────────────────────────────────
+
+    def create_user(
+        self,
+        email: str,
+        display_name: str | None = None,
+        auth_provider: str = "email",
+        provider_id: str | None = None,
+        password_hash: str | None = None,
+    ) -> UserRow:
+        """Create a new user. Returns the created UserRow."""
+        with Session(self.engine) as session:
+            user = UserRow(
+                email=email,
+                display_name=display_name,
+                auth_provider=auth_provider,
+                provider_id=provider_id,
+                password_hash=password_hash,
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            # Expunge so the object is usable outside the session
+            session.expunge(user)
+            return user
+
+    def get_user_by_id(self, user_id: int) -> UserRow | None:
+        """Get a user by ID."""
+        with Session(self.engine) as session:
+            user = session.execute(
+                select(UserRow).where(UserRow.id == user_id)
+            ).scalar_one_or_none()
+            if user:
+                session.expunge(user)
+            return user
+
+    def get_user_by_email(self, email: str) -> UserRow | None:
+        """Get a user by email address."""
+        with Session(self.engine) as session:
+            user = session.execute(
+                select(UserRow).where(UserRow.email == email)
+            ).scalar_one_or_none()
+            if user:
+                session.expunge(user)
+            return user
+
+    def get_user_by_provider(self, provider: str, provider_id: str) -> UserRow | None:
+        """Get a user by OAuth provider and provider ID."""
+        with Session(self.engine) as session:
+            user = session.execute(
+                select(UserRow).where(
+                    UserRow.auth_provider == provider,
+                    UserRow.provider_id == provider_id,
+                )
+            ).scalar_one_or_none()
+            if user:
+                session.expunge(user)
+            return user
+
+    def update_user(self, user_id: int, **kwargs) -> UserRow | None:
+        """Update a user with the given fields. Returns updated UserRow or None."""
+        with Session(self.engine) as session:
+            user = session.execute(
+                select(UserRow).where(UserRow.id == user_id)
+            ).scalar_one_or_none()
+            if user is None:
+                return None
+            for key, value in kwargs.items():
+                if hasattr(user, key):
+                    setattr(user, key, value)
+            session.commit()
+            session.refresh(user)
+            session.expunge(user)
+            return user
+
+    def migrate_collection_user(self, old_user_id: str, new_user_id: str) -> int:
+        """Migrate collection entries from old_user_id to new_user_id.
+
+        Returns the number of rows updated.
+        """
+        from sqlalchemy import update
+
+        with Session(self.engine) as session:
+            result = session.execute(
+                update(UserCollectionRow)
+                .where(UserCollectionRow.user_id == old_user_id)
+                .values(user_id=new_user_id)
+            )
+            session.commit()
+            return result.rowcount

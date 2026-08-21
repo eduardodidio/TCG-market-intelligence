@@ -8,6 +8,7 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { FilterChips } from "../components/FilterChips";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
+import { useCurrency } from "../hooks/useCurrency";
 import { useDebounce } from "../hooks/useDebounce";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CardSummary, SetSummary } from "../types/api";
@@ -18,6 +19,7 @@ export function Cards() {
     document.title = "Explore Cards | TCG Market";
   }, []);
 
+  const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState(
@@ -63,6 +65,7 @@ export function Cards() {
 
     const params: Record<string, string> = {
       limit: String(DEFAULT_PAGE_LIMIT),
+      currency,
     };
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
@@ -86,7 +89,7 @@ export function Cards() {
           setLoading(false);
         }
       });
-  }, [debouncedSearch, selectedSet]);
+  }, [debouncedSearch, selectedSet, currency]);
 
   // Load more handler
   const handleLoadMore = useCallback(() => {
@@ -96,6 +99,7 @@ export function Cards() {
     const params: Record<string, string> = {
       limit: String(DEFAULT_PAGE_LIMIT),
       cursor,
+      currency,
     };
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
@@ -115,7 +119,7 @@ export function Cards() {
       .finally(() => {
         setLoadingMore(false);
       });
-  }, [cursor, loadingMore, debouncedSearch, selectedSet]);
+  }, [cursor, loadingMore, debouncedSearch, selectedSet, currency]);
 
   const setOptions = sets.map((s) => ({
     label: s.set_code,

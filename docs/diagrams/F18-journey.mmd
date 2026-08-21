@@ -1,0 +1,39 @@
+%%{init: {'theme': 'dark'}}%%
+flowchart TD
+    Start([User opens page]) --> ReadLS[Read currency<br/>from localStorage]
+    ReadLS --> HasPref{Preference<br/>saved?}
+    HasPref -->|Yes| UseSaved[Use saved currency]
+    HasPref -->|No| DefaultBRL[Default to BRL]
+    UseSaved --> FetchAPI
+    DefaultBRL --> FetchAPI
+
+    FetchAPI[API call with<br/>?currency=X] --> Backend{Backend<br/>processing}
+
+    Backend --> IsBRL{currency<br/>== BRL?}
+    IsBRL -->|Yes| ReturnRaw[Return raw BRL prices]
+    IsBRL -->|No| LookupRate[Look up exchange rate<br/>for observation date]
+    LookupRate --> HasRate{Rate<br/>found?}
+    HasRate -->|Yes| Convert[Divide BRL price<br/>by rate]
+    HasRate -->|No| ReturnNull[Return null price]
+    Convert --> ReturnConverted[Return USD price]
+
+    ReturnRaw --> Render[Render prices<br/>with formatCurrency]
+    ReturnConverted --> Render
+    ReturnNull --> Render
+
+    Render --> Display([Display page])
+
+    Display --> Toggle{User clicks<br/>currency toggle?}
+    Toggle -->|Yes| UpdateLS[Update localStorage<br/>+ cross-tab sync]
+    UpdateLS --> FetchAPI
+    Toggle -->|No| End([Done])
+
+    classDef startEnd fill:#164e63,stroke:#06b6d4,color:#e2e8f0
+    classDef decision fill:#1e3a5f,stroke:#94a3b8,color:#e2e8f0
+    classDef action fill:#1c1917,stroke:#f59e0b,color:#fbbf24
+    classDef api fill:#3f1e5f,stroke:#a78bfa,color:#e2e8f0
+
+    class Start,Display,End startEnd
+    class HasPref,IsBRL,HasRate,Toggle decision
+    class ReadLS,UseSaved,DefaultBRL,LookupRate,Convert,ReturnRaw,ReturnConverted,ReturnNull,UpdateLS,Render action
+    class FetchAPI,Backend api

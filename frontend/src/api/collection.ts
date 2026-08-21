@@ -9,12 +9,15 @@ export function fetchCollection(
 
 export function fetchCollectionEntry(
   id: number,
+  params?: Record<string, string>,
 ): Promise<ApiResponse<CollectionCardDetail>> {
-  return apiGet<CollectionCardDetail>(`/api/v1/collection/${id}`);
+  return apiGet<CollectionCardDetail>(`/api/v1/collection/${id}`, params);
 }
 
-export function fetchCollectionSummary(): Promise<ApiResponse<CollectionSummary>> {
-  return apiGet<CollectionSummary>("/api/v1/collection/summary");
+export function fetchCollectionSummary(
+  params?: Record<string, string>,
+): Promise<ApiResponse<CollectionSummary>> {
+  return apiGet<CollectionSummary>("/api/v1/collection/summary", params);
 }
 
 export function fetchCollectionSets(): Promise<

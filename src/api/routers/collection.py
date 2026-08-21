@@ -3,11 +3,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 
-from src.api.deps import get_db, verify_api_key
+from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
 from src.api.jobs import job_tracker
 from src.api.schemas.cards import PriceObservation, SourceCardSchema
 from src.api.schemas.collect import JobStatus
@@ -21,11 +22,10 @@ from src.api.schemas.collection import (
 )
 from src.api.schemas.envelope import ApiResponse, paginated_response, success_response
 from src.database.repository import Repository
+from src.services.currency import CurrencyConverter
 from src.utils.set_code_map import map_to_scryfall_set_code
 
 router = APIRouter(prefix="/collection", tags=["collection"])
-
-FAKE_USER_ID = "eduardo"
 
 
 def _encode_cursor(row_id: int) -> str:
@@ -56,11 +56,14 @@ def list_collection(
     sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
     offset: int | None = Query(default=None, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
     repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
 ):
     after_id = _decode_cursor(cursor) if cursor else None
     rows = repo.list_collection(
-        user_id=FAKE_USER_ID,
+        user_id=user_id,
         name_search=name,
         set_code=set,
         sort_by=sort_by,
@@ -78,33 +81,34 @@ def list_collection(
     linked_card_ids = [r.card_id for r in rows if r.card_id is not None]
     latest_prices = repo.get_latest_prices_batch(linked_card_ids) if linked_card_ids else {}
 
-    data = [
-        CollectionCard(
-            id=r.id,
-            card_id=r.card_id,
-            set_code=r.set_code,
-            collector_number=r.collector_number,
-            name_en=r.name_en,
-            name_pt=r.name_pt,
-            set_name_en=r.set_name_en,
-            quantity=r.quantity,
-            quality=r.quality,
-            language=r.language,
-            rarity=r.rarity,
-            color=r.color,
-            extras=r.extras,
-            latest_price=(
-                latest_prices[r.card_id].median_price
-                if r.card_id and latest_prices.get(r.card_id)
-                else None
-            ),
-            image_url=_scryfall_image_url(r.set_code, r.collector_number),
+    data = []
+    for r in rows:
+        obs = latest_prices.get(r.card_id) if r.card_id else None
+        raw_price = obs.median_price if obs else None
+        price = converter.convert(raw_price, date.today(), currency) if raw_price else None
+        data.append(
+            CollectionCard(
+                id=r.id,
+                card_id=r.card_id,
+                set_code=r.set_code,
+                collector_number=r.collector_number,
+                name_en=r.name_en,
+                name_pt=r.name_pt,
+                set_name_en=r.set_name_en,
+                quantity=r.quantity,
+                quality=r.quality,
+                language=r.language,
+                rarity=r.rarity,
+                color=r.color,
+                extras=r.extras,
+                latest_price=price,
+                currency=currency,
+                image_url=_scryfall_image_url(r.set_code, r.collector_number),
+            )
         )
-        for r in rows
-    ]
 
     next_cursor = _encode_cursor(rows[-1].id) if has_next and rows else None
-    total = repo.count_collection(FAKE_USER_ID, name_search=name, set_code=set)
+    total = repo.count_collection(user_id, name_search=name, set_code=set)
 
     # Compute next_offset for offset-based pagination
     next_offset = None
@@ -120,28 +124,45 @@ def list_collection(
 
 
 @router.get("/summary", response_model=ApiResponse[CollectionSummary])
-def collection_summary(repo: Repository = Depends(get_db)):
-    summary = repo.get_collection_summary(FAKE_USER_ID)
-    total_value = repo.get_collection_total_value(FAKE_USER_ID)
+def collection_summary(
+    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    summary = repo.get_collection_summary(user_id)
+    total_value = repo.get_collection_total_value(user_id)
+    converted_value = (
+        converter.convert(total_value, date.today(), currency) if total_value else None
+    )
     data = CollectionSummary(
         total_unique=summary["total_unique"],
         total_cards=summary["total_cards"],
-        total_value=total_value,
+        total_value=converted_value,
         linked_count=summary["linked_count"],
         sets_count=summary["sets_count"],
+        currency=currency,
     )
     return success_response(data=data)
 
 
 @router.get("/sets")
-def collection_sets(repo: Repository = Depends(get_db)):
-    sets = repo.get_collection_sets(FAKE_USER_ID)
+def collection_sets(
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    sets = repo.get_collection_sets(user_id)
     data = [{"set_code": s[0], "set_name": s[1], "count": s[2]} for s in sets]
     return success_response(data=data)
 
 
 @router.get("/{entry_id}", response_model=ApiResponse[CollectionCardDetail])
-def get_collection_entry(entry_id: int, repo: Repository = Depends(get_db)):
+def get_collection_entry(
+    entry_id: int,
+    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+):
     """Get a single collection entry with full detail."""
     entry = repo.get_collection_entry(entry_id)
     if not entry:
@@ -157,7 +178,7 @@ def get_collection_entry(entry_id: int, repo: Repository = Depends(get_db)):
         prices = repo.get_latest_prices_batch([entry.card_id])
         obs = prices.get(entry.card_id)
         if obs and obs.median_price:
-            latest_price = obs.median_price
+            latest_price = converter.convert(obs.median_price, date.today(), currency)
 
         source_cards = repo.get_source_cards_for_card(entry.card_id)
         source_cards_data = [SourceCardSchema.model_validate(sc) for sc in source_cards]
@@ -171,11 +192,11 @@ def get_collection_entry(entry_id: int, repo: Repository = Depends(get_db)):
             price_history.extend(
                 PriceObservation(
                     observed_at=p.observed_at,
-                    median_price=p.median_price,
-                    tcg_price=p.tcg_price,
-                    last_sold_price=p.last_sold_price,
+                    median_price=converter.convert(p.median_price, p.observed_at, currency),
+                    tcg_price=converter.convert(p.tcg_price, p.observed_at, currency),
+                    last_sold_price=converter.convert(p.last_sold_price, p.observed_at, currency),
                     quantity_available=p.quantity_available,
-                    currency=p.currency,
+                    currency=currency,
                 )
                 for p in series
             )
@@ -207,6 +228,7 @@ def get_collection_entry(entry_id: int, repo: Repository = Depends(get_db)):
         color=entry.color,
         extras=entry.extras,
         latest_price=latest_price,
+        currency=currency,
         image_url=image_url,
         price_history=price_history,
         source_cards=source_cards_data,
@@ -218,7 +240,10 @@ def get_collection_entry(entry_id: int, repo: Repository = Depends(get_db)):
 
 
 @router.post("/import", response_model=ApiResponse[ImportResult])
-def import_collection(repo: Repository = Depends(get_db)):
+def import_collection(
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
     """Import collection from the default CSV file."""
     from pathlib import Path
 
@@ -231,7 +256,7 @@ def import_collection(repo: Repository = Depends(get_db)):
     result = import_collection_csv(
         engine=repo.engine,
         csv_path=csv_path,
-        user_id=FAKE_USER_ID,
+        user_id=user_id,
     )
     return success_response(data=ImportResult(**result))
 
@@ -240,7 +265,7 @@ def import_collection(repo: Repository = Depends(get_db)):
 async def trigger_sync(
     request: SyncRequest,
     repo: Repository = Depends(get_db),
-    _auth: None = Depends(verify_api_key),
+    _user_id: str = Depends(require_auth_or_api_key),
 ) -> ApiResponse[JobStatus]:
     """Trigger a collection sync as a background job."""
     job_id = job_tracker.start(
@@ -297,7 +322,7 @@ async def _run_sync_job(
 async def trigger_snapshot_prices(
     request: SnapshotRequest,
     repo: Repository = Depends(get_db),
-    _auth: None = Depends(verify_api_key),
+    _user_id: str = Depends(require_auth_or_api_key),
 ) -> ApiResponse[JobStatus]:
     """Trigger a daily price snapshot as a background job."""
     job_id = job_tracker.start(

@@ -11,13 +11,14 @@ import {
 } from "recharts";
 import { useApi } from "../hooks/useApi";
 import { fetchCardHistory } from "../api/cards";
-import { formatBRL } from "../utils/format";
+import { formatCurrency } from "../utils/format";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { ErrorBanner } from "./ErrorBanner";
 import type { PriceObservation } from "../types/api";
 
 interface PriceChartProps {
   cardId: number;
+  currency?: string;
 }
 
 const PERIODS = [
@@ -44,7 +45,7 @@ interface CustomTooltipProps {
   label?: string;
 }
 
-function ChartTooltip({ active, payload, label }: CustomTooltipProps) {
+function ChartTooltip({ active, payload, label, currency = "BRL" }: CustomTooltipProps & { currency?: string }) {
   if (!active || !payload || payload.length === 0) return null;
 
   // Find quantity from the original data point
@@ -58,7 +59,7 @@ function ChartTooltip({ active, payload, label }: CustomTooltipProps) {
       <p className="text-xs text-slate-400 mb-2">{label}</p>
       {payload.map((entry) => (
         <p key={entry.dataKey} className="text-sm" style={{ color: entry.color }}>
-          {entry.name}: {formatBRL(entry.value)}
+          {entry.name}: {formatCurrency(entry.value, currency)}
         </p>
       ))}
       {quantity != null && (
@@ -70,17 +71,17 @@ function ChartTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
-export function PriceChart({ cardId }: PriceChartProps) {
+export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
   const [period, setPeriod] = useState("90d");
 
   const historyFetcher = useCallback(
-    () => fetchCardHistory(cardId, period),
-    [cardId, period],
+    () => fetchCardHistory(cardId, period, currency),
+    [cardId, period, currency],
   );
 
   const { data: observations, loading, error, refetch } = useApi<PriceObservation[]>(
     historyFetcher,
-    [cardId, period],
+    [cardId, period, currency],
   );
 
   return (
@@ -137,9 +138,9 @@ export function PriceChart({ cardId }: PriceChartProps) {
                   <YAxis
                     stroke="#94a3b8"
                     tick={{ fill: "#94a3b8", fontSize: 12 }}
-                    tickFormatter={(v: number) => formatBRL(v)}
+                    tickFormatter={(v: number) => formatCurrency(v, currency)}
                   />
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={<ChartTooltip currency={currency} />} />
                   <Legend
                     wrapperStyle={{ color: "#e2e8f0" }}
                   />

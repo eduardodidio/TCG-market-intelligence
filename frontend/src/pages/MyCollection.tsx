@@ -15,7 +15,8 @@ import { useGridSize } from "../hooks/useGridSize";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CollectionCard, CollectionSummary } from "../types/api";
 import { DEFAULT_PAGE_LIMIT, GRID_SIZE_CONFIG } from "../utils/constants";
-import { formatBRL } from "../utils/format";
+import { useCurrency } from "../hooks/useCurrency";
+import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
 const RARITY_COLORS: Record<string, string> = {
@@ -32,7 +33,7 @@ const RARITY_LABELS: Record<string, string> = {
   C: "Common",
 };
 
-function CollectionCardTile({ card, compact = false }: { card: CollectionCard; compact?: boolean }) {
+function CollectionCardTile({ card, compact = false, currencyOverride }: { card: CollectionCard; compact?: boolean; currencyOverride?: string }) {
   const displayName = card.name_en || card.name_pt || "Unknown Card";
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
@@ -133,7 +134,7 @@ function CollectionCardTile({ card, compact = false }: { card: CollectionCard; c
             className={`text-sm font-bold ${card.latest_price != null ? "text-cyan-400" : "text-slate-500"}`}
             data-testid="card-price"
           >
-            {formatBRL(card.latest_price)}
+            {formatCurrency(card.latest_price, currencyOverride || "BRL")}
           </p>
           {!compact && (
             <div className="flex items-center gap-1 text-xs text-slate-400">
@@ -155,6 +156,7 @@ export function MyCollection() {
     document.title = "My Collection | TCG Market";
   }, []);
 
+  const { currency } = useCurrency();
   const { gridSize, setGridSize } = useGridSize();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -174,9 +176,9 @@ export function MyCollection() {
   const debouncedSearch = useDebounce(searchTerm, 300);
   const fetchIdRef = useRef(0);
 
-  // Load summary and sets on mount
+  // Load summary and sets on mount (and when currency changes)
   useEffect(() => {
-    fetchCollectionSummary().then((res) => {
+    fetchCollectionSummary({ currency }).then((res) => {
       if (res.data) setSummary(res.data);
     });
     fetchCollectionSets().then((res) => {
@@ -189,7 +191,7 @@ export function MyCollection() {
         );
       }
     });
-  }, []);
+  }, [currency]);
 
   // Sync URL params
   useEffect(() => {
@@ -215,9 +217,12 @@ export function MyCollection() {
         params.sort_by = sortBy;
         params.sort_dir = sortDir;
       }
+      if (currency !== "BRL") {
+        params.currency = currency;
+      }
       return params;
     },
-    [debouncedSearch, selectedSet, sortBy, sortDir],
+    [debouncedSearch, selectedSet, sortBy, sortDir, currency],
   );
 
   // Fetch collection cards
@@ -251,7 +256,7 @@ export function MyCollection() {
       .finally(() => {
         if (currentId === fetchIdRef.current) setLoading(false);
       });
-  }, [debouncedSearch, selectedSet, sortBy, sortDir, buildParams]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, currency, buildParams]);
 
   const handleLoadMore = useCallback(() => {
     if (!hasMore || loadingMore) return;
@@ -312,7 +317,7 @@ export function MyCollection() {
           <KpiCard title="Sets" value={String(summary.sets_count)} />
           <KpiCard
             title="Est. Value"
-            value={summary.total_value ? formatBRL(summary.total_value) : "--"}
+            value={summary.total_value ? formatCurrency(summary.total_value, currency) : "--"}
           />
         </div>
       )}
@@ -368,7 +373,7 @@ export function MyCollection() {
             data-testid="collection-grid"
           >
             {sortedCards.map((card) => (
-              <CollectionCardTile key={card.id} card={card} compact={GRID_SIZE_CONFIG[gridSize].compact} />
+              <CollectionCardTile key={card.id} card={card} compact={GRID_SIZE_CONFIG[gridSize].compact} currencyOverride={currency} />
             ))}
           </div>
           <div ref={sentinelRef} data-testid="scroll-sentinel" />

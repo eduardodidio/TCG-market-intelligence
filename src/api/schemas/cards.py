@@ -15,6 +15,7 @@ class CardSummary(BaseModel):
     set_code: str | None = None
     collector_number: str | None = None
     latest_price: float | None = None
+    currency: str = "BRL"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,6 +37,7 @@ class CardDetail(BaseModel):
     set_code: str | None = None
     collector_number: str | None = None
     latest_price: float | None = None
+    currency: str = "BRL"
     source_cards: list[SourceCardSchema] = []
     created_at: datetime
     updated_at: datetime

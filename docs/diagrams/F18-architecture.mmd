@@ -1,0 +1,41 @@
+%%{init: {'theme': 'dark'}}%%
+graph LR
+    subgraph External
+        BCB["BCB PTAX API<br/>(olinda.bcb.gov.br)"]
+    end
+
+    subgraph Backend
+        CLI["CLI<br/>update-exchange-rate"]
+        BCBClient["BCB Client<br/>(providers/bcb/client.py)"]
+        Repo["Repository<br/>(database/repository.py)"]
+        DB[(SQLite<br/>exchange_rates)]
+        Converter["CurrencyConverter<br/>(services/currency.py)"]
+        API["FastAPI Endpoints<br/>(?currency=BRL|USD)"]
+    end
+
+    subgraph Frontend
+        Toggle["CurrencyToggle<br/>(BRL/USD)"]
+        Context["CurrencyContext<br/>(localStorage)"]
+        Pages["Pages & Components<br/>(formatCurrency)"]
+    end
+
+    BCB -->|PTAX rates| BCBClient
+    CLI --> BCBClient
+    BCBClient -->|ExchangeRate| Repo
+    Repo -->|upsert/query| DB
+    API -->|get rate| Converter
+    Converter -->|get_closest_rate| Repo
+    API -->|converted prices| Pages
+    Toggle -->|setCurrency| Context
+    Context -->|currency param| API
+    Pages -->|display| Toggle
+
+    classDef external fill:#1e3a5f,stroke:#94a3b8,color:#e2e8f0
+    classDef backend fill:#164e63,stroke:#06b6d4,color:#e2e8f0
+    classDef frontend fill:#3f1e5f,stroke:#a78bfa,color:#e2e8f0
+    classDef db fill:#1c1917,stroke:#f59e0b,color:#fbbf24
+
+    class BCB external
+    class CLI,BCBClient,Repo,Converter,API backend
+    class Toggle,Context,Pages frontend
+    class DB db

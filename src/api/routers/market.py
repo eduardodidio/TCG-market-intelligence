@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 
-from src.api.deps import get_db
+from src.api.deps import get_currency_converter_dep, get_db
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.api.schemas.market import (
     MarketStats,
@@ -13,6 +14,7 @@ from src.api.schemas.market import (
     MoversResponse,
 )
 from src.database.repository import Repository
+from src.services.currency import CurrencyConverter
 
 router = APIRouter(prefix="/market", tags=["market"])
 
@@ -23,7 +25,9 @@ MOVERS_PERIOD_MAP = {"7d": 7, "30d": 30, "90d": 90}
 def get_movers(
     period: str = Query(default="30d"),
     limit: int = Query(default=10, ge=1, le=50),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
     repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
     if period not in MOVERS_PERIOD_MAP:
         raise HTTPException(
@@ -33,15 +37,17 @@ def get_movers(
 
     days = MOVERS_PERIOD_MAP[period]
     gainers_raw, losers_raw = repo.get_movers(days=days, limit=limit)
+    today = date.today()
 
     gainers = [
         MoverEntry(
             card_id=g[0],
             name_en=g[1],
             set_code=g[2],
-            price_start=g[3],
-            price_end=g[4],
+            price_start=converter.convert(g[3], today, currency) or g[3],
+            price_end=converter.convert(g[4], today, currency) or g[4],
             change_pct=g[5],
+            currency=currency,
         )
         for g in gainers_raw
     ]
@@ -50,9 +56,10 @@ def get_movers(
             card_id=lo[0],
             name_en=lo[1],
             set_code=lo[2],
-            price_start=lo[3],
-            price_end=lo[4],
+            price_start=converter.convert(lo[3], today, currency) or lo[3],
+            price_end=converter.convert(lo[4], today, currency) or lo[4],
             change_pct=lo[5],
+            currency=currency,
         )
         for lo in losers_raw
     ]
@@ -64,13 +71,16 @@ def get_movers(
 @router.get("/stats", response_model=ApiResponse[MarketStats])
 def get_stats(
     game: str | None = None,
+    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
     repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
     stats = repo.get_market_stats(game=game)
 
     avg = stats["avg_price"]
     if avg is not None:
         avg = Decimal(str(round(float(avg), 2)))
+        avg = converter.convert(avg, date.today(), currency) or avg
 
     data = MarketStats(
         total_cards=stats["total_cards"],
@@ -78,5 +88,6 @@ def get_stats(
         avg_price=avg,
         date_range_start=stats["date_range_start"],
         date_range_end=stats["date_range_end"],
+        currency=currency,
     )
     return success_response(data=data)

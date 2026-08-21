@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useApi } from "../hooks/useApi";
 import { fetchMovers } from "../api/market";
+import { useCurrency } from "../hooks/useCurrency";
 import { MoversTable } from "../components/MoversTable";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { EmptyState } from "../components/EmptyState";
@@ -17,12 +18,13 @@ export function MarketMovers() {
     document.title = "Market Movers | TCG Market";
   }, []);
 
+  const { currency } = useCurrency();
   const [period, setPeriod] = useState<Period>("30d");
   const [limit, setLimit] = useState<string>("25");
 
   const { data, loading, error, refetch } = useApi<MoversResponse>(
-    () => fetchMovers({ period, limit }),
-    [period, limit],
+    () => fetchMovers({ period, limit, currency }),
+    [period, limit, currency],
   );
 
   return (

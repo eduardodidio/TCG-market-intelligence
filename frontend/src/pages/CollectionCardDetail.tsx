@@ -2,7 +2,8 @@ import { useCallback, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { fetchCollectionEntry } from "../api/collection";
-import { formatBRL } from "../utils/format";
+import { useCurrency } from "../hooks/useCurrency";
+import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PriceChart } from "../components/PriceChart";
@@ -27,14 +28,16 @@ export function CollectionCardDetail() {
   const { id } = useParams<{ id: string }>();
   const entryId = Number(id);
 
+  const { currency } = useCurrency();
+
   const detailFetcher = useCallback(
-    () => fetchCollectionEntry(entryId),
-    [entryId],
+    () => fetchCollectionEntry(entryId, { currency }),
+    [entryId, currency],
   );
 
   const { data: entry, loading, error, refetch } = useApi<CollectionCardDetailType>(
     detailFetcher,
-    [entryId],
+    [entryId, currency],
   );
 
   useEffect(() => {
@@ -193,7 +196,7 @@ export function CollectionCardDetail() {
           <div className="mb-6">
             <p className="text-sm text-slate-400 mb-1">Latest Price</p>
             <p data-testid="latest-price" className="text-3xl font-bold text-white">
-              {formatBRL(entry.latest_price)}
+              {formatCurrency(entry.latest_price, currency)}
             </p>
           </div>
 
@@ -284,7 +287,7 @@ export function CollectionCardDetail() {
         {/* Right panel: Price chart */}
         <div>
           {entry.card_id != null ? (
-            <PriceChart cardId={entry.card_id} />
+            <PriceChart cardId={entry.card_id} currency={currency} />
           ) : (
             <div data-testid="no-price-chart" className="bg-slate-800 rounded-xl p-8 text-center">
               <p className="text-slate-400">

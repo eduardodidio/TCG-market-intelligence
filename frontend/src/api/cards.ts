@@ -9,15 +9,18 @@ export function fetchCards(
 
 export function fetchCardDetail(
   id: number,
+  params?: Record<string, string>,
 ): Promise<ApiResponse<CardDetail>> {
-  return apiGet<CardDetail>(`/api/v1/cards/${id}`);
+  return apiGet<CardDetail>(`/api/v1/cards/${id}`, params);
 }
 
 export function fetchCardHistory(
   id: number,
   period?: string,
+  currency?: string,
 ): Promise<ApiResponse<PriceObservation[]>> {
   const params: Record<string, string> = {};
   if (period) params.period = period;
+  if (currency) params.currency = currency;
   return apiGet<PriceObservation[]>(`/api/v1/cards/${id}/history`, params);
 }

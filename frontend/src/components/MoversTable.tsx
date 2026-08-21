@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { MoverEntry } from "../types/api";
-import { formatBRL, formatPercent } from "../utils/format";
+import { useCurrency } from "../hooks/useCurrency";
+import { formatCurrency, formatPercent } from "../utils/format";
 
 interface MoversTableProps {
   entries: MoverEntry[];
@@ -24,6 +25,7 @@ function DirectionArrow({ type }: { type: "gainers" | "losers" }) {
 }
 
 export function MoversTable({ entries, title, type }: MoversTableProps) {
+  const { currency } = useCurrency();
   const accentClass = type === "gainers" ? "text-green-400" : "text-red-400";
   const changeColorClass =
     type === "gainers" ? "text-green-400" : "text-red-400";
@@ -71,10 +73,10 @@ export function MoversTable({ entries, title, type }: MoversTableProps) {
                   )}
                 </td>
                 <td className="hidden px-6 py-3 text-slate-300 sm:table-cell">
-                  {formatBRL(entry.price_start)}
+                  {formatCurrency(entry.price_start, currency)}
                 </td>
                 <td className="hidden px-6 py-3 text-slate-300 sm:table-cell">
-                  {formatBRL(entry.price_end)}
+                  {formatCurrency(entry.price_end, currency)}
                 </td>
                 <td
                   className={`px-6 py-3 text-right font-bold ${changeColorClass}`}

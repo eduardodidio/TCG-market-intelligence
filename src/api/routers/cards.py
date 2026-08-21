@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import base64
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 
-from src.api.deps import get_db
+from src.api.deps import get_currency_converter_dep, get_db
 from src.api.schemas.cards import (
     CardDetail,
     CardSummary,
@@ -18,6 +19,7 @@ from src.api.schemas.envelope import (
     success_response,
 )
 from src.database.repository import Repository
+from src.services.currency import CurrencyConverter
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -48,7 +50,9 @@ def list_cards(
     name: str | None = None,
     cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
     repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
     after_id = decode_cursor(cursor) if cursor else None
     rows = repo.list_cards(
@@ -66,20 +70,23 @@ def list_cards(
     card_ids = [r.id for r in rows]
     latest_prices = repo.get_latest_prices_batch(card_ids)
 
-    data = [
-        CardSummary(
-            id=r.id,
-            game=r.game,
-            name_en=r.name_en,
-            name_pt=r.name_pt,
-            set_code=r.set_code,
-            collector_number=r.collector_number,
-            latest_price=(
-                latest_prices.get(r.id).median_price if latest_prices.get(r.id) else None
-            ),
+    data = []
+    for r in rows:
+        obs = latest_prices.get(r.id)
+        raw_price = obs.median_price if obs else None
+        price = converter.convert(raw_price, date.today(), currency) if raw_price else None
+        data.append(
+            CardSummary(
+                id=r.id,
+                game=r.game,
+                name_en=r.name_en,
+                name_pt=r.name_pt,
+                set_code=r.set_code,
+                collector_number=r.collector_number,
+                latest_price=price,
+                currency=currency,
+            )
         )
-        for r in rows
-    ]
 
     next_cursor = encode_cursor(rows[-1].id) if has_next and rows else None
     total = repo.count_cards(game=game, set_code=set, name_search=name)
@@ -88,13 +95,21 @@ def list_cards(
 
 
 @router.get("/{card_id}", response_model=ApiResponse[CardDetail])
-def get_card(card_id: int, repo: Repository = Depends(get_db)):
+def get_card(
+    card_id: int,
+    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+):
     card = repo.get_card_by_id(card_id)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
 
     source_cards = repo.get_source_cards_for_card(card_id)
     latest_prices = repo.get_latest_prices_batch([card_id])
+    obs = latest_prices.get(card_id)
+    raw_price = obs.median_price if obs else None
+    price = converter.convert(raw_price, date.today(), currency) if raw_price else None
 
     data = CardDetail(
         id=card.id,
@@ -103,9 +118,8 @@ def get_card(card_id: int, repo: Repository = Depends(get_db)):
         name_pt=card.name_pt,
         set_code=card.set_code,
         collector_number=card.collector_number,
-        latest_price=(
-            latest_prices.get(card_id).median_price if latest_prices.get(card_id) else None
-        ),
+        latest_price=price,
+        currency=currency,
         source_cards=[SourceCardSchema.model_validate(sc) for sc in source_cards],
         created_at=card.created_at,
         updated_at=card.updated_at,
@@ -121,7 +135,9 @@ def get_card(card_id: int, repo: Repository = Depends(get_db)):
 def get_history(
     card_id: int,
     period: str = Query(default="90d"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD)$"),
     repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
     if period not in PERIOD_MAP:
         raise HTTPException(
@@ -152,11 +168,11 @@ def get_history(
     data = [
         PriceObservation(
             observed_at=p.observed_at,
-            median_price=p.median_price,
-            tcg_price=p.tcg_price,
-            last_sold_price=p.last_sold_price,
+            median_price=converter.convert(p.median_price, p.observed_at, currency),
+            tcg_price=converter.convert(p.tcg_price, p.observed_at, currency),
+            last_sold_price=converter.convert(p.last_sold_price, p.observed_at, currency),
             quantity_available=p.quantity_available,
-            currency=p.currency,
+            currency=currency,
         )
         for p in all_observations
     ]

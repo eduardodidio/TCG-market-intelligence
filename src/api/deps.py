@@ -25,3 +25,21 @@ def get_db() -> Generator[Repository, None, None]:
     db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
     repo = Repository(db_url=db_url)
     yield repo
+
+
+def get_currency_converter_dep():  # noqa: F811
+    """FastAPI dependency that yields a CurrencyConverter."""
+    from src.services.currency import CurrencyConverter
+
+    db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+    repo = Repository(db_url=db_url)
+    yield CurrencyConverter(repo)
+
+
+# Re-export auth dependencies for convenience
+from src.auth.dependencies import (  # noqa: E402, F401
+    get_current_user,
+    get_current_user_id,
+    get_optional_user,
+    require_auth_or_api_key,
+)

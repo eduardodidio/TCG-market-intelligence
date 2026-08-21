@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { CardSummary } from "../types/api";
-import { formatBRL } from "../utils/format";
+import { useCurrency } from "../hooks/useCurrency";
+import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
 interface CardTileProps {
@@ -9,6 +10,7 @@ interface CardTileProps {
 }
 
 export function CardTile({ card }: CardTileProps) {
+  const { currency } = useCurrency();
   const displayName = card.name_en || card.name_pt || "Unknown Card";
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
@@ -92,7 +94,7 @@ export function CardTile({ card }: CardTileProps) {
         </div>
 
         <p className="mt-2 text-sm font-bold text-cyan-400" data-testid="card-price">
-          {formatBRL(card.latest_price)}
+          {formatCurrency(card.latest_price, currency)}
         </p>
       </div>
     </Link>

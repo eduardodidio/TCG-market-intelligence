@@ -9,7 +9,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from src.api.deps import verify_api_key
+from src.api.deps import require_auth_or_api_key
 from src.api.schemas.scans import (
     ScanListResponse,
     ScanRequest,
@@ -58,7 +58,7 @@ def _row_to_response(row: dict) -> ScanRunResponse:
 @router.post("", response_model=ScanTriggerResponse)
 async def trigger_scan(
     request: ScanRequest,
-    _auth: None = Depends(verify_api_key),
+    _user_id: str = Depends(require_auth_or_api_key),
 ):
     """Trigger a new collection price scan in a background thread."""
     from src.collectors.scan import run_scan

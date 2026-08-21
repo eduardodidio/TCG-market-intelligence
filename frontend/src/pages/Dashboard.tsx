@@ -3,7 +3,8 @@ import { useApi } from "../hooks/useApi";
 import { fetchMarketStats, fetchMovers } from "../api/market";
 import { fetchCollectionHealth } from "../api/collect";
 import { fetchCollectionSummary } from "../api/collection";
-import { formatBRL, formatDate } from "../utils/format";
+import { useCurrency } from "../hooks/useCurrency";
+import { formatCurrency, formatDate } from "../utils/format";
 import { KpiCard } from "../components/KpiCard";
 import { MoversPreview } from "../components/MoversPreview";
 import { EmptyState } from "../components/EmptyState";
@@ -22,13 +23,17 @@ export function Dashboard() {
     document.title = "Dashboard | TCG Market";
   }, []);
 
-  const stats = useApi<MarketStats>(() => fetchMarketStats());
+  const { currency } = useCurrency();
+
+  const stats = useApi<MarketStats>(() => fetchMarketStats({ currency }), [currency]);
   const movers = useApi<MoversResponse>(() =>
-    fetchMovers({ period: "30d", limit: "5" }),
+    fetchMovers({ period: "30d", limit: "5", currency }),
+    [currency],
   );
   const health = useApi<CollectionHealth>(() => fetchCollectionHealth());
   const collectionSummary = useApi<CollectionSummary>(() =>
-    fetchCollectionSummary(),
+    fetchCollectionSummary({ currency }),
+    [currency],
   );
 
   const loading = stats.loading || movers.loading;
@@ -128,7 +133,7 @@ export function Dashboard() {
           />
           <KpiCard
             title="Est. Collection Value"
-            value={formatBRL(summaryData.total_value)}
+            value={formatCurrency(summaryData.total_value, currency)}
             subtitle="based on latest prices"
           />
           <KpiCard
@@ -160,7 +165,7 @@ export function Dashboard() {
           />
           <KpiCard
             title="Average Price"
-            value={formatBRL(marketStats?.avg_price ?? null)}
+            value={formatCurrency(marketStats?.avg_price ?? null, currency)}
             subtitle="across all cards"
           />
           <KpiCard

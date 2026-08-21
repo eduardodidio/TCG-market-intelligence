@@ -20,6 +20,7 @@ class CollectionCard(BaseModel):
     color: str | None = None
     extras: str | None = None
     latest_price: float | None = None
+    currency: str = "BRL"
     image_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -40,6 +41,7 @@ class CollectionSummary(BaseModel):
     total_value: float | None = None
     linked_count: int
     sets_count: int
+    currency: str = "BRL"
 
 
 class ImportResult(BaseModel):

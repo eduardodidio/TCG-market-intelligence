@@ -1,0 +1,41 @@
+graph TB
+    subgraph Frontend
+        LP[Login Page]
+        AC[AuthContext / AuthProvider]
+        PR[ProtectedRoute]
+        LY[Layout]
+        API_AUTH[api/auth.ts]
+    end
+
+    subgraph Backend
+        AR[Auth Router<br>/api/v1/auth/*]
+        AD[Auth Dependencies<br>get_current_user<br>require_auth_or_api_key]
+        PW[passwords.py<br>bcrypt hash/verify]
+        JWT[jwt.py<br>create/decode tokens]
+        OA[oauth.py<br>provider config]
+        CR[Collection Router<br>/api/v1/collection/*]
+        SR[Scans Router<br>/api/v1/scans/*]
+    end
+
+    subgraph Database
+        UR[(users table)]
+        UCR[(user_collection table)]
+    end
+
+    LP -->|email+password| API_AUTH
+    API_AUTH -->|POST /login, /register| AR
+    AR --> PW
+    AR --> JWT
+    AR --> OA
+    AR --> UR
+
+    AC -->|fetchMe| AR
+    AC -->|storeTokens| API_AUTH
+    PR -->|checks isAuthenticated| AC
+    LY -->|shows user/sign-in| AC
+
+    AD -->|validates JWT| JWT
+    AD -->|checks user exists| UR
+    CR -->|require_auth_or_api_key| AD
+    SR -->|require_auth_or_api_key| AD
+    CR --> UCR

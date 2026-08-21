@@ -12,6 +12,11 @@ class Game(str, Enum):
     YUGIOH = "yugioh"
 
 
+class Currency(str, Enum):
+    BRL = "BRL"
+    USD = "USD"
+
+
 class Condition(str, Enum):
     NM = "NM"
     SP = "SP"
@@ -327,3 +332,49 @@ class ScanRun:
     error_summary: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+
+
+# --- Exchange rate / multi-currency domain models ---
+
+
+@dataclass
+class ExchangeRate:
+    """A single exchange rate observation (e.g. USD->BRL)."""
+
+    rate_date: date
+    from_currency: str = "USD"
+    to_currency: str = "BRL"
+    rate: Decimal = Decimal("0")
+    source: str = "bcb_ptax"
+
+
+@dataclass
+class ConvertedPrice:
+    """Price converted to a target currency at a specific exchange rate."""
+
+    value: Decimal | None
+    currency: str
+    exchange_rate: Decimal | None = None
+    rate_date: date | None = None
+
+
+# --- Authentication domain models ---
+
+
+class AuthProvider(str, Enum):
+    EMAIL = "email"
+    GOOGLE = "google"
+    MICROSOFT = "microsoft"
+    APPLE = "apple"
+
+
+@dataclass
+class User:
+    """Authenticated user."""
+
+    id: int
+    email: str
+    display_name: str | None = None
+    avatar_url: str | None = None
+    auth_provider: str = "email"
+    is_active: bool = True

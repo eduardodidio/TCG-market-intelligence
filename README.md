@@ -63,6 +63,7 @@ python -m src.cli.main retry-failed
 | `snapshot-prices` | Daily price snapshot from JSON-LD on product pages |
 | `scan` | Trigger a collection price scan with optional filters |
 | `scan-history` | List past scan runs with metrics |
+| `update-exchange-rate` | Fetch USD/BRL exchange rate from BCB PTAX |
 | `analyze list` | List all cards with observation counts |
 | `analyze card <id>` | Compute analytics for a single card by external ID |
 
@@ -138,6 +139,9 @@ price_observations       Immutable weekly price snapshots
 
 collection_errors        Failed collection attempts (for retry)
   source, external_id, url, error_type, error_message, resolved
+
+exchange_rates           Daily USD/BRL exchange rates
+  rate_date (unique), from_currency, to_currency, rate, source
 ```
 
 ## REST API
@@ -174,6 +178,9 @@ Auto-generated interactive docs are available at `/docs` (Swagger UI) and
 | POST | `/api/v1/scans` | Trigger a collection price scan with filters (async, requires API key) |
 | GET | `/api/v1/scans` | List scan history with pagination |
 | GET | `/api/v1/scans/{id}` | Scan detail with error summary |
+| GET | `/api/v1/exchange-rates/current` | Current USD/BRL exchange rate |
+| GET | `/api/v1/exchange-rates/history` | Exchange rate history (query: `days`) |
+| POST | `/api/v1/exchange-rates/refresh` | Fetch latest rate from BCB (requires API key) |
 
 All responses use a standard envelope: `{"data": ..., "meta": {...}, "errors": []}`.
 Every response includes a `X-Request-ID` header and `meta.request_id` for tracing.
@@ -501,6 +508,61 @@ collection page, persisted in localStorage:
   classes from `GRID_SIZE_CONFIG`; Small mode shows compact cards
   (name + price only), Large mode shows full card info
 - **Persistent preference** -- grid size survives page reload
+
+### F22 -- Authentication (Login Area) (2026-08-21)
+
+Added user authentication with email+password and JWT-based sessions.
+Collection and scan endpoints are now protected by user auth:
+
+- **User model** -- new `users` table with email, display name, avatar URL,
+  auth provider (email/google/microsoft/apple), provider ID, password hash,
+  and active flag. BCrypt password hashing via `bcrypt` library.
+- **JWT tokens** -- HS256 access tokens (30 min) and refresh tokens (7 days)
+  via `python-jose`. Secret via `TCG_JWT_SECRET` env var (auto-generated in dev).
+- **Auth API** -- `POST /api/v1/auth/register`, `/login`, `/refresh`, `/logout`,
+  `GET /api/v1/auth/me`. OAuth endpoints (`/{provider}`, `/{provider}/callback`)
+  return 501 until provider credentials are configured.
+- **Dual auth** -- protected endpoints accept EITHER JWT (browser users) OR
+  X-API-Key (cron/CLI). In dev mode (no `TCG_API_KEY` set), unauthenticated
+  access falls through for backward compatibility.
+- **Frontend auth** -- `AuthProvider` context, `useAuth()` hook, Login page
+  with email/password form and mode toggle (sign in / create account),
+  `ProtectedRoute` component guarding `/collection` and `/scans` routes.
+- **Layout updates** -- sidebar shows real user name + sign-out button when
+  authenticated, or sign-in link when not. Nav items conditionally visible.
+- **Collection migration** -- `migrate-user` CLI command moves collection
+  entries from old user ID to new user ID.
+- **OAuth placeholder** -- Google, Microsoft, Apple OAuth buttons present
+  but disabled (configuration-only; full flow requires setting env vars).
+
+### F18 -- Multi-Currency Support (BRL + USD) (2026-08-21)
+
+Added support for viewing all prices in either BRL or USD, with real-time
+currency conversion using BCB PTAX exchange rates:
+
+- **Exchange rate storage** -- new `exchange_rates` table with daily
+  USD/BRL rates. ExchangeRateRow model with unique date constraint and
+  upsert support.
+- **BCB PTAX client** -- async client (`src/providers/bcb/client.py`)
+  fetches daily rates and date ranges from the Brazilian Central Bank
+  API. Returns `ExchangeRate` domain objects.
+- **CurrencyConverter service** -- read-time conversion with per-request
+  cache. Divides BRL prices by the exchange rate for the observation
+  date. Falls back to closest previous business day when exact date has
+  no rate. Returns null when no rate data exists.
+- **CLI** -- `update-exchange-rate` command with `--date` and
+  `--backfill-days` options. Backfill script at
+  `scripts/backfill_exchange_rates.py` for initial 365-day population.
+- **API** -- `?currency=BRL|USD` query parameter on all price endpoints
+  (cards, collection, market movers, stats). New exchange rate endpoints:
+  `GET /api/v1/exchange-rates/current` and
+  `GET /api/v1/exchange-rates/history`.
+- **Frontend** -- BRL/USD toggle in sidebar (replaces static BRL indicator),
+  persistent via localStorage with cross-tab sync. All price displays
+  use `formatCurrency()` with locale-aware formatting (R$ for BRL,
+  $ for USD).
+- **Architecture decision:** [ADR-0005](docs/adr/0005-multi-currency-read-time-conversion.md)
+  documents the read-time conversion approach.
 
 ## Future
 

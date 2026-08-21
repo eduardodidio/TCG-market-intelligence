@@ -148,3 +148,40 @@ class ScanRunRow(Base):
         Index("ix_scan_runs_status", "status"),
         Index("ix_scan_runs_type_date", "scan_type", "created_at"),
     )
+
+
+class ExchangeRateRow(Base):
+    __tablename__ = "exchange_rates"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rate_date: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
+    from_currency: Mapped[str] = mapped_column(String(3), default="USD")
+    to_currency: Mapped[str] = mapped_column(String(3), default="BRL")
+    rate: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False)
+    source: Mapped[str] = mapped_column(String(50), default="bcb_ptax")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (Index("ix_exchange_rate_date", "rate_date"),)
+
+
+class UserRow(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(200))
+    avatar_url: Mapped[str | None] = mapped_column(String(1000))
+    auth_provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    provider_id: Mapped[str | None] = mapped_column(String(200))
+    password_hash: Mapped[str | None] = mapped_column(String(200))
+    is_active: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    __table_args__ = (
+        Index("ix_users_email", "email"),
+        Index("ix_users_provider", "auth_provider"),
+        UniqueConstraint("auth_provider", "provider_id", name="uq_user_provider"),
+    )

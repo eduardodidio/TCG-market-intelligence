@@ -39,19 +39,23 @@ def create_app() -> FastAPI:
         return response
 
     # Include routers under /api/v1
+    from src.api.routers.auth import router as auth_router
     from src.api.routers.cards import router as cards_router
     from src.api.routers.collect import router as collect_router
     from src.api.routers.collection import router as collection_router
+    from src.api.routers.exchange_rates import router as exchange_rates_router
     from src.api.routers.market import router as market_router
     from src.api.routers.scans import router as scans_router
     from src.api.routers.sets import router as sets_router
 
+    app.include_router(auth_router, prefix="/api/v1")
     app.include_router(cards_router, prefix="/api/v1")
     app.include_router(sets_router, prefix="/api/v1")
     app.include_router(market_router, prefix="/api/v1")
     app.include_router(collect_router, prefix="/api/v1")
     app.include_router(collection_router, prefix="/api/v1")
     app.include_router(scans_router, prefix="/api/v1")
+    app.include_router(exchange_rates_router, prefix="/api/v1")
 
     # Health check (outside /api/v1)
     @app.get("/health")

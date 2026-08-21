@@ -459,6 +459,60 @@ def _print_scan_history(runs):
         )
 
 
+@cli.command("update-exchange-rate")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--date", "target_date", default=None, help="Date (YYYY-MM-DD), defaults to today")
+@click.option("--backfill-days", default=0, type=int, help="Fetch rates for last N days")
+def update_exchange_rate(db, target_date, backfill_days):
+    """Fetch USD/BRL exchange rate from BCB PTAX and store it."""
+    from datetime import date as date_type
+    from datetime import timedelta
+
+    from src.database.repository import Repository
+    from src.providers.bcb.client import fetch_daily_rate, fetch_rate_range
+
+    repo = Repository(db_url=db)
+
+    if backfill_days > 0:
+        end = date_type.today()
+        start = end - timedelta(days=backfill_days)
+        click.echo(f"Fetching PTAX rates from {start} to {end}...")
+        rates = asyncio.run(fetch_rate_range(start, end))
+        if rates:
+            repo.bulk_upsert_rates(rates)
+            click.echo(f"Stored {len(rates)} exchange rates.")
+        else:
+            click.echo("No rates returned from BCB.")
+    else:
+        if target_date:
+            d = date_type.fromisoformat(target_date)
+        else:
+            d = date_type.today()
+        click.echo(f"Fetching PTAX rate for {d}...")
+        rate = asyncio.run(fetch_daily_rate(d))
+        if rate:
+            repo.upsert_exchange_rate(rate)
+            click.echo(f"Stored rate: 1 USD = R$ {rate.rate}")
+        else:
+            click.echo(f"No rate available for {d} (weekend/holiday?).")
+
+
+@cli.command("migrate-user")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--old-id", default="eduardo", help="Old user ID to migrate from")
+@click.option("--new-id", required=True, help="New user ID to migrate to")
+def migrate_user(db, old_id, new_id):
+    """Migrate collection entries from old user ID to new user ID."""
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    count = repo.migrate_collection_user(old_id, new_id)
+    if count > 0:
+        click.echo(f"Migrated {count} collection entries from '{old_id}' to '{new_id}'.")
+    else:
+        click.echo(f"No collection entries found for user '{old_id}'.")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")

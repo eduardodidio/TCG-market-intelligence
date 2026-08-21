@@ -13,6 +13,7 @@ class MoverEntry(BaseModel):
     price_start: Decimal
     price_end: Decimal
     change_pct: Decimal
+    currency: str = "BRL"
 
 
 class MoversResponse(BaseModel):
@@ -26,3 +27,4 @@ class MarketStats(BaseModel):
     avg_price: Decimal | None = None
     date_range_start: date | None = None
     date_range_end: date | None = None
+    currency: str = "BRL"

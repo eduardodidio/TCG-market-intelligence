@@ -1,0 +1,36 @@
+graph TD
+    START([User visits app]) --> CHECK{Has stored<br>JWT token?}
+
+    CHECK -->|Yes| VERIFY[AuthContext calls<br>GET /api/v1/auth/me]
+    CHECK -->|No| SHOW_PUBLIC[Show public pages<br>Dashboard, Cards, Movers]
+
+    VERIFY -->|Valid| AUTHED[User authenticated<br>Show full nav]
+    VERIFY -->|Invalid/expired| CLEAR[Clear tokens<br>Show public pages]
+
+    SHOW_PUBLIC --> CLICK_PROTECTED{User clicks<br>protected route?}
+    CLEAR --> CLICK_PROTECTED
+
+    CLICK_PROTECTED -->|Yes| REDIRECT[ProtectedRoute<br>redirects to /login]
+    CLICK_PROTECTED -->|No| BROWSE[Browse public pages]
+
+    REDIRECT --> LOGIN_PAGE[Login Page]
+    LOGIN_PAGE --> CHOOSE{Sign in or<br>Create account?}
+
+    CHOOSE -->|Sign in| LOGIN[POST /api/v1/auth/login<br>email + password]
+    CHOOSE -->|Create account| REGISTER[POST /api/v1/auth/register<br>email + password]
+
+    LOGIN -->|Success| STORE_TOKENS[Store JWT tokens<br>in localStorage]
+    LOGIN -->|Failure| SHOW_ERROR[Show error message]
+    REGISTER -->|Success| STORE_TOKENS
+    REGISTER -->|Failure| SHOW_ERROR
+
+    SHOW_ERROR --> LOGIN_PAGE
+
+    STORE_TOKENS --> FETCH_ME[GET /api/v1/auth/me]
+    FETCH_ME --> AUTHED
+
+    AUTHED --> ACCESS[Access collection,<br>scans, all features]
+
+    ACCESS --> LOGOUT{User clicks<br>Sign out?}
+    LOGOUT -->|Yes| CLEAR_SESSION[POST /api/v1/auth/logout<br>Clear tokens]
+    CLEAR_SESSION --> SHOW_PUBLIC
