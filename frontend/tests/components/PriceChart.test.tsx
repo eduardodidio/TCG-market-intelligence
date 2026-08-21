@@ -88,7 +88,7 @@ describe("PriceChart", () => {
     renderPriceChart();
 
     const btn90d = screen.getByTestId("period-btn-90d");
-    expect(btn90d.className).toContain("bg-tcg-primary");
+    expect(btn90d.className).toContain("bg-indigo-500");
   });
 
   it("clicking a period button changes active state", async () => {
@@ -102,10 +102,10 @@ describe("PriceChart", () => {
     fireEvent.click(screen.getByTestId("period-btn-30d"));
 
     const btn30d = screen.getByTestId("period-btn-30d");
-    expect(btn30d.className).toContain("bg-tcg-primary");
+    expect(btn30d.className).toContain("bg-indigo-500");
 
     const btn90d = screen.getByTestId("period-btn-90d");
-    expect(btn90d.className).not.toContain("bg-tcg-primary");
+    expect(btn90d.className).not.toContain("bg-indigo-500");
   });
 
   it("period change triggers new API call", async () => {

@@ -24,19 +24,19 @@ function DirectionArrow({ type }: { type: "gainer" | "loser" }) {
 }
 
 function MoverRow({ entry, type }: { entry: MoverEntry; type: "gainer" | "loser" }) {
-  const colorClass = type === "gainer" ? "text-tcg-gain" : "text-tcg-loss";
+  const colorClass = type === "gainer" ? "text-green-400" : "text-red-400";
 
   return (
     <li className="flex items-center justify-between py-2">
       <div className="flex items-center gap-2 min-w-0">
         <Link
           to={`/cards/${entry.card_id}`}
-          className="truncate text-sm text-white hover:text-tcg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary rounded"
+          className="truncate text-sm text-white hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
         >
           {entry.name_en}
         </Link>
         {entry.set_code && (
-          <span className="shrink-0 rounded-tcg-sm bg-tcg-card-alt px-1.5 py-0.5 text-xs text-tcg-muted">
+          <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-xs text-slate-400">
             {entry.set_code}
           </span>
         )}
@@ -56,30 +56,30 @@ export function MoversPreview({ gainers, losers }: MoversPreviewProps) {
       data-testid="movers-preview"
       className="grid gap-6 md:grid-cols-2"
     >
-      <div className="rounded-tcg-lg bg-tcg-card border border-tcg-border p-6">
-        <h3 className="mb-4 text-lg font-semibold text-tcg-gain">{t("dashboard.topGainers")}</h3>
-        <ul className="divide-y divide-tcg-border/50">
+      <div className="rounded-lg bg-slate-800 border border-slate-600 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-green-400">{t("dashboard.topGainers")}</h3>
+        <ul className="divide-y divide-slate-600/50">
           {gainers.map((entry) => (
             <MoverRow key={entry.card_id} entry={entry} type="gainer" />
           ))}
         </ul>
         <Link
           to="/market/movers"
-          className="mt-4 inline-block text-sm text-tcg-secondary hover:text-tcg-secondary-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary rounded"
+          className="mt-4 inline-block text-sm text-cyan-400 hover:text-cyan-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
         >
           {t("common.viewAll")}
         </Link>
       </div>
-      <div className="rounded-tcg-lg bg-tcg-card border border-tcg-border p-6">
-        <h3 className="mb-4 text-lg font-semibold text-tcg-loss">{t("dashboard.topLosers")}</h3>
-        <ul className="divide-y divide-tcg-border/50">
+      <div className="rounded-lg bg-slate-800 border border-slate-600 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-red-400">{t("dashboard.topLosers")}</h3>
+        <ul className="divide-y divide-slate-600/50">
           {losers.map((entry) => (
             <MoverRow key={entry.card_id} entry={entry} type="loser" />
           ))}
         </ul>
         <Link
           to="/market/movers"
-          className="mt-4 inline-block text-sm text-tcg-secondary hover:text-tcg-secondary-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary rounded"
+          className="mt-4 inline-block text-sm text-cyan-400 hover:text-cyan-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
         >
           {t("common.viewAll")}
         </Link>

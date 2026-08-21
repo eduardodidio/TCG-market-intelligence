@@ -513,6 +513,41 @@ def migrate_user(db, old_id, new_id):
         click.echo(f"No collection entries found for user '{old_id}'.")
 
 
+@cli.command("seed-users")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+def seed_users(db):
+    """Create initial seed users (idempotent)."""
+    from src.auth.passwords import hash_password
+    from src.database.repository import Repository
+
+    log = structlog.get_logger()
+
+    SEED_USERS = [
+        {"email": "eduardo.didio", "display_name": "Eduardo Didio", "password": "mudar@123"},
+        {"email": "anderson.serafim", "display_name": "Anderson Serafim", "password": "mudar@123"},
+    ]
+
+    repo = Repository(db_url=db)
+    for user_data in SEED_USERS:
+        existing = repo.get_user_by_email(user_data["email"])
+        if existing:
+            log.info("user_exists_skipped", email=user_data["email"])
+            click.echo(f"  Skipped (exists): {user_data['email']}")
+            continue
+
+        pw_hash = hash_password(user_data["password"])
+        repo.create_user(
+            email=user_data["email"],
+            display_name=user_data["display_name"],
+            auth_provider="email",
+            password_hash=pw_hash,
+        )
+        log.info("user_created", email=user_data["email"])
+        click.echo(f"  Created: {user_data['email']}")
+
+    click.echo("\nSeed users done.")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")

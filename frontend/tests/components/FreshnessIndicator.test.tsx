@@ -93,7 +93,7 @@ describe("FreshnessIndicator", () => {
     );
 
     const dot = screen.getByTestId("freshness-dot");
-    expect(dot.className).toContain("bg-tcg-gain");
+    expect(dot.className).toContain("bg-green-400");
   });
 
   it("shows yellow dot for stale status", () => {
@@ -102,7 +102,7 @@ describe("FreshnessIndicator", () => {
     );
 
     const dot = screen.getByTestId("freshness-dot");
-    expect(dot.className).toContain("bg-tcg-warning");
+    expect(dot.className).toContain("bg-amber-400");
   });
 
   it("shows red dot for error status", () => {
@@ -111,7 +111,7 @@ describe("FreshnessIndicator", () => {
     );
 
     const dot = screen.getByTestId("freshness-dot");
-    expect(dot.className).toContain("bg-tcg-loss");
+    expect(dot.className).toContain("bg-red-400");
   });
 
   it("shows slate dot for unknown status", () => {
@@ -120,6 +120,6 @@ describe("FreshnessIndicator", () => {
     );
 
     const dot = screen.getByTestId("freshness-dot");
-    expect(dot.className).toContain("bg-tcg-muted");
+    expect(dot.className).toContain("bg-slate-400");
   });
 });

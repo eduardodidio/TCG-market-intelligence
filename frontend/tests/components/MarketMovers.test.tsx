@@ -104,9 +104,9 @@ describe("MarketMovers page", () => {
     const btn30d = screen.getByText("30d");
     const btn90d = screen.getByText("90d");
 
-    expect(btn30d.className).toContain("bg-tcg-primary");
-    expect(btn7d.className).toContain("bg-tcg-card");
-    expect(btn90d.className).toContain("bg-tcg-card");
+    expect(btn30d.className).toContain("bg-indigo-500");
+    expect(btn7d.className).toContain("bg-slate-800");
+    expect(btn90d.className).toContain("bg-slate-800");
   });
 
   it("changes period and triggers refetch on period button click", async () => {
@@ -129,8 +129,8 @@ describe("MarketMovers page", () => {
     });
 
     // Verify 7d button is now active
-    expect(screen.getByText("7d").className).toContain("bg-tcg-primary");
-    expect(screen.getByText("30d").className).toContain("bg-tcg-card");
+    expect(screen.getByText("7d").className).toContain("bg-indigo-500");
+    expect(screen.getByText("30d").className).toContain("bg-slate-800");
   });
 
   it("passes period parameter to API call", async () => {

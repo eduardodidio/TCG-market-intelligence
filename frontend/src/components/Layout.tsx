@@ -46,7 +46,7 @@ export function Layout() {
   );
 
   return (
-    <div className="flex h-screen bg-tcg-bg text-tcg-text">
+    <div className="flex h-screen bg-slate-900 text-slate-100">
       {/* Mobile overlay -- close on outside click */}
       {sidebarOpen && (
         <div
@@ -59,24 +59,24 @@ export function Layout() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-30 w-64 bg-tcg-surface border-r border-tcg-border
+          fixed inset-y-0 left-0 z-30 w-64 bg-slate-800 border-r border-slate-600
           transform transition-transform duration-200 ease-in-out
           md:relative md:translate-x-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
         data-testid="sidebar"
       >
-        <div className="flex items-center h-16 px-6 border-b border-tcg-border">
-          <h1 className="text-lg font-bold bg-tcg-gradient-hero bg-clip-text text-transparent">TCG Market</h1>
+        <div className="flex items-center h-16 px-6 border-b border-slate-600">
+          <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">TCG Market</h1>
         </div>
         {/* User avatar / sign-in */}
         <div
-          className="flex items-center gap-3 px-6 py-4 border-b border-tcg-border"
+          className="flex items-center gap-3 px-6 py-4 border-b border-slate-600"
           data-testid="user-section"
         >
           {isAuthenticated ? (
             <>
-              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-tcg-primary text-white text-sm font-bold">
+              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-500 text-white text-sm font-bold">
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
@@ -88,7 +88,7 @@ export function Layout() {
                     await logout();
                     navigate("/");
                   }}
-                  className="text-xs text-tcg-muted hover:text-tcg-loss transition-colors"
+                  className="text-xs text-slate-400 hover:text-red-400 transition-colors"
                   data-testid="logout-button"
                 >
                   {t("nav.signOut")}
@@ -98,10 +98,10 @@ export function Layout() {
           ) : (
             <Link
               to="/login"
-              className="flex items-center gap-2 text-sm font-medium text-tcg-primary-hover hover:text-tcg-accent transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-purple-400 transition-colors"
               data-testid="sign-in-link"
             >
-              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-tcg-card-alt text-tcg-muted text-sm font-bold">
+              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-700 text-slate-400 text-sm font-bold">
                 ?
               </div>
               <span>{t("nav.signIn")}</span>
@@ -109,11 +109,11 @@ export function Layout() {
           )}
         </div>
         {/* Currency toggle */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-tcg-border">
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-600">
           <CurrencyToggle />
         </div>
         {/* Language selector */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-tcg-border" data-testid="sidebar-language-selector">
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-600" data-testid="sidebar-language-selector">
           <LanguageSelector variant="compact" />
         </div>
         <nav className="mt-4 px-3" data-testid="sidebar-nav">
@@ -127,12 +127,12 @@ export function Layout() {
                 key={item.to}
                 to={item.to}
                 className={`
-                  flex items-center px-3 py-2 mb-1 rounded-tcg-md text-sm font-medium
-                  transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary
+                  flex items-center px-3 py-2 mb-1 rounded-md text-sm font-medium
+                  transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400
                   ${
                     isActive
-                      ? "bg-tcg-primary text-white shadow-tcg-glow"
-                      : "text-tcg-muted hover:bg-tcg-card hover:text-white"
+                      ? "bg-indigo-500 text-white shadow-md"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }
                 `}
               >
@@ -146,10 +146,10 @@ export function Layout() {
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar with hamburger */}
-        <header className="flex items-center h-16 px-4 bg-tcg-surface border-b border-tcg-border md:hidden">
+        <header className="flex items-center h-16 px-4 bg-slate-800 border-b border-slate-600 md:hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-tcg-md text-tcg-muted hover:bg-tcg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary"
+            className="p-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             aria-label={t("nav.toggleNav")}
             data-testid="hamburger-button"
           >
@@ -168,7 +168,7 @@ export function Layout() {
               />
             </svg>
           </button>
-          <span className="ml-3 text-lg font-bold bg-tcg-gradient-hero bg-clip-text text-transparent">TCG Market</span>
+          <span className="ml-3 text-lg font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">TCG Market</span>
         </header>
 
         {/* Page content */}

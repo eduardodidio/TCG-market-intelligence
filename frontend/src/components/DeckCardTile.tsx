@@ -17,15 +17,15 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
 
   const content = (
     <div
-      className={`relative rounded-tcg-lg overflow-hidden bg-tcg-card border transition-all duration-200 ${
+      className={`relative rounded-lg overflow-hidden bg-slate-800 border transition-all duration-200 ${
         card.in_collection
-          ? "border-tcg-border hover:border-tcg-primary hover:shadow-tcg-glow"
-          : "border-tcg-border/50"
+          ? "border-slate-600 hover:border-indigo-500 hover:shadow-lg"
+          : "border-slate-600/50"
       }`}
       data-testid={`deck-card-tile-${card.id}`}
     >
       {/* Card image */}
-      <div className="aspect-[488/680] bg-tcg-card-alt relative">
+      <div className="aspect-[488/680] bg-slate-700 relative">
         {card.image_url ? (
           <img
             src={card.image_url}
@@ -40,7 +40,7 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
           />
         ) : (
           <div
-            className={`w-full h-full flex items-center justify-center text-tcg-dimmed text-sm ${
+            className={`w-full h-full flex items-center justify-center text-slate-500 text-sm ${
               !card.in_collection ? "opacity-50" : ""
             }`}
           >
@@ -55,7 +55,7 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
             data-testid="not-owned-overlay"
             title={t("common.notOwned")}
           >
-            <span className="text-xs text-tcg-muted bg-black/60 px-2 py-1 rounded-tcg-sm">
+            <span className="text-xs text-slate-400 bg-black/60 px-2 py-1 rounded">
               {t("common.notOwned")}
             </span>
           </div>
@@ -64,7 +64,7 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
         {/* Quantity badge */}
         {card.quantity > 1 && (
           <span
-            className="absolute top-2 right-2 bg-tcg-primary text-white text-xs font-bold px-2 py-0.5 rounded-tcg-sm"
+            className="absolute top-2 right-2 bg-indigo-500 text-white text-xs font-bold px-2 py-0.5 rounded"
             data-testid="quantity-badge"
           >
             x{card.quantity}
@@ -84,19 +84,19 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center gap-1">
             {card.set_code && (
-              <span className="text-xs text-tcg-muted uppercase" data-testid="set-badge">
+              <span className="text-xs text-slate-400 uppercase" data-testid="set-badge">
                 {card.set_code}
               </span>
             )}
             {card.collector_number && (
-              <span className="text-xs text-tcg-dimmed" data-testid="collector-number">
+              <span className="text-xs text-slate-500" data-testid="collector-number">
                 #{card.collector_number}
               </span>
             )}
           </div>
 
           <span
-            className="text-xs text-tcg-muted"
+            className="text-xs text-slate-400"
             data-testid="card-price"
           >
             {card.latest_price != null ? formatBRL(card.latest_price) : "--"}

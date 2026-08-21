@@ -205,7 +205,7 @@ export function Cards() {
           <div ref={sentinelRef} data-testid="scroll-sentinel" />
           {loadingMore && (
             <div className="flex justify-center mt-4" data-testid="loading-more">
-              <div className="h-6 w-6 border-2 border-tcg-secondary border-t-transparent rounded-full animate-spin" />
+              <div className="h-6 w-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
             </div>
           )}
         </>

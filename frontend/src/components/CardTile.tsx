@@ -30,14 +30,14 @@ export function CardTile({ card }: CardTileProps) {
   return (
     <Link
       to={`/cards/${card.id}`}
-      className="group block bg-tcg-card rounded-tcg-lg overflow-hidden
-        border border-tcg-border hover:border-tcg-secondary/50
-        transition-all duration-200 hover:scale-[1.02] hover:shadow-tcg-glow-cyan"
+      className="group block bg-slate-800 rounded-lg overflow-hidden
+        border border-slate-600 hover:border-cyan-400/50
+        transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
       data-testid={`card-tile-${card.id}`}
     >
       {/* Card image */}
       <div
-        className="aspect-[5/7] bg-gradient-to-br from-tcg-card-alt to-tcg-card
+        className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800
           flex items-center justify-center overflow-hidden"
         data-testid="card-image-placeholder"
       >
@@ -57,7 +57,7 @@ export function CardTile({ card }: CardTileProps) {
           />
         ) : (
           <svg
-            className="h-12 w-12 text-tcg-dimmed"
+            className="h-12 w-12 text-slate-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -76,7 +76,7 @@ export function CardTile({ card }: CardTileProps) {
       {/* Card info */}
       <div className="p-3">
         <h3
-          className="text-sm font-semibold text-white truncate group-hover:text-tcg-secondary transition-colors"
+          className="text-sm font-semibold text-white truncate group-hover:text-cyan-400 transition-colors"
           title={displayName}
         >
           {displayName}
@@ -84,12 +84,12 @@ export function CardTile({ card }: CardTileProps) {
 
         <div className="flex items-center gap-2 mt-1">
           {card.set_code && (
-            <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-tcg-card-alt text-tcg-muted rounded-tcg-sm">
+            <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-400 rounded">
               {card.set_code}
             </span>
           )}
           {card.collector_number && (
-            <span className="text-xs text-tcg-dimmed">
+            <span className="text-xs text-slate-500">
               #{card.collector_number}
             </span>
           )}
@@ -98,11 +98,11 @@ export function CardTile({ card }: CardTileProps) {
         {(() => {
           const formattedPrice = formatPriceOrFallback(card.latest_price, currency);
           return formattedPrice ? (
-            <p className="mt-2 text-sm font-bold text-tcg-secondary" data-testid="card-price">
+            <p className="mt-2 text-sm font-bold text-cyan-400" data-testid="card-price">
               {formattedPrice}
             </p>
           ) : (
-            <p className="mt-2 text-sm text-tcg-dimmed" data-testid="card-price">
+            <p className="mt-2 text-sm text-slate-500" data-testid="card-price">
               {t("common.noPriceData")}
             </p>
           );

@@ -58,15 +58,15 @@ function ChartTooltip({ active, payload, label, currency = "BRL" }: CustomToolti
   const quantity = dataPoint?.payload?.quantity_available;
 
   return (
-    <div className="rounded-tcg-md bg-tcg-bg border border-tcg-ring p-3 shadow-tcg-lg">
-      <p className="text-xs text-tcg-muted mb-2">{label}</p>
+    <div className="rounded-md bg-slate-900 border border-slate-500 p-3 shadow-lg">
+      <p className="text-xs text-slate-400 mb-2">{label}</p>
       {payload.map((entry) => (
         <p key={entry.dataKey} className="text-sm" style={{ color: entry.color }}>
           {entry.name}: {formatCurrency(entry.value, currency)}
         </p>
       ))}
       {quantity != null && (
-        <p className="text-xs text-tcg-muted mt-1">
+        <p className="text-xs text-slate-400 mt-1">
           {`Qty available: ${quantity}`}
         </p>
       )}
@@ -153,7 +153,7 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
   }
 
   return (
-    <div data-testid="price-chart" className="bg-tcg-card rounded-tcg-lg p-4 border border-tcg-border">
+    <div data-testid="price-chart" className="bg-slate-800 rounded-lg p-4 border border-slate-600">
       {/* Period selector + zoom reset */}
       <div className="flex items-center justify-between mb-4">
         <div data-testid="period-selector" className="flex gap-2">
@@ -165,10 +165,10 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
                 setPeriod(p.value);
                 resetZoom();
               }}
-              className={`px-3 py-1.5 rounded-tcg-md text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 period === p.value
-                  ? "bg-tcg-primary text-white shadow-tcg-glow"
-                  : "bg-tcg-card-alt text-tcg-muted hover:text-white hover:bg-tcg-ring"
+                  ? "bg-indigo-500 text-white shadow-md"
+                  : "bg-slate-700 text-slate-400 hover:text-white hover:bg-slate-600"
               }`}
             >
               {p.label}
@@ -180,7 +180,7 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
           <button
             data-testid="reset-zoom-btn"
             onClick={resetZoom}
-            className="px-3 py-1.5 rounded-tcg-md text-sm font-medium bg-tcg-warning text-tcg-bg hover:brightness-110 transition-colors"
+            className="px-3 py-1.5 rounded-md text-sm font-medium bg-amber-400 text-slate-900 hover:brightness-110 transition-colors"
           >
             {t("chart.resetZoom")}
           </button>
@@ -193,7 +193,7 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
       {!loading && !error && (!observations || observations.length === 0) && (
-        <p data-testid="empty-history" className="text-tcg-muted text-center py-8">
+        <p data-testid="empty-history" className="text-slate-400 text-center py-8">
           {t("chart.noHistory")}
         </p>
       )}
@@ -204,7 +204,7 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
         return (
           <>
             {isSparse && (
-              <p data-testid="sparse-data-notice" className="text-sm text-tcg-warning/80 mb-3">
+              <p data-testid="sparse-data-notice" className="text-sm text-amber-400/80 mb-3">
                 {t("chart.sparseData", { count: observations.length })}
               </p>
             )}

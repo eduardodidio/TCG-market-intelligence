@@ -16,8 +16,8 @@ export function SetIconFilter({ options, selected, onSelect }: SetIconFilterProp
       <button
         className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
           selected === null
-            ? "bg-tcg-primary/20 text-tcg-primary-hover border border-tcg-primary/50"
-            : "bg-tcg-card text-tcg-muted hover:text-white border border-transparent"
+            ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/50"
+            : "bg-slate-800 text-slate-400 hover:text-white border border-transparent"
         }`}
         onClick={() => onSelect(null)}
       >
@@ -48,17 +48,17 @@ function SetIconButton({
 
   return (
     <button
-      className={`flex items-center justify-center w-10 h-10 rounded-tcg-md transition-all ${
+      className={`flex items-center justify-center w-10 h-10 rounded-md transition-all ${
         isSelected
-          ? "bg-tcg-primary/20 ring-2 ring-tcg-primary shadow-tcg-glow"
-          : "bg-tcg-card hover:bg-tcg-card-alt"
+          ? "bg-indigo-500/20 ring-2 ring-indigo-500 shadow-md"
+          : "bg-slate-800 hover:bg-slate-700"
       }`}
       onClick={() => onSelect(isSelected ? null : option.value)}
       title={option.label}
       data-testid={`set-icon-${option.value}`}
     >
       {imgError ? (
-        <span className="text-xs font-mono text-tcg-muted">{option.value.slice(0, 3).toUpperCase()}</span>
+        <span className="text-xs font-mono text-slate-400">{option.value.slice(0, 3).toUpperCase()}</span>
       ) : (
         <img
           src={scryfallSetIconUrl(option.value)}

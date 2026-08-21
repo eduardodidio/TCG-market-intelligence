@@ -176,7 +176,7 @@ describe("Layout", () => {
 
     links.forEach((link) => {
       expect(link.className).toContain("focus-visible:ring-2");
-      expect(link.className).toContain("focus-visible:ring-tcg-secondary");
+      expect(link.className).toContain("focus-visible:ring-cyan-400");
     });
   });
 

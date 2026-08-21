@@ -24,8 +24,8 @@ import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 const RARITY_COLORS: Record<string, string> = {
   M: "text-amber-400",
   R: "text-yellow-500",
-  U: "text-tcg-muted",
-  C: "text-tcg-dimmed",
+  U: "text-slate-400",
+  C: "text-slate-500",
 };
 
 const RARITY_LABEL_KEYS: Record<string, string> = {
@@ -50,14 +50,14 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
 
   const inner = (
     <div
-      className="group block bg-tcg-card rounded-tcg-lg overflow-hidden
-        border border-tcg-border hover:border-tcg-secondary/50
-        transition-all duration-200 hover:scale-[1.02] hover:shadow-tcg-glow-cyan relative cursor-pointer"
+      className="group block bg-slate-800 rounded-lg overflow-hidden
+        border border-slate-600 hover:border-cyan-400/50
+        transition-all duration-200 hover:scale-[1.02] hover:shadow-lg relative cursor-pointer"
       data-testid={`collection-card-${card.id}`}
     >
       {/* Quantity badge */}
       {card.quantity > 1 && (
-        <span className="absolute top-2 right-2 z-10 bg-tcg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
+        <span className="absolute top-2 right-2 z-10 bg-indigo-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
           x{card.quantity}
         </span>
       )}
@@ -70,7 +70,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
       )}
 
       {/* Card image */}
-      <div className="aspect-[5/7] bg-gradient-to-br from-tcg-card-alt to-tcg-card flex items-center justify-center overflow-hidden">
+      <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden">
         {showImage ? (
           <img
             src={currentUrl}
@@ -87,7 +87,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
           />
         ) : (
           <svg
-            className="h-12 w-12 text-tcg-dimmed"
+            className="h-12 w-12 text-slate-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -106,7 +106,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
       {/* Card info */}
       <div className="p-3">
         <h3
-          className="text-sm font-semibold text-white truncate group-hover:text-tcg-secondary transition-colors"
+          className="text-sm font-semibold text-white truncate group-hover:text-cyan-400 transition-colors"
           title={displayName}
         >
           {displayName}
@@ -115,17 +115,17 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
         {!compact && (
           <div className="flex items-center gap-2 mt-1">
             {card.set_code && (
-              <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-tcg-card-alt text-tcg-muted rounded-tcg-sm">
+              <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-400 rounded">
                 {card.set_code}
               </span>
             )}
             {card.collector_number && (
-              <span className="text-xs text-tcg-dimmed">
+              <span className="text-xs text-slate-500">
                 #{card.collector_number}
               </span>
             )}
             {card.rarity && (
-              <span className={`text-xs font-bold ${RARITY_COLORS[card.rarity] || "text-tcg-muted"}`}>
+              <span className={`text-xs font-bold ${RARITY_COLORS[card.rarity] || "text-slate-400"}`}>
                 {RARITY_LABEL_KEYS[card.rarity] ? t(RARITY_LABEL_KEYS[card.rarity]) : card.rarity}
               </span>
             )}
@@ -134,15 +134,15 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
 
         <div className="flex items-center justify-between mt-2">
           <p
-            className={`text-sm font-bold ${card.latest_price != null ? "text-tcg-secondary" : "text-tcg-dimmed"}`}
+            className={`text-sm font-bold ${card.latest_price != null ? "text-cyan-400" : "text-slate-500"}`}
             data-testid="card-price"
           >
             {formatCurrency(card.latest_price, currencyOverride || "BRL")}
           </p>
           {!compact && (
-            <div className="flex items-center gap-1 text-xs text-tcg-muted">
+            <div className="flex items-center gap-1 text-xs text-slate-400">
               {card.quality && <span>{card.quality}</span>}
-              {card.language && <span className="text-tcg-dimmed">({card.language})</span>}
+              {card.language && <span className="text-slate-500">({card.language})</span>}
             </div>
           )}
         </div>
@@ -385,7 +385,7 @@ export function MyCollection() {
           <div ref={sentinelRef} data-testid="scroll-sentinel" />
           {loadingMore && (
             <div className="flex justify-center mt-4" data-testid="loading-more">
-              <div className="h-6 w-6 border-2 border-tcg-secondary border-t-transparent rounded-full animate-spin" />
+              <div className="h-6 w-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
             </div>
           )}
         </>

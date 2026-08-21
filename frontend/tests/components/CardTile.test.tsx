@@ -60,14 +60,14 @@ describe("CardTile", () => {
   it("uses muted styling for missing price", () => {
     renderTile({ ...CARD, latest_price: null });
     const priceEl = screen.getByTestId("card-price");
-    expect(priceEl.className).toContain("text-tcg-dimmed");
-    expect(priceEl.className).not.toContain("text-tcg-secondary");
+    expect(priceEl.className).toContain("text-slate-500");
+    expect(priceEl.className).not.toContain("text-cyan-400");
   });
 
   it("uses cyan styling for valid price", () => {
     renderTile(CARD);
     const priceEl = screen.getByTestId("card-price");
-    expect(priceEl.className).toContain("text-tcg-secondary");
+    expect(priceEl.className).toContain("text-cyan-400");
   });
 
   it("links to the correct card detail page", () => {

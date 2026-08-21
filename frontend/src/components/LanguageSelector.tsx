@@ -34,7 +34,7 @@ export function LanguageSelector({ variant = "compact" }: LanguageSelectorProps)
   if (variant === "full") {
     return (
       <div
-        className="flex rounded-tcg-md overflow-hidden border border-tcg-ring"
+        className="flex rounded-md overflow-hidden border border-slate-500"
         role="group"
         aria-label={t("language.selector")}
         data-testid="language-selector"
@@ -43,10 +43,10 @@ export function LanguageSelector({ variant = "compact" }: LanguageSelectorProps)
           <button
             key={opt.code}
             onClick={() => handleLanguageChange(opt.code)}
-            className={`px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary flex items-center gap-1.5 ${
+            className={`px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 flex items-center gap-1.5 ${
               language === opt.code
-                ? "bg-tcg-primary text-white"
-                : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
+                ? "bg-indigo-500 text-white"
+                : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
             }`}
             aria-pressed={language === opt.code}
             data-testid={`language-btn-${opt.code}`}
@@ -61,7 +61,7 @@ export function LanguageSelector({ variant = "compact" }: LanguageSelectorProps)
   // Compact variant (for sidebar)
   return (
     <div
-      className="flex rounded-tcg-md overflow-hidden border border-tcg-ring"
+      className="flex rounded-md overflow-hidden border border-slate-500"
       role="group"
       aria-label={t("language.selector")}
       data-testid="language-selector"
@@ -70,10 +70,10 @@ export function LanguageSelector({ variant = "compact" }: LanguageSelectorProps)
         <button
           key={opt.code}
           onClick={() => handleLanguageChange(opt.code)}
-          className={`px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary flex items-center gap-1 ${
+          className={`px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 flex items-center gap-1 ${
             language === opt.code
-              ? "bg-tcg-primary text-white"
-              : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
+              ? "bg-indigo-500 text-white"
+              : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
           }`}
           aria-pressed={language === opt.code}
           data-testid={`language-btn-${opt.code}`}

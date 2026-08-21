@@ -19,8 +19,8 @@ export function FilterChips({ options, selected, onSelect }: FilterChipsProps) {
         onClick={() => onSelect(null)}
         className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
           selected === null
-            ? "bg-tcg-primary text-white shadow-tcg-glow"
-            : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
+            ? "bg-indigo-500 text-white shadow-md"
+            : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
         }`}
         data-testid="filter-chip-all"
       >
@@ -34,8 +34,8 @@ export function FilterChips({ options, selected, onSelect }: FilterChipsProps) {
           }
           className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
             selected === option.value
-              ? "bg-tcg-primary text-white shadow-tcg-glow"
-              : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
+              ? "bg-indigo-500 text-white shadow-md"
+              : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
           }`}
           data-testid={`filter-chip-${option.value}`}
         >

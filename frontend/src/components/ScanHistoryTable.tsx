@@ -2,14 +2,14 @@ import { useTranslation } from "react-i18next";
 import type { ScanRun } from "../types/api";
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-tcg-muted/20 text-tcg-muted",
-  running: "bg-tcg-info/20 text-tcg-info",
-  completed: "bg-tcg-gain/20 text-tcg-gain",
-  failed: "bg-tcg-loss/20 text-tcg-loss",
+  pending: "bg-slate-400/20 text-slate-400",
+  running: "bg-sky-400/20 text-sky-400",
+  completed: "bg-green-400/20 text-green-400",
+  failed: "bg-red-400/20 text-red-400",
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const style = STATUS_STYLES[status] ?? "bg-tcg-muted/20 text-tcg-muted";
+  const style = STATUS_STYLES[status] ?? "bg-slate-400/20 text-slate-400";
   return (
     <span
       className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${style}`}
@@ -53,7 +53,7 @@ export function ScanHistoryTable({ scans, onSelect }: ScanHistoryTableProps) {
   if (scans.length === 0) {
     return (
       <div
-        className="rounded-tcg-md border border-tcg-border bg-tcg-card p-8 text-center text-tcg-muted"
+        className="rounded-md border border-slate-600 bg-slate-800 p-8 text-center text-slate-400"
         data-testid="scans-empty"
       >
         {t("scans.noScans")}
@@ -62,9 +62,9 @@ export function ScanHistoryTable({ scans, onSelect }: ScanHistoryTableProps) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-tcg-md border border-tcg-border" data-testid="scans-table">
+    <div className="overflow-x-auto rounded-md border border-slate-600" data-testid="scans-table">
       <table className="w-full text-sm text-left">
-        <thead className="bg-tcg-card-alt text-xs uppercase text-tcg-muted border-b border-tcg-border">
+        <thead className="bg-slate-700 text-xs uppercase text-slate-400 border-b border-slate-600">
           <tr>
             <th className="px-4 py-3">{t("scans.columnId")}</th>
             <th className="px-4 py-3">{t("scans.columnType")}</th>
@@ -81,23 +81,23 @@ export function ScanHistoryTable({ scans, onSelect }: ScanHistoryTableProps) {
           {scans.map((scan) => (
             <tr
               key={scan.id}
-              className={`border-b border-tcg-border/50 bg-tcg-card/50 hover:bg-tcg-card-alt transition-colors ${
+              className={`border-b border-slate-600/50 bg-slate-800/50 hover:bg-slate-700 transition-colors ${
                 onSelect ? "cursor-pointer" : ""
               }`}
               onClick={() => onSelect?.(scan.id)}
               data-testid={`scan-row-${scan.id}`}
             >
-              <td className="px-4 py-3 font-mono text-tcg-muted">{scan.id}</td>
-              <td className="px-4 py-3 text-tcg-muted">{scan.scan_type}</td>
+              <td className="px-4 py-3 font-mono text-slate-400">{scan.id}</td>
+              <td className="px-4 py-3 text-slate-400">{scan.scan_type}</td>
               <td className="px-4 py-3">
                 <StatusBadge status={scan.status} />
               </td>
-              <td className="px-4 py-3 text-tcg-muted">{scan.cards_total}</td>
-              <td className="px-4 py-3 text-tcg-muted">{scan.cards_processed}</td>
-              <td className="px-4 py-3 text-tcg-muted">{scan.cards_failed}</td>
-              <td className="px-4 py-3 text-tcg-muted">{scan.observations_saved}</td>
-              <td className="px-4 py-3 text-tcg-muted">{formatDateTime(scan.started_at)}</td>
-              <td className="px-4 py-3 text-tcg-muted">
+              <td className="px-4 py-3 text-slate-400">{scan.cards_total}</td>
+              <td className="px-4 py-3 text-slate-400">{scan.cards_processed}</td>
+              <td className="px-4 py-3 text-slate-400">{scan.cards_failed}</td>
+              <td className="px-4 py-3 text-slate-400">{scan.observations_saved}</td>
+              <td className="px-4 py-3 text-slate-400">{formatDateTime(scan.started_at)}</td>
+              <td className="px-4 py-3 text-slate-400">
                 {formatDuration(scan.started_at, scan.finished_at)}
               </td>
             </tr>

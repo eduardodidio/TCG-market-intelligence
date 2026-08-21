@@ -42,19 +42,19 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
     onSuccess();
   };
 
-  const inputClasses = "w-full px-3 py-2 rounded-tcg-md bg-tcg-card-alt border border-tcg-border text-white placeholder-tcg-dimmed focus:outline-none focus:ring-2 focus:ring-tcg-primary transition-colors";
+  const inputClasses = "w-full px-3 py-2 rounded-md bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors";
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       data-testid="deck-import-modal"
     >
-      <div className="bg-tcg-surface rounded-tcg-xl shadow-tcg-lg border border-tcg-border w-full max-w-lg mx-4 p-6">
+      <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 w-full max-w-lg mx-4 p-6">
         <h2 className="text-xl font-bold text-white mb-4">{t("deckImport.title")}</h2>
 
         {error && (
           <div
-            className="mb-4 p-3 rounded-tcg-md bg-red-900/30 border border-red-700/50 text-tcg-loss text-sm"
+            className="mb-4 p-3 rounded-md bg-red-900/30 border border-red-700/50 text-red-400 text-sm"
             data-testid="import-error"
           >
             {error}
@@ -63,7 +63,7 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-tcg-muted mb-1">
+            <label className="block text-sm font-medium text-slate-400 mb-1">
               {t("deckImport.deckName")}
             </label>
             <input
@@ -77,16 +77,16 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-tcg-muted mb-1">
+            <label className="block text-sm font-medium text-slate-400 mb-1">
               {t("deckImport.format")}
             </label>
             <div className="flex gap-2">
               <button
                 onClick={() => setFormat("text")}
-                className={`px-4 py-1.5 rounded-tcg-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   format === "text"
-                    ? "bg-tcg-primary text-white shadow-tcg-glow"
-                    : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
+                    ? "bg-indigo-500 text-white shadow-md"
+                    : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
                 }`}
                 data-testid="format-text-btn"
               >
@@ -94,10 +94,10 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
               </button>
               <button
                 onClick={() => setFormat("csv")}
-                className={`px-4 py-1.5 rounded-tcg-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   format === "csv"
-                    ? "bg-tcg-primary text-white shadow-tcg-glow"
-                    : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
+                    ? "bg-indigo-500 text-white shadow-md"
+                    : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
                 }`}
                 data-testid="format-csv-btn"
               >
@@ -107,7 +107,7 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-tcg-muted mb-1">
+            <label className="block text-sm font-medium text-slate-400 mb-1">
               {t("deckImport.deckList")}
             </label>
             <textarea
@@ -125,7 +125,7 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-tcg-muted mb-1">
+            <label className="block text-sm font-medium text-slate-400 mb-1">
               {t("deckImport.description")}
             </label>
             <input
@@ -142,7 +142,7 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-tcg-md text-sm font-medium text-tcg-muted hover:text-white hover:bg-tcg-card transition-colors"
+            className="px-4 py-2 rounded-md text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             data-testid="cancel-import-btn"
             disabled={loading}
           >
@@ -151,7 +151,7 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
           <button
             onClick={handleImport}
             disabled={loading || !name.trim() || !content.trim()}
-            className="px-4 py-2 rounded-tcg-md text-sm font-medium bg-tcg-primary text-white hover:bg-tcg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-tcg-glow"
+            className="px-4 py-2 rounded-md text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
             data-testid="submit-import-btn"
           >
             {loading ? t("deckImport.importing") : t("deckImport.import")}

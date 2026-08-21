@@ -34,7 +34,7 @@ export function DeckList() {
         <h1 className="text-2xl font-bold text-white">{t("decks.title")}</h1>
         <button
           onClick={() => setShowImport(true)}
-          className="px-4 py-2 rounded-tcg-md text-sm font-medium bg-tcg-primary text-white hover:bg-tcg-primary-hover transition-colors shadow-tcg-glow"
+          className="px-4 py-2 rounded-md text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-400 transition-colors shadow-md"
           data-testid="import-deck-btn"
         >
           {t("decks.importDeck")}
@@ -43,7 +43,7 @@ export function DeckList() {
 
       {error && (
         <div
-          className="mb-4 p-3 rounded-tcg-md bg-red-900/20 border border-red-700/50 text-tcg-loss text-sm"
+          className="mb-4 p-3 rounded-md bg-red-900/20 border border-red-700/50 text-red-400 text-sm"
           data-testid="deck-list-error"
         >
           {error}
@@ -55,7 +55,7 @@ export function DeckList() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-32 rounded-tcg-lg bg-tcg-card animate-pulse"
+              className="h-32 rounded-lg bg-slate-800 animate-pulse"
               data-testid="deck-skeleton"
             />
           ))}
@@ -64,7 +64,7 @@ export function DeckList() {
 
       {!loading && decks.length === 0 && !error && (
         <div
-          className="text-center py-12 text-tcg-muted"
+          className="text-center py-12 text-slate-400"
           data-testid="deck-empty-state"
         >
           <p className="text-lg mb-2">{t("decks.noDecks")}</p>
@@ -80,18 +80,18 @@ export function DeckList() {
             <Link
               key={deck.id}
               to={`/decks/${deck.id}`}
-              className="block p-4 rounded-tcg-lg bg-tcg-card border border-tcg-border hover:border-tcg-primary/50 hover:shadow-tcg-glow transition-all duration-200"
+              className="block p-4 rounded-lg bg-slate-800 border border-slate-600 hover:border-indigo-500/50 hover:shadow-lg transition-all duration-200"
               data-testid={`deck-card-${deck.id}`}
             >
               <h3 className="text-lg font-semibold text-white mb-1">
                 {deck.name}
               </h3>
               {deck.description && (
-                <p className="text-sm text-tcg-muted mb-3 line-clamp-2">
+                <p className="text-sm text-slate-400 mb-3 line-clamp-2">
                   {deck.description}
                 </p>
               )}
-              <div className="flex items-center gap-4 text-sm text-tcg-muted">
+              <div className="flex items-center gap-4 text-sm text-slate-400">
                 <span data-testid="deck-card-count">
                   {t("decks.cardsCount", { count: deck.total_cards })}
                 </span>
@@ -101,10 +101,10 @@ export function DeckList() {
                 <span
                   className={
                     deck.ownership_pct === 100
-                      ? "text-tcg-gain"
+                      ? "text-green-400"
                       : deck.ownership_pct > 50
-                        ? "text-tcg-warning"
-                        : "text-tcg-loss"
+                        ? "text-amber-400"
+                        : "text-red-400"
                   }
                   data-testid="deck-ownership"
                 >

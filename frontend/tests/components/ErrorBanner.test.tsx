@@ -57,7 +57,7 @@ describe("ErrorBanner", () => {
     const banner = screen.getByTestId("error-banner");
     expect(banner.getAttribute("data-variant")).toBe("inline");
     // Should have the compact styling (border)
-    expect(banner.classList.contains("rounded-tcg-md")).toBe(true);
+    expect(banner.classList.contains("rounded-md")).toBe(true);
   });
 
   it("renders full variant with centered layout and icon", () => {

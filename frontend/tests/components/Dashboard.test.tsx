@@ -255,7 +255,7 @@ describe("Dashboard", () => {
 
     // Green dot for healthy status
     const dot = screen.getByTestId("freshness-dot");
-    expect(dot.className).toContain("bg-tcg-gain");
+    expect(dot.className).toContain("bg-green-400");
   });
 
   it("renders dashboard without freshness indicator when health endpoint fails", async () => {

@@ -28,7 +28,7 @@ export function Scans() {
         <h2 className="text-2xl font-bold text-white">{t("scans.title")}</h2>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="rounded-tcg-md bg-tcg-primary px-4 py-2 text-sm font-medium text-white hover:bg-tcg-primary-hover transition-colors shadow-tcg-glow"
+          className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors shadow-md"
           data-testid="new-scan-toggle"
         >
           {showForm ? t("common.cancel") : t("scans.newScan")}

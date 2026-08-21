@@ -14,8 +14,8 @@ export function LoadingSpinner({ message }: LoadingSpinnerProps) {
       className="flex flex-col items-center justify-center py-12"
       role="status"
     >
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-tcg-border border-t-tcg-secondary" />
-      <p className="mt-4 text-sm text-tcg-muted">{displayMessage}</p>
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-600 border-t-cyan-400" />
+      <p className="mt-4 text-sm text-slate-400">{displayMessage}</p>
     </div>
   );
 }

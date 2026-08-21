@@ -154,7 +154,7 @@ export function Dashboard() {
             />
             {lowCoverage && (
               <p
-                className="mt-2 text-xs text-tcg-warning"
+                className="mt-2 text-xs text-amber-400"
                 data-testid="low-coverage-hint"
               >
                 {t("dashboard.lowCoverageHint")}

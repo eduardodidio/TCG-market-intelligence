@@ -58,19 +58,19 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
     }
   };
 
-  const inputClasses = "w-full rounded-tcg-md border border-tcg-border bg-tcg-card-alt px-3 py-2 text-sm text-white placeholder-tcg-dimmed focus:border-tcg-primary focus:outline-none focus:ring-1 focus:ring-tcg-primary transition-colors";
+  const inputClasses = "w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors";
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-tcg-lg border border-tcg-border bg-tcg-card p-4 space-y-4"
+      className="rounded-lg border border-slate-600 bg-slate-800 p-4 space-y-4"
       data-testid="scan-form"
     >
       {/* Scan type */}
       <div>
         <label
           htmlFor="scan-type"
-          className="block text-sm font-medium text-tcg-muted mb-1"
+          className="block text-sm font-medium text-slate-400 mb-1"
         >
           {t("scanForm.scanType")}
         </label>
@@ -94,7 +94,7 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
         <div>
           <label
             htmlFor="set-code"
-            className="block text-sm font-medium text-tcg-muted mb-1"
+            className="block text-sm font-medium text-slate-400 mb-1"
           >
             {t("scanForm.setCodes")}
           </label>
@@ -114,7 +114,7 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
         <div>
           <label
             htmlFor="format-name"
-            className="block text-sm font-medium text-tcg-muted mb-1"
+            className="block text-sm font-medium text-slate-400 mb-1"
           >
             {t("scanForm.formatName")}
           </label>
@@ -134,7 +134,7 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
         <div>
           <label
             htmlFor="card-ids"
-            className="block text-sm font-medium text-tcg-muted mb-1"
+            className="block text-sm font-medium text-slate-400 mb-1"
           >
             {t("scanForm.cardIds")}
           </label>
@@ -154,7 +154,7 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
       <div>
         <label
           htmlFor="scan-limit"
-          className="block text-sm font-medium text-tcg-muted mb-1"
+          className="block text-sm font-medium text-slate-400 mb-1"
         >
           {t("scanForm.limitLabel")}
         </label>
@@ -171,7 +171,7 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
       </div>
 
       {error && (
-        <p className="text-sm text-tcg-loss" data-testid="scan-form-error">
+        <p className="text-sm text-red-400" data-testid="scan-form-error">
           {error}
         </p>
       )}
@@ -179,7 +179,7 @@ export function ScanForm({ onSuccess }: ScanFormProps) {
       <button
         type="submit"
         disabled={loading}
-        className="rounded-tcg-md bg-tcg-primary px-4 py-2 text-sm font-medium text-white hover:bg-tcg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-tcg-glow"
+        className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
         data-testid="scan-submit-button"
       >
         {loading ? t("scanForm.starting") : t("scanForm.startScan")}

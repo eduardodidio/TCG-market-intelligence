@@ -48,12 +48,12 @@ export function DeckView() {
   if (loading) {
     return (
       <div data-testid="page-deck-view">
-        <div className="h-8 w-48 bg-tcg-card animate-pulse rounded mb-4" />
+        <div className="h-8 w-48 bg-slate-800 animate-pulse rounded mb-4" />
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="aspect-[488/680] bg-tcg-card animate-pulse rounded-lg"
+              className="aspect-[488/680] bg-slate-800 animate-pulse rounded-lg"
               data-testid="deck-view-skeleton"
             />
           ))}
@@ -66,7 +66,7 @@ export function DeckView() {
     return (
       <div data-testid="page-deck-view">
         <div
-          className="p-4 rounded-tcg-md bg-red-900/20 border border-red-700/50 text-tcg-loss"
+          className="p-4 rounded-md bg-red-900/20 border border-red-700/50 text-red-400"
           data-testid="deck-view-error"
         >
           {error}
@@ -86,14 +86,14 @@ export function DeckView() {
             {deck.name}
           </h1>
           {deck.description && (
-            <p className="text-tcg-muted mt-1" data-testid="deck-description">
+            <p className="text-slate-400 mt-1" data-testid="deck-description">
               {deck.description}
             </p>
           )}
         </div>
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          className="px-3 py-1.5 rounded text-sm font-medium text-tcg-loss hover:bg-red-900/30 transition-colors"
+          className="px-3 py-1.5 rounded text-sm font-medium text-red-400 hover:bg-red-900/30 transition-colors"
           data-testid="delete-deck-btn"
         >
           {t("common.delete")}
@@ -101,17 +101,17 @@ export function DeckView() {
       </div>
 
       {/* Stats */}
-      <div className="flex items-center gap-6 mb-6 text-sm text-tcg-muted">
+      <div className="flex items-center gap-6 mb-6 text-sm text-slate-400">
         <span data-testid="deck-total-cards">{t("decks.cardsCount", { count: deck.total_cards })}</span>
         <span data-testid="deck-unique-cards">{t("decks.uniqueCount", { count: deck.unique_cards })}</span>
         <span data-testid="deck-owned-cards">{t("decks.owned", { count: deck.owned_cards })}</span>
         <span
           className={
             deck.ownership_pct === 100
-              ? "text-tcg-gain font-semibold"
+              ? "text-green-400 font-semibold"
               : deck.ownership_pct > 50
-                ? "text-tcg-warning"
-                : "text-tcg-loss"
+                ? "text-amber-400"
+                : "text-red-400"
           }
           data-testid="deck-ownership-pct"
         >
@@ -121,7 +121,7 @@ export function DeckView() {
 
       {/* Card Grid */}
       {deck.cards.length === 0 ? (
-        <p className="text-tcg-muted text-center py-8" data-testid="deck-no-cards">
+        <p className="text-slate-400 text-center py-8" data-testid="deck-no-cards">
           {t("decks.noCards")}
         </p>
       ) : (
@@ -138,15 +138,15 @@ export function DeckView() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
           data-testid="delete-confirm-modal"
         >
-          <div className="bg-tcg-surface rounded-tcg-xl shadow-tcg-lg border border-tcg-border p-6 mx-4 max-w-sm w-full">
+          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-6 mx-4 max-w-sm w-full">
             <h3 className="text-lg font-bold text-white mb-2">{t("decks.deleteTitle")}</h3>
-            <p className="text-sm text-tcg-muted mb-4">
+            <p className="text-sm text-slate-400 mb-4">
               {t("decks.deleteMessage", { name: deck.name })}
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 rounded text-sm font-medium text-tcg-muted hover:text-white hover:bg-tcg-card transition-colors"
+                className="px-4 py-2 rounded text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                 data-testid="cancel-delete-btn"
                 disabled={deleting}
               >

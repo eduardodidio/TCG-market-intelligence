@@ -37,15 +37,15 @@ export function MarketMovers() {
       {/* Controls row */}
       <div className="mb-6 flex flex-wrap items-center gap-4">
         {/* Period selector */}
-        <div className="flex rounded-tcg-md overflow-hidden" role="group" aria-label={t("market.periodSelector")}>
+        <div className="flex rounded-md overflow-hidden" role="group" aria-label={t("market.periodSelector")}>
           {PERIODS.map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary ${
+              className={`px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                 p === period
-                  ? "bg-tcg-primary text-white shadow-tcg-glow"
-                  : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
+                  ? "bg-indigo-500 text-white shadow-md"
+                  : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
               }`}
             >
               {p}
@@ -58,7 +58,7 @@ export function MarketMovers() {
           value={limit}
           onChange={(e) => setLimit(e.target.value)}
           aria-label={t("market.resultsLimit")}
-          className="rounded-tcg-md bg-tcg-card px-3 py-2 text-sm text-tcg-muted border border-tcg-border focus:outline-none focus:border-tcg-primary focus-visible:ring-2 focus-visible:ring-tcg-secondary"
+          className="rounded-md bg-slate-800 px-3 py-2 text-sm text-slate-400 border border-slate-600 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-cyan-400"
         >
           {LIMITS.map((l) => (
             <option key={l} value={l}>

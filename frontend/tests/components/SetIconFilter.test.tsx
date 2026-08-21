@@ -26,7 +26,7 @@ describe("SetIconFilter", () => {
   it("highlights 'All' button when nothing is selected", () => {
     render(<SetIconFilter options={OPTIONS} selected={null} onSelect={() => {}} />);
     const allButton = screen.getByText("All");
-    expect(allButton.className).toContain("bg-tcg-primary");
+    expect(allButton.className).toContain("bg-indigo-500");
   });
 
   it("clicking an icon calls onSelect with the value", () => {

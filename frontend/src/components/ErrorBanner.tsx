@@ -38,7 +38,7 @@ export function ErrorBanner({
       >
         {/* Error icon */}
         <svg
-          className="h-12 w-12 text-tcg-loss mb-4"
+          className="h-12 w-12 text-red-400 mb-4"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -51,11 +51,11 @@ export function ErrorBanner({
             d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
           />
         </svg>
-        <p className="text-tcg-loss text-lg mb-2">{displayMessage}</p>
+        <p className="text-red-400 text-lg mb-2">{displayMessage}</p>
         {onRetry && (
           <button
             onClick={onRetry}
-            className="mt-2 rounded-tcg-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary"
+            className="mt-2 rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             {t("common.retry")}
           </button>
@@ -68,15 +68,15 @@ export function ErrorBanner({
     <div
       data-testid="error-banner"
       data-variant="inline"
-      className="rounded-tcg-md bg-red-900/20 border border-red-700/50 p-4"
+      className="rounded-md bg-red-900/20 border border-red-700/50 p-4"
       role="alert"
     >
       <div className="flex items-center justify-between gap-4">
-        <p className="text-tcg-loss text-sm">{displayMessage}</p>
+        <p className="text-red-400 text-sm">{displayMessage}</p>
         {onRetry && (
           <button
             onClick={onRetry}
-            className="shrink-0 rounded-tcg-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary"
+            className="shrink-0 rounded-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             {t("common.retry")}
           </button>

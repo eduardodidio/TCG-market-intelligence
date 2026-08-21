@@ -16,15 +16,15 @@ export function EmptyState({ message, icon, action }: EmptyStateProps) {
       className="flex flex-col items-center justify-center py-12 text-center"
     >
       {icon && (
-        <div className="mb-4 text-tcg-dimmed" data-testid="empty-state-icon">
+        <div className="mb-4 text-slate-500" data-testid="empty-state-icon">
           {icon}
         </div>
       )}
-      <p className="text-lg text-tcg-muted">{message}</p>
+      <p className="text-lg text-slate-400">{message}</p>
       {action && (
         <button
           onClick={action.onClick}
-          className="mt-4 rounded-tcg-md bg-tcg-primary px-4 py-2 text-sm font-medium text-white hover:bg-tcg-primary-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary"
+          className="mt-4 rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           data-testid="empty-state-action"
         >
           {action.label}

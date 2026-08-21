@@ -28,19 +28,19 @@ function DirectionArrow({ type }: { type: "gainers" | "losers" }) {
 export function MoversTable({ entries, title, type }: MoversTableProps) {
   const { t } = useTranslation();
   const { currency } = useCurrency();
-  const accentClass = type === "gainers" ? "text-tcg-gain" : "text-tcg-loss";
+  const accentClass = type === "gainers" ? "text-green-400" : "text-red-400";
   const changeColorClass =
-    type === "gainers" ? "text-tcg-gain" : "text-tcg-loss";
+    type === "gainers" ? "text-green-400" : "text-red-400";
 
   return (
-    <div data-testid={`movers-table-${type}`} className="rounded-tcg-lg bg-tcg-card border border-tcg-border">
-      <div className="rounded-t-tcg-lg bg-tcg-card-alt/50 px-6 py-4">
+    <div data-testid={`movers-table-${type}`} className="rounded-lg bg-slate-800 border border-slate-600">
+      <div className="rounded-t-lg bg-slate-700/50 px-6 py-4">
         <h3 className={`text-lg font-semibold ${accentClass}`}>{title}</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-tcg-border text-tcg-muted">
+            <tr className="border-b border-slate-600 text-slate-400">
               <th scope="col" className="px-6 py-3 font-medium">{t("market.columnRank")}</th>
               <th scope="col" className="px-6 py-3 font-medium">{t("market.columnCard")}</th>
               <th scope="col" className="hidden px-6 py-3 font-medium sm:table-cell">
@@ -56,28 +56,28 @@ export function MoversTable({ entries, title, type }: MoversTableProps) {
             {entries.map((entry, index) => (
               <tr
                 key={entry.card_id}
-                className={`border-b border-tcg-border/50 transition-colors hover:bg-tcg-card-alt ${
-                  index % 2 === 0 ? "bg-tcg-card" : "bg-tcg-card/50"
+                className={`border-b border-slate-600/50 transition-colors hover:bg-slate-700 ${
+                  index % 2 === 0 ? "bg-slate-800" : "bg-slate-800/50"
                 }`}
               >
-                <td className="px-6 py-3 text-tcg-muted">{index + 1}</td>
+                <td className="px-6 py-3 text-slate-400">{index + 1}</td>
                 <td className="px-6 py-3">
                   <Link
                     to={`/cards/${entry.card_id}`}
-                    className="text-white hover:text-tcg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary rounded"
+                    className="text-white hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
                   >
                     {entry.name_en}
                   </Link>
                   {entry.set_code && (
-                    <span className="ml-2 text-xs text-tcg-dimmed">
+                    <span className="ml-2 text-xs text-slate-500">
                       {entry.set_code}
                     </span>
                   )}
                 </td>
-                <td className="hidden px-6 py-3 text-tcg-muted sm:table-cell">
+                <td className="hidden px-6 py-3 text-slate-400 sm:table-cell">
                   {formatCurrency(entry.price_start, currency)}
                 </td>
-                <td className="hidden px-6 py-3 text-tcg-muted sm:table-cell">
+                <td className="hidden px-6 py-3 text-slate-400 sm:table-cell">
                   {formatCurrency(entry.price_end, currency)}
                 </td>
                 <td

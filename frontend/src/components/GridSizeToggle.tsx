@@ -57,9 +57,9 @@ export function GridSizeToggle({ value, onChange }: GridSizeToggleProps) {
           key={size.key}
           className={`px-2.5 py-2 transition-colors ${
             value === size.key
-              ? "bg-tcg-card-alt text-tcg-secondary border border-tcg-secondary/50"
-              : "bg-tcg-card text-tcg-muted hover:text-white border border-tcg-border"
-          } ${i === 0 ? "rounded-l-tcg-md" : ""} ${i === SIZES.length - 1 ? "rounded-r-tcg-md" : ""}`}
+              ? "bg-slate-700 text-cyan-400 border border-cyan-400/50"
+              : "bg-slate-800 text-slate-400 hover:text-white border border-slate-600"
+          } ${i === 0 ? "rounded-l-md" : ""} ${i === SIZES.length - 1 ? "rounded-r-md" : ""}`}
           aria-label={t(size.labelKey)}
           aria-pressed={value === size.key}
           onClick={() => onChange(size.key)}

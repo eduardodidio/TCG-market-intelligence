@@ -15,7 +15,7 @@ export function CurrencyToggle() {
 
   return (
     <div
-      className="flex rounded-tcg-md overflow-hidden border border-tcg-ring"
+      className="flex rounded-md overflow-hidden border border-slate-500"
       role="group"
       aria-label={t("currency.selector")}
       data-testid="currency-toggle"
@@ -24,10 +24,10 @@ export function CurrencyToggle() {
         <button
           key={opt.code}
           onClick={() => setCurrency(opt.code)}
-          className={`px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tcg-secondary flex items-center gap-1 ${
+          className={`px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 flex items-center gap-1 ${
             currency === opt.code
-              ? "bg-tcg-primary text-white"
-              : "bg-tcg-card text-tcg-muted hover:bg-tcg-card-alt hover:text-white"
+              ? "bg-indigo-500 text-white"
+              : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
           }`}
           aria-pressed={currency === opt.code}
           data-testid={`currency-btn-${opt.code}`}

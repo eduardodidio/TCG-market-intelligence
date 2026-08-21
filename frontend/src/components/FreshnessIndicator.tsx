@@ -32,9 +32,9 @@ function useRelativeTime() {
 }
 
 const STATUS_DOT_CLASSES: Record<string, string> = {
-  healthy: "bg-tcg-gain",
-  stale: "bg-tcg-warning",
-  error: "bg-tcg-loss",
+  healthy: "bg-green-400",
+  stale: "bg-amber-400",
+  error: "bg-red-400",
 };
 
 export function FreshnessIndicator({
@@ -43,7 +43,7 @@ export function FreshnessIndicator({
 }: FreshnessIndicatorProps) {
   const { t } = useTranslation();
   const formatRelativeTime = useRelativeTime();
-  const dotClass = STATUS_DOT_CLASSES[status] ?? "bg-tcg-muted";
+  const dotClass = STATUS_DOT_CLASSES[status] ?? "bg-slate-400";
 
   const label =
     lastCollectionAt !== null
@@ -53,7 +53,7 @@ export function FreshnessIndicator({
   return (
     <span
       data-testid="freshness-indicator"
-      className="inline-flex items-center gap-1.5 rounded-full bg-tcg-card border border-tcg-border px-3 py-1 text-xs text-tcg-muted"
+      className="inline-flex items-center gap-1.5 rounded-full bg-slate-800 border border-slate-600 px-3 py-1 text-xs text-slate-400"
     >
       <span
         data-testid="freshness-dot"

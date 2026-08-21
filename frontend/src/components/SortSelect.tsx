@@ -33,9 +33,9 @@ export function SortSelect({ options, value, onChange }: SortSelectProps) {
         const [sortBy, sortDir] = e.target.value.split("-");
         onChange(sortBy, sortDir as "asc" | "desc");
       }}
-      className="px-3 py-2 bg-tcg-card border border-tcg-border rounded-tcg-md
+      className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-md
         text-white text-sm
-        focus:outline-none focus:ring-2 focus:ring-tcg-primary focus:border-transparent
+        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
         cursor-pointer transition-colors"
     >
       {options.map((opt) => {
