@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
+import { refreshCardPrice } from "../api/collection";
 import { deleteDeck, fetchDeck } from "../api/decks";
 import { DeckCardTile } from "../components/DeckCardTile";
 import type { DeckDetail } from "../types/api";
@@ -44,6 +45,20 @@ export function DeckView() {
       setShowDeleteConfirm(false);
     }
   };
+
+  const handleDeckCardRefresh = useCallback(async (entryId: number) => {
+    const res = await refreshCardPrice(entryId);
+    if (res.data && deck) {
+      setDeck({
+        ...deck,
+        cards: deck.cards.map((c) =>
+          c.collection_entry_id === entryId
+            ? { ...c, latest_price: res.data!.latest_price }
+            : c,
+        ),
+      });
+    }
+  }, [deck]);
 
   if (loading) {
     return (
@@ -127,7 +142,7 @@ export function DeckView() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {deck.cards.map((card) => (
-            <DeckCardTile key={card.id} card={card} />
+            <DeckCardTile key={card.id} card={card} onRefresh={handleDeckCardRefresh} />
           ))}
         </div>
       )}

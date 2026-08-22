@@ -58,7 +58,7 @@ export function ExchangeRateBanner() {
 
   if (!rate) return null;
 
-  const formattedRate = rate.rate.toFixed(2);
+  const formattedRate = Number(rate.rate).toFixed(2);
 
   return (
     <div

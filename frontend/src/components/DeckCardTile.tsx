@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { DeckCard } from "../types/api";
@@ -6,11 +7,13 @@ import { formatBRL } from "../utils/format";
 
 interface DeckCardTileProps {
   card: DeckCard;
+  onRefresh?: (entryId: number) => Promise<void>;
 }
 
-export function DeckCardTile({ card }: DeckCardTileProps) {
+export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
+  const [refreshing, setRefreshing] = useState(false);
   const displayName = getCardName(card.name_en, (card as any).name_pt, t("common.unknownCard"));
   const linkTo = card.in_collection && card.collection_entry_id
     ? `/collection/${card.collection_entry_id}`
@@ -20,7 +23,7 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
 
   const content = (
     <div
-      className={`relative rounded-lg overflow-hidden bg-slate-800 border transition-all duration-200 ${
+      className={`group relative rounded-lg overflow-hidden bg-slate-800 border transition-all duration-200 ${
         card.in_collection
           ? "border-slate-600 hover:border-indigo-500 hover:shadow-lg"
           : "border-slate-600/50"
@@ -72,6 +75,41 @@ export function DeckCardTile({ card }: DeckCardTileProps) {
           >
             x{card.quantity}
           </span>
+        )}
+
+        {/* Refresh button */}
+        {card.in_collection && card.collection_entry_id != null && card.card_id != null && onRefresh && (
+          <button
+            data-testid={`refresh-deck-card-${card.id}`}
+            onClick={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setRefreshing(true);
+              try {
+                await onRefresh(card.collection_entry_id!);
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+            disabled={refreshing}
+            title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
+            className="absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-black/60 text-slate-300 hover:text-cyan-400 hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-100 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          >
+            <svg
+              className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
         )}
       </div>
 

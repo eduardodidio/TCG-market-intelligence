@@ -5,6 +5,7 @@ import base64
 import os
 from datetime import date
 
+import structlog
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 
@@ -24,6 +25,8 @@ from src.api.schemas.envelope import ApiResponse, paginated_response, success_re
 from src.database.repository import Repository
 from src.services.currency import CurrencyConverter
 from src.utils.set_code_map import map_to_scryfall_set_code
+
+log = structlog.get_logger()
 
 router = APIRouter(prefix="/collection", tags=["collection"])
 
@@ -166,6 +169,70 @@ def get_collection_entry(
     user_id: str = Depends(require_auth_or_api_key),
 ):
     """Get a single collection entry with full detail."""
+    return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+
+
+@router.post("/{entry_id}/refresh", response_model=ApiResponse[CollectionCardDetail])
+async def refresh_card_price(
+    entry_id: int,
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Refresh a single card's price from MYP in real-time."""
+    from src.domain.models import HistoricalPrice
+    from src.providers.myp.provider import MypCardsProvider
+
+    entry = repo.get_collection_entry(entry_id)
+    if not entry or entry.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+
+    if entry.card_id is None:
+        raise HTTPException(status_code=422, detail="Card not linked to a price source")
+
+    source_cards = repo.get_source_cards_for_card(entry.card_id)
+    myp_sources = [sc for sc in source_cards if sc.source == "myp"]
+    if not myp_sources:
+        raise HTTPException(status_code=422, detail="No MYP source card linked")
+
+    sc = myp_sources[0]
+    slug = sc.url.rsplit("/", 1)[-1]
+    external_id = sc.external_id
+
+    provider = MypCardsProvider()
+    try:
+        jsonld = await provider.fetch_current_price(external_id, slug)
+    finally:
+        await provider.close()
+
+    if jsonld and jsonld.price and jsonld.price > 0:
+        obs = HistoricalPrice(
+            source="jsonld_snapshot",
+            external_id=external_id,
+            observed_at=date.today(),
+            median_price=jsonld.price,
+        )
+        repo.insert_price_observations([obs])
+        log.info(
+            "card_price_refreshed",
+            entry_id=entry_id,
+            external_id=external_id,
+            price=str(jsonld.price),
+        )
+
+    # Return updated card detail (reuse same logic as get_collection_entry)
+    return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+
+
+def _build_collection_detail(
+    entry_id: int,
+    currency: str,
+    repo: Repository,
+    converter: CurrencyConverter,
+    user_id: str,
+) -> ApiResponse[CollectionCardDetail]:
+    """Build a CollectionCardDetail response for an entry. Shared by GET and refresh."""
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
         raise HTTPException(status_code=404, detail="Collection entry not found")
@@ -175,7 +242,6 @@ def get_collection_entry(
     price_history: list[PriceObservation] = []
     source_cards_data: list[SourceCardSchema] = []
 
-    # If linked to a canonical card, fetch price and source data
     if entry.card_id is not None:
         prices = repo.get_latest_prices_batch([entry.card_id])
         obs = prices.get(entry.card_id)
@@ -185,7 +251,6 @@ def get_collection_entry(
         source_cards = repo.get_source_cards_for_card(entry.card_id)
         source_cards_data = [SourceCardSchema.model_validate(sc) for sc in source_cards]
 
-        # Fetch price history from all sources
         for sc in source_cards:
             series = repo.get_price_series(
                 source=[sc.source, "jsonld_snapshot"],
@@ -204,7 +269,6 @@ def get_collection_entry(
             )
         price_history.sort(key=lambda p: p.observed_at)
 
-    # Build external links
     name = entry.name_en or entry.name_pt or ""
     scryfall_url = None
     ligamagic_url = None

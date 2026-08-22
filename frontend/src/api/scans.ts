@@ -1,4 +1,11 @@
-import type { ScanListResponse, ScanRequest, ScanRun, ScanTriggerResponse } from "../types/api";
+import { apiGet, apiPost } from "./client";
+import type {
+  ApiResponse,
+  ScanListResponse,
+  ScanRequest,
+  ScanRun,
+  ScanTriggerResponse,
+} from "../types/api";
 import { API_BASE_URL } from "../utils/constants";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -62,4 +69,18 @@ export function triggerScan(body: ScanRequest): Promise<ScanTriggerResponse> {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+// Auth-aware variants using apiPost/apiGet (for useCollectionRefresh hook)
+
+export function triggerScanAuth(
+  request: { scan_type: string },
+): Promise<ApiResponse<ScanTriggerResponse>> {
+  return apiPost<ScanTriggerResponse>("/api/v1/scans", request);
+}
+
+export function getScanStatusAuth(
+  scanId: number,
+): Promise<ApiResponse<ScanRun>> {
+  return apiGet<ScanRun>(`/api/v1/scans/${scanId}`);
 }

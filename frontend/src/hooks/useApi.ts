@@ -6,6 +6,7 @@ interface UseApiResult<T> {
   loading: boolean;
   error: string | null;
   refetch: () => void;
+  setData: (data: T | null) => void;
 }
 
 /**
@@ -67,5 +68,5 @@ export function useApi<T>(
     execute();
   }, [execute]);
 
-  return { data, loading, error, refetch };
+  return { data, loading, error, refetch, setData };
 }

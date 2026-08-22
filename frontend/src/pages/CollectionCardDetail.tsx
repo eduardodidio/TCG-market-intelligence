@@ -1,8 +1,8 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
-import { fetchCollectionEntry } from "../api/collection";
+import { fetchCollectionEntry, refreshCardPrice } from "../api/collection";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
@@ -40,10 +40,36 @@ export function CollectionCardDetail() {
     [entryId, currency],
   );
 
-  const { data: entry, loading, error, refetch } = useApi<CollectionCardDetailType>(
+  const { data: entry, loading, error, refetch, setData: setEntry } = useApi<CollectionCardDetailType>(
     detailFetcher,
     [entryId, currency],
   );
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleRefresh = useCallback(async () => {
+    if (refreshing || !entry || entry.card_id == null) return;
+    setRefreshing(true);
+    setRefreshMsg(null);
+    try {
+      const params: Record<string, string> = {};
+      if (currency !== "BRL") params.currency = currency;
+      const res = await refreshCardPrice(entryId, Object.keys(params).length > 0 ? params : undefined);
+      if (res.data) {
+        setEntry(res.data);
+        setRefreshMsg({ type: "success", text: t("collection.refreshSuccess") });
+      } else {
+        const msg = res.errors?.[0]?.message || t("collection.refreshError");
+        setRefreshMsg({ type: "error", text: msg });
+      }
+    } catch {
+      setRefreshMsg({ type: "error", text: t("collection.refreshError") });
+    } finally {
+      setRefreshing(false);
+      setTimeout(() => setRefreshMsg(null), 3000);
+    }
+  }, [refreshing, entry, entryId, currency, t, setEntry]);
 
   useEffect(() => {
     if (entry) {
@@ -202,11 +228,45 @@ export function CollectionCardDetail() {
 
           {/* Latest price */}
           <div className="mb-6">
-            <p className="text-sm text-slate-400 mb-1">{t("cardDetail.latestPrice")}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm text-slate-400">{t("cardDetail.latestPrice")}</p>
+              {entry.card_id != null && (
+                <button
+                  data-testid="refresh-price-btn"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  <svg
+                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
             <p data-testid="latest-price" className="text-3xl font-bold text-white flex items-center gap-2">
               <CurrencyIndicator currency={currency} size={24} />
               {formatCurrency(entry.latest_price, currency)}
             </p>
+            {refreshMsg && (
+              <p
+                data-testid="refresh-message"
+                className={`text-xs mt-1 ${refreshMsg.type === "success" ? "text-green-400" : "text-red-400"}`}
+              >
+                {refreshMsg.text}
+              </p>
+            )}
           </div>
 
           {/* Linked status */}

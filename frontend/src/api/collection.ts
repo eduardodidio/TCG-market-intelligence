@@ -1,5 +1,5 @@
 import type { ApiResponse, CollectionCard, CollectionCardDetail, CollectionSummary } from "../types/api";
-import { apiGet } from "./client";
+import { apiGet, apiPost } from "./client";
 
 export function fetchCollection(
   params?: Record<string, string>,
@@ -18,6 +18,18 @@ export function fetchCollectionSummary(
   params?: Record<string, string>,
 ): Promise<ApiResponse<CollectionSummary>> {
   return apiGet<CollectionSummary>("/api/v1/collection/summary", params);
+}
+
+export function refreshCardPrice(
+  entryId: number,
+  params?: Record<string, string>,
+): Promise<ApiResponse<CollectionCardDetail>> {
+  const query = params ? "?" + new URLSearchParams(params).toString() : "";
+  return apiPost<CollectionCardDetail>(
+    `/api/v1/collection/${entryId}/refresh${query}`,
+    {},
+    { timeoutMs: 30000 },
+  );
 }
 
 export function fetchCollectionSets(): Promise<

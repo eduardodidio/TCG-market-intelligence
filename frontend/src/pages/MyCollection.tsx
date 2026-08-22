@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
-import { fetchCollection, fetchCollectionSummary, fetchCollectionSets } from "../api/collection";
+import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPrice } from "../api/collection";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { GridSizeToggle } from "../components/GridSizeToggle";
@@ -18,6 +18,7 @@ import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CollectionCard, CollectionSummary } from "../types/api";
 import { DEFAULT_PAGE_LIMIT, GRID_SIZE_CONFIG } from "../utils/constants";
 import { useCardName } from "../hooks/useCardName";
+import { useCollectionRefresh } from "../hooks/useCollectionRefresh";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
@@ -36,12 +37,13 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
   C: "rarity.common",
 };
 
-function CollectionCardTile({ card, compact = false, currencyOverride }: { card: CollectionCard; compact?: boolean; currencyOverride?: string }) {
+function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void> }) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Primary image: backend-provided URL (Scryfall by set/number)
   // Fallback: Scryfall by exact card name
@@ -72,7 +74,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
       )}
 
       {/* Card image */}
-      <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden">
+      <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden relative">
         {showImage ? (
           <img
             src={currentUrl}
@@ -102,6 +104,41 @@ function CollectionCardTile({ card, compact = false, currencyOverride }: { card:
               d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
             />
           </svg>
+        )}
+
+        {/* Refresh button overlay */}
+        {card.card_id != null && onRefresh && (
+          <button
+            data-testid={`refresh-card-${card.id}`}
+            onClick={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setRefreshing(true);
+              try {
+                await onRefresh(card.id, currencyOverride);
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+            disabled={refreshing}
+            title={t("collection.refresh")}
+            className="absolute bottom-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-black/60 text-slate-300 hover:text-cyan-400 hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-100 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          >
+            <svg
+              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
         )}
       </div>
 
@@ -179,11 +216,25 @@ export function MyCollection() {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<CollectionSummary | null>(null);
   const [setOptions, setSetOptions] = useState<{ label: string; value: string }[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const debouncedSearch = useDebounce(searchTerm, 300);
   const fetchIdRef = useRef(0);
 
-  // Load summary and sets on mount (and when currency changes)
+  const handleRefreshComplete = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  const {
+    isRefreshing,
+    progress: refreshProgress,
+    error: refreshError,
+    isDone: refreshDone,
+    startRefresh,
+    cancelRefresh,
+  } = useCollectionRefresh(handleRefreshComplete);
+
+  // Load summary and sets on mount (and when currency/refreshKey changes)
   useEffect(() => {
     fetchCollectionSummary({ currency }).then((res) => {
       if (res.data) setSummary(res.data);
@@ -198,7 +249,7 @@ export function MyCollection() {
         );
       }
     });
-  }, [currency]);
+  }, [currency, refreshKey]);
 
   // Sync URL params
   useEffect(() => {
@@ -263,7 +314,7 @@ export function MyCollection() {
       .finally(() => {
         if (currentId === fetchIdRef.current) setLoading(false);
       });
-  }, [debouncedSearch, selectedSet, sortBy, sortDir, currency, buildParams]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, currency, buildParams, refreshKey]);
 
   const handleLoadMore = useCallback(() => {
     if (!hasMore || loadingMore) return;
@@ -301,6 +352,20 @@ export function MyCollection() {
     setSortBy(newSortBy);
     setSortDir(newSortDir);
   }, []);
+
+  const handleCardRefresh = useCallback(async (entryId: number, cardCurrency?: string) => {
+    const params: Record<string, string> = {};
+    const cur = cardCurrency || currency;
+    if (cur !== "BRL") params.currency = cur;
+    const res = await refreshCardPrice(entryId, Object.keys(params).length > 0 ? params : undefined);
+    if (res.data) {
+      setCards((prev) =>
+        prev.map((c) =>
+          c.id === entryId ? { ...c, latest_price: res.data!.latest_price } : c,
+        ),
+      );
+    }
+  }, [currency]);
 
   // Client-side price sorting
   const sortedCards = useMemo(() => {
@@ -345,7 +410,70 @@ export function MyCollection() {
         {setOptions.length > 0 && (
           <SetIconFilter options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
         )}
-        <div className="flex justify-end">
+        <div className="flex justify-end items-center gap-3">
+          {/* Refresh All button */}
+          {refreshDone ? (
+            <span
+              className="text-sm font-medium text-emerald-400 animate-pulse"
+              data-testid="refresh-done"
+            >
+              {t("collection.refreshComplete")}
+            </span>
+          ) : refreshError ? (
+            <span
+              className="text-sm font-medium text-red-400"
+              data-testid="refresh-error"
+            >
+              {t("collection.refreshError")}
+            </span>
+          ) : isRefreshing ? (
+            <div className="flex items-center gap-2" data-testid="refresh-progress">
+              <div className="w-32 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-cyan-400 rounded-full transition-all duration-300"
+                  style={{
+                    width: refreshProgress && refreshProgress.total > 0
+                      ? `${Math.round((refreshProgress.processed / refreshProgress.total) * 100)}%`
+                      : "0%",
+                  }}
+                />
+              </div>
+              <span className="text-xs text-slate-300 whitespace-nowrap">
+                {refreshProgress
+                  ? t("collection.refreshing", {
+                      processed: refreshProgress.processed,
+                      total: refreshProgress.total,
+                    })
+                  : t("collection.refreshing", { processed: 0, total: 0 })}
+              </span>
+              <button
+                type="button"
+                onClick={cancelRefresh}
+                className="text-slate-400 hover:text-red-400 transition-colors"
+                title={t("collection.refreshCancel")}
+                data-testid="refresh-cancel"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={startRefresh}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
+                bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg
+                transition-colors duration-200"
+              data-testid="refresh-all-btn"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="hidden sm:inline">{t("collection.refreshAll")}</span>
+            </button>
+          )}
+
           <GridSizeToggle value={gridSize} onChange={setGridSize} />
         </div>
       </div>
@@ -381,7 +509,7 @@ export function MyCollection() {
             data-testid="collection-grid"
           >
             {sortedCards.map((card) => (
-              <CollectionCardTile key={card.id} card={card} compact={GRID_SIZE_CONFIG[gridSize].compact} currencyOverride={currency} />
+              <CollectionCardTile key={card.id} card={card} compact={GRID_SIZE_CONFIG[gridSize].compact} currencyOverride={currency} onRefresh={handleCardRefresh} />
             ))}
           </div>
           <div ref={sentinelRef} data-testid="scroll-sentinel" />

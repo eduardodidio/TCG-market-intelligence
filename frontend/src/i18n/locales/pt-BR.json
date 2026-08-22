@@ -93,7 +93,15 @@
     "collectionInfo": "Info da Colecao",
     "notLinked": "Ainda nao vinculada a dados de preco",
     "notLinkedDescription": "Esta carta nao foi associada a uma carta canonica no banco de dados. O rastreamento de precos comecara quando ela for vinculada durante uma sincronizacao.",
-    "noPriceChart": "Grafico de precos nao disponivel para cartas nao vinculadas"
+    "noPriceChart": "Grafico de precos nao disponivel para cartas nao vinculadas",
+    "refresh": "Atualizar preco",
+    "refreshing": "Atualizando... {{processed}}/{{total}}",
+    "refreshSuccess": "Preco atualizado",
+    "refreshError": "Falha ao atualizar preco",
+    "notLinkedRefresh": "Carta nao vinculada a uma fonte de preco",
+    "refreshAll": "Atualizar Todos",
+    "refreshComplete": "Precos atualizados!",
+    "refreshCancel": "Cancelar"
   },
   "market": {
     "title": "Movimentacao de Mercado",

@@ -93,7 +93,15 @@
     "collectionInfo": "Collection Info",
     "notLinked": "Not yet linked to price data",
     "notLinkedDescription": "This card has not been matched to a canonical card in the database. Price tracking will begin once it is linked during a sync.",
-    "noPriceChart": "No price chart available for unlinked cards"
+    "noPriceChart": "No price chart available for unlinked cards",
+    "refresh": "Refresh price",
+    "refreshing": "Refreshing... {{processed}}/{{total}}",
+    "refreshSuccess": "Price updated",
+    "refreshError": "Failed to refresh price",
+    "notLinkedRefresh": "Card not linked to a price source",
+    "refreshAll": "Refresh All",
+    "refreshComplete": "Prices updated!",
+    "refreshCancel": "Cancel"
   },
   "market": {
     "title": "Market Movers",

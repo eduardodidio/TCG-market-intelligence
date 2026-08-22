@@ -23,3 +23,12 @@ class MockIntersectionObserver implements IntersectionObserver {
 }
 
 globalThis.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
+
+// Global ResizeObserver mock for tests (jsdom does not provide it)
+class MockResizeObserver implements ResizeObserver {
+  observe() {}
+  disconnect() {}
+  unobserve() {}
+}
+
+globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
