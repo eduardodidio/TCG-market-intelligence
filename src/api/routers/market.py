@@ -1,24 +1,35 @@
 from __future__ import annotations
 
-from datetime import date
-from decimal import Decimal
-
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 
-from src.api.deps import get_currency_converter_dep, get_db
+from src.api.deps import get_currency_converter_dep, get_db, get_market_data_service
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.api.schemas.market import (
     MarketStats,
     MoverEntry,
     MoversResponse,
 )
+from src.api.schemas.trending import TrendingResponse
 from src.database.repository import Repository
 from src.services.currency import CurrencyConverter
+from src.services.market_data import MarketDataService
+from src.services.trending import TrendingService
 
 router = APIRouter(prefix="/market", tags=["market"])
 
 MOVERS_PERIOD_MAP = {"7d": 7, "30d": 30, "90d": 90}
+TRENDING_PERIOD_MAP = {"7d": 7, "30d": 30, "90d": 90}
+
+# Lazy singleton for TrendingService (cache persists across requests)
+_trending_service: TrendingService | None = None
+
+
+def get_trending_service(repo: Repository = Depends(get_db)) -> TrendingService:
+    global _trending_service  # noqa: PLW0603
+    if _trending_service is None:
+        _trending_service = TrendingService(repo)
+    return _trending_service
 
 
 @router.get("/movers", response_model=ApiResponse[MoversResponse])
@@ -26,8 +37,7 @@ def get_movers(
     period: str = Query(default="30d"),
     limit: int = Query(default=10, ge=1, le=50),
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
-    repo: Repository = Depends(get_db),
-    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    service: MarketDataService = Depends(get_market_data_service),
 ):
     if period not in MOVERS_PERIOD_MAP:
         raise HTTPException(
@@ -35,43 +45,34 @@ def get_movers(
             detail=(f"Invalid period. Must be one of: {', '.join(MOVERS_PERIOD_MAP.keys())}"),
         )
 
-    days = MOVERS_PERIOD_MAP[period]
-    gainers_raw, losers_raw = repo.get_movers(days=days, limit=limit)
-    today = date.today()
+    result = service.get_top_movers(period=period, limit=limit, currency=currency)
 
-    # If no exchange rate available for non-BRL currency, fall back entire
-    # response to BRL so prices aren't shown with the wrong currency symbol.
-    actual_currency = currency
-    if currency not in ("BRL", "PILA"):
-        rate = converter.get_display_rate()
-        if rate is None:
-            actual_currency = "BRL"
-
+    # Map shared MoverInfo -> existing MoverEntry for backward compat
     gainers = [
         MoverEntry(
-            card_id=g[0],
-            name_en=g[1],
-            name_pt=g[2],
-            set_code=g[3],
-            price_start=converter.convert(g[4], today, actual_currency),
-            price_end=converter.convert(g[5], today, actual_currency),
-            change_pct=g[6],
-            currency=actual_currency,
+            card_id=g.card_id,
+            name_en=g.name_en,
+            name_pt=g.name_pt,
+            set_code=g.set_code,
+            price_start=g.price_start,
+            price_end=g.price_end,
+            change_pct=g.change_pct,
+            currency=g.currency,
         )
-        for g in gainers_raw
+        for g in result.gainers
     ]
     losers = [
         MoverEntry(
-            card_id=lo[0],
-            name_en=lo[1],
-            name_pt=lo[2],
-            set_code=lo[3],
-            price_start=converter.convert(lo[4], today, actual_currency),
-            price_end=converter.convert(lo[5], today, actual_currency),
-            change_pct=lo[6],
-            currency=actual_currency,
+            card_id=lo.card_id,
+            name_en=lo.name_en,
+            name_pt=lo.name_pt,
+            set_code=lo.set_code,
+            price_start=lo.price_start,
+            price_end=lo.price_end,
+            change_pct=lo.change_pct,
+            currency=lo.currency,
         )
-        for lo in losers_raw
+        for lo in result.losers
     ]
 
     data = MoversResponse(gainers=gainers, losers=losers)
@@ -82,29 +83,54 @@ def get_movers(
 def get_stats(
     game: str | None = None,
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
-    repo: Repository = Depends(get_db),
-    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    service: MarketDataService = Depends(get_market_data_service),
 ):
-    stats = repo.get_market_stats(game=game)
-
-    # If no exchange rate available for non-BRL currency, fall back to BRL.
-    actual_currency = currency
-    if currency not in ("BRL", "PILA"):
-        rate = converter.get_display_rate()
-        if rate is None:
-            actual_currency = "BRL"
-
-    avg = stats["avg_price"]
-    if avg is not None:
-        avg = Decimal(str(round(float(avg), 2)))
-        avg = converter.convert(avg, date.today(), actual_currency)
+    summary = service.get_market_summary(currency=currency, game=game)
 
     data = MarketStats(
-        total_cards=stats["total_cards"],
-        total_observations=stats["total_observations"],
-        avg_price=avg,
-        date_range_start=stats["date_range_start"],
-        date_range_end=stats["date_range_end"],
-        currency=actual_currency,
+        total_cards=summary.total_cards,
+        total_observations=summary.total_observations,
+        avg_price=summary.avg_price,
+        date_range_start=summary.date_range_start,
+        date_range_end=summary.date_range_end,
+        currency=summary.currency,
     )
+    return success_response(data=data)
+
+
+@router.get("/trending/gainers", response_model=ApiResponse[TrendingResponse])
+def get_trending_gainers(
+    period: str = Query(default="30d"),
+    limit: int = Query(default=20, ge=1, le=50),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    service: TrendingService = Depends(get_trending_service),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+):
+    if period not in TRENDING_PERIOD_MAP:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
+        )
+    days = TRENDING_PERIOD_MAP[period]
+    data = service.get_trending("up", days, limit, converter, currency)
+    data.period = period
+    return success_response(data=data)
+
+
+@router.get("/trending/losers", response_model=ApiResponse[TrendingResponse])
+def get_trending_losers(
+    period: str = Query(default="30d"),
+    limit: int = Query(default=20, ge=1, le=50),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    service: TrendingService = Depends(get_trending_service),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+):
+    if period not in TRENDING_PERIOD_MAP:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
+        )
+    days = TRENDING_PERIOD_MAP[period]
+    data = service.get_trending("down", days, limit, converter, currency)
+    data.period = period
     return success_response(data=data)

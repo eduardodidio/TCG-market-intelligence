@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from src.api.deps import get_currency_converter_dep, get_db
+from src.api.deps import get_currency_converter_dep, get_db, get_market_data_service
 from src.api.routers.market import router
 from src.database.models import (
     CardRow,
@@ -18,6 +18,7 @@ from src.database.models import (
 )
 from src.database.repository import Repository
 from src.services.currency import CurrencyConverter
+from src.services.market_data import MarketDataService
 
 
 @pytest.fixture()
@@ -30,8 +31,14 @@ def repo(tmp_path):
 def client(repo):
     app = FastAPI()
     app.include_router(router)
+
+    converter = CurrencyConverter(repo)
+    service = MarketDataService(repo, converter)
+
+    app.dependency_overrides[get_market_data_service] = lambda: service
+    # Keep overrides for trending endpoints which still use get_db/converter
     app.dependency_overrides[get_db] = lambda: repo
-    app.dependency_overrides[get_currency_converter_dep] = lambda: CurrencyConverter(repo)
+    app.dependency_overrides[get_currency_converter_dep] = lambda: converter
     return TestClient(app)
 
 

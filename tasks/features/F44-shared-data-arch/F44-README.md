@@ -1,6 +1,6 @@
 # F44 — Arquitetura Compartilhada de Dados (Shared Data Architecture)
 
-**Status:** planned
+**Status:** shipped
 **Created:** 2026-08-21
 **Dependencies:** F33 (Price History), F34 (History Metrics) -- both planned
 

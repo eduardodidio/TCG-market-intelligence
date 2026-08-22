@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { refreshCardPrice } from "../api/collection";
+import { fetchDeckValue } from "../api/deckRanking";
 import { deleteDeck, fetchDeck } from "../api/decks";
 import { DeckCardTile } from "../components/DeckCardTile";
-import type { DeckDetail } from "../types/api";
+import type { DeckDetail, DeckValueDetail } from "../types/api";
 
 export function DeckView() {
   const { t } = useTranslation();
@@ -15,6 +17,9 @@ export function DeckView() {
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [valueData, setValueData] = useState<DeckValueDetail | null>(null);
+  const [valuePeriod, setValuePeriod] = useState("30d");
+  const [showHistory, setShowHistory] = useState(false);
 
   const loadDeck = useCallback(async () => {
     if (!id) return;
@@ -32,6 +37,13 @@ export function DeckView() {
   useEffect(() => {
     loadDeck();
   }, [loadDeck]);
+
+  useEffect(() => {
+    if (!id) return;
+    fetchDeckValue(Number(id), valuePeriod).then((resp) => {
+      if (resp.data) setValueData(resp.data);
+    });
+  }, [id, valuePeriod]);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -133,6 +145,124 @@ export function DeckView() {
           {t("decks.completePct", { pct: deck.ownership_pct.toFixed(0) })}
         </span>
       </div>
+
+      {/* Value Summary Panel */}
+      {valueData && (
+        <div className="mb-6 p-4 rounded-lg bg-slate-800 border border-slate-600" data-testid="value-panel">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-4">
+              <div>
+                <p className="text-xs text-slate-400 uppercase">{t("topDecks.totalValue")}</p>
+                <p className="text-xl font-bold text-white" data-testid="deck-total-value">
+                  {valueData.total_value !== null
+                    ? `R$ ${valueData.total_value.toFixed(2)}`
+                    : t("metrics.notAvailable")}
+                </p>
+              </div>
+              {valueData.value_change_pct !== null && (
+                <div>
+                  <p className="text-xs text-slate-400 uppercase">{t("topDecks.valueChange")}</p>
+                  <p
+                    className={`text-lg font-semibold ${
+                      valueData.value_change_pct > 0
+                        ? "text-green-400"
+                        : valueData.value_change_pct < 0
+                          ? "text-red-400"
+                          : "text-slate-400"
+                    }`}
+                    data-testid="deck-value-change"
+                  >
+                    {valueData.value_change_pct > 0 ? "+" : ""}
+                    {valueData.value_change_pct.toFixed(1)}%
+                  </p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-slate-400">
+                  {t("topDecks.pricedCards", {
+                    priced: valueData.priced_cards,
+                    total: valueData.priced_cards + valueData.unpriced_cards,
+                  })}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+              data-testid="toggle-history"
+            >
+              {showHistory ? t("topDecks.hideHistory") : t("topDecks.showHistory")}
+            </button>
+          </div>
+
+          {showHistory && (
+            <div>
+              {/* Period selector */}
+              <div className="flex gap-1 mb-3" data-testid="value-period-selector">
+                {(["7d", "30d", "90d"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setValuePeriod(p)}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      valuePeriod === p
+                        ? "bg-cyan-500 text-white"
+                        : "bg-slate-700 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {t(`topDecks.period${p.toUpperCase().replace("D", "d")}`)}
+                  </button>
+                ))}
+              </div>
+
+              {valueData.value_series.length > 0 ? (
+                <div className="h-48" data-testid="value-chart">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={valueData.value_series}>
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: "#94a3b8", fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: "#94a3b8", fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={60}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#1e293b",
+                          border: "1px solid #475569",
+                          borderRadius: "0.375rem",
+                        }}
+                        labelStyle={{ color: "#94a3b8" }}
+                      />
+                      <defs>
+                        <linearGradient id="deckValueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#22d3ee"
+                        fill="url(#deckValueGradient)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-4" data-testid="no-value-data">
+                  {t("topDecks.noPriceData")}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Card Grid */}
       {deck.cards.length === 0 ? (

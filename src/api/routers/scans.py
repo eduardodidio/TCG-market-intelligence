@@ -122,12 +122,15 @@ async def trigger_scan(
 
     # Launch in background thread (scan uses its own event loop)
     def _run() -> None:
+        from src.services.scan_hooks import default_registry
+
         asyncio.run(
             run_scan(
                 db_url=db_url,
                 scan_filter=scan_filter,
                 dry_run=request.dry_run,
                 run_id=scan_id,
+                on_complete=default_registry.notify,
             )
         )
 

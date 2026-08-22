@@ -30,6 +30,8 @@ class DeckSummarySchema(BaseModel):
     unique_cards: int = 0
     owned_cards: int = 0
     ownership_pct: float = 0.0
+    total_value: float | None = None
+    value_change_pct: float | None = None
     created_at: datetime
     updated_at: datetime
 

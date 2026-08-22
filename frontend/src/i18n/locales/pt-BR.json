@@ -28,10 +28,12 @@
     "exploreCards": "Explorar Cartas",
     "marketMovers": "Movimentacao de Mercado",
     "myDecks": "Meus Decks",
+    "topDecks": "Top Decks",
     "priceScans": "Scans de Preco",
     "schedules": "Agendamentos",
     "banlist": "Lista de Banimentos",
     "banHistory": "Historico de Banimentos",
+    "trending": "Tendencias",
     "toggleNav": "Alternar navegacao",
     "signIn": "Entrar",
     "signOut": "Sair"
@@ -386,6 +388,25 @@
     "deleted": "Agendamento excluido",
     "triggered": "Scan iniciado"
   },
+  "topDecks": {
+    "title": "Top Decks por Valor",
+    "sortByValue": "Ordenar por Valor",
+    "sortByChange": "Ordenar por Variacao %",
+    "sortByCards": "Ordenar por Qtd. de Cartas",
+    "period7d": "7 dias",
+    "period30d": "30 dias",
+    "period90d": "90 dias",
+    "totalValue": "Valor Total",
+    "valueChange": "Variacao de Valor",
+    "pricedCards": "{{priced}} de {{total}} com preco",
+    "noDecks": "Nenhum deck para ranquear",
+    "noDecksHint": "Importe um deck para ve-lo no ranking",
+    "loadMore": "Carregar Mais",
+    "showHistory": "Mostrar historico de valor",
+    "hideHistory": "Ocultar historico de valor",
+    "noPriceData": "Sem dados de preco",
+    "deckValue": "Valor do Deck"
+  },
   "metrics": {
     "title": "Indicadores",
     "trend": "Tendencia",
@@ -416,5 +437,20 @@
     "vsPrevious": "vs {{period}} anterior",
     "notAvailable": "N/D",
     "insufficientData": "Dados insuficientes"
+  },
+  "trending": {
+    "title": "Cards em Alta e em Baixa",
+    "trendingUp": "Em Alta",
+    "trendingDown": "Em Baixa",
+    "periodSelector": "Periodo de tendencia",
+    "resultsLimit": "Limite de resultados",
+    "topN": "Top {{n}}",
+    "noTrending": "Nenhum card em tendencia para este periodo",
+    "compositeScore": "Score de Tendencia",
+    "consistency": "Consistencia",
+    "observations": "{{count}} observacoes",
+    "cached": "Cache de {{time}} atras",
+    "changePercent": "{{value}}%",
+    "priceChange": "Variacao de Preco"
   }
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Callable
 from datetime import date, datetime
 
 import structlog
@@ -30,6 +31,7 @@ async def run_scan(
     delay: float = 1.0,
     concurrency: int = 3,
     run_id: int | None = None,
+    on_complete: Callable[[ScanRun, list[str]], None] | None = None,
 ) -> ScanRun:
     """Run a collection price scan with optional filtering.
 
@@ -91,6 +93,7 @@ async def run_scan(
         cards_failed = 0
         observations_saved = 0
         error_messages: list[str] = []
+        processed_external_ids: list[str] = []
         sem = asyncio.Semaphore(concurrency)
         lock = asyncio.Lock()
 
@@ -167,6 +170,7 @@ async def run_scan(
                 async with lock:
                     cards_processed += 1
                     observations_saved += inserted
+                    processed_external_ids.append(external_id)
                     scan_bus.publish(
                         ScanEvent(
                             event_type="card_scanned",
@@ -239,7 +243,16 @@ async def run_scan(
             )
         )
 
-        return _build_scan_run(repo, run_id)
+        scan_run = _build_scan_run(repo, run_id)
+
+        # Invoke on_complete hook if provided
+        if on_complete is not None:
+            try:
+                on_complete(scan_run, processed_external_ids)
+            except Exception:
+                log.exception("on_complete_hook_error", run_id=run_id)
+
+        return scan_run
 
     except Exception as exc:
         repo.update_scan_run(

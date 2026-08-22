@@ -58,6 +58,31 @@ const MOCK_DECK_DETAIL = {
   errors: [],
 };
 
+const MOCK_VALUE_DETAIL = {
+  data: {
+    deck_id: 1,
+    total_value: 20.0,
+    priced_cards: 1,
+    unpriced_cards: 1,
+    value_change: 2.5,
+    value_change_pct: 14.29,
+    value_series: [
+      { date: "2026-08-01", value: 17.5 },
+      { date: "2026-08-15", value: 20.0 },
+    ],
+    currency: "BRL",
+    period: "30d",
+  },
+  meta: { cursor: null, total: null, offset: null, request_id: "r2" },
+  errors: [],
+};
+
+const EMPTY_ENVELOPE = {
+  data: null,
+  meta: { cursor: null, total: null, offset: null, request_id: "r1" },
+  errors: [],
+};
+
 describe("DeckView page", () => {
   let originalFetch: typeof globalThis.fetch;
 
@@ -70,10 +95,19 @@ describe("DeckView page", () => {
     vi.restoreAllMocks();
   });
 
-  function mockFetchSuccess(data: unknown = MOCK_DECK_DETAIL) {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(data),
+  function mockFetchSuccess(deckData: unknown = MOCK_DECK_DETAIL, valueData: unknown = MOCK_VALUE_DETAIL) {
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr.includes("/value")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(valueData),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(deckData),
+      });
     }) as unknown as typeof fetch;
   }
 
@@ -168,6 +202,65 @@ describe("DeckView page", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("deck-view-error")).toBeDefined();
+    });
+  });
+
+  it("renders value panel with total value", async () => {
+    mockFetchSuccess();
+    renderDeckView();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("value-panel")).toBeDefined();
+    });
+
+    expect(screen.getByTestId("deck-total-value").textContent).toBe("R$ 20.00");
+  });
+
+  it("shows value change in value panel", async () => {
+    mockFetchSuccess();
+    renderDeckView();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("value-panel")).toBeDefined();
+    });
+
+    expect(screen.getByTestId("deck-value-change").textContent).toBe("+14.3%");
+  });
+
+  it("toggles value history chart", async () => {
+    mockFetchSuccess();
+    renderDeckView();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("toggle-history")).toBeDefined();
+    });
+
+    // Chart should not be visible initially
+    expect(screen.queryByTestId("value-chart")).toBeNull();
+
+    // Click to show
+    fireEvent.click(screen.getByTestId("toggle-history"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("value-chart")).toBeDefined();
+    });
+  });
+
+  it("handles empty value series", async () => {
+    mockFetchSuccess(MOCK_DECK_DETAIL, {
+      ...MOCK_VALUE_DETAIL,
+      data: { ...MOCK_VALUE_DETAIL.data, value_series: [] },
+    });
+    renderDeckView();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("toggle-history")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByTestId("toggle-history"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("no-value-data")).toBeDefined();
     });
   });
 });

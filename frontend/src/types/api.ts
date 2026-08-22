@@ -236,6 +236,8 @@ export interface DeckSummary {
   unique_cards: number;
   owned_cards: number;
   ownership_pct: number;
+  total_value: number | null;
+  value_change_pct: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -393,4 +395,76 @@ export interface AuthResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
+}
+
+// Trending types (F36)
+
+export interface TrendingCardEntry {
+  card_id: number;
+  name_en: string;
+  name_pt: string | null;
+  set_code: string | null;
+  collector_number: string | null;
+  image_url: string | null;
+  price_start: number;
+  price_end: number;
+  change_pct: number;
+  change_abs: number;
+  consistency: number;
+  composite_score: number;
+  observation_count: number;
+  currency: string;
+}
+
+export interface TrendingResponse {
+  cards: TrendingCardEntry[];
+  period: string;
+  direction: "up" | "down";
+  computed_at: string;
+  cached: boolean;
+}
+
+// Deck ranking types (F35)
+
+export interface DeckRankingEntry {
+  id: number;
+  name: string;
+  description: string | null;
+  total_cards: number;
+  unique_cards: number;
+  owned_cards: number;
+  ownership_pct: number;
+  total_value: number | null;
+  priced_cards: number;
+  unpriced_cards: number;
+  value_change: number | null;
+  value_change_pct: number | null;
+  sparkline: number[];
+  currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeckRankingResponse {
+  decks: DeckRankingEntry[];
+  total: number;
+  sort_by: string;
+  period: string;
+}
+
+export interface DeckValuePoint {
+  date: string;
+  value: number;
+}
+
+export interface DeckValueDetail {
+  deck_id: number;
+  total_value: number | null;
+  priced_cards: number;
+  unpriced_cards: number;
+  value_change: number | null;
+  value_change_pct: number | null;
+  value_series: DeckValuePoint[];
+  currency: string;
+  period: string;
 }

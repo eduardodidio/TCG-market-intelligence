@@ -340,3 +340,46 @@ class TestCollectionErrors:
         repo.mark_errors_resolved("myp", "99999")
         errors = repo.get_unresolved_errors("myp")
         assert len(errors) == 0
+
+
+class TestResolveExternalIds:
+    def test_returns_card_ids(self, repo):
+        card_id = repo.create_canonical_card("magic", "Test", None, "SET", "1")
+        card = SourceCard(
+            source="myp",
+            external_id="ext1",
+            url="https://example.com/ext1",
+            identity=CardIdentity(
+                game="magic", name_en="Test", set_code="SET", collector_number="1"
+            ),
+        )
+        repo.upsert_source_card(card, card_id=card_id)
+
+        result = repo.resolve_external_ids_to_card_ids(["ext1"])
+        assert card_id in result
+
+    def test_unknown_ids_returns_empty(self, repo):
+        result = repo.resolve_external_ids_to_card_ids(["unknown"])
+        assert result == []
+
+    def test_deduplicates(self, repo):
+        card_id = repo.create_canonical_card("magic", "Card", None, "SET", "1")
+        for ext_id in ["a1", "a2"]:
+            card = SourceCard(
+                source="myp",
+                external_id=ext_id,
+                url=f"https://example.com/{ext_id}",
+                identity=CardIdentity(
+                    game="magic", name_en="Card", set_code="SET", collector_number="1"
+                ),
+            )
+            repo.upsert_source_card(card, card_id=card_id)
+
+        result = repo.resolve_external_ids_to_card_ids(["a1", "a2"])
+        # Both map to the same card_id -- should be deduplicated
+        assert len(result) == 1
+        assert result[0] == card_id
+
+    def test_empty_list(self, repo):
+        result = repo.resolve_external_ids_to_card_ids([])
+        assert result == []

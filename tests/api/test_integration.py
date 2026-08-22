@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from src.api.app import create_app
-from src.api.deps import get_db
+from src.api.deps import get_db, get_market_data_service
 from src.database.models import (
     CardRow,
     PriceObservationRow,
@@ -116,6 +116,15 @@ def client(seeded_db):
         yield repo
 
     app.dependency_overrides[get_db] = override_get_db
+
+    # Override MarketDataService to use the test repo
+    from src.services.currency import CurrencyConverter
+    from src.services.market_data import MarketDataService
+
+    converter = CurrencyConverter(repo)
+    service = MarketDataService(repo, converter)
+    app.dependency_overrides[get_market_data_service] = lambda: service
+
     return TestClient(app)
 
 

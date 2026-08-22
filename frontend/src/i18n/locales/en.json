@@ -28,10 +28,12 @@
     "exploreCards": "Explore Cards",
     "marketMovers": "Market Movers",
     "myDecks": "My Decks",
+    "topDecks": "Top Decks",
     "priceScans": "Price Scans",
     "schedules": "Schedules",
     "banlist": "Ban List",
     "banHistory": "Ban History",
+    "trending": "Trending",
     "toggleNav": "Toggle navigation",
     "signIn": "Sign in",
     "signOut": "Sign out"
@@ -386,6 +388,25 @@
     "deleted": "Schedule deleted",
     "triggered": "Scan triggered"
   },
+  "topDecks": {
+    "title": "Top Decks by Value",
+    "sortByValue": "Sort by Value",
+    "sortByChange": "Sort by Change %",
+    "sortByCards": "Sort by Card Count",
+    "period7d": "7 days",
+    "period30d": "30 days",
+    "period90d": "90 days",
+    "totalValue": "Total Value",
+    "valueChange": "Value Change",
+    "pricedCards": "{{priced}} of {{total}} priced",
+    "noDecks": "No decks to rank yet",
+    "noDecksHint": "Import a deck to see it ranked here",
+    "loadMore": "Load More",
+    "showHistory": "Show value history",
+    "hideHistory": "Hide value history",
+    "noPriceData": "No price data available",
+    "deckValue": "Deck Value"
+  },
   "metrics": {
     "title": "Analytics",
     "trend": "Trend",
@@ -416,5 +437,20 @@
     "vsPrevious": "vs previous {{period}}",
     "notAvailable": "N/A",
     "insufficientData": "Not enough data"
+  },
+  "trending": {
+    "title": "Trending Cards",
+    "trendingUp": "Trending Up",
+    "trendingDown": "Trending Down",
+    "periodSelector": "Trending period",
+    "resultsLimit": "Results limit",
+    "topN": "Top {{n}}",
+    "noTrending": "No trending cards found for this period",
+    "compositeScore": "Trend Score",
+    "consistency": "Consistency",
+    "observations": "{{count}} observations",
+    "cached": "Cached {{time}} ago",
+    "changePercent": "{{value}}%",
+    "priceChange": "Price Change"
   }
 }

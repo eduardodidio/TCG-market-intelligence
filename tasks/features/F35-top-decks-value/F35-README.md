@@ -1,6 +1,6 @@
 # F35 — Top Decks por Valor (Top Decks by Value)
 
-**Status:** planned
+**Status:** shipped
 **Created:** 2026-08-21
 **Dependencies:** F34 (History Metrics — planned)
 

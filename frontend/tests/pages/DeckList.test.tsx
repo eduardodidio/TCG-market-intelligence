@@ -21,6 +21,8 @@ const MOCK_DECKS = {
       unique_cards: 15,
       owned_cards: 10,
       ownership_pct: 66.67,
+      total_value: 150.5,
+      value_change_pct: 5.2,
       created_at: "2026-08-21T12:00:00",
       updated_at: "2026-08-21T12:00:00",
     },
@@ -32,6 +34,21 @@ const MOCK_DECKS = {
       unique_cards: 20,
       owned_cards: 20,
       ownership_pct: 100,
+      total_value: null,
+      value_change_pct: null,
+      created_at: "2026-08-21T12:00:00",
+      updated_at: "2026-08-21T12:00:00",
+    },
+    {
+      id: 3,
+      name: "Jund Midrange",
+      description: null,
+      total_cards: 60,
+      unique_cards: 25,
+      owned_cards: 15,
+      ownership_pct: 60,
+      total_value: 300.0,
+      value_change_pct: -3.1,
       created_at: "2026-08-21T12:00:00",
       updated_at: "2026-08-21T12:00:00",
     },
@@ -130,5 +147,60 @@ describe("DeckList page", () => {
     await waitFor(() => {
       expect(screen.getByTestId("deck-list-error")).toBeDefined();
     });
+  });
+
+  it("renders total_value badge on deck card", async () => {
+    mockFetchSuccess();
+    renderDeckList();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("deck-card-1")).toBeDefined();
+    });
+
+    const badges = screen.getAllByTestId("deck-value-badge");
+    expect(badges.length).toBeGreaterThanOrEqual(1);
+
+    // First deck has value R$ 150.50
+    expect(badges[0].textContent).toContain("R$ 150.50");
+  });
+
+  it("shows N/A when total_value is null", async () => {
+    mockFetchSuccess();
+    renderDeckList();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("deck-card-2")).toBeDefined();
+    });
+
+    const badges = screen.getAllByTestId("deck-value-badge");
+    // Second deck (id=2) has null value
+    expect(badges[1].textContent).toContain("N/A");
+  });
+
+  it("shows green change indicator for positive value_change_pct", async () => {
+    mockFetchSuccess();
+    renderDeckList();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("deck-card-1")).toBeDefined();
+    });
+
+    const changes = screen.getAllByTestId("deck-value-change");
+    expect(changes[0].textContent).toContain("+5.2%");
+    expect(changes[0].className).toContain("text-green-400");
+  });
+
+  it("shows red change indicator for negative value_change_pct", async () => {
+    mockFetchSuccess();
+    renderDeckList();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("deck-card-3")).toBeDefined();
+    });
+
+    const changes = screen.getAllByTestId("deck-value-change");
+    const negativeChange = changes.find((el) => el.textContent?.includes("-3.1%"));
+    expect(negativeChange).toBeDefined();
+    expect(negativeChange!.className).toContain("text-red-400");
   });
 });

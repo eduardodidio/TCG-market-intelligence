@@ -11,9 +11,11 @@ const NAV_ITEMS = [
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
   { to: "/market/movers", labelKey: "nav.marketMovers", requiresAuth: false },
+  { to: "/market/trending", labelKey: "nav.trending", requiresAuth: false },
   { to: "/banlist", labelKey: "nav.banlist", requiresAuth: false },
   { to: "/banlist/history", labelKey: "nav.banHistory", requiresAuth: false },
   { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true },
+  { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true },
   { to: "/scans", labelKey: "nav.priceScans", requiresAuth: true },
   { to: "/schedules", labelKey: "nav.schedules", requiresAuth: true },
 ] as const;

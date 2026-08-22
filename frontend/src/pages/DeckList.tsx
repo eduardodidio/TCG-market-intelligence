@@ -111,6 +111,29 @@ export function DeckList() {
                   {t("decks.ownershipPct", { pct: deck.ownership_pct.toFixed(0) })}
                 </span>
               </div>
+              {/* Value badge */}
+              <div className="flex items-center gap-2 mt-2 text-sm" data-testid="deck-value-badge">
+                <span className="font-semibold text-white">
+                  {deck.total_value !== null
+                    ? `R$ ${deck.total_value.toFixed(2)}`
+                    : t("metrics.notAvailable")}
+                </span>
+                {deck.value_change_pct !== null && (
+                  <span
+                    className={`text-xs font-medium ${
+                      deck.value_change_pct > 0
+                        ? "text-green-400"
+                        : deck.value_change_pct < 0
+                          ? "text-red-400"
+                          : "text-slate-400"
+                    }`}
+                    data-testid="deck-value-change"
+                  >
+                    {deck.value_change_pct > 0 ? "+" : ""}
+                    {deck.value_change_pct.toFixed(1)}%
+                  </span>
+                )}
+              </div>
             </Link>
           ))}
         </div>

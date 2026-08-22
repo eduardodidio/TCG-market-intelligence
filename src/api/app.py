@@ -15,7 +15,7 @@ from src.api.schemas.envelope import ErrorDetail
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """FastAPI lifespan: start/stop the scan scheduler."""
+    """FastAPI lifespan: start/stop the scan scheduler + register scan hooks."""
     scheduler_disabled = os.environ.get("TCG_SCHEDULER_DISABLED", "0") == "1"
     if not scheduler_disabled:
         try:
@@ -30,9 +30,34 @@ async def lifespan(app: FastAPI):
 
             log = structlog.get_logger()
             log.warning("scheduler_startup_failed", exc_info=True)
+
+    # Register scan completion hook for cache invalidation
+    try:
+        from src.api.deps import _create_market_data_service
+        from src.services.scan_hooks import default_registry, make_cache_invalidation_hook
+
+        service = _create_market_data_service()
+        hook = make_cache_invalidation_hook(service)
+        default_registry.register(hook)
+    except Exception:
+        import structlog
+
+        log = structlog.get_logger()
+        log.warning("scan_hook_registration_failed", exc_info=True)
+
     yield
+
     if hasattr(app.state, "scheduler"):
         app.state.scheduler.shutdown()
+
+    # Clear cache on shutdown
+    try:
+        from src.api.deps import _create_market_data_service
+
+        service = _create_market_data_service()
+        service._cache.clear()
+    except Exception:
+        pass
 
 
 def create_app() -> FastAPI:

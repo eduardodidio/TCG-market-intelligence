@@ -20,6 +20,7 @@ set -euo pipefail
 LOGDIR="logs/p2-execution"
 mkdir -p "$LOGDIR"
 
+_LAST_PID=""
 run_feature() {
   local fid="$1"
   local desc="$2"
@@ -43,7 +44,7 @@ Follow the /create-feature pipeline from Step 1.5 onward:
 5) Final report" \
     > "$logfile" 2>&1 &
 
-  echo $!
+  _LAST_PID=$!
 }
 
 wait_for_pids() {
@@ -69,10 +70,10 @@ run_wave_0() {
   echo " WAVE 0 — No deps (4 features in parallel)"
   echo "================================================================"
   local pids=()
-  pids+=("$(run_feature F32 "Varredura em tempo real — SSE streaming progress for scans")")
-  pids+=("$(run_feature F33 "Historico de precos — period-based price history with aggregation")")
-  pids+=("$(run_feature F37 "Varredura global rotineira — APScheduler automated periodic scans")")
-  pids+=("$(run_feature F41 "Lista de banimentos — Scryfall legality sync and ban list management")")
+  run_feature F32 "Varredura em tempo real — SSE streaming progress for scans"; pids+=("$_LAST_PID")
+  run_feature F33 "Historico de precos — period-based price history with aggregation"; pids+=("$_LAST_PID")
+  run_feature F37 "Varredura global rotineira — APScheduler automated periodic scans"; pids+=("$_LAST_PID")
+  run_feature F41 "Lista de banimentos — Scryfall legality sync and ban list management"; pids+=("$_LAST_PID")
   echo "[$(date +%H:%M:%S)] Wave 0: ${#pids[@]} features launched. Waiting..."
   wait_for_pids "${pids[@]}"
   echo "[$(date +%H:%M:%S)] Wave 0 COMPLETE"
@@ -84,9 +85,9 @@ run_wave_1() {
   echo " WAVE 1 — Deps on Wave 0 (3 features in parallel)"
   echo "================================================================"
   local pids=()
-  pids+=("$(run_feature F34 "Metricas de historico — analytics metrics per card per period")")
-  pids+=("$(run_feature F42 "Motor de banidas em My Collection — collection ban analysis and alerts")")
-  pids+=("$(run_feature F43 "Historico de banimentos — ban history timeline and market impact stub")")
+  run_feature F34 "Metricas de historico — analytics metrics per card per period"; pids+=("$_LAST_PID")
+  run_feature F42 "Motor de banidas em My Collection — collection ban analysis and alerts"; pids+=("$_LAST_PID")
+  run_feature F43 "Historico de banimentos — ban history timeline and market impact stub"; pids+=("$_LAST_PID")
   echo "[$(date +%H:%M:%S)] Wave 1: ${#pids[@]} features launched. Waiting..."
   wait_for_pids "${pids[@]}"
   echo "[$(date +%H:%M:%S)] Wave 1 COMPLETE"
@@ -98,9 +99,9 @@ run_wave_2() {
   echo " WAVE 2 — Deps on Wave 1 (3 features in parallel)"
   echo "================================================================"
   local pids=()
-  pids+=("$(run_feature F35 "Top Decks por valor — deck ranking by total value with sparklines")")
-  pids+=("$(run_feature F36 "Cards em alta e em baixa — trending engine with composite scoring")")
-  pids+=("$(run_feature F44 "Arquitetura compartilhada de dados — MarketDataService facade and cache")")
+  run_feature F35 "Top Decks por valor — deck ranking by total value with sparklines"; pids+=("$_LAST_PID")
+  run_feature F36 "Cards em alta e em baixa — trending engine with composite scoring"; pids+=("$_LAST_PID")
+  run_feature F44 "Arquitetura compartilhada de dados — MarketDataService facade and cache"; pids+=("$_LAST_PID")
   echo "[$(date +%H:%M:%S)] Wave 2: ${#pids[@]} features launched. Waiting..."
   wait_for_pids "${pids[@]}"
   echo "[$(date +%H:%M:%S)] Wave 2 COMPLETE"
@@ -112,9 +113,9 @@ run_wave_3() {
   echo " WAVE 3 — Deps on Wave 2 (3 features in parallel)"
   echo "================================================================"
   local pids=()
-  pids+=("$(run_feature F38 "Landing Page Em Alta Em Baixa — trending sections on dashboard")")
-  pids+=("$(run_feature F39 "Ticker estilo Bolsa — stock-style horizontal ticker animation")")
-  pids+=("$(run_feature F40 "Pagina global de Mercado — unified market dashboard page")")
+  run_feature F38 "Landing Page Em Alta Em Baixa — trending sections on dashboard"; pids+=("$_LAST_PID")
+  run_feature F39 "Ticker estilo Bolsa — stock-style horizontal ticker animation"; pids+=("$_LAST_PID")
+  run_feature F40 "Pagina global de Mercado — unified market dashboard page"; pids+=("$_LAST_PID")
   echo "[$(date +%H:%M:%S)] Wave 3: ${#pids[@]} features launched. Waiting..."
   wait_for_pids "${pids[@]}"
   echo "[$(date +%H:%M:%S)] Wave 3 COMPLETE"

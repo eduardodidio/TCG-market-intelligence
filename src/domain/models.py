@@ -497,6 +497,36 @@ class BanImpactAnalysis:
     data_available: bool = False
 
 
+# --- Deck valuation domain models ---
+
+
+@dataclass
+class DeckValuation:
+    """Result of computing a deck's total value from card prices."""
+
+    total_value: Decimal | None
+    priced_cards: int
+    unpriced_cards: int
+
+
+@dataclass
+class DeckValuePoint:
+    """A single point in a deck value time series."""
+
+    date: date
+    total_value: Decimal
+
+
+@dataclass
+class DeckValueChange:
+    """Value change between two points in time."""
+
+    current: Decimal
+    previous: Decimal
+    delta: Decimal
+    delta_pct: Decimal
+
+
 # --- Deck domain models ---
 
 
@@ -513,6 +543,23 @@ class DeckSummary:
     ownership_pct: float = 0.0
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class TrendingScore:
+    """Composite trending score for a single card over a period."""
+
+    card_id: int
+    change_pct: Decimal  # raw % change (positive or negative)
+    change_abs: Decimal  # absolute price change
+    consistency: Decimal  # 0-1, fraction of daily deltas in same direction
+    observation_count: int  # data points in the period window
+    observation_density: Decimal  # observation_count / period_days (0-1, capped)
+    composite_score: Decimal  # weighted score 0-100
+    direction: str  # "up" | "down"
+    price_start: Decimal
+    price_end: Decimal
+    latest_date: date  # date of most recent observation
 
 
 @dataclass

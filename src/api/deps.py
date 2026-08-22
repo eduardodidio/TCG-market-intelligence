@@ -36,6 +36,29 @@ def get_currency_converter_dep():  # noqa: F811
     yield CurrencyConverter(repo)
 
 
+def get_market_data_service():
+    """FastAPI dependency for the singleton MarketDataService."""
+    return _create_market_data_service()
+
+
+def _create_market_data_service():
+    """Create (or return cached) singleton MarketDataService.
+
+    Uses a module-level cache to ensure one instance per process.
+    """
+    if not hasattr(_create_market_data_service, "_instance"):
+        from src.services.aggregate_cache import AggregateCache
+        from src.services.currency import CurrencyConverter
+        from src.services.market_data import MarketDataService
+
+        db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+        repo = Repository(db_url=db_url)
+        converter = CurrencyConverter(repo)
+        cache = AggregateCache()
+        _create_market_data_service._instance = MarketDataService(repo, converter, cache)
+    return _create_market_data_service._instance
+
+
 # Re-export auth dependencies for convenience
 from src.auth.dependencies import (  # noqa: E402, F401
     get_current_user,

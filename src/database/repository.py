@@ -411,6 +411,73 @@ class Repository:
                 result[card_id] = latest
             return result
 
+    def get_price_series_batch(
+        self, card_ids: list[int], days: int = 90
+    ) -> dict[int, list[HistoricalPrice]]:
+        """Batch-load price series for multiple card_ids in a single query.
+
+        Returns dict keyed by card_id -> sorted list of HistoricalPrice.
+        """
+        if not card_ids:
+            return {}
+
+        from collections import defaultdict
+
+        result: dict[int, list[HistoricalPrice]] = defaultdict(list)
+        cutoff = date.today() - timedelta(days=days)
+
+        with Session(self.engine) as session:
+            # Get all source_cards for the given card_ids
+            source_cards = (
+                session.execute(select(SourceCardRow).where(SourceCardRow.card_id.in_(card_ids)))
+                .scalars()
+                .all()
+            )
+
+            if not source_cards:
+                return dict(result)
+
+            # Map external_id -> card_id for grouping
+            ext_to_card: dict[str, int] = {}
+            external_ids: list[str] = []
+            for sc in source_cards:
+                ext_to_card[sc.external_id] = sc.card_id
+                external_ids.append(sc.external_id)
+
+            # Fetch all observations in one query
+            observations = (
+                session.execute(
+                    select(PriceObservationRow)
+                    .where(
+                        PriceObservationRow.external_id.in_(external_ids),
+                        PriceObservationRow.observed_at >= cutoff,
+                    )
+                    .order_by(PriceObservationRow.observed_at.asc())
+                )
+                .scalars()
+                .all()
+            )
+
+            for obs in observations:
+                card_id = ext_to_card.get(obs.external_id)
+                if card_id is None:
+                    continue
+                result[card_id].append(
+                    HistoricalPrice(
+                        source=obs.source,
+                        external_id=obs.external_id,
+                        observed_at=obs.observed_at,
+                        median_price=obs.median_price,
+                        tcg_price=obs.tcg_price,
+                        last_sold_price=obs.last_sold_price,
+                        quantity_available=obs.quantity_available,
+                        last_sold_meta=obs.last_sold_meta,
+                        currency=obs.currency,
+                    )
+                )
+
+        return dict(result)
+
     def list_sets(self, game: str | None = None) -> list[tuple[str, str, int]]:
         """List distinct sets with card counts."""
         with Session(self.engine) as session:
@@ -503,6 +570,68 @@ class Repository:
 
             return gainers, losers
 
+    def get_trending_price_data(self, period_days: int) -> dict[int, list[tuple[date, Decimal]]]:
+        """Load price series for all cards with observations in the period.
+
+        Returns a dict mapping card_id to a list of (date, median_price)
+        tuples, sorted by date ascending. Only cards with at least one
+        non-null median_price observation are included.
+        """
+        cutoff = date.today() - timedelta(days=period_days)
+
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    SourceCardRow.card_id,
+                    PriceObservationRow.observed_at,
+                    PriceObservationRow.median_price,
+                )
+                .join(
+                    PriceObservationRow,
+                    (PriceObservationRow.external_id == SourceCardRow.external_id)
+                    & (PriceObservationRow.source.in_([SourceCardRow.source, "jsonld_snapshot"])),
+                )
+                .where(
+                    SourceCardRow.card_id.isnot(None),
+                    PriceObservationRow.observed_at >= cutoff,
+                    PriceObservationRow.median_price.isnot(None),
+                )
+                .order_by(SourceCardRow.card_id, PriceObservationRow.observed_at.asc())
+            )
+            rows = session.execute(stmt).all()
+
+        result: dict[int, list[tuple[date, Decimal]]] = {}
+        for card_id, obs_date, median_price in rows:
+            if card_id not in result:
+                result[card_id] = []
+            result[card_id].append((obs_date, Decimal(str(median_price))))
+
+        # Deduplicate within each card: same date keeps max price
+        for card_id in result:
+            by_date: dict[date, Decimal] = {}
+            for d, p in result[card_id]:
+                if d not in by_date or p > by_date[d]:
+                    by_date[d] = p
+            result[card_id] = sorted(by_date.items(), key=lambda x: x[0])
+
+        return result
+
+    def get_card_info_batch(
+        self, card_ids: list[int]
+    ) -> dict[int, tuple[str, str | None, str | None, str | None]]:
+        """Load card metadata for a batch of card IDs.
+
+        Returns dict mapping card_id to (name_en, name_pt, set_code,
+        collector_number).
+        """
+        if not card_ids:
+            return {}
+
+        with Session(self.engine) as session:
+            stmt = select(CardRow).where(CardRow.id.in_(card_ids))
+            cards = session.execute(stmt).scalars().all()
+            return {c.id: (c.name_en, c.name_pt, c.set_code, c.collector_number) for c in cards}
+
     def get_market_stats(self, game: str | None = None) -> dict:
         """Get aggregate market statistics."""
         with Session(self.engine) as session:
@@ -535,6 +664,25 @@ class Repository:
                 "date_range_start": date_range[0],
                 "date_range_end": date_range[1],
             }
+
+    def resolve_external_ids_to_card_ids(self, external_ids: list[str]) -> list[int]:
+        """Map source card external_ids to canonical card_ids."""
+        if not external_ids:
+            return []
+        with Session(self.engine) as session:
+            rows = (
+                session.execute(
+                    select(SourceCardRow.card_id)
+                    .where(
+                        SourceCardRow.external_id.in_(external_ids),
+                        SourceCardRow.card_id.isnot(None),
+                    )
+                    .distinct()
+                )
+                .scalars()
+                .all()
+            )
+            return list(rows)
 
     def get_latest_observation_date(self, source: str | None = None) -> date | None:
         """Return the most recent observation date, optionally filtered by source."""

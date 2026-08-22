@@ -69,15 +69,17 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    expect(links).toHaveLength(9);
+    expect(links).toHaveLength(11);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Market Movers");
+    expect(linkTexts).toContain("Trending");
     expect(linkTexts).toContain("Ban History");
     expect(linkTexts).toContain("My Decks");
+    expect(linkTexts).toContain("Top Decks");
     expect(linkTexts).toContain("Price Scans");
     expect(linkTexts).toContain("Schedules");
     expect(linkTexts).toContain("Ban List");
@@ -88,14 +90,16 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Only public items: Dashboard, Explore Cards, Market Movers, Ban List, Ban History
-    expect(links).toHaveLength(5);
+    // Only public items: Dashboard, Explore Cards, Market Movers, Trending, Ban List, Ban History
+    expect(links).toHaveLength(6);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Market Movers");
+    expect(linkTexts).toContain("Trending");
     expect(linkTexts).not.toContain("My Collection");
+    expect(linkTexts).not.toContain("Top Decks");
     expect(linkTexts).not.toContain("Price Scans");
     expect(linkTexts).not.toContain("Schedules");
   });

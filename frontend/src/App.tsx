@@ -36,6 +36,9 @@ const Scans = lazy(() =>
 const DeckList = lazy(() =>
   import("./pages/DeckList").then((m) => ({ default: m.DeckList })),
 );
+const TopDecksPage = lazy(() =>
+  import("./pages/TopDecksPage").then((m) => ({ default: m.TopDecksPage })),
+);
 const DeckView = lazy(() =>
   import("./pages/DeckView").then((m) => ({ default: m.DeckView })),
 );
@@ -47,6 +50,9 @@ const BanHistory = lazy(() =>
 );
 const Schedules = lazy(() =>
   import("./pages/Schedules").then((m) => ({ default: m.Schedules })),
+);
+const Trending = lazy(() =>
+  import("./pages/Trending").then((m) => ({ default: m.Trending })),
 );
 const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login })),
@@ -141,6 +147,16 @@ export default function App() {
                 }
               />
               <Route
+                path="/market/trending"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <Trending />
+                  </Suspense>
+                }
+              />
+              <Route
                 path="/banlist"
                 element={
                   <Suspense
@@ -194,6 +210,18 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <DeckList />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/decks/ranking"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <TopDecksPage />
                     </ProtectedRoute>
                   </Suspense>
                 }

@@ -1,6 +1,6 @@
 # F36 — Cards em Alta e em Baixa (Trending Cards Engine)
 
-**Status:** planned
+**Status:** shipped
 **Created:** 2026-08-21
 **Dependencies:** F34 (History Metrics — must ship first)
 
