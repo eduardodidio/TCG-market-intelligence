@@ -257,6 +257,8 @@ class SyncSummary:
     unmatched: int = 0
     cards_created: int = 0
     observations_saved: int = 0
+    rate_limited: int = 0
+    not_found: int = 0
     errors: list[SyncError] = field(default_factory=list)
     results: list[SyncResult] = field(default_factory=list)
     started_at: datetime = field(default_factory=datetime.now)

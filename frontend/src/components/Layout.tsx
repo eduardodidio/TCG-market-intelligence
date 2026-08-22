@@ -125,10 +125,7 @@ export function Layout() {
         </div>
         <nav className="mt-4 px-3" data-testid="sidebar-nav">
           {visibleNavItems.map((item) => {
-            const isActive =
-              item.to === "/"
-                ? location.pathname === "/"
-                : location.pathname.startsWith(item.to);
+            const isActive = location.pathname === item.to;
             return (
               <Link
                 key={item.to}

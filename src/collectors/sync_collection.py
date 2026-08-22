@@ -13,9 +13,12 @@ from src.collection.matcher import CollectionEntry, match_collection_card
 from src.database.models import UserCollectionRow
 from src.database.repository import Repository
 from src.domain.models import SourceCard, SyncError, SyncResult, SyncSummary
+from src.providers.myp.exceptions import NotFoundError, RateLimitError
 from src.providers.myp.provider import MypCardsProvider, MypConfig
 
 log = structlog.get_logger()
+
+MAX_REQUEUE_ATTEMPTS = 2
 
 
 async def run_sync_collection(
@@ -74,7 +77,9 @@ async def run_sync_collection(
         sem = asyncio.Semaphore(concurrency)
         lock = asyncio.Lock()
 
-        async def process_entry(row: UserCollectionRow, index: int) -> None:
+        retry_queue: list[tuple[UserCollectionRow, int, int]] = []  # (row, index, attempt)
+
+        async def process_entry(row: UserCollectionRow, index: int, attempt: int = 1) -> None:
             async with sem:
                 entry = row_to_collection_entry(row)
 
@@ -117,6 +122,68 @@ async def run_sync_collection(
                         history_days,
                         dry_run,
                     )
+                except NotFoundError as e:
+                    async with lock:
+                        summary.not_found += 1
+                        sync_error = SyncError(
+                            entry_id=row.id,
+                            name_en=entry.name_en,
+                            set_code=entry.set_code,
+                            collector_number=entry.collector_number,
+                            error_type="NotFoundError",
+                            error_message=str(e),
+                        )
+                        summary.errors.append(sync_error)
+                        result = SyncResult(
+                            entry_id=row.id,
+                            name_en=entry.name_en,
+                            set_code=entry.set_code,
+                            collector_number=entry.collector_number,
+                            status="not_found",
+                            error_message=str(e),
+                        )
+                        summary.results.append(result)
+                    log.warning(
+                        "sync_not_found",
+                        name_en=entry.name_en,
+                        set_code=entry.set_code,
+                    )
+                except RateLimitError as e:
+                    if attempt < MAX_REQUEUE_ATTEMPTS:
+                        async with lock:
+                            retry_queue.append((row, index, attempt + 1))
+                        log.warning(
+                            "sync_rate_limited_requeue",
+                            name_en=entry.name_en,
+                            set_code=entry.set_code,
+                            attempt=attempt,
+                        )
+                        return
+                    async with lock:
+                        summary.rate_limited += 1
+                        sync_error = SyncError(
+                            entry_id=row.id,
+                            name_en=entry.name_en,
+                            set_code=entry.set_code,
+                            collector_number=entry.collector_number,
+                            error_type="RateLimitError",
+                            error_message=str(e),
+                        )
+                        summary.errors.append(sync_error)
+                        result = SyncResult(
+                            entry_id=row.id,
+                            name_en=entry.name_en,
+                            set_code=entry.set_code,
+                            collector_number=entry.collector_number,
+                            status="rate_limited",
+                            error_message=str(e),
+                        )
+                        summary.results.append(result)
+                    log.warning(
+                        "sync_rate_limited_exhausted",
+                        name_en=entry.name_en,
+                        set_code=entry.set_code,
+                    )
                 except Exception as e:
                     async with lock:
                         sync_error = SyncError(
@@ -147,6 +214,18 @@ async def run_sync_collection(
         tasks = [process_entry(row, i) for i, row in enumerate(entries_to_process, 1)]
         await asyncio.gather(*tasks)
 
+        # Retry pass for rate-limited cards
+        if retry_queue:
+            log.info(
+                "sync_retry_pass",
+                retry_count=len(retry_queue),
+                delay_multiplier=3,
+            )
+            await asyncio.sleep(config.delay_seconds * 3)
+            retry_tasks = [process_entry(row, idx, attempt=att) for row, idx, att in retry_queue]
+            retry_queue.clear()
+            await asyncio.gather(*retry_tasks)
+
         summary.finished_at = datetime.now()
         _log_summary(summary)
         return summary
@@ -168,6 +247,19 @@ async def _process_single_entry(
     """Process a single collection entry through the full sync pipeline."""
     # Step 1: Search MYP
     search_results = await provider.search_card(entry.name_en)
+
+    # Step 1b: PT fallback — retry with Portuguese name if EN returned nothing
+    used_pt_fallback = False
+    if not search_results and entry.name_pt:
+        search_results = await provider.search_card(entry.name_pt)
+        used_pt_fallback = bool(search_results)
+        if used_pt_fallback:
+            log.info(
+                "pt_fallback_used",
+                name_en=entry.name_en,
+                name_pt=entry.name_pt,
+                results=len(search_results),
+            )
 
     async with lock:
         summary.searched += 1
@@ -297,6 +389,8 @@ def _log_summary(summary: SyncSummary) -> None:
         unmatched=summary.unmatched,
         cards_created=summary.cards_created,
         observations_saved=summary.observations_saved,
+        rate_limited=summary.rate_limited,
+        not_found=summary.not_found,
         error_count=len(summary.errors),
         elapsed_seconds=elapsed,
     )

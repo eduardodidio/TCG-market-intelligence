@@ -27,6 +27,12 @@ from src.parsers.myp import (
     parse_search_results,
     parse_set_links,
 )
+from src.providers.myp.exceptions import (
+    MypError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+)
 
 log = structlog.get_logger()
 
@@ -66,8 +72,16 @@ class MypCardsProvider(CardSourceProvider):
             self._session = None
 
     async def _fetch(self, url: str) -> str:
-        """Fetch URL with rate limiting and retry."""
+        """Fetch URL with rate limiting and retry.
+
+        Raises typed exceptions based on the final HTTP status:
+        - NotFoundError for 404 (immediate, no retry)
+        - RateLimitError for 429 (after retries exhausted)
+        - ServerError for 5xx (after retries exhausted)
+        - MypError for 403 / other 4xx (after retries exhausted)
+        """
         session = await self._get_session()
+        last_status = 0
 
         for attempt in range(1, self.config.max_retries + 1):
             await asyncio.sleep(self.config.delay_seconds)
@@ -75,7 +89,18 @@ class MypCardsProvider(CardSourceProvider):
 
             try:
                 resp = await session.get(url)
+                last_status = resp.status_code
 
+                # 404: permanent — raise immediately, no retry
+                if resp.status_code == 404:
+                    raise NotFoundError(
+                        f"HTTP 404 for {url}",
+                        url=url,
+                        status_code=404,
+                        attempts=attempt,
+                    )
+
+                # 429: transient — retry with backoff
                 if resp.status_code == 429:
                     wait = min(2**attempt * 5, 60)
                     log.warning(
@@ -87,6 +112,7 @@ class MypCardsProvider(CardSourceProvider):
                     await asyncio.sleep(wait)
                     continue
 
+                # 403: Cloudflare — retry with longer backoff
                 if resp.status_code == 403:
                     wait = min(2**attempt * 10, 120)
                     log.warning(
@@ -98,17 +124,32 @@ class MypCardsProvider(CardSourceProvider):
                     await asyncio.sleep(wait)
                     continue
 
-                if resp.status_code >= 400:
+                # 5xx: server error — retry with backoff
+                if resp.status_code >= 500:
                     log.warning(
-                        "http_error",
+                        "server_error",
                         url=url,
                         status=resp.status_code,
                         attempt=attempt,
                     )
                     if attempt == self.config.max_retries:
-                        raise RuntimeError(f"HTTP {resp.status_code} for {url}")
+                        raise ServerError(
+                            f"HTTP {resp.status_code} for {url}",
+                            url=url,
+                            status_code=resp.status_code,
+                            attempts=attempt,
+                        )
                     await asyncio.sleep(2**attempt)
                     continue
+
+                # Other 4xx: raise immediately
+                if resp.status_code >= 400:
+                    raise MypError(
+                        f"HTTP {resp.status_code} for {url}",
+                        url=url,
+                        status_code=resp.status_code,
+                        attempts=attempt,
+                    )
 
                 return resp.content.decode("utf-8")
 
@@ -118,7 +159,27 @@ class MypCardsProvider(CardSourceProvider):
                     raise
                 await asyncio.sleep(2**attempt)
 
-        raise RuntimeError(f"Failed after {self.config.max_retries} attempts: {url}")
+        # Retries exhausted — select typed exception based on last status
+        if last_status == 429:
+            raise RateLimitError(
+                f"Rate limited after {self.config.max_retries} attempts: {url}",
+                url=url,
+                status_code=429,
+                attempts=self.config.max_retries,
+            )
+        if last_status == 403:
+            raise MypError(
+                f"Forbidden after {self.config.max_retries} attempts: {url}",
+                url=url,
+                status_code=403,
+                attempts=self.config.max_retries,
+            )
+        raise MypError(
+            f"Failed after {self.config.max_retries} attempts: {url}",
+            url=url,
+            status_code=last_status,
+            attempts=self.config.max_retries,
+        )
 
     async def search_card(self, term: str) -> list[MypSearchResult]:
         """Search MYP for cards matching *term*.
@@ -135,7 +196,9 @@ class MypCardsProvider(CardSourceProvider):
 
         try:
             raw = await self._fetch(url)
-        except (RuntimeError, TimeoutError, OSError):
+        except (NotFoundError, RateLimitError):
+            raise
+        except (MypError, RuntimeError, TimeoutError, OSError):
             log.warning("search_card_fetch_failed", term=term)
             return []
 
@@ -226,7 +289,9 @@ class MypCardsProvider(CardSourceProvider):
         url = f"{BASE_URL}/magic/produto/{product_id}/{slug}"
         try:
             html = await self._fetch(url)
-        except (RuntimeError, TimeoutError, OSError):
+        except (NotFoundError, RateLimitError):
+            raise
+        except (MypError, RuntimeError, TimeoutError, OSError):
             log.warning(
                 "fetch_current_price_failed",
                 product_id=product_id,

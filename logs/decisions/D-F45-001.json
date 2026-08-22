@@ -1,0 +1,10 @@
+{
+  "id": "D-F45-001",
+  "feature": "F45",
+  "type": "feature_start",
+  "status": "executed",
+  "action": "create-feature",
+  "rationale": "F45 Provider Resilience is a low-risk backend hardening feature with 4 tasks across 2 waves. T01 creates a custom exception hierarchy, T02 refactors provider _fetch to use typed exceptions, T03-T04 add re-queue logic to scan and sync orchestrators. No frontend changes, no DB schema changes. Files are well-scoped and the plan has clear sequential dependencies (T01->T02->T03/T04). Strong test coverage (1625 backend tests, 91.08%) provides safety net. No blockers.",
+  "actions": [{"action": "create-feature", "target": "F45"}],
+  "created_at": "2026-08-22T14:00:00Z"
+}

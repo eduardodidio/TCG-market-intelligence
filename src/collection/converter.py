@@ -16,4 +16,5 @@ def row_to_collection_entry(row: UserCollectionRow) -> CollectionEntry:
         set_code=row.set_code,
         collector_number=row.collector_number,
         name_en=row.name_en,
+        name_pt=row.name_pt,
     )

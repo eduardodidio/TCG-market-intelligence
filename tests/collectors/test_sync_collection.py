@@ -28,6 +28,7 @@ from src.domain.models import (
     SourceCard,
     SyncSummary,
 )
+from src.providers.myp.exceptions import NotFoundError, RateLimitError
 
 # ── fixtures ────────────────────────────────────────────────────
 
@@ -712,6 +713,168 @@ class TestRunSyncCollection:
 
     @patch("src.collectors.sync_collection.MypCardsProvider")
     @patch("src.collectors.sync_collection.Repository")
+    async def test_pt_fallback_used_when_en_returns_empty(self, MockRepo, MockProvider):
+        """When EN search returns nothing and name_pt exists, retry with PT name."""
+        rows = [
+            _fake_row(
+                id=1,
+                set_code="dmr",
+                collector_number="123",
+                name_en="Lightning Bolt",
+                name_pt="Relampago",
+            )
+        ]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+        repo.upsert_card.return_value = 42
+        repo.upsert_source_card.return_value = 100
+        repo.insert_price_observations.return_value = 3
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(
+            side_effect=[
+                [],  # EN search returns nothing
+                [_search_result()],  # PT search returns a result
+            ]
+        )
+        provider.get_card_details = AsyncMock(return_value=_detailed_source_card())
+        provider.get_price_history = AsyncMock(return_value=_history_prices())
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert summary.matched == 1
+        assert summary.searched == 1
+        # Two search calls: EN then PT
+        assert provider.search_card.call_count == 2
+        provider.search_card.assert_any_call("Lightning Bolt")
+        provider.search_card.assert_any_call("Relampago")
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_pt_fallback_not_used_when_en_succeeds(self, MockRepo, MockProvider):
+        """When EN search returns results, PT fallback is not triggered."""
+        rows = [
+            _fake_row(
+                id=1,
+                set_code="dmr",
+                collector_number="123",
+                name_en="Lightning Bolt",
+                name_pt="Relampago",
+            )
+        ]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+        repo.upsert_card.return_value = 42
+        repo.upsert_source_card.return_value = 100
+        repo.insert_price_observations.return_value = 3
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(return_value=[_search_result()])
+        provider.get_card_details = AsyncMock(return_value=_detailed_source_card())
+        provider.get_price_history = AsyncMock(return_value=_history_prices())
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert summary.matched == 1
+        # Only one search call (EN only)
+        assert provider.search_card.call_count == 1
+        provider.search_card.assert_called_once_with("Lightning Bolt")
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_pt_fallback_not_used_when_name_pt_is_none(self, MockRepo, MockProvider):
+        """When name_pt is None, no fallback search is attempted."""
+        rows = [
+            _fake_row(
+                id=1,
+                set_code="xyz",
+                collector_number="999",
+                name_en="Obscure Card",
+                name_pt=None,
+            )
+        ]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(return_value=[])
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert summary.unmatched == 1
+        # Only one search call (EN only, no PT fallback)
+        assert provider.search_card.call_count == 1
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_pt_fallback_still_unmatched(self, MockRepo, MockProvider):
+        """PT fallback search returns results but none match the entry."""
+        rows = [
+            _fake_row(
+                id=1,
+                set_code="xyz",
+                collector_number="999",
+                name_en="Obscure Card",
+                name_pt="Carta Obscura",
+            )
+        ]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(
+            side_effect=[
+                [],  # EN returns nothing
+                [
+                    _search_result(
+                        external_id="9000",
+                        name="Carta Diferente",
+                        slug="carta-diferente",
+                        sku=None,
+                        set_code=None,
+                        collector_number=None,
+                    )
+                ],  # PT returns unrelated card
+            ]
+        )
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert summary.unmatched == 1
+        assert summary.matched == 0
+        assert provider.search_card.call_count == 2
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_pt_fallback_also_empty(self, MockRepo, MockProvider):
+        """Both EN and PT searches return empty lists."""
+        rows = [
+            _fake_row(
+                id=1,
+                set_code="xyz",
+                collector_number="999",
+                name_en="Obscure Card",
+                name_pt="Carta Obscura",
+            )
+        ]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(return_value=[])
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert summary.unmatched == 1
+        assert provider.search_card.call_count == 2
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
     async def test_upsert_card_returns_none_no_link(self, MockRepo, MockProvider):
         """If upsert_card returns None (no identity), card_id is not linked."""
         rows = [_fake_row(id=1, set_code="dmr", collector_number="123", name_en="Lightning Bolt")]
@@ -732,3 +895,117 @@ class TestRunSyncCollection:
         assert summary.matched == 1
         assert summary.cards_created == 0  # card_id is None
         repo.link_collection_entry.assert_not_called()
+
+
+# ── F45-T04: Sync typed exception + requeue tests ────────────────
+
+
+@pytest.mark.asyncio
+class TestSyncTypedExceptions:
+    """Tests for typed exception handling and re-queue in sync orchestrator."""
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_not_found_permanent_fail(self, MockRepo, MockProvider):
+        """NotFoundError is recorded as not_found status, no requeue."""
+        rows = [_fake_row(id=1, set_code="dmr", collector_number="123", name_en="Lightning Bolt")]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(
+            side_effect=NotFoundError("HTTP 404", url="/search", status_code=404, attempts=1)
+        )
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert summary.not_found == 1
+        assert len(summary.errors) == 1
+        assert summary.errors[0].error_type == "NotFoundError"
+        not_found_results = [r for r in summary.results if r.status == "not_found"]
+        assert len(not_found_results) == 1
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_rate_limit_requeue_then_success(self, MockRepo, MockProvider):
+        """RateLimitError on first attempt triggers requeue; second succeeds."""
+        rows = [_fake_row(id=1, set_code="dmr", collector_number="123", name_en="Lightning Bolt")]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+        repo.upsert_card.return_value = 42
+        repo.upsert_source_card.return_value = 100
+        repo.insert_price_observations.return_value = 3
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(
+            side_effect=[
+                RateLimitError("429", url="/search", status_code=429, attempts=2),
+                [_search_result()],  # retry succeeds
+            ]
+        )
+        provider.get_card_details = AsyncMock(return_value=_detailed_source_card())
+        provider.get_price_history = AsyncMock(return_value=_history_prices())
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1, delay=0)
+
+        assert summary.matched == 1
+        assert summary.rate_limited == 0  # succeeded on retry
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_rate_limit_exhausted(self, MockRepo, MockProvider):
+        """RateLimitError on all attempts is recorded as rate_limited."""
+        rows = [_fake_row(id=1, set_code="dmr", collector_number="123", name_en="Lightning Bolt")]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(
+            side_effect=RateLimitError("429", url="/search", status_code=429, attempts=2)
+        )
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1, delay=0)
+
+        assert summary.rate_limited == 1
+        assert len(summary.errors) == 1
+        assert summary.errors[0].error_type == "RateLimitError"
+        rl_results = [r for r in summary.results if r.status == "rate_limited"]
+        assert len(rl_results) == 1
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_sync_summary_new_fields_default(self, MockRepo, MockProvider):
+        """SyncSummary initializes rate_limited and not_found to 0."""
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = []
+
+        provider = MockProvider.return_value
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:")
+
+        assert summary.rate_limited == 0
+        assert summary.not_found == 0
+
+    @patch("src.collectors.sync_collection.MypCardsProvider")
+    @patch("src.collectors.sync_collection.Repository")
+    async def test_generic_exception_still_caught(self, MockRepo, MockProvider):
+        """Generic exceptions are still caught by the fallback handler."""
+        rows = [_fake_row(id=1, set_code="dmr", collector_number="123", name_en="Lightning Bolt")]
+        repo = MockRepo.return_value
+        repo.get_all_collection_entries.return_value = rows
+
+        provider = MockProvider.return_value
+        provider.search_card = AsyncMock(return_value=[_search_result()])
+        provider.get_card_details = AsyncMock(side_effect=RuntimeError("unexpected error"))
+        provider.close = AsyncMock()
+
+        summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert len(summary.errors) == 1
+        assert summary.errors[0].error_type == "RuntimeError"
+        assert summary.not_found == 0
+        assert summary.rate_limited == 0

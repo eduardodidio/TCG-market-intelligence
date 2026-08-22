@@ -12,6 +12,12 @@ from src.domain.models import (
     PriceSnapshot,
     SourceCard,
 )
+from src.providers.myp.exceptions import (
+    MypError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+)
 from src.providers.myp.provider import MypCardsProvider, MypConfig
 
 # ---------------------------------------------------------------------------
@@ -132,7 +138,7 @@ class TestFetch:
 
     @pytest.mark.asyncio
     async def test_429_exhausted_retries(self, provider):
-        """429 on all attempts raises RuntimeError (falls through loop)."""
+        """429 on all attempts raises RateLimitError."""
         mock_session = AsyncMock()
         mock_session.get.side_effect = [
             _mock_response(429),
@@ -140,12 +146,12 @@ class TestFetch:
         ]
         provider._session = mock_session
 
-        with pytest.raises(RuntimeError, match="Failed after 2 attempts"):
+        with pytest.raises(RateLimitError, match="Rate limited after 2 attempts"):
             await provider._fetch("https://example.com")
 
     @pytest.mark.asyncio
     async def test_403_exhausted_retries(self, provider):
-        """403 on all attempts raises RuntimeError (falls through loop)."""
+        """403 on all attempts raises MypError."""
         mock_session = AsyncMock()
         mock_session.get.side_effect = [
             _mock_response(403),
@@ -153,12 +159,12 @@ class TestFetch:
         ]
         provider._session = mock_session
 
-        with pytest.raises(RuntimeError, match="Failed after 2 attempts"):
+        with pytest.raises(MypError, match="Forbidden after 2 attempts"):
             await provider._fetch("https://example.com")
 
     @pytest.mark.asyncio
     async def test_generic_4xx_raises_after_retries(self, provider):
-        """500 on all attempts raises RuntimeError from the if-branch."""
+        """500 on all attempts raises ServerError."""
         mock_session = AsyncMock()
         mock_session.get.side_effect = [
             _mock_response(500),
@@ -166,7 +172,7 @@ class TestFetch:
         ]
         provider._session = mock_session
 
-        with pytest.raises(RuntimeError, match="HTTP 500"):
+        with pytest.raises(ServerError, match="HTTP 500"):
             await provider._fetch("https://example.com")
 
     @pytest.mark.asyncio
@@ -214,6 +220,135 @@ class TestFetch:
 
         result = await provider._fetch("https://example.com")
         assert result == "ok"
+
+
+# ---------------------------------------------------------------------------
+# _fetch — typed exceptions (F45-T02)
+# ---------------------------------------------------------------------------
+
+
+class TestFetchTypedExceptions:
+    """Verify _fetch raises typed MYP exceptions based on HTTP status."""
+
+    @pytest.mark.asyncio
+    async def test_404_raises_not_found_immediately(self, provider):
+        """404 raises NotFoundError on first attempt (no retry)."""
+        mock_session = AsyncMock()
+        mock_session.get.return_value = _mock_response(404)
+        provider._session = mock_session
+
+        with pytest.raises(NotFoundError) as exc_info:
+            await provider._fetch("https://example.com/missing")
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.attempts == 1
+        # Only 1 request — no retry for 404
+        assert mock_session.get.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_429_exhausted_raises_rate_limit_error(self, provider):
+        """429 on all attempts raises RateLimitError."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = [
+            _mock_response(429),
+            _mock_response(429),
+        ]
+        provider._session = mock_session
+
+        with pytest.raises(RateLimitError) as exc_info:
+            await provider._fetch("https://example.com")
+        assert exc_info.value.status_code == 429
+        assert exc_info.value.attempts == 2
+
+    @pytest.mark.asyncio
+    async def test_500_exhausted_raises_server_error(self, provider):
+        """5xx on all attempts raises ServerError."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = [
+            _mock_response(500),
+            _mock_response(500),
+        ]
+        provider._session = mock_session
+
+        with pytest.raises(ServerError) as exc_info:
+            await provider._fetch("https://example.com")
+        assert exc_info.value.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_403_exhausted_raises_myp_error(self, provider):
+        """403 on all attempts raises MypError (not a subclass)."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = [
+            _mock_response(403),
+            _mock_response(403),
+        ]
+        provider._session = mock_session
+
+        with pytest.raises(MypError) as exc_info:
+            await provider._fetch("https://example.com")
+        assert exc_info.value.status_code == 403
+        # Should NOT be a more specific subclass
+        assert type(exc_info.value) is MypError
+
+    @pytest.mark.asyncio
+    async def test_other_4xx_raises_myp_error_immediately(self, provider):
+        """Other 4xx (e.g. 422) raises MypError on first attempt."""
+        mock_session = AsyncMock()
+        mock_session.get.return_value = _mock_response(422)
+        provider._session = mock_session
+
+        with pytest.raises(MypError) as exc_info:
+            await provider._fetch("https://example.com")
+        assert exc_info.value.status_code == 422
+        assert mock_session.get.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_5xx_retry_then_success(self, provider):
+        """5xx on first attempt, 200 on second returns content."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = [
+            _mock_response(502),
+            _mock_response(200, "recovered"),
+        ]
+        provider._session = mock_session
+
+        result = await provider._fetch("https://example.com")
+        assert result == "recovered"
+
+    @pytest.mark.asyncio
+    async def test_search_card_reraises_rate_limit(self, provider):
+        """search_card re-raises RateLimitError instead of swallowing it."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = [
+            _mock_response(429),
+            _mock_response(429),
+        ]
+        provider._session = mock_session
+
+        with pytest.raises(RateLimitError):
+            await provider.search_card("Lightning Bolt")
+
+    @pytest.mark.asyncio
+    async def test_search_card_reraises_not_found(self, provider):
+        """search_card re-raises NotFoundError instead of swallowing it."""
+        mock_session = AsyncMock()
+        mock_session.get.return_value = _mock_response(404)
+        provider._session = mock_session
+
+        with pytest.raises(NotFoundError):
+            await provider.search_card("Lightning Bolt")
+
+    @pytest.mark.asyncio
+    async def test_fetch_current_price_reraises_rate_limit(self, provider):
+        """fetch_current_price re-raises RateLimitError."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = [
+            _mock_response(429),
+            _mock_response(429),
+        ]
+        provider._session = mock_session
+
+        with pytest.raises(RateLimitError):
+            await provider.fetch_current_price("12345", "test-slug")
 
 
 # ---------------------------------------------------------------------------

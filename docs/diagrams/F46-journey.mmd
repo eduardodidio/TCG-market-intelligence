@@ -1,0 +1,9 @@
+graph LR
+    A[User clicks Canonize] --> B[POST /canonize]
+    B --> C{MYP fetch OK?}
+    C -->|Yes| D[200 + data, no errors]
+    C -->|No| E[200 + data + myp_fetch_warning]
+    D --> F[Green: Card linked!]
+    E --> G[Amber: Card linked, price fetch failed]
+    B -->|500 / network| H[Error envelope]
+    H --> I[Red: Failed to link + refetch]

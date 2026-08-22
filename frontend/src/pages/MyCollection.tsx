@@ -219,8 +219,8 @@ export function MyCollection() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("name") ?? "");
   const [selectedSet, setSelectedSet] = useState<string | null>(searchParams.get("set") ?? null);
-  const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">((searchParams.get("dir") as "asc" | "desc") ?? "asc");
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "price");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">((searchParams.get("dir") as "asc" | "desc") ?? "desc");
   const [cards, setCards] = useState<CollectionCard[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -360,8 +360,8 @@ export function MyCollection() {
     const params: Record<string, string> = {};
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
-    if (sortBy !== "name") params.sort = sortBy;
-    if (sortDir !== "asc") params.dir = sortDir;
+    if (sortBy !== "price") params.sort = sortBy;
+    if (sortDir !== "desc") params.dir = sortDir;
     setSearchParams(params, { replace: true });
   }, [debouncedSearch, selectedSet, sortBy, sortDir, setSearchParams]);
 

@@ -30,7 +30,7 @@ from src.api.schemas.collection import (
     SnapshotRequest,
     SyncRequest,
 )
-from src.api.schemas.envelope import ApiResponse, paginated_response, success_response
+from src.api.schemas.envelope import ApiResponse, ErrorDetail, paginated_response, success_response
 from src.api.schemas.metrics import (
     CardMetricsResponse,
     MomentumSchema,
@@ -526,6 +526,7 @@ async def canonize_card(
 
     # Step 3: Search MYP and try to create SourceCard + fetch price
     provider = MypCardsProvider()
+    myp_warning: str | None = None
     try:
         ce = row_to_collection_entry(entry)
         if ce.name_en:
@@ -568,11 +569,22 @@ async def canonize_card(
                             external_id=myp.external_id,
                             price=str(jsonld.price),
                         )
+    except Exception as exc:
+        log.warning(
+            "canonize_myp_fetch_failed",
+            entry_id=entry_id,
+            card_id=card_id,
+            error=str(exc),
+        )
+        myp_warning = f"Card linked but MYP fetch failed: {exc}"
     finally:
         await provider.close()
 
     log.info("card_canonized", entry_id=entry_id, card_id=card_id)
-    return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+    response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+    if myp_warning:
+        response.errors.append(ErrorDetail(code="myp_fetch_warning", message=myp_warning))
+    return response
 
 
 @router.post("/{entry_id}/refresh", response_model=ApiResponse[CollectionCardDetail])

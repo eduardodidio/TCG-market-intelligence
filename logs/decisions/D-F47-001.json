@@ -1,0 +1,10 @@
+{
+  "id": "D-F47-001",
+  "feature": "F47",
+  "type": "feature_start",
+  "status": "executed",
+  "action": "create-feature",
+  "rationale": "F47 Search PT Name Fallback is an additive feature with 3 tasks across 2 waves. Adds optional name_pt field to CollectionEntry and fallback search in sync pipeline. Low risk — existing EN-name matching is untouched when name_pt is None. No new dependencies, no DB schema changes.",
+  "actions": [{"action": "create-feature", "target": "F47"}],
+  "created_at": "2026-08-22T14:00:02Z"
+}

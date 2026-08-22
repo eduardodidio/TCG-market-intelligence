@@ -18,6 +18,7 @@ class CollectionEntry:
     set_code: str
     collector_number: str
     name_en: str | None = None
+    name_pt: str | None = None
 
 
 @dataclass
@@ -102,7 +103,7 @@ def _try_name_match(
     results: list[MypSearchResult],
 ) -> MatchResult:
     """Fall back to name-based matching when no SKU match was found."""
-    if not entry.name_en:
+    if not entry.name_en and not entry.name_pt:
         return MatchResult(
             status="unmatched",
             collection_entry=entry,
@@ -111,12 +112,17 @@ def _try_name_match(
             candidates=results,
         )
 
-    entry_name = _normalize(entry.name_en)
+    entry_names: set[str] = set()
+    if entry.name_en:
+        entry_names.add(_normalize(entry.name_en))
+    if entry.name_pt:
+        entry_names.add(_normalize(entry.name_pt))
+
     entry_set = entry.set_code.lower()
 
     name_matches: list[MypSearchResult] = []
     for r in results:
-        if _normalize(r.name) == entry_name:
+        if _normalize(r.name) in entry_names:
             name_matches.append(r)
 
     if not name_matches:

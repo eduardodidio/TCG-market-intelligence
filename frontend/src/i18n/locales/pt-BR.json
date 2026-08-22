@@ -111,7 +111,8 @@
     "canonize": "Vincular a rastreamento de preco",
     "canonizing": "Vinculando...",
     "canonizeSuccess": "Carta vinculada! Dados de preco estao sendo rastreados.",
-    "canonizeError": "Falha ao vincular carta"
+    "canonizeError": "Falha ao vincular carta",
+    "canonizePartial": "Carta vinculada, mas dados de preco nao puderam ser obtidos. Tente atualizar mais tarde."
   },
   "market": {
     "title": "Movimentacao de Mercado",

@@ -1,0 +1,10 @@
+{
+  "id": "D-F46-001",
+  "feature": "F46",
+  "type": "feature_start",
+  "status": "executed",
+  "action": "create-feature",
+  "rationale": "F46 Canonize Robustness is a surgical bug fix with 2 parallel tasks in 1 wave. T01 adds except clause to backend canonize endpoint, T02 adds refetch after canonize in frontend. Two files, minimal risk, clear acceptance criteria. No new dependencies.",
+  "actions": [{"action": "create-feature", "target": "F46"}],
+  "created_at": "2026-08-22T14:00:01Z"
+}

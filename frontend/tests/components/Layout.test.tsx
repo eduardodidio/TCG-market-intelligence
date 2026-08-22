@@ -213,4 +213,70 @@ describe("Layout", () => {
     expect(screen.getByTestId("sidebar-language-selector")).toBeDefined();
     expect(screen.getByTestId("language-selector")).toBeDefined();
   });
+
+  // --- F48-T01: Nav active state uses exact match ---
+
+  it("on /market, Market is active and Trending is NOT active", () => {
+    renderLayout("/market");
+    const nav = screen.getByTestId("sidebar-nav");
+    const links = Array.from(nav.querySelectorAll("a"));
+    const marketLink = links.find((a) => a.textContent === "Market");
+    const trendingLink = links.find((a) => a.textContent === "Trending");
+    expect(marketLink?.className).toContain("bg-indigo-500");
+    expect(trendingLink?.className).not.toContain("bg-indigo-500");
+  });
+
+  it("on /market/trending, Trending is active and Market is NOT active", () => {
+    renderLayout("/market/trending");
+    const nav = screen.getByTestId("sidebar-nav");
+    const links = Array.from(nav.querySelectorAll("a"));
+    const marketLink = links.find((a) => a.textContent === "Market");
+    const trendingLink = links.find((a) => a.textContent === "Trending");
+    expect(trendingLink?.className).toContain("bg-indigo-500");
+    expect(marketLink?.className).not.toContain("bg-indigo-500");
+  });
+
+  it("on /banlist, Ban List is active and Ban History is NOT active", () => {
+    renderLayout("/banlist");
+    const nav = screen.getByTestId("sidebar-nav");
+    const links = Array.from(nav.querySelectorAll("a"));
+    const banlistLink = links.find((a) => a.textContent === "Ban List");
+    const banHistoryLink = links.find((a) => a.textContent === "Ban History");
+    expect(banlistLink?.className).toContain("bg-indigo-500");
+    expect(banHistoryLink?.className).not.toContain("bg-indigo-500");
+  });
+
+  it("on /decks, My Decks is active and Top Decks is NOT active", () => {
+    renderLayout("/decks");
+    const nav = screen.getByTestId("sidebar-nav");
+    const links = Array.from(nav.querySelectorAll("a"));
+    const decksLink = links.find((a) => a.textContent === "My Decks");
+    const topDecksLink = links.find((a) => a.textContent === "Top Decks");
+    expect(decksLink?.className).toContain("bg-indigo-500");
+    expect(topDecksLink?.className).not.toContain("bg-indigo-500");
+  });
+
+  it("on /, only Dashboard is active", () => {
+    renderLayout("/");
+    const nav = screen.getByTestId("sidebar-nav");
+    const links = Array.from(nav.querySelectorAll("a"));
+    const dashboardLink = links.find((a) => a.textContent === "Dashboard");
+    const otherLinks = links.filter((a) => a.textContent !== "Dashboard");
+    expect(dashboardLink?.className).toContain("bg-indigo-500");
+    otherLinks.forEach((link) => {
+      expect(link.className).not.toContain("bg-indigo-500");
+    });
+  });
+
+  it("on /collection, only My Collection is active", () => {
+    renderLayout("/collection");
+    const nav = screen.getByTestId("sidebar-nav");
+    const links = Array.from(nav.querySelectorAll("a"));
+    const collectionLink = links.find((a) => a.textContent === "My Collection");
+    const otherLinks = links.filter((a) => a.textContent !== "My Collection");
+    expect(collectionLink?.className).toContain("bg-indigo-500");
+    otherLinks.forEach((link) => {
+      expect(link.className).not.toContain("bg-indigo-500");
+    });
+  });
 });

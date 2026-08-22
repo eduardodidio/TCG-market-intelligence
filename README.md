@@ -770,6 +770,21 @@ highlights it with visual indicators and an alert banner:
 - **Diagrams** -- architecture and user journey diagrams at
   `docs/diagrams/F42-architecture.mmd` and `docs/diagrams/F42-journey.mmd`
 
+### F46 -- Canonize Robustness (2026-08-22)
+
+Hardened the canonize (link to price tracking) flow:
+
+- **Backend** -- Added `except Exception` clause to the MYP fetch block in
+  `POST /collection/{entry_id}/canonize`. MYP failures (timeout, network,
+  parse errors) no longer propagate as 500. Card is still linked
+  successfully; response includes a `myp_fetch_warning` error detail.
+- **Frontend** -- Added `refetch()` on canonize failure/error to keep UI
+  in sync. Partial success (data + warning) shows amber message instead
+  of green. Three-state message display: green (success), amber (partial),
+  red (error).
+- **i18n** -- `collection.canonizePartial` key in EN and PT-BR.
+- **Tests** -- 6 new backend tests, 3 new frontend tests.
+
 ## Future
 
 Prepared for but not yet implemented:

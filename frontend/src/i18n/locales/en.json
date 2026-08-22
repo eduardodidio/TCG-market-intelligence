@@ -111,7 +111,8 @@
     "canonize": "Link to price tracking",
     "canonizing": "Linking...",
     "canonizeSuccess": "Card linked! Price data is now being tracked.",
-    "canonizeError": "Failed to link card"
+    "canonizeError": "Failed to link card",
+    "canonizePartial": "Card linked, but price data could not be fetched. Try refreshing later."
   },
   "market": {
     "title": "Market Movers",

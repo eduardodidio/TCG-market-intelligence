@@ -1,0 +1,20 @@
+graph TB
+    subgraph Frontend
+        CCD[CollectionCardDetail]
+        CCD -->|POST /canonize| API
+        CCD -->|handleCanonize| SM{Success?}
+        SM -->|data + no errors| GreenMsg[Success: green]
+        SM -->|data + errors| AmberMsg[Warning: amber]
+        SM -->|no data / catch| RedMsg[Error: red + refetch]
+    end
+
+    subgraph Backend
+        API[canonize endpoint]
+        API --> Step1[Create canonical card]
+        API --> Step2[Link collection entry]
+        API --> Step3[MYP search + fetch]
+        Step3 -->|except Exception| Warn[Log warning, set myp_warning]
+        Step3 -->|success| OK[No warning]
+        Warn --> Resp[Return data + ErrorDetail warning]
+        OK --> Resp
+    end

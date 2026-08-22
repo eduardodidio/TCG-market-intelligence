@@ -18,6 +18,7 @@ import pytest
 
 from src.collectors.scan import run_scan
 from src.domain.models import JsonLdPrice, ScanFilter, ScanRun, ScanType
+from src.providers.myp.exceptions import NotFoundError, RateLimitError
 
 # ── helpers ──────────────────────────────────────────────────────
 
@@ -333,3 +334,120 @@ class TestRunScan:
         assert result.cards_processed == 1
         assert result.cards_failed == 0
         assert result.observations_saved == 0
+
+
+# ── F45-T03: Scan requeue tests ──────────────────────────────────
+
+
+@pytest.mark.asyncio
+class TestScanRequeue:
+    """Tests for typed exception handling and re-queue logic in scan."""
+
+    @patch("src.collectors.scan.MypCardsProvider")
+    @patch("src.collectors.scan.Repository")
+    async def test_not_found_immediate_fail(self, MockRepo, MockProvider):
+        """NotFoundError causes immediate fail, no requeue."""
+        entries = [_card_entry(external_id="1001", slug="missing-card")]
+        repo = MockRepo.return_value
+        _setup_repo_mock(repo, entries)
+
+        provider = MockProvider.return_value
+        provider.fetch_current_price = AsyncMock(
+            side_effect=NotFoundError("HTTP 404", url="/card", status_code=404, attempts=1)
+        )
+        provider.close = AsyncMock()
+
+        result = await run_scan(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert result.cards_failed == 1
+        assert result.cards_processed == 0
+
+    @patch("src.collectors.scan.MypCardsProvider")
+    @patch("src.collectors.scan.Repository")
+    async def test_rate_limit_requeue_then_success(self, MockRepo, MockProvider):
+        """RateLimitError on first attempt triggers requeue; second attempt succeeds."""
+        entries = [_card_entry(external_id="1001", slug="slow-card")]
+        repo = MockRepo.return_value
+        _setup_repo_mock(repo, entries, insert_return=1)
+
+        # First call: RateLimitError; second call (retry): success
+        provider = MockProvider.return_value
+        provider.fetch_current_price = AsyncMock(
+            side_effect=[
+                RateLimitError("429", url="/card", status_code=429, attempts=2),
+                _jsonld_price(Decimal("10.00")),
+            ]
+        )
+        provider.close = AsyncMock()
+
+        result = await run_scan(db_url="sqlite:///:memory:", concurrency=1, delay=0)
+
+        assert result.cards_processed == 1
+        assert result.cards_failed == 0
+        assert result.observations_saved == 1
+
+    @patch("src.collectors.scan.MypCardsProvider")
+    @patch("src.collectors.scan.Repository")
+    async def test_rate_limit_requeue_exhausted(self, MockRepo, MockProvider):
+        """RateLimitError on both attempts counts as failed."""
+        entries = [_card_entry(external_id="1001", slug="slow-card")]
+        repo = MockRepo.return_value
+        _setup_repo_mock(repo, entries)
+
+        provider = MockProvider.return_value
+        provider.fetch_current_price = AsyncMock(
+            side_effect=RateLimitError("429", url="/card", status_code=429, attempts=2)
+        )
+        provider.close = AsyncMock()
+
+        result = await run_scan(db_url="sqlite:///:memory:", concurrency=1, delay=0)
+
+        assert result.cards_failed == 1
+        assert result.cards_processed == 0
+
+    @patch("src.collectors.scan.MypCardsProvider")
+    @patch("src.collectors.scan.Repository")
+    async def test_mixed_errors_correct_counts(self, MockRepo, MockProvider):
+        """Mix of NotFoundError, RateLimitError (success on retry), and normal."""
+        entries = [
+            _card_entry(external_id="1001", slug="not-found"),
+            _card_entry(external_id="1002", slug="rate-limited"),
+            _card_entry(external_id="1003", slug="ok-card"),
+        ]
+        repo = MockRepo.return_value
+        _setup_repo_mock(repo, entries, insert_return=1)
+
+        provider = MockProvider.return_value
+        provider.fetch_current_price = AsyncMock(
+            side_effect=[
+                NotFoundError("404", url="/1001", status_code=404, attempts=1),
+                RateLimitError("429", url="/1002", status_code=429, attempts=2),
+                _jsonld_price(Decimal("5.00")),
+                # Retry pass: rate-limited card succeeds
+                _jsonld_price(Decimal("8.00")),
+            ]
+        )
+        provider.close = AsyncMock()
+
+        result = await run_scan(db_url="sqlite:///:memory:", concurrency=1, delay=0)
+
+        assert result.cards_failed == 1  # only the 404
+        assert result.cards_processed == 2  # ok-card + retried card
+        assert result.observations_saved == 2
+
+    @patch("src.collectors.scan.MypCardsProvider")
+    @patch("src.collectors.scan.Repository")
+    async def test_generic_exception_still_caught(self, MockRepo, MockProvider):
+        """Generic exceptions are still caught by the fallback handler."""
+        entries = [_card_entry(external_id="1001", slug="error-card")]
+        repo = MockRepo.return_value
+        _setup_repo_mock(repo, entries)
+
+        provider = MockProvider.return_value
+        provider.fetch_current_price = AsyncMock(side_effect=RuntimeError("unexpected error"))
+        provider.close = AsyncMock()
+
+        result = await run_scan(db_url="sqlite:///:memory:", concurrency=1)
+
+        assert result.cards_failed == 1
+        assert result.cards_processed == 0

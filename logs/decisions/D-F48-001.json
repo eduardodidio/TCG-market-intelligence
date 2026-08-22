@@ -1,0 +1,10 @@
+{
+  "id": "D-F48-001",
+  "feature": "F48",
+  "type": "feature_start",
+  "status": "executed",
+  "action": "create-feature",
+  "rationale": "F48 Nav & UX Polish is a minimal frontend-only fix with 2 parallel tasks in 1 wave. T01 fixes nav active state matching, T02 changes default collection sort to price/desc. Single-line edits in separate files. Lowest risk of all 4 features.",
+  "actions": [{"action": "create-feature", "target": "F48"}],
+  "created_at": "2026-08-22T14:00:03Z"
+}

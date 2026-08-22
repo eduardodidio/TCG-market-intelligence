@@ -19,9 +19,12 @@ from src.domain.models import (
     ScanStatus,
 )
 from src.events import scan_bus
+from src.providers.myp.exceptions import NotFoundError, RateLimitError
 from src.providers.myp.provider import MypCardsProvider, MypConfig
 
 log = structlog.get_logger()
+
+MAX_REQUEUE_ATTEMPTS = 2
 
 
 async def run_scan(
@@ -94,10 +97,11 @@ async def run_scan(
         observations_saved = 0
         error_messages: list[str] = []
         processed_external_ids: list[str] = []
+        retry_queue: list[tuple[dict, int]] = []  # (entry, attempt_count)
         sem = asyncio.Semaphore(concurrency)
         lock = asyncio.Lock()
 
-        async def process_entry(entry: dict, index: int) -> None:
+        async def process_entry(entry: dict, index: int, attempt: int = 1) -> None:
             nonlocal cards_processed, cards_failed, observations_saved
 
             async with sem:
@@ -107,6 +111,66 @@ async def run_scan(
 
                 try:
                     jsonld_price = await provider.fetch_current_price(external_id, slug)
+                except NotFoundError as e:
+                    async with lock:
+                        cards_failed += 1
+                        error_messages.append(f"{external_id}: NotFoundError: {e}")
+                        scan_bus.publish(
+                            ScanEvent(
+                                event_type="card_scanned",
+                                scan_id=run_id,
+                                timestamp=datetime.now().isoformat(),
+                                external_id=external_id,
+                                card_name=card_name,
+                                price_found=False,
+                                error=str(e),
+                                cards_processed=cards_processed,
+                                cards_total=cards_total,
+                                cards_failed=cards_failed,
+                                observations_saved=observations_saved,
+                            )
+                        )
+                    log.warning(
+                        "scan_not_found",
+                        run_id=run_id,
+                        external_id=external_id,
+                    )
+                    return
+                except RateLimitError as e:
+                    if attempt < MAX_REQUEUE_ATTEMPTS:
+                        async with lock:
+                            retry_queue.append((entry, attempt + 1))
+                        log.warning(
+                            "scan_rate_limited_requeue",
+                            run_id=run_id,
+                            external_id=external_id,
+                            attempt=attempt,
+                        )
+                        return
+                    async with lock:
+                        cards_failed += 1
+                        error_messages.append(f"{external_id}: RateLimitError: {e}")
+                        scan_bus.publish(
+                            ScanEvent(
+                                event_type="card_scanned",
+                                scan_id=run_id,
+                                timestamp=datetime.now().isoformat(),
+                                external_id=external_id,
+                                card_name=card_name,
+                                price_found=False,
+                                error=str(e),
+                                cards_processed=cards_processed,
+                                cards_total=cards_total,
+                                cards_failed=cards_failed,
+                                observations_saved=observations_saved,
+                            )
+                        )
+                    log.warning(
+                        "scan_rate_limited_exhausted",
+                        run_id=run_id,
+                        external_id=external_id,
+                    )
+                    return
                 except Exception as e:
                     async with lock:
                         cards_failed += 1
@@ -198,6 +262,22 @@ async def run_scan(
 
         tasks = [process_entry(entry, i) for i, entry in enumerate(entries, 1)]
         await asyncio.gather(*tasks)
+
+        # 3b. Retry pass for rate-limited cards
+        if retry_queue:
+            log.info(
+                "scan_retry_pass",
+                run_id=run_id,
+                retry_count=len(retry_queue),
+                delay_multiplier=3,
+            )
+            await asyncio.sleep(config.delay_seconds * 3)
+            retry_tasks = [
+                process_entry(entry, i, attempt=attempt)
+                for i, (entry, attempt) in enumerate(retry_queue, 1)
+            ]
+            retry_queue.clear()
+            await asyncio.gather(*retry_tasks)
 
         # 4. Determine final status
         if cards_total == 0:

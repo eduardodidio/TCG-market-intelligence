@@ -22,11 +22,13 @@ def _entry(
     set_code: str = "dmr",
     collector_number: str = "123",
     name_en: str = "Lightning Bolt",
+    name_pt: str | None = None,
 ) -> CollectionEntry:
     return CollectionEntry(
         set_code=set_code,
         collector_number=collector_number,
         name_en=name_en,
+        name_pt=name_pt,
     )
 
 
@@ -558,3 +560,157 @@ class TestEdgeCases:
 
         assert match.status == "unmatched"
         assert match.confidence == "none"
+
+
+# ── F47: Portuguese name fallback matching ────────────────────
+
+
+class TestNamePtMatching:
+    """Matcher considers name_pt when matching by name."""
+
+    def test_pt_name_matches_when_en_does_not(self):
+        """Entry with name_pt matches a result whose name is the PT name."""
+        entry = _entry(
+            name_en="Lightning Bolt",
+            name_pt="Relampago",
+        )
+        results = [
+            _result(
+                external_id="13000",
+                name="Relampago",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "name_only"
+        assert match.myp_result is results[0]
+
+    def test_en_name_preferred_when_both_match(self):
+        """When both EN and PT match different results, both are candidates.
+        If exactly one matches name+set, that wins."""
+        entry = _entry(
+            set_code="dmr",
+            name_en="Lightning Bolt",
+            name_pt="Relampago",
+        )
+        results = [
+            _result(
+                external_id="13100",
+                name="Lightning Bolt",
+                sku=None,
+                set_code="dmr",
+                collector_number=None,
+            ),
+            _result(
+                external_id="13101",
+                name="Relampago",
+                sku=None,
+                set_code="ltr",
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "name_set"
+        assert match.myp_result is results[0]
+
+    def test_name_pt_none_no_change(self):
+        """When name_pt is None, matching behaves as before (EN only)."""
+        entry = _entry(name_en="Lightning Bolt", name_pt=None)
+        results = [
+            _result(
+                external_id="13200",
+                name="Counterspell",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "unmatched"
+        assert match.confidence == "none"
+
+    def test_ambiguous_with_pt_and_en_matches(self):
+        """Multiple name matches from both EN and PT names is ambiguous
+        when none can be narrowed by set."""
+        entry = _entry(
+            set_code="m21",
+            name_en="Lightning Bolt",
+            name_pt="Relampago",
+        )
+        results = [
+            _result(
+                external_id="13300",
+                name="Lightning Bolt",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+            _result(
+                external_id="13301",
+                name="Relampago",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "ambiguous"
+        assert match.confidence == "none"
+
+    def test_name_set_match_via_pt_name(self):
+        """PT name + matching set_code yields name_set confidence."""
+        entry = _entry(
+            set_code="dmr",
+            name_en="Lightning Bolt",
+            name_pt="Relampago",
+        )
+        results = [
+            _result(
+                external_id="13400",
+                name="Relampago",
+                sku=None,
+                set_code="dmr",
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "name_set"
+        assert match.myp_result is results[0]
+
+    def test_only_name_pt_no_name_en(self):
+        """Entry with only name_pt (no name_en) can still match."""
+        entry = CollectionEntry(
+            set_code="dmr",
+            collector_number="123",
+            name_en=None,
+            name_pt="Relampago",
+        )
+        results = [
+            _result(
+                external_id="13500",
+                name="Relampago",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "name_only"

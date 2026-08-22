@@ -52,7 +52,7 @@ export function CollectionCardDetail() {
 
   const [period, setPeriod] = useState("30d");
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
   const [canonizing, setCanonizing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
@@ -88,18 +88,25 @@ export function CollectionCardDetail() {
       const res = await canonizeCard(entryId, Object.keys(params).length > 0 ? params : undefined);
       if (res.data) {
         setEntry(res.data);
-        setRefreshMsg({ type: "success", text: t("collection.canonizeSuccess") });
+        if (res.errors && res.errors.length > 0) {
+          // Partial success: card linked but MYP fetch failed
+          setRefreshMsg({ type: "warning", text: t("collection.canonizePartial") });
+        } else {
+          setRefreshMsg({ type: "success", text: t("collection.canonizeSuccess") });
+        }
       } else {
         const msg = res.errors?.[0]?.message || t("collection.canonizeError");
         setRefreshMsg({ type: "error", text: msg });
+        refetch();
       }
     } catch {
       setRefreshMsg({ type: "error", text: t("collection.canonizeError") });
+      refetch();
     } finally {
       setCanonizing(false);
       setTimeout(() => setRefreshMsg(null), 5000);
     }
-  }, [canonizing, entry, entryId, currency, t, setEntry]);
+  }, [canonizing, entry, entryId, currency, t, setEntry, refetch]);
 
   useEffect(() => {
     if (entry) {
@@ -292,7 +299,7 @@ export function CollectionCardDetail() {
             {refreshMsg && (
               <p
                 data-testid="refresh-message"
-                className={`text-xs mt-1 ${refreshMsg.type === "success" ? "text-green-400" : "text-red-400"}`}
+                className={`text-xs mt-1 ${refreshMsg.type === "success" ? "text-green-400" : refreshMsg.type === "warning" ? "text-amber-400" : "text-red-400"}`}
               >
                 {refreshMsg.text}
               </p>

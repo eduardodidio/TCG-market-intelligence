@@ -492,4 +492,213 @@ describe("CollectionCardDetail page", () => {
       expect(screen.getByTestId("ban-history-empty-card")).toBeDefined();
     });
   });
+
+  it("canonize partial success shows amber warning message", async () => {
+    // First call returns unlinked entry, second (refetch) returns linked
+    const unlinkedResponse = makeUnlinkedEntry();
+    const linkedResponse = makeLinkedEntry();
+
+    let callCount = 0;
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      const urlStr = String(url);
+
+      // Canonize POST returns data + errors (partial success)
+      if (urlStr.includes("/canonize") && options?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: linkedResponse.data,
+              meta: { cursor: null, total: null, offset: null, request_id: "c1" },
+              errors: [{ code: "myp_fetch_warning", message: "MYP timeout" }],
+            }),
+        });
+      }
+
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/legality")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+
+      // Collection detail: first call unlinked, subsequent linked
+      if (urlStr.includes("/api/v1/collection/")) {
+        callCount++;
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(callCount <= 1 ? unlinkedResponse : linkedResponse),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+      });
+    });
+
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderDetail();
+
+    // Wait for unlinked state
+    await waitFor(() => {
+      expect(screen.getByTestId("canonize-btn")).toBeDefined();
+    });
+
+    // Click canonize
+    screen.getByTestId("canonize-btn").click();
+
+    // Should show amber warning
+    await waitFor(() => {
+      const msg = screen.getByTestId("refresh-message");
+      expect(msg).toBeDefined();
+      expect(msg.className).toContain("text-amber-400");
+    });
+  });
+
+  it("canonize failure triggers refetch and shows error", async () => {
+    const unlinkedResponse = makeUnlinkedEntry();
+
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      const urlStr = String(url);
+
+      // Canonize POST fails with 500
+      if (urlStr.includes("/canonize") && options?.method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () =>
+            Promise.resolve({
+              data: null,
+              meta: { cursor: null, total: null, offset: null, request_id: "err" },
+              errors: [{ code: "internal", message: "Server error" }],
+            }),
+        });
+      }
+
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/legality")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+
+      if (urlStr.includes("/api/v1/collection/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(unlinkedResponse),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+      });
+    });
+
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("canonize-btn")).toBeDefined();
+    });
+
+    screen.getByTestId("canonize-btn").click();
+
+    // Should show red error
+    await waitFor(() => {
+      const msg = screen.getByTestId("refresh-message");
+      expect(msg).toBeDefined();
+      expect(msg.className).toContain("text-red-400");
+    });
+  });
+
+  it("canonize full success shows green message", async () => {
+    const unlinkedResponse = makeUnlinkedEntry();
+    const linkedResponse = makeLinkedEntry();
+
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      const urlStr = String(url);
+
+      // Canonize POST succeeds fully (no errors)
+      if (urlStr.includes("/canonize") && options?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: linkedResponse.data,
+              meta: { cursor: null, total: null, offset: null, request_id: "c1" },
+              errors: [],
+            }),
+        });
+      }
+
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/legality")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+
+      if (urlStr.includes("/api/v1/collection/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(unlinkedResponse),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+      });
+    });
+
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("canonize-btn")).toBeDefined();
+    });
+
+    screen.getByTestId("canonize-btn").click();
+
+    await waitFor(() => {
+      const msg = screen.getByTestId("refresh-message");
+      expect(msg).toBeDefined();
+      expect(msg.className).toContain("text-green-400");
+    });
+  });
 });
