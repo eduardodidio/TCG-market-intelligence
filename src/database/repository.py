@@ -85,6 +85,43 @@ class Repository:
             session.commit()
             return row.id
 
+    def create_canonical_card(
+        self,
+        game: str,
+        name_en: str,
+        name_pt: str | None,
+        set_code: str,
+        collector_number: str,
+    ) -> int:
+        """Create or find a canonical card row from basic fields. Returns card id."""
+        with Session(self.engine) as session:
+            existing = session.execute(
+                select(CardRow).where(
+                    CardRow.game == game,
+                    CardRow.set_code == set_code,
+                    CardRow.collector_number == collector_number,
+                )
+            ).scalar_one_or_none()
+
+            if existing:
+                if name_en and not existing.name_en:
+                    existing.name_en = name_en
+                if name_pt and not existing.name_pt:
+                    existing.name_pt = name_pt
+                session.commit()
+                return existing.id
+
+            row = CardRow(
+                game=game,
+                name_en=name_en,
+                name_pt=name_pt,
+                set_code=set_code,
+                collector_number=collector_number,
+            )
+            session.add(row)
+            session.commit()
+            return row.id
+
     def upsert_card(self, card: SourceCard) -> int | None:
         """Insert or update a canonical card row. Returns card id."""
         if not card.identity or not card.identity.set_code or not card.identity.collector_number:

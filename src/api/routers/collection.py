@@ -172,6 +172,91 @@ def get_collection_entry(
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
 
 
+@router.post("/{entry_id}/canonize", response_model=ApiResponse[CollectionCardDetail])
+async def canonize_card(
+    entry_id: int,
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Canonize an unlinked collection entry: create CardRow, search MYP,
+    link SourceCard, and fetch current price — all in one shot."""
+    from src.collection.converter import row_to_collection_entry
+    from src.collection.matcher import match_collection_card
+    from src.domain.models import HistoricalPrice, SourceCard
+    from src.providers.myp.provider import MypCardsProvider
+
+    entry = repo.get_collection_entry(entry_id)
+    if not entry or entry.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+
+    if entry.card_id is not None:
+        raise HTTPException(status_code=422, detail="Card is already canonical")
+
+    # Step 1: Create canonical CardRow from collection data
+    card_id = repo.create_canonical_card(
+        game="magic",
+        name_en=entry.name_en or "Unknown",
+        name_pt=entry.name_pt,
+        set_code=entry.set_code,
+        collector_number=entry.collector_number,
+    )
+
+    # Step 2: Link collection entry to canonical card
+    repo.link_collection_entry(entry_id, card_id)
+
+    # Step 3: Search MYP and try to create SourceCard + fetch price
+    provider = MypCardsProvider()
+    try:
+        ce = row_to_collection_entry(entry)
+        if ce.name_en:
+            search_results = await provider.search_card(ce.name_en)
+            match = match_collection_card(ce, search_results)
+
+            if match.status == "matched" and match.myp_result:
+                myp = match.myp_result
+                source_card = SourceCard(
+                    source="myp",
+                    external_id=myp.external_id,
+                    url=myp.url,
+                    sku=myp.sku,
+                )
+
+                # Fetch full details and upsert source card
+                detailed = await provider.get_card_details(source_card)
+                if detailed:
+                    # Update canonical card with richer data from MYP
+                    repo.upsert_card(detailed)
+                    repo.upsert_source_card(detailed, card_id=card_id)
+
+                    # Fetch current price
+                    slug = source_card.url.rsplit("/", 1)[-1]
+                    jsonld = await provider.fetch_current_price(
+                        myp.external_id,
+                        slug,
+                    )
+                    if jsonld and jsonld.price and jsonld.price > 0:
+                        obs = HistoricalPrice(
+                            source="jsonld_snapshot",
+                            external_id=myp.external_id,
+                            observed_at=date.today(),
+                            median_price=jsonld.price,
+                        )
+                        repo.insert_price_observations([obs])
+                        log.info(
+                            "canonize_price_fetched",
+                            entry_id=entry_id,
+                            external_id=myp.external_id,
+                            price=str(jsonld.price),
+                        )
+    finally:
+        await provider.close()
+
+    log.info("card_canonized", entry_id=entry_id, card_id=card_id)
+    return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+
+
 @router.post("/{entry_id}/refresh", response_model=ApiResponse[CollectionCardDetail])
 async def refresh_card_price(
     entry_id: int,

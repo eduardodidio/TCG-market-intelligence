@@ -32,6 +32,18 @@ export function refreshCardPrice(
   );
 }
 
+export function canonizeCard(
+  entryId: number,
+  params?: Record<string, string>,
+): Promise<ApiResponse<CollectionCardDetail>> {
+  const query = params ? "?" + new URLSearchParams(params).toString() : "";
+  return apiPost<CollectionCardDetail>(
+    `/api/v1/collection/${entryId}/canonize${query}`,
+    {},
+    { timeoutMs: 30000 },
+  );
+}
+
 export function fetchCollectionSets(): Promise<
   ApiResponse<{ set_code: string; set_name: string | null; count: number }[]>
 > {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
-import { fetchCollectionEntry, refreshCardPrice } from "../api/collection";
+import { canonizeCard, fetchCollectionEntry, refreshCardPrice } from "../api/collection";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
@@ -47,6 +47,7 @@ export function CollectionCardDetail() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [canonizing, setCanonizing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
     if (refreshing || !entry || entry.card_id == null) return;
@@ -70,6 +71,29 @@ export function CollectionCardDetail() {
       setTimeout(() => setRefreshMsg(null), 3000);
     }
   }, [refreshing, entry, entryId, currency, t, setEntry]);
+
+  const handleCanonize = useCallback(async () => {
+    if (canonizing || !entry || entry.card_id != null) return;
+    setCanonizing(true);
+    setRefreshMsg(null);
+    try {
+      const params: Record<string, string> = {};
+      if (currency !== "BRL") params.currency = currency;
+      const res = await canonizeCard(entryId, Object.keys(params).length > 0 ? params : undefined);
+      if (res.data) {
+        setEntry(res.data);
+        setRefreshMsg({ type: "success", text: t("collection.canonizeSuccess") });
+      } else {
+        const msg = res.errors?.[0]?.message || t("collection.canonizeError");
+        setRefreshMsg({ type: "error", text: msg });
+      }
+    } catch {
+      setRefreshMsg({ type: "error", text: t("collection.canonizeError") });
+    } finally {
+      setCanonizing(false);
+      setTimeout(() => setRefreshMsg(null), 5000);
+    }
+  }, [canonizing, entry, entryId, currency, t, setEntry]);
 
   useEffect(() => {
     if (entry) {
@@ -278,6 +302,23 @@ export function CollectionCardDetail() {
               <p className="text-xs text-slate-400 mt-1">
                 {t("collection.notLinkedDescription")}
               </p>
+              <button
+                data-testid="canonize-btn"
+                onClick={handleCanonize}
+                disabled={canonizing}
+                className="mt-3 inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              >
+                {canonizing ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {t("collection.canonizing")}
+                  </>
+                ) : (
+                  t("collection.canonize")
+                )}
+              </button>
             </div>
           )}
 

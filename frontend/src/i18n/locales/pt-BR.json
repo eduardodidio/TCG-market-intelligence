@@ -101,7 +101,11 @@
     "notLinkedRefresh": "Carta nao vinculada a uma fonte de preco",
     "refreshAll": "Atualizar Todos",
     "refreshComplete": "Precos atualizados!",
-    "refreshCancel": "Cancelar"
+    "refreshCancel": "Cancelar",
+    "canonize": "Vincular a rastreamento de preco",
+    "canonizing": "Vinculando...",
+    "canonizeSuccess": "Carta vinculada! Dados de preco estao sendo rastreados.",
+    "canonizeError": "Falha ao vincular carta"
   },
   "market": {
     "title": "Movimentacao de Mercado",

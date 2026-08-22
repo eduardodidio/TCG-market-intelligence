@@ -101,7 +101,11 @@
     "notLinkedRefresh": "Card not linked to a price source",
     "refreshAll": "Refresh All",
     "refreshComplete": "Prices updated!",
-    "refreshCancel": "Cancel"
+    "refreshCancel": "Cancel",
+    "canonize": "Link to price tracking",
+    "canonizing": "Linking...",
+    "canonizeSuccess": "Card linked! Price data is now being tracked.",
+    "canonizeError": "Failed to link card"
   },
   "market": {
     "title": "Market Movers",

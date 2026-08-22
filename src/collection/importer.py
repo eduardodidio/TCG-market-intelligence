@@ -80,9 +80,22 @@ def import_collection_csv(
                 )
             ).scalar_one_or_none()
 
-            card_id = card.id if card else None
-            if card_id:
-                linked += 1
+            if card:
+                card_id = card.id
+            else:
+                # Auto-canonize: create canonical card from collection data
+                new_card = CardRow(
+                    game="magic",
+                    name_en=data["name_en"],
+                    name_pt=data["name_pt"],
+                    set_code=data["set_code"],
+                    collector_number=data["collector_number"],
+                )
+                session.add(new_card)
+                session.flush()
+                card_id = new_card.id
+
+            linked += 1
 
             row = UserCollectionRow(card_id=card_id, **data)
             session.add(row)
