@@ -9,21 +9,26 @@ from sqlalchemy.orm import Session
 
 from src.database.models import (
     Base,
+    CardLegalityRow,
     CardRow,
     CollectionErrorRow,
     DeckCardRow,
     DeckRow,
     ExchangeRateRow,
+    LegalityHistoryRow,
     PriceObservationRow,
     ScanRunRow,
+    ScheduledScanRow,
     SourceCardRow,
     UserCollectionRow,
     UserRow,
 )
 from src.domain.models import (
+    CardLegality,
     CollectionError,
     ExchangeRate,
     HistoricalPrice,
+    LegalityChange,
     ScanFilter,
     SourceCard,
 )
@@ -1344,3 +1349,297 @@ class Repository:
                 update(DeckCardRow).where(DeckCardRow.id == deck_card_id).values(card_id=card_id)
             )
             session.commit()
+
+    # --- Legality / ban list methods ---
+
+    def upsert_legalities(self, legalities: list[CardLegality]) -> int:
+        """Bulk upsert card legalities. Returns count of rows affected."""
+        if not legalities:
+            return 0
+        with Session(self.engine) as session:
+            count = 0
+            for leg in legalities:
+                stmt = sqlite_insert(CardLegalityRow).values(
+                    card_id=leg.card_id,
+                    format=leg.format,
+                    status=leg.status,
+                    effective_date=leg.effective_date,
+                    updated_at=datetime.now(),
+                )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["card_id", "format"],
+                    set_={
+                        "status": stmt.excluded.status,
+                        "effective_date": stmt.excluded.effective_date,
+                        "updated_at": stmt.excluded.updated_at,
+                    },
+                )
+                session.execute(stmt)
+                count += 1
+            session.commit()
+            return count
+
+    def insert_legality_changes(self, changes: list[LegalityChange]) -> int:
+        """Bulk insert legality change history. Returns count inserted."""
+        if not changes:
+            return 0
+        with Session(self.engine) as session:
+            rows = [
+                LegalityHistoryRow(
+                    card_id=c.card_id,
+                    format=c.format,
+                    old_status=c.old_status,
+                    new_status=c.new_status,
+                    changed_at=c.changed_at,
+                    source=c.source,
+                )
+                for c in changes
+            ]
+            session.add_all(rows)
+            session.commit()
+            return len(rows)
+
+    def get_legalities_by_format(
+        self,
+        format: str,
+        status: str | None = None,
+        search: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[dict]:
+        """Get legalities for a format, joined with card info."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    CardLegalityRow.card_id,
+                    CardLegalityRow.format,
+                    CardLegalityRow.status,
+                    CardLegalityRow.effective_date,
+                    CardRow.name_en,
+                    CardRow.name_pt,
+                    CardRow.set_code,
+                    CardRow.collector_number,
+                )
+                .join(CardRow, CardRow.id == CardLegalityRow.card_id)
+                .where(CardLegalityRow.format == format)
+            )
+            if status:
+                stmt = stmt.where(CardLegalityRow.status == status)
+            if search:
+                pattern = f"%{search}%"
+                stmt = stmt.where(CardRow.name_en.ilike(pattern) | CardRow.name_pt.ilike(pattern))
+            stmt = stmt.order_by(CardRow.name_en).offset(offset).limit(limit)
+            rows = session.execute(stmt).all()
+            return [
+                {
+                    "card_id": r.card_id,
+                    "format": r.format,
+                    "status": r.status,
+                    "effective_date": r.effective_date,
+                    "name_en": r.name_en,
+                    "name_pt": r.name_pt,
+                    "set_code": r.set_code,
+                    "collector_number": r.collector_number,
+                }
+                for r in rows
+            ]
+
+    def get_legalities_for_card(self, card_id: int) -> list[dict]:
+        """All format legalities for a given card."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(CardLegalityRow)
+                .where(CardLegalityRow.card_id == card_id)
+                .order_by(CardLegalityRow.format)
+            )
+            rows = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "format": r.format,
+                    "status": r.status,
+                    "effective_date": r.effective_date,
+                }
+                for r in rows
+            ]
+
+    def get_legality_history(
+        self,
+        card_id: int | None = None,
+        format: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Get legality change history with optional filters."""
+        with Session(self.engine) as session:
+            stmt = select(
+                LegalityHistoryRow.card_id,
+                LegalityHistoryRow.format,
+                LegalityHistoryRow.old_status,
+                LegalityHistoryRow.new_status,
+                LegalityHistoryRow.changed_at,
+                CardRow.name_en,
+            ).join(CardRow, CardRow.id == LegalityHistoryRow.card_id)
+            if card_id is not None:
+                stmt = stmt.where(LegalityHistoryRow.card_id == card_id)
+            if format is not None:
+                stmt = stmt.where(LegalityHistoryRow.format == format)
+            stmt = stmt.order_by(LegalityHistoryRow.changed_at.desc()).limit(limit)
+            rows = session.execute(stmt).all()
+            return [
+                {
+                    "card_id": r.card_id,
+                    "name_en": r.name_en,
+                    "format": r.format,
+                    "old_status": r.old_status,
+                    "new_status": r.new_status,
+                    "changed_at": r.changed_at,
+                }
+                for r in rows
+            ]
+
+    def get_known_formats(self) -> list[str]:
+        """Get distinct formats from card_legalities."""
+        with Session(self.engine) as session:
+            stmt = select(CardLegalityRow.format).distinct().order_by(CardLegalityRow.format)
+            return [r[0] for r in session.execute(stmt).all()]
+
+    def get_legalities_for_cards_batch(self, card_ids: list[int]) -> dict[int, list[dict]]:
+        """Batch fetch legalities for multiple cards."""
+        if not card_ids:
+            return {}
+        with Session(self.engine) as session:
+            stmt = (
+                select(CardLegalityRow)
+                .where(CardLegalityRow.card_id.in_(card_ids))
+                .order_by(CardLegalityRow.card_id, CardLegalityRow.format)
+            )
+            rows = session.execute(stmt).scalars().all()
+            result: dict[int, list[dict]] = {}
+            for r in rows:
+                result.setdefault(r.card_id, []).append(
+                    {
+                        "format": r.format,
+                        "status": r.status,
+                        "effective_date": r.effective_date,
+                    }
+                )
+            return result
+
+    # --- Scheduled scan methods ---
+
+    def _scheduled_scan_to_dict(self, row: ScheduledScanRow) -> dict:
+        """Convert a ScheduledScanRow to a plain dict."""
+        return {
+            "id": row.id,
+            "user_id": row.user_id,
+            "name": row.name,
+            "description": row.description,
+            "cron_expression": row.cron_expression,
+            "scan_type": row.scan_type,
+            "filters_json": row.filters_json,
+            "status": row.status,
+            "last_run_id": row.last_run_id,
+            "last_run_at": row.last_run_at,
+            "next_run_at": row.next_run_at,
+            "error_count": row.error_count,
+            "max_retries": row.max_retries,
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
+        }
+
+    def create_scheduled_scan(
+        self,
+        user_id: str,
+        name: str,
+        cron_expression: str,
+        scan_type: str,
+        filters_json: str = "{}",
+        description: str | None = None,
+        max_retries: int = 3,
+    ) -> int:
+        """Insert a new scheduled scan and return its ID."""
+        with Session(self.engine) as session:
+            row = ScheduledScanRow(
+                user_id=user_id,
+                name=name,
+                cron_expression=cron_expression,
+                scan_type=scan_type,
+                filters_json=filters_json,
+                description=description,
+                max_retries=max_retries,
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return row.id
+
+    def get_scheduled_scan(self, schedule_id: int) -> dict | None:
+        """Get a single scheduled scan by ID."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(ScheduledScanRow).where(ScheduledScanRow.id == schedule_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            return self._scheduled_scan_to_dict(row)
+
+    def list_scheduled_scans(
+        self,
+        user_id: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
+        """List scheduled scans with optional status filter."""
+        with Session(self.engine) as session:
+            stmt = select(ScheduledScanRow).order_by(ScheduledScanRow.created_at.desc())
+            if user_id is not None:
+                stmt = stmt.where(ScheduledScanRow.user_id == user_id)
+            if status is not None:
+                stmt = stmt.where(ScheduledScanRow.status == status)
+            stmt = stmt.offset(offset).limit(limit)
+            rows = session.execute(stmt).scalars().all()
+            return [self._scheduled_scan_to_dict(r) for r in rows]
+
+    def count_scheduled_scans(self, user_id: str, status: str | None = None) -> int:
+        """Count scheduled scans for a user, optionally by status."""
+        with Session(self.engine) as session:
+            stmt = select(func.count(ScheduledScanRow.id)).where(
+                ScheduledScanRow.user_id == user_id
+            )
+            if status is not None:
+                stmt = stmt.where(ScheduledScanRow.status == status)
+            return session.execute(stmt).scalar_one()
+
+    def update_scheduled_scan(self, schedule_id: int, **kwargs) -> None:
+        """Update fields on a scheduled scan row."""
+        from sqlalchemy import update
+
+        with Session(self.engine) as session:
+            stmt = (
+                update(ScheduledScanRow).where(ScheduledScanRow.id == schedule_id).values(**kwargs)
+            )
+            session.execute(stmt)
+            session.commit()
+
+    def delete_scheduled_scan(self, schedule_id: int) -> bool:
+        """Delete a scheduled scan. Returns True if deleted."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(ScheduledScanRow).where(ScheduledScanRow.id == schedule_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return False
+            session.delete(row)
+            session.commit()
+            return True
+
+    def get_active_schedules(self) -> list[dict]:
+        """Get all schedules with status='active'. Used by scheduler on startup."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(ScheduledScanRow)
+                .where(ScheduledScanRow.status == "active")
+                .order_by(ScheduledScanRow.id)
+            )
+            rows = session.execute(stmt).scalars().all()
+            return [self._scheduled_scan_to_dict(r) for r in rows]

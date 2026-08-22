@@ -8,6 +8,7 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { GridSizeToggle } from "../components/GridSizeToggle";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { KpiCard } from "../components/KpiCard";
+import { ScanProgressBar } from "../components/ScanProgressBar";
 import { SearchBar } from "../components/SearchBar";
 import { SetIconFilter } from "../components/SetIconFilter";
 import { SkeletonCard } from "../components/Skeleton";
@@ -23,6 +24,8 @@ import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
+const HIGHLIGHT_DURATION_MS = 2_000;
+
 const RARITY_COLORS: Record<string, string> = {
   M: "text-amber-400",
   R: "text-yellow-500",
@@ -37,7 +40,7 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
   C: "rarity.common",
 };
 
-function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void> }) {
+function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber" }) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
@@ -54,9 +57,9 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
 
   const inner = (
     <div
-      className="group block bg-slate-800 rounded-lg overflow-hidden
-        border border-slate-600 hover:border-cyan-400/50
-        transition-all duration-200 hover:scale-[1.02] hover:shadow-lg relative cursor-pointer"
+      className={`group block bg-slate-800 rounded-lg overflow-hidden
+        border transition-all duration-500 hover:scale-[1.02] hover:shadow-lg relative cursor-pointer
+        ${highlightColor === "green" ? "ring-2 ring-emerald-400/60 border-emerald-400/50" : highlightColor === "amber" ? "ring-2 ring-amber-400/40 border-amber-400/40" : "border-slate-600 hover:border-cyan-400/50"}`}
       data-testid={`collection-card-${card.id}`}
     >
       {/* Quantity badge */}
@@ -217,6 +220,9 @@ export function MyCollection() {
   const [summary, setSummary] = useState<CollectionSummary | null>(null);
   const [setOptions, setSetOptions] = useState<{ label: string; value: string }[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [recentlyScanned, setRecentlyScanned] = useState<Map<string, { color: "green" | "amber"; timer: ReturnType<typeof setTimeout> }>>(new Map());
+  const [priceFoundCount, setPriceFoundCount] = useState(0);
+  const [scanStartTime, setScanStartTime] = useState(0);
 
   const debouncedSearch = useDebounce(searchTerm, 300);
   const fetchIdRef = useRef(0);
@@ -230,9 +236,69 @@ export function MyCollection() {
     progress: refreshProgress,
     error: refreshError,
     isDone: refreshDone,
-    startRefresh,
+    lastScannedCard,
+    startRefresh: rawStartRefresh,
     cancelRefresh,
   } = useCollectionRefresh(handleRefreshComplete);
+
+  // Wrap startRefresh to reset scan tracking state
+  const startRefresh = useCallback(async () => {
+    setPriceFoundCount(0);
+    setScanStartTime(Date.now());
+    setRecentlyScanned(new Map());
+    await rawStartRefresh();
+  }, [rawStartRefresh]);
+
+  // Live card updates: when lastScannedCard changes, update the local cards state
+  useEffect(() => {
+    if (!lastScannedCard || !lastScannedCard.externalId) return;
+
+    const { externalId, priceFound, price } = lastScannedCard;
+
+    // Track price-found count
+    if (priceFound) {
+      setPriceFoundCount((c) => c + 1);
+    }
+
+    // Update card price in local state (match by card_id via source card external_id)
+    if (priceFound && price != null) {
+      setCards((prev) =>
+        prev.map((c) => {
+          // CollectionCard doesn't have external_id directly, but we can try name matching
+          // or card_id matching. For now we match by name_en if available.
+          if (c.name_en && c.name_en === lastScannedCard.name) {
+            return { ...c, latest_price: price };
+          }
+          return c;
+        }),
+      );
+    }
+
+    // Add highlight
+    const color: "green" | "amber" = priceFound ? "green" : "amber";
+    setRecentlyScanned((prev) => {
+      const next = new Map(prev);
+      // Clear existing timer for this card
+      const existing = next.get(externalId);
+      if (existing) clearTimeout(existing.timer);
+      const timer = setTimeout(() => {
+        setRecentlyScanned((m) => {
+          const updated = new Map(m);
+          updated.delete(externalId);
+          return updated;
+        });
+      }, HIGHLIGHT_DURATION_MS);
+      next.set(externalId, { color, timer });
+      return next;
+    });
+  }, [lastScannedCard]);
+
+  // Clean up highlight timers on unmount
+  useEffect(() => {
+    return () => {
+      recentlyScanned.forEach(({ timer }) => clearTimeout(timer));
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load summary and sets on mount (and when currency/refreshKey changes)
   useEffect(() => {
@@ -411,54 +477,8 @@ export function MyCollection() {
           <SetIconFilter options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
         )}
         <div className="flex justify-end items-center gap-3">
-          {/* Refresh All button */}
-          {refreshDone ? (
-            <span
-              className="text-sm font-medium text-emerald-400 animate-pulse"
-              data-testid="refresh-done"
-            >
-              {t("collection.refreshComplete")}
-            </span>
-          ) : refreshError ? (
-            <span
-              className="text-sm font-medium text-red-400"
-              data-testid="refresh-error"
-            >
-              {t("collection.refreshError")}
-            </span>
-          ) : isRefreshing ? (
-            <div className="flex items-center gap-2" data-testid="refresh-progress">
-              <div className="w-32 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-cyan-400 rounded-full transition-all duration-300"
-                  style={{
-                    width: refreshProgress && refreshProgress.total > 0
-                      ? `${Math.round((refreshProgress.processed / refreshProgress.total) * 100)}%`
-                      : "0%",
-                  }}
-                />
-              </div>
-              <span className="text-xs text-slate-300 whitespace-nowrap">
-                {refreshProgress
-                  ? t("collection.refreshing", {
-                      processed: refreshProgress.processed,
-                      total: refreshProgress.total,
-                    })
-                  : t("collection.refreshing", { processed: 0, total: 0 })}
-              </span>
-              <button
-                type="button"
-                onClick={cancelRefresh}
-                className="text-slate-400 hover:text-red-400 transition-colors"
-                title={t("collection.refreshCancel")}
-                data-testid="refresh-cancel"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ) : (
+          {/* Refresh All button (only show when not refreshing) */}
+          {!isRefreshing && !refreshDone && !refreshError && (
             <button
               type="button"
               onClick={startRefresh}
@@ -476,6 +496,21 @@ export function MyCollection() {
 
           <GridSizeToggle value={gridSize} onChange={setGridSize} />
         </div>
+
+        {/* Enhanced progress bar */}
+        {(isRefreshing || refreshDone || refreshError) && (
+          <ScanProgressBar
+            processed={refreshProgress?.processed ?? 0}
+            total={refreshProgress?.total ?? 0}
+            currentCardName={lastScannedCard?.name}
+            priceFoundCount={priceFoundCount}
+            startTime={scanStartTime}
+            isRefreshing={isRefreshing}
+            isDone={refreshDone}
+            error={refreshError}
+            onCancel={isRefreshing ? cancelRefresh : undefined}
+          />
+        )}
       </div>
 
       {error && (
@@ -508,9 +543,36 @@ export function MyCollection() {
             className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses}`}
             data-testid="collection-grid"
           >
-            {sortedCards.map((card) => (
-              <CollectionCardTile key={card.id} card={card} compact={GRID_SIZE_CONFIG[gridSize].compact} currencyOverride={currency} onRefresh={handleCardRefresh} />
-            ))}
+            {sortedCards.map((card) => {
+              // Check if this card was recently scanned (match by name_en)
+              let highlightColor: "green" | "amber" | undefined;
+              for (const [, val] of recentlyScanned) {
+                // Since we don't have external_id on CollectionCard, we match via name
+                if (card.name_en && card.name_en === lastScannedCard?.name) {
+                  highlightColor = val.color;
+                  break;
+                }
+              }
+              // Also check by iterating over all recently scanned entries
+              if (!highlightColor) {
+                recentlyScanned.forEach((val, extId) => {
+                  // Try matching by external_id patterns if available
+                  if (card.name_en && lastScannedCard?.externalId === extId && card.name_en === lastScannedCard?.name) {
+                    highlightColor = val.color;
+                  }
+                });
+              }
+              return (
+                <CollectionCardTile
+                  key={card.id}
+                  card={card}
+                  compact={GRID_SIZE_CONFIG[gridSize].compact}
+                  currencyOverride={currency}
+                  onRefresh={handleCardRefresh}
+                  highlightColor={highlightColor}
+                />
+              );
+            })}
           </div>
           <div ref={sentinelRef} data-testid="scroll-sentinel" />
           {loadingMore && (

@@ -10,12 +10,14 @@ from datetime import date, datetime
 import structlog
 
 from src.database.repository import Repository
+from src.domain.events import ScanEvent
 from src.domain.models import (
     HistoricalPrice,
     ScanFilter,
     ScanRun,
     ScanStatus,
 )
+from src.events import scan_bus
 from src.providers.myp.provider import MypCardsProvider, MypConfig
 
 log = structlog.get_logger()
@@ -56,12 +58,31 @@ async def run_scan(
         repo.update_scan_run(run_id, cards_total=cards_total)
         log.info("scan_start", run_id=run_id, cards_total=cards_total, dry_run=dry_run)
 
+        # Publish scan_started event
+        scan_bus.publish(
+            ScanEvent(
+                event_type="scan_started",
+                scan_id=run_id,
+                timestamp=datetime.now().isoformat(),
+                cards_total=cards_total,
+            )
+        )
+
         if dry_run:
             repo.update_scan_run(
                 run_id,
                 status=ScanStatus.COMPLETED.value,
                 cards_processed=0,
                 finished_at=datetime.now(),
+            )
+            scan_bus.publish(
+                ScanEvent(
+                    event_type="scan_complete",
+                    scan_id=run_id,
+                    timestamp=datetime.now().isoformat(),
+                    cards_total=cards_total,
+                    cards_processed=0,
+                )
             )
             return _build_scan_run(repo, run_id)
 
@@ -79,6 +100,7 @@ async def run_scan(
             async with sem:
                 external_id = entry["external_id"]
                 slug = entry["slug"]
+                card_name = entry.get("name_en", "")
 
                 try:
                     jsonld_price = await provider.fetch_current_price(external_id, slug)
@@ -86,6 +108,21 @@ async def run_scan(
                     async with lock:
                         cards_failed += 1
                         error_messages.append(f"{external_id}: {type(e).__name__}: {e}")
+                        scan_bus.publish(
+                            ScanEvent(
+                                event_type="card_scanned",
+                                scan_id=run_id,
+                                timestamp=datetime.now().isoformat(),
+                                external_id=external_id,
+                                card_name=card_name,
+                                price_found=False,
+                                error=str(e),
+                                cards_processed=cards_processed,
+                                cards_total=cards_total,
+                                cards_failed=cards_failed,
+                                observations_saved=observations_saved,
+                            )
+                        )
                     log.warning(
                         "scan_fetch_error",
                         run_id=run_id,
@@ -97,6 +134,20 @@ async def run_scan(
                 if jsonld_price is None or jsonld_price.price is None:
                     async with lock:
                         cards_processed += 1
+                        scan_bus.publish(
+                            ScanEvent(
+                                event_type="card_scanned",
+                                scan_id=run_id,
+                                timestamp=datetime.now().isoformat(),
+                                external_id=external_id,
+                                card_name=card_name,
+                                price_found=False,
+                                cards_processed=cards_processed,
+                                cards_total=cards_total,
+                                cards_failed=cards_failed,
+                                observations_saved=observations_saved,
+                            )
+                        )
                     log.debug(
                         "scan_skip_no_price",
                         external_id=external_id,
@@ -116,6 +167,22 @@ async def run_scan(
                 async with lock:
                     cards_processed += 1
                     observations_saved += inserted
+                    scan_bus.publish(
+                        ScanEvent(
+                            event_type="card_scanned",
+                            scan_id=run_id,
+                            timestamp=datetime.now().isoformat(),
+                            external_id=external_id,
+                            card_name=card_name,
+                            price_found=True,
+                            price=jsonld_price.price,
+                            currency=jsonld_price.currency,
+                            cards_processed=cards_processed,
+                            cards_total=cards_total,
+                            cards_failed=cards_failed,
+                            observations_saved=observations_saved,
+                        )
+                    )
 
                 log.info(
                     "scan_stored",
@@ -158,17 +225,43 @@ async def run_scan(
             observations_saved=observations_saved,
         )
 
+        # Publish scan_complete event
+        scan_bus.publish(
+            ScanEvent(
+                event_type="scan_complete",
+                scan_id=run_id,
+                timestamp=datetime.now().isoformat(),
+                cards_processed=cards_processed,
+                cards_total=cards_total,
+                cards_failed=cards_failed,
+                observations_saved=observations_saved,
+                error=error_summary,
+            )
+        )
+
         return _build_scan_run(repo, run_id)
 
-    except Exception:
+    except Exception as exc:
         repo.update_scan_run(
             run_id,
             status=ScanStatus.FAILED.value,
             finished_at=datetime.now(),
         )
+        # Publish scan_complete event with error
+        scan_bus.publish(
+            ScanEvent(
+                event_type="scan_complete",
+                scan_id=run_id,
+                timestamp=datetime.now().isoformat(),
+                error=str(exc),
+            )
+        )
         raise
     finally:
         await provider.close()
+        # Delayed cleanup: give SSE clients time to receive the final event
+        await asyncio.sleep(5)
+        scan_bus.cleanup(run_id)
 
 
 def _build_scan_run(repo: Repository, run_id: int) -> ScanRun:

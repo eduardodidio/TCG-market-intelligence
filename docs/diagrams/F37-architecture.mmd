@@ -1,0 +1,69 @@
+flowchart TB
+    subgraph Frontend
+        SP[Schedules Page]
+        SF[ScheduleForm]
+        ST[ScheduleTable]
+    end
+
+    subgraph "FastAPI API"
+        LF[Lifespan Manager]
+        SR[Schedules Router]
+        AS[app.state.scheduler]
+    end
+
+    subgraph "Scheduler Service"
+        SS[ScanScheduler]
+        APS[APScheduler BackgroundScheduler]
+        CT[CronTrigger Jobs]
+    end
+
+    subgraph "Data Layer"
+        SST[(scheduled_scans table)]
+        SRT[(scan_runs table)]
+        REPO[Repository CRUD]
+    end
+
+    subgraph "Scan Pipeline"
+        RS[run_scan orchestrator]
+        MYP[MYP Provider]
+    end
+
+    subgraph CLI
+        SL[schedule-list]
+        SA[schedule-add]
+        SRM[schedule-remove]
+    end
+
+    SP --> SR
+    SF --> SR
+    ST --> SR
+
+    LF -->|startup| SS
+    LF -->|shutdown| SS
+    LF -->|store| AS
+
+    SR -->|CRUD| REPO
+    SR -->|add/remove/pause| SS
+    SR -->|trigger_now| SS
+
+    SS --> APS
+    APS --> CT
+    CT -->|fire| SS
+
+    SS -->|_execute_scheduled_scan| RS
+    SS -->|update metadata| REPO
+
+    RS --> MYP
+    RS --> SRT
+
+    REPO --> SST
+    REPO --> SRT
+
+    SL --> REPO
+    SA --> REPO
+    SRM --> REPO
+
+    style SS fill:#0d9488,color:#fff
+    style APS fill:#6366f1,color:#fff
+    style SP fill:#22d3ee,color:#000
+    style RS fill:#f59e0b,color:#000

@@ -576,6 +576,137 @@ def seed_users(db):
     click.echo("\nSeed users done.")
 
 
+@cli.command("banlist-sync")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--bulk/--no-bulk", default=True, help="Use bulk NDJSON download (default) or per-card API"
+)
+@click.option("--limit", default=None, type=int, help="Max cards to process")
+def banlist_sync(db, bulk, limit):
+    """Sync ban list / legality data from Scryfall."""
+    from src.collectors.banlist_sync import run_banlist_sync
+
+    summary = asyncio.run(
+        run_banlist_sync(
+            db_url=db,
+            bulk=bulk,
+            limit=limit,
+        )
+    )
+    _print_banlist_sync_summary(summary)
+
+
+def _print_banlist_sync_summary(summary):
+    """Format and print banlist sync summary to stdout."""
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  BANLIST SYNC SUMMARY")
+    click.echo(f"  Cards processed:         {summary.cards_processed}")
+    click.echo(f"  Legalities upserted:     {summary.legalities_upserted}")
+    click.echo(f"  Changes detected:        {summary.changes_detected}")
+    click.echo(f"  Errors:                  {summary.errors}")
+    if summary.finished_at:
+        elapsed = (summary.finished_at - summary.started_at).total_seconds()
+        minutes = elapsed / 60
+        click.echo(f"  Duration:                {elapsed:.1f}s ({minutes:.1f} min)")
+    click.echo("=" * 60)
+
+
+@cli.command("schedule-list")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--status",
+    type=click.Choice(["active", "paused", "disabled"]),
+    default=None,
+    help="Filter by status",
+)
+def schedule_list(db, status):
+    """List all scheduled scans."""
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    schedules = repo.list_scheduled_scans(status=status)
+
+    if not schedules:
+        click.echo("No schedules found.")
+        return
+
+    click.echo(
+        f"{'ID':>4}  {'Name':<20} {'Cron':<15} {'Status':<10} "
+        f"{'Last Run':<20} {'Next Run':<20} {'Errors':>8}"
+    )
+    click.echo("-" * 100)
+    for s in schedules:
+        last_run = str(s.get("last_run_at", ""))[:19] if s.get("last_run_at") else "-"
+        next_run = str(s.get("next_run_at", ""))[:19] if s.get("next_run_at") else "-"
+        errors = f"{s.get('error_count', 0)}/{s.get('max_retries', 3)}"
+        click.echo(
+            f"{s['id']:>4}  {s['name']:<20} {s['cron_expression']:<15} "
+            f"{s['status']:<10} {last_run:<20} {next_run:<20} {errors:>8}"
+        )
+
+
+@cli.command("schedule-add")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--name", required=True, help="Schedule name")
+@click.option("--cron", required=True, help="Cron expression (e.g. '0 6 * * *')")
+@click.option("--type", "scan_type", default="collection", help="Scan type")
+@click.option("--filters", default="{}", help="JSON filters")
+@click.option("--description", default=None, help="Description")
+@click.option(
+    "--max-retries", default=3, type=int, help="Max consecutive failures before auto-pause"
+)
+@click.option("--user-id", default="1", help="User ID for the schedule owner")
+def schedule_add(db, name, cron, scan_type, filters, description, max_retries, user_id):
+    """Add a new scheduled scan."""
+    from croniter import croniter
+
+    from src.database.repository import Repository
+    from src.scheduler.service import validate_cron
+
+    # Validate cron
+    try:
+        validate_cron(cron)
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1)
+
+    repo = Repository(db_url=db)
+    schedule_id = repo.create_scheduled_scan(
+        user_id=user_id,
+        name=name,
+        cron_expression=cron,
+        scan_type=scan_type,
+        filters_json=filters,
+        description=description,
+        max_retries=max_retries,
+    )
+
+    # Compute next run for display
+    it = croniter(cron)
+    next_run = it.get_next()
+
+    click.echo(f"Schedule created: ID={schedule_id}, name='{name}'")
+    click.echo(f"  Cron: {cron}")
+    click.echo(f"  Next run: {next_run}")
+
+
+@cli.command("schedule-remove")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.argument("schedule_id", type=int)
+def schedule_remove(db, schedule_id):
+    """Remove a scheduled scan by ID."""
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    deleted = repo.delete_scheduled_scan(schedule_id)
+    if deleted:
+        click.echo(f"Schedule {schedule_id} deleted.")
+    else:
+        click.echo(f"Error: Schedule {schedule_id} not found.", err=True)
+        raise SystemExit(1)
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")

@@ -1,0 +1,53 @@
+flowchart TD
+    A([User opens Schedules page]) --> B[View schedule list]
+    B --> C{Has schedules?}
+    C -->|No| D[Empty state message]
+    C -->|Yes| E[Schedule table with status badges]
+
+    D --> F[Click 'New Schedule']
+    E --> F
+
+    F --> G[Fill form: name, cron, type, filters]
+    G --> H[Click cron preset or type manually]
+    H --> I[Submit form]
+
+    I --> J{Valid cron?}
+    J -->|No| K[Show validation error]
+    K --> G
+
+    J -->|Yes| L[API creates schedule + registers with APScheduler]
+    L --> M[Schedule appears in table as Active]
+
+    M --> N{Time passes...}
+    N --> O[APScheduler fires CronTrigger]
+    O --> P[_execute_scheduled_scan callback]
+    P --> Q[run_scan fetches prices from MYP]
+    Q --> R{Scan succeeded?}
+
+    R -->|Yes| S[Update last_run, reset error_count]
+    S --> T[Schedule stays Active]
+
+    R -->|No| U[Increment error_count]
+    U --> V{error_count >= max_retries?}
+    V -->|No| W[Schedule stays Active, try again next cycle]
+    V -->|Yes| X[Auto-pause schedule]
+    X --> Y[User sees Paused status + red error count]
+
+    Y --> Z[User investigates and fixes issue]
+    Z --> AA[Click Resume button]
+    AA --> AB[PATCH status=active]
+    AB --> T
+
+    E --> AC[Click 'Run Now' button]
+    AC --> AD[trigger_now creates scan immediately]
+    AD --> Q
+
+    E --> AE[Click Delete button]
+    AE --> AF{Confirm?}
+    AF -->|Yes| AG[Remove from APScheduler + DB]
+    AF -->|No| E
+
+    style A fill:#22d3ee,color:#000
+    style L fill:#0d9488,color:#fff
+    style X fill:#ef4444,color:#fff
+    style T fill:#22c55e,color:#000

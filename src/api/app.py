@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -11,6 +13,28 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from src.api.schemas.envelope import ErrorDetail
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan: start/stop the scan scheduler."""
+    scheduler_disabled = os.environ.get("TCG_SCHEDULER_DISABLED", "0") == "1"
+    if not scheduler_disabled:
+        try:
+            from src.scheduler.service import ScanScheduler
+
+            db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+            scheduler = ScanScheduler(db_url)
+            scheduler.start()
+            app.state.scheduler = scheduler
+        except Exception:
+            import structlog
+
+            log = structlog.get_logger()
+            log.warning("scheduler_startup_failed", exc_info=True)
+    yield
+    if hasattr(app.state, "scheduler"):
+        app.state.scheduler.shutdown()
+
+
 def create_app() -> FastAPI:
     """FastAPI application factory."""
     app = FastAPI(
@@ -18,6 +42,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
     # CORS middleware
@@ -40,6 +65,7 @@ def create_app() -> FastAPI:
 
     # Include routers under /api/v1
     from src.api.routers.auth import router as auth_router
+    from src.api.routers.banlist import router as banlist_router
     from src.api.routers.cards import router as cards_router
     from src.api.routers.collect import router as collect_router
     from src.api.routers.collection import router as collection_router
@@ -47,6 +73,7 @@ def create_app() -> FastAPI:
     from src.api.routers.exchange_rates import router as exchange_rates_router
     from src.api.routers.market import router as market_router
     from src.api.routers.scans import router as scans_router
+    from src.api.routers.schedules import router as schedules_router
     from src.api.routers.sets import router as sets_router
 
     app.include_router(auth_router, prefix="/api/v1")
@@ -58,6 +85,8 @@ def create_app() -> FastAPI:
     app.include_router(decks_router, prefix="/api/v1")
     app.include_router(scans_router, prefix="/api/v1")
     app.include_router(exchange_rates_router, prefix="/api/v1")
+    app.include_router(banlist_router, prefix="/api/v1")
+    app.include_router(schedules_router, prefix="/api/v1")
 
     # Health check (outside /api/v1)
     @app.get("/health")

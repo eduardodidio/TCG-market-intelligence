@@ -64,6 +64,9 @@ python -m src.cli.main retry-failed
 | `scan` | Trigger a collection price scan with optional filters |
 | `scan-history` | List past scan runs with metrics |
 | `update-exchange-rate` | Fetch USD/BRL exchange rate from BCB PTAX |
+| `schedule-list` | List scheduled scans (filter by `--status`) |
+| `schedule-add` | Create a scheduled scan (name, cron, type) |
+| `schedule-remove` | Remove a scheduled scan by ID |
 | `analyze list` | List all cards with observation counts |
 | `analyze card <id>` | Compute analytics for a single card by external ID |
 
@@ -178,6 +181,13 @@ Auto-generated interactive docs are available at `/docs` (Swagger UI) and
 | POST | `/api/v1/scans` | Trigger a collection price scan with filters (async, requires API key) |
 | GET | `/api/v1/scans` | List scan history with pagination |
 | GET | `/api/v1/scans/{id}` | Scan detail with error summary |
+| GET | `/api/v1/scans/{id}/stream` | SSE stream of scan progress events (auth via `?token=`) |
+| POST | `/api/v1/schedules` | Create a scheduled scan (requires JWT) |
+| GET | `/api/v1/schedules` | List user's scheduled scans |
+| GET | `/api/v1/schedules/{id}` | Scheduled scan detail |
+| PATCH | `/api/v1/schedules/{id}` | Update/pause/resume a schedule |
+| DELETE | `/api/v1/schedules/{id}` | Delete a scheduled scan |
+| POST | `/api/v1/schedules/{id}/trigger` | Trigger immediate scan run |
 | GET | `/api/v1/exchange-rates/current` | Current USD/BRL exchange rate |
 | GET | `/api/v1/exchange-rates/history` | Exchange rate history (query: `days`) |
 | POST | `/api/v1/exchange-rates/refresh` | Fetch latest rate from BCB (requires API key) |
@@ -651,6 +661,70 @@ Batch of bug fixes, UX improvements, and cross-cutting enhancements:
   components.
 - **New API helper** -- `apiPatch()` added to frontend API client.
 - **Tests:** 1179 backend (94.87% coverage), 479 frontend (48 files)
+
+### F32 -- Real-time Scan Progress (SSE) (2026-08-21)
+
+Replaced 3-second polling with Server-Sent Events (SSE) for real-time scan
+progress streaming. Each card scanned produces an event with its name,
+price result, and running totals. The collection grid updates as data
+arrives instead of waiting for a full re-fetch at the end.
+
+- **Event bus** -- in-memory pub/sub using `asyncio.Queue` per scan,
+  keyed by scan_id. Thread-safe publishing via `call_soon_threadsafe`
+  for the background scan thread.
+- **ScanEvent model** -- `src/domain/events.py` dataclass with
+  `to_sse_json()` serialization (scan_started, card_scanned, scan_complete).
+- **SSE endpoint** -- `GET /api/v1/scans/{id}/stream?token=<jwt>` returns
+  `text/event-stream`. Auth via query param (EventSource limitation).
+  Keepalive comments every 30s. Returns final event for already-completed scans.
+- **useScanStream hook** -- wraps EventSource with typed event parsing,
+  progress state, and automatic fallback to 3s polling on SSE failure.
+- **useCollectionRefresh v2** -- swapped setInterval polling for SSE via
+  useScanStream. Public API unchanged (isRefreshing, progress, startRefresh,
+  cancelRefresh). New `lastScannedCard` field for per-card details.
+- **ScanProgressBar component** -- enhanced progress display with current
+  card name, price-found ratio, and estimated time remaining.
+- **Live card updates** -- card prices update in the collection grid as
+  scan events arrive, with 2-second highlight animation (green for price
+  found, amber for no price).
+- **Backwards compatible** -- existing polling endpoint still works.
+- **i18n** -- 9 new keys in EN and PT-BR for streaming progress UI.
+
+### F37 -- Scheduled Scans (2026-08-21)
+
+Added automated scheduling for collection price scans using APScheduler,
+so users can set up recurring scan jobs (e.g., daily at 6am) without
+manual intervention:
+
+- **APScheduler 3.x integration** -- `ScanScheduler` service wraps a
+  `BackgroundScheduler` with `CronTrigger` jobs. Starts/stops via
+  FastAPI lifespan context manager. Controlled by `TCG_SCHEDULER_DISABLED`
+  env var for test/CI environments.
+- **Domain model** -- `ScheduledScan` dataclass and `ScheduleStatus` enum
+  (`active`, `paused`, `disabled`). `ScheduledScanRow` SQLAlchemy model
+  with user_id, cron expression, scan type, filters, error tracking.
+- **Repository CRUD** -- 8 new methods: create, get, list (with user
+  filter + pagination), count, update, delete, get_active_schedules.
+  Per-user limit of 10 active schedules enforced at API level.
+- **Cron validation** -- `validate_cron()` rejects sub-hour intervals
+  (bare `*` or `*/N` where N<60 in minute field). Uses `croniter` for
+  expression parsing and next-run calculation.
+- **Auto-pause on failure** -- consecutive errors tracked via
+  `error_count`. When `error_count >= max_retries`, schedule is
+  automatically paused. Successful runs reset the counter.
+- **Concurrency guard** -- `threading.Lock` prevents overlapping
+  executions of the same schedule.
+- **API endpoints** -- 6 endpoints under `/api/v1/schedules`: POST
+  (create), GET list, GET detail, PATCH (update/pause/resume), DELETE,
+  POST trigger (run now). All require JWT auth.
+- **CLI commands** -- `schedule-list` (table display with status filter),
+  `schedule-add` (with cron validation), `schedule-remove` (by ID).
+- **Frontend** -- Schedules page with full CRUD: ScheduleForm (cron
+  presets for Daily 6am, Every 12h, Weekly Monday, Monthly),
+  ScheduleTable (status badges, error count, action buttons for
+  pause/resume/trigger/edit/delete), loading/error/empty states.
+- **i18n** -- 30+ keys in EN and PT-BR for schedule management UI.
+- **Tests:** 71 new backend tests, 20 new frontend tests (91 total).
 
 ## Future
 

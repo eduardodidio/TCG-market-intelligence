@@ -1,0 +1,38 @@
+%%{ init: { 'theme': 'dark' } }%%
+flowchart TD
+    A["User clicks 'Refresh All'"] --> B["Frontend: POST /scans"]
+    B --> C{"Scan created?"}
+    C -->|No| ERR1["Show error message"]
+    C -->|Yes| D["Frontend: Connect EventSource<br/>GET /scans/{id}/stream?token=JWT"]
+
+    D --> E{"SSE connected?"}
+    E -->|Yes| F["Receive scan_started event"]
+    E -->|No| POLL["Fallback: poll GET /scans/{id}<br/>every 3 seconds"]
+
+    F --> G["For each card..."]
+    G --> H["Receive card_scanned event"]
+    H --> I["Update progress bar:<br/>card name, ETA, price ratio"]
+    H --> J["Update card price in grid<br/>(optimistic local state)"]
+    H --> K["Apply highlight animation<br/>(green=price found, amber=no price)"]
+    I --> L{"More cards?"}
+    J --> L
+    K --> L
+    L -->|Yes| G
+    L -->|No| M["Receive scan_complete event"]
+
+    M --> N["Show completion summary<br/>(X cards, Y prices updated)"]
+    N --> O["Re-fetch collection data"]
+    O --> P["Done"]
+
+    POLL --> Q["Update progress from poll response"]
+    Q --> R{"Scan finished?"}
+    R -->|No| POLL
+    R -->|Yes| N
+
+    %% Highlight fade
+    K --> FADE["Highlight fades after 2s"]
+
+    style A fill:#059669,stroke:#10b981,color:#fff
+    style M fill:#0891b2,stroke:#06b6d4,color:#fff
+    style ERR1 fill:#dc2626,stroke:#ef4444,color:#fff
+    style POLL fill:#d97706,stroke:#f59e0b,color:#fff

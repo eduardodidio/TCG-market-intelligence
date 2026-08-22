@@ -39,6 +39,12 @@ const DeckList = lazy(() =>
 const DeckView = lazy(() =>
   import("./pages/DeckView").then((m) => ({ default: m.DeckView })),
 );
+const BanList = lazy(() =>
+  import("./pages/BanList").then((m) => ({ default: m.BanList })),
+);
+const Schedules = lazy(() =>
+  import("./pages/Schedules").then((m) => ({ default: m.Schedules })),
+);
 const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login })),
 );
@@ -131,6 +137,16 @@ export default function App() {
                   </Suspense>
                 }
               />
+              <Route
+                path="/banlist"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <BanList />
+                  </Suspense>
+                }
+              />
 
               {/* Protected routes */}
               <Route
@@ -189,6 +205,18 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <Scans />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/schedules"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <Schedules />
                     </ProtectedRoute>
                   </Suspense>
                 }

@@ -11,8 +11,10 @@ const NAV_ITEMS = [
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
   { to: "/market/movers", labelKey: "nav.marketMovers", requiresAuth: false },
+  { to: "/banlist", labelKey: "nav.banlist", requiresAuth: false },
   { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true },
   { to: "/scans", labelKey: "nav.priceScans", requiresAuth: true },
+  { to: "/schedules", labelKey: "nav.schedules", requiresAuth: true },
 ] as const;
 
 function getInitials(name: string | null | undefined): string {

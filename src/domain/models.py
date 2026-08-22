@@ -362,6 +362,47 @@ class ConvertedPrice:
 # --- Authentication domain models ---
 
 
+class LegalityStatus(str, Enum):
+    LEGAL = "legal"
+    NOT_LEGAL = "not_legal"
+    BANNED = "banned"
+    RESTRICTED = "restricted"
+
+
+@dataclass
+class CardLegality:
+    """Legality of a card in a specific format."""
+
+    card_id: int
+    format: str
+    status: str
+    effective_date: date | None = None
+
+
+@dataclass
+class LegalityChange:
+    """Record of a legality status change."""
+
+    card_id: int
+    format: str
+    old_status: str | None
+    new_status: str
+    changed_at: datetime = field(default_factory=datetime.now)
+    source: str = "scryfall_sync"
+
+
+@dataclass
+class BanlistSyncSummary:
+    """Summary of a ban list sync run."""
+
+    cards_processed: int = 0
+    legalities_upserted: int = 0
+    changes_detected: int = 0
+    errors: int = 0
+    started_at: datetime = field(default_factory=datetime.now)
+    finished_at: datetime | None = None
+
+
 class AuthProvider(str, Enum):
     EMAIL = "email"
     GOOGLE = "google"
@@ -381,6 +422,35 @@ class User:
     preferred_currency: str = "BRL"
     preferred_language: str = "en"
     is_active: bool = True
+
+
+# --- Scheduled scan domain models ---
+
+
+class ScheduleStatus(str, Enum):
+    ACTIVE = "active"
+    PAUSED = "paused"
+    DISABLED = "disabled"
+
+
+@dataclass
+class ScheduledScan:
+    """Configuration for a recurring price scan schedule."""
+
+    id: int | None = None
+    name: str = ""
+    description: str | None = None
+    cron_expression: str = "0 6 * * *"
+    scan_type: str = "collection"
+    filters_json: str = "{}"
+    status: str = "active"
+    last_run_id: int | None = None
+    last_run_at: datetime | None = None
+    next_run_at: datetime | None = None
+    error_count: int = 0
+    max_retries: int = 3
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 # --- Deck domain models ---

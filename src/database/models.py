@@ -150,6 +150,33 @@ class ScanRunRow(Base):
     )
 
 
+class ScheduledScanRow(Base):
+    __tablename__ = "scheduled_scans"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    cron_expression: Mapped[str] = mapped_column(String(100), nullable=False)
+    scan_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    filters_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    last_run_id: Mapped[int | None] = mapped_column(Integer)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    error_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_retries: Mapped[int] = mapped_column(Integer, default=3)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    __table_args__ = (
+        Index("ix_scheduled_scans_status", "status"),
+        Index("ix_scheduled_scans_user", "user_id"),
+    )
+
+
 class ExchangeRateRow(Base):
     __tablename__ = "exchange_rates"
 
@@ -202,6 +229,38 @@ class DeckRow(Base):
     )
 
     __table_args__ = (Index("ix_decks_user", "user_id"),)
+
+
+class CardLegalityRow(Base):
+    __tablename__ = "card_legalities"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    card_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    format: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    effective_date: Mapped[date | None] = mapped_column(Date)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    __table_args__ = (
+        UniqueConstraint("card_id", "format", name="uq_card_legality"),
+        Index("ix_legality_format_status", "format", "status"),
+    )
+
+
+class LegalityHistoryRow(Base):
+    __tablename__ = "legality_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    card_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    format: Mapped[str] = mapped_column(String(50), nullable=False)
+    old_status: Mapped[str | None] = mapped_column(String(20))
+    new_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    source: Mapped[str] = mapped_column(String(50), default="scryfall_sync")
+
+    __table_args__ = (Index("ix_legality_history_card_format", "card_id", "format", "changed_at"),)
 
 
 class DeckCardRow(Base):

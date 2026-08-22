@@ -69,7 +69,7 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    expect(links).toHaveLength(6);
+    expect(links).toHaveLength(8);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -78,6 +78,8 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Market Movers");
     expect(linkTexts).toContain("My Decks");
     expect(linkTexts).toContain("Price Scans");
+    expect(linkTexts).toContain("Schedules");
+    expect(linkTexts).toContain("Ban List");
   });
 
   it("hides protected nav items when unauthenticated", () => {
@@ -85,8 +87,8 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Only public items: Dashboard, Explore Cards, Market Movers
-    expect(links).toHaveLength(3);
+    // Only public items: Dashboard, Explore Cards, Market Movers, Ban List
+    expect(links).toHaveLength(4);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -94,6 +96,7 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Market Movers");
     expect(linkTexts).not.toContain("My Collection");
     expect(linkTexts).not.toContain("Price Scans");
+    expect(linkTexts).not.toContain("Schedules");
   });
 
   it("renders the main content area (Outlet)", () => {
