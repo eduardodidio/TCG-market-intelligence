@@ -48,6 +48,8 @@ class CollectionSummary(BaseModel):
     priced_count: int = 0
     sets_count: int
     currency: str = "BRL"
+    banned_count: int = 0
+    recently_changed_count: int = 0
 
 
 class ImportResult(BaseModel):

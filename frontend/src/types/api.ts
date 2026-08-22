@@ -140,6 +140,42 @@ export interface CollectionSummary {
   priced_count: number;
   sets_count: number;
   currency?: string;
+  banned_count: number;
+  recently_changed_count: number;
+}
+
+// Ban engine types (F42)
+
+export interface BannedCollectionCard {
+  entry_id: number;
+  card_id: number;
+  name_en: string | null;
+  name_pt: string | null;
+  set_code: string;
+  collector_number: string;
+  quantity: number;
+  format: string;
+  status: string;
+  effective_date: string | null;
+  recently_changed: boolean;
+  change_date: string | null;
+  image_url: string | null;
+}
+
+export interface BanSummary {
+  banned_count: number;
+  restricted_count: number;
+  recently_changed_count: number;
+  formats_affected: string[];
+}
+
+export interface CardLegalityWithChange {
+  format: string;
+  status: string;
+  effective_date: string | null;
+  recently_changed: boolean;
+  change_date: string | null;
+  old_status: string | null;
 }
 
 // Collection health types
@@ -285,6 +321,60 @@ export interface ScheduleTriggerResponse {
   schedule_id: number;
   scan_id: number;
   status: string;
+}
+
+// Metrics types
+
+export interface MovingAverageEntry {
+  period: number;
+  value: number;
+}
+
+export interface PriceExtremes {
+  ath_price: number;
+  ath_date: string;
+  atl_price: number;
+  atl_date: string;
+}
+
+export interface VolatilityData {
+  period_days: number;
+  std_dev: number;
+  coefficient_of_variation: number;
+}
+
+export interface MomentumData {
+  period_days: number;
+  rate_of_change: number;
+  trend_direction: "up" | "down" | "flat";
+}
+
+export interface PerformanceScoreData {
+  score: number;
+  label: "strong" | "moderate" | "weak" | "declining";
+  period_days: number;
+}
+
+export interface PeriodComparisonData {
+  current_avg: number;
+  previous_avg: number;
+  delta: number;
+  delta_pct: number;
+  period_days: number;
+}
+
+export interface CardMetricsResponse {
+  entry_id: number;
+  card_id: number;
+  period: string;
+  currency: string;
+  moving_averages: MovingAverageEntry[];
+  extremes: PriceExtremes | null;
+  volatility: VolatilityData | null;
+  momentum: MomentumData | null;
+  performance: PerformanceScoreData | null;
+  period_comparison: PeriodComparisonData | null;
+  data_points: number;
 }
 
 // Auth types

@@ -31,6 +31,7 @@
     "priceScans": "Scans de Preco",
     "schedules": "Agendamentos",
     "banlist": "Lista de Banimentos",
+    "banHistory": "Historico de Banimentos",
     "toggleNav": "Alternar navegacao",
     "signIn": "Entrar",
     "signOut": "Sair"
@@ -306,6 +307,50 @@
     "title": "Legalidade por Formato",
     "unavailable": "Dados de legalidade indisponiveis"
   },
+  "banHistory": {
+    "title": "Historico de Banimentos",
+    "timeline": "Linha do Tempo",
+    "subtitle": "Linha do tempo cronologica de alteracoes na banlist",
+    "noEvents": "Nenhum evento de banimento encontrado",
+    "noEventsCard": "Nenhum evento de banimento registrado para esta carta",
+    "loadMore": "Carregar mais",
+    "showing": "Mostrando {{loaded}} de {{total}} eventos",
+    "allFormats": "Todos os Formatos",
+    "dateFrom": "De",
+    "dateTo": "Ate",
+    "transition": {
+      "banned": "Banida",
+      "unbanned": "Desbanida",
+      "restricted": "Restrita",
+      "initial": "Status inicial"
+    },
+    "impact": {
+      "title": "Impacto no Preco",
+      "unavailable": "Dados de impacto no preco ainda indisponiveis",
+      "before": "Preco antes",
+      "after": "Preco depois",
+      "change": "Variacao"
+    }
+  },
+  "banEngine": {
+    "alertBanned": "{{count}} carta(s) na sua colecao estao banidas",
+    "alertRestricted": "{{count}} carta(s) restritas",
+    "alertRecent": "{{count}} alterada(s) nos ultimos 30 dias",
+    "alertDismiss": "Fechar",
+    "badgeBanned": "BANIDA",
+    "badgeRestricted": "RESTRITA",
+    "legalityTitle": "Legalidade por Formato",
+    "legalityUnavailable": "Dados de legalidade indisponiveis para cartas nao vinculadas",
+    "legalityEmpty": "Nenhum dado de legalidade sincronizado",
+    "showAll": "Mostrar todos os {{count}} formatos",
+    "showLess": "Mostrar menos",
+    "newChip": "NOVO",
+    "changedFrom": "Alterado de {{oldStatus}} em {{date}}",
+    "bannedInFormats": "Banida em {{count}} formato(s)",
+    "restrictedInFormats": "Restrita em {{count}} formato(s)",
+    "allLegal": "Legal em todos os formatos",
+    "recentChange": "Alteracao recente de ban"
+  },
   "schedules": {
     "title": "Scans Agendados",
     "new": "Novo Agendamento",
@@ -340,5 +385,36 @@
     "updated": "Agendamento atualizado",
     "deleted": "Agendamento excluido",
     "triggered": "Scan iniciado"
+  },
+  "metrics": {
+    "title": "Indicadores",
+    "trend": "Tendencia",
+    "trendUp": "Alta",
+    "trendDown": "Baixa",
+    "trendFlat": "Estavel",
+    "momentum": "Momentum",
+    "rateOfChange": "Variacao",
+    "movingAverages": "Medias Moveis",
+    "ma7": "MM 7 dias",
+    "ma30": "MM 30 dias",
+    "athAtl": "Faixa de Preco",
+    "allTimeHigh": "Maxima Historica",
+    "allTimeLow": "Minima Historica",
+    "volatility": "Volatilidade",
+    "volatilityLow": "Baixa",
+    "volatilityMedium": "Media",
+    "volatilityHigh": "Alta",
+    "coefficientOfVariation": "Coeficiente de Variacao",
+    "performance": "Performance",
+    "performanceStrong": "Forte",
+    "performanceModerate": "Moderado",
+    "performanceWeak": "Fraco",
+    "performanceDeclining": "Em queda",
+    "periodComparison": "Comparativo",
+    "currentPeriod": "Atual",
+    "previousPeriod": "Anterior",
+    "vsPrevious": "vs {{period}} anterior",
+    "notAvailable": "N/D",
+    "insufficientData": "Dados insuficientes"
   }
 }

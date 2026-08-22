@@ -31,6 +31,7 @@
     "priceScans": "Price Scans",
     "schedules": "Schedules",
     "banlist": "Ban List",
+    "banHistory": "Ban History",
     "toggleNav": "Toggle navigation",
     "signIn": "Sign in",
     "signOut": "Sign out"
@@ -306,6 +307,50 @@
     "title": "Format Legality",
     "unavailable": "Legality data not available"
   },
+  "banHistory": {
+    "title": "Ban History",
+    "timeline": "Timeline",
+    "subtitle": "Chronological timeline of ban list changes",
+    "noEvents": "No ban history events found",
+    "noEventsCard": "No ban events recorded for this card",
+    "loadMore": "Load more",
+    "showing": "Showing {{loaded}} of {{total}} events",
+    "allFormats": "All Formats",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "transition": {
+      "banned": "Banned",
+      "unbanned": "Unbanned",
+      "restricted": "Restricted",
+      "initial": "Initial status"
+    },
+    "impact": {
+      "title": "Price Impact",
+      "unavailable": "Price impact data not yet available",
+      "before": "Price before",
+      "after": "Price after",
+      "change": "Change"
+    }
+  },
+  "banEngine": {
+    "alertBanned": "{{count}} card(s) in your collection are banned",
+    "alertRestricted": "{{count}} card(s) restricted",
+    "alertRecent": "{{count}} changed in the last 30 days",
+    "alertDismiss": "Dismiss",
+    "badgeBanned": "BANNED",
+    "badgeRestricted": "RESTRICTED",
+    "legalityTitle": "Format Legality",
+    "legalityUnavailable": "Legality data not available for unlinked cards",
+    "legalityEmpty": "No legality data synced yet",
+    "showAll": "Show all {{count}} formats",
+    "showLess": "Show less",
+    "newChip": "NEW",
+    "changedFrom": "Changed from {{oldStatus}} on {{date}}",
+    "bannedInFormats": "Banned in {{count}} format(s)",
+    "restrictedInFormats": "Restricted in {{count}} format(s)",
+    "allLegal": "Legal in all formats",
+    "recentChange": "Recent ban change"
+  },
   "schedules": {
     "title": "Scheduled Scans",
     "new": "New Schedule",
@@ -340,5 +385,36 @@
     "updated": "Schedule updated",
     "deleted": "Schedule deleted",
     "triggered": "Scan triggered"
+  },
+  "metrics": {
+    "title": "Analytics",
+    "trend": "Trend",
+    "trendUp": "Uptrend",
+    "trendDown": "Downtrend",
+    "trendFlat": "Flat",
+    "momentum": "Momentum",
+    "rateOfChange": "Rate of Change",
+    "movingAverages": "Moving Averages",
+    "ma7": "7-day MA",
+    "ma30": "30-day MA",
+    "athAtl": "Price Range",
+    "allTimeHigh": "All-Time High",
+    "allTimeLow": "All-Time Low",
+    "volatility": "Volatility",
+    "volatilityLow": "Low",
+    "volatilityMedium": "Medium",
+    "volatilityHigh": "High",
+    "coefficientOfVariation": "Coefficient of Variation",
+    "performance": "Performance",
+    "performanceStrong": "Strong",
+    "performanceModerate": "Moderate",
+    "performanceWeak": "Weak",
+    "performanceDeclining": "Declining",
+    "periodComparison": "Period Comparison",
+    "currentPeriod": "Current",
+    "previousPeriod": "Previous",
+    "vsPrevious": "vs previous {{period}}",
+    "notAvailable": "N/A",
+    "insufficientData": "Not enough data"
   }
 }

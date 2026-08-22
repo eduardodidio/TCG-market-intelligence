@@ -4,6 +4,7 @@ import asyncio
 import base64
 import os
 from datetime import date
+from decimal import Decimal
 
 import structlog
 from fastapi import APIRouter, Depends, Query
@@ -14,8 +15,10 @@ from src.analytics.aggregation import (
     aggregate_series,
     compute_price_change_summary,
 )
+from src.analytics.indicators import compute_card_analytics
 from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
 from src.api.jobs import job_tracker
+from src.api.schemas.ban_engine import BannedCollectionCard, CardLegalityWithChange
 from src.api.schemas.cards import PriceObservation, SourceCardSchema
 from src.api.schemas.collect import JobStatus
 from src.api.schemas.collection import (
@@ -28,7 +31,18 @@ from src.api.schemas.collection import (
     SyncRequest,
 )
 from src.api.schemas.envelope import ApiResponse, paginated_response, success_response
+from src.api.schemas.metrics import (
+    CardMetricsResponse,
+    MomentumSchema,
+    MovingAverageSchema,
+    PerformanceScoreSchema,
+    PeriodComparisonSchema,
+    PriceExtremesSchema,
+    VolatilitySchema,
+)
 from src.database.repository import Repository
+from src.domain.models import CardAnalytics, HistoricalPrice
+from src.services import ban_analyzer
 from src.services.currency import CurrencyConverter
 from src.utils.set_code_map import map_to_scryfall_set_code
 
@@ -144,6 +158,16 @@ def collection_summary(
     converted_value = (
         converter.convert(total_value, date.today(), currency) if total_value else None
     )
+    # Ban counts (degrade gracefully if F41 tables missing)
+    banned_count = 0
+    recently_changed_count = 0
+    try:
+        ban_summary = ban_analyzer.get_ban_summary(repo, user_id)
+        banned_count = ban_summary.banned_count + ban_summary.restricted_count
+        recently_changed_count = ban_summary.recently_changed_count
+    except Exception:
+        log.debug("ban_summary_unavailable", user_id=user_id)
+
     data = CollectionSummary(
         total_unique=summary["total_unique"],
         total_cards=summary["total_cards"],
@@ -152,6 +176,8 @@ def collection_summary(
         priced_count=summary["priced_count"],
         sets_count=summary["sets_count"],
         currency=currency,
+        banned_count=banned_count,
+        recently_changed_count=recently_changed_count,
     )
     return success_response(data=data)
 
@@ -164,6 +190,208 @@ def collection_sets(
     sets = repo.get_collection_sets(user_id)
     data = [{"set_code": s[0], "set_name": s[1], "count": s[2]} for s in sets]
     return success_response(data=data)
+
+
+@router.get("/banned", response_model=ApiResponse[list[BannedCollectionCard]])
+def list_banned_cards(
+    format: str | None = Query(None),
+    days: int = Query(default=30, ge=1, le=365),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """List banned/restricted cards in the user's collection."""
+    data = ban_analyzer.get_banned_collection_cards(repo, user_id, format, days)
+    return success_response(data=data)
+
+
+METRICS_PERIOD_MAP = {"24h": 1, "7d": 7, "30d": 30, "90d": 90, "180d": 180, "1y": 365}
+
+
+@router.get(
+    "/{entry_id}/metrics",
+    response_model=ApiResponse[CardMetricsResponse],
+)
+def get_card_metrics(
+    entry_id: int,
+    period: str = Query(default="30d", pattern="^(24h|7d|30d|90d|180d|1y)$"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Get analytics metrics for a collection entry's card."""
+    entry = repo.get_collection_entry(entry_id)
+    if not entry or entry.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+
+    if entry.card_id is None:
+        raise HTTPException(status_code=422, detail="Card not linked to a price source")
+
+    source_cards = repo.get_source_cards_for_card(entry.card_id)
+    if not source_cards:
+        # No source cards: return empty metrics
+        return success_response(
+            data=CardMetricsResponse(
+                entry_id=entry_id,
+                card_id=entry.card_id,
+                period=period,
+                currency=currency,
+                data_points=0,
+            )
+        )
+
+    days = METRICS_PERIOD_MAP[period]
+
+    # Fetch all price observations and convert to domain objects
+    all_prices: list[HistoricalPrice] = []
+    for sc in source_cards:
+        db_prices = repo.get_price_series(
+            source=[sc.source, "jsonld_snapshot"],
+            external_id=sc.external_id,
+            days=days * 2 + 30,  # Extra data for period comparison + MAs
+        )
+        for p in db_prices:
+            all_prices.append(
+                HistoricalPrice(
+                    source=p.source,
+                    external_id=p.external_id,
+                    observed_at=p.observed_at,
+                    median_price=p.median_price,
+                    tcg_price=p.tcg_price,
+                    last_sold_price=p.last_sold_price,
+                    quantity_available=p.quantity_available,
+                )
+            )
+
+    all_prices.sort(key=lambda p: p.observed_at)
+
+    # Use the first source card for analytics context
+    sc = source_cards[0]
+    analytics = compute_card_analytics(
+        all_prices,
+        source=sc.source,
+        external_id=sc.external_id,
+        period_days=days,
+    )
+
+    # Convert analytics to response with currency conversion
+    response = _build_metrics_response(
+        entry_id=entry_id,
+        card_id=entry.card_id,
+        period=period,
+        currency=currency,
+        analytics=analytics,
+        converter=converter,
+        data_points=len(all_prices),
+    )
+
+    return success_response(data=response)
+
+
+def _convert_price(
+    value: Decimal | None,
+    converter: CurrencyConverter,
+    currency: str,
+) -> float | None:
+    """Convert a Decimal price through the currency converter."""
+    if value is None:
+        return None
+    converted = converter.convert(value, date.today(), currency)
+    return float(converted) if converted is not None else None
+
+
+def _build_metrics_response(
+    entry_id: int,
+    card_id: int,
+    period: str,
+    currency: str,
+    analytics: CardAnalytics,
+    converter: CurrencyConverter,
+    data_points: int,
+) -> CardMetricsResponse:
+    """Convert a CardAnalytics domain object to a Pydantic response with currency."""
+    # Moving averages
+    ma_schemas = []
+    for ma in analytics.moving_averages:
+        converted = _convert_price(ma.value, converter, currency)
+        if converted is not None:
+            ma_schemas.append(MovingAverageSchema(period=ma.period, value=converted))
+
+    # Extremes
+    extremes_schema = None
+    if analytics.extremes:
+        e = analytics.extremes
+        ath = _convert_price(e.ath_price, converter, currency)
+        atl = _convert_price(e.atl_price, converter, currency)
+        if ath is not None and atl is not None:
+            extremes_schema = PriceExtremesSchema(
+                ath_price=ath,
+                ath_date=e.ath_date,
+                atl_price=atl,
+                atl_date=e.atl_date,
+            )
+
+    # Volatility
+    volatility_schema = None
+    if analytics.volatility:
+        v = analytics.volatility
+        sd = _convert_price(v.std_dev, converter, currency)
+        if sd is not None:
+            volatility_schema = VolatilitySchema(
+                period_days=v.period_days,
+                std_dev=sd,
+                coefficient_of_variation=float(v.coefficient_of_variation),
+            )
+
+    # Momentum
+    momentum_schema = None
+    if analytics.momentum:
+        m = analytics.momentum
+        momentum_schema = MomentumSchema(
+            period_days=m.period_days,
+            rate_of_change=float(m.rate_of_change),
+            trend_direction=m.trend_direction,
+        )
+
+    # Performance
+    performance_schema = None
+    if analytics.performance:
+        p = analytics.performance
+        performance_schema = PerformanceScoreSchema(
+            score=p.score,
+            label=p.label,
+            period_days=p.period_days,
+        )
+
+    # Period comparison
+    comparison_schema = None
+    if analytics.period_comparison:
+        pc = analytics.period_comparison
+        cur = _convert_price(pc.current_avg, converter, currency)
+        prev = _convert_price(pc.previous_avg, converter, currency)
+        d = _convert_price(pc.delta, converter, currency)
+        if cur is not None and prev is not None and d is not None:
+            comparison_schema = PeriodComparisonSchema(
+                current_avg=cur,
+                previous_avg=prev,
+                delta=d,
+                delta_pct=float(pc.delta_pct),
+                period_days=pc.period_days,
+            )
+
+    return CardMetricsResponse(
+        entry_id=entry_id,
+        card_id=card_id,
+        period=period,
+        currency=currency,
+        moving_averages=ma_schemas,
+        extremes=extremes_schema,
+        volatility=volatility_schema,
+        momentum=momentum_schema,
+        performance=performance_schema,
+        period_comparison=comparison_schema,
+        data_points=data_points,
+    )
 
 
 @router.get(
@@ -226,6 +454,28 @@ def get_collection_history(
     return success_response(
         data=CollectionHistoryResponse(observations=observations, summary=summary)
     )
+
+
+@router.get(
+    "/{entry_id}/legality",
+    response_model=ApiResponse[list[CardLegalityWithChange]],
+)
+def get_entry_legality(
+    entry_id: int,
+    days: int = Query(default=30, ge=1, le=365),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Get format legality for a collection entry, with recent change info."""
+    entry = repo.get_collection_entry(entry_id)
+    if not entry or entry.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+
+    if entry.card_id is None:
+        return success_response(data=[])
+
+    data = ban_analyzer.get_card_legalities_with_changes(repo, entry.card_id, days)
+    return success_response(data=data)
 
 
 @router.get("/{entry_id}", response_model=ApiResponse[CollectionCardDetail])

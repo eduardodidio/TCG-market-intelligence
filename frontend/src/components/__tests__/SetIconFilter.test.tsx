@@ -66,10 +66,10 @@ describe("SetIconFilter", () => {
     expect(allButton).toBeVisible();
   });
 
-  it("has a max-width constraint on the scroll container", () => {
+  it("scroll container uses full width", () => {
     render(<SetIconFilter {...defaultProps} options={makeOptions(20)} />);
     const container = screen.getByTestId("scroll-container");
-    expect(container.className).toContain("max-w-[520px]");
+    expect(container.className).toContain("w-full");
   });
 
   it("scroll container has overflow-x-auto", () => {

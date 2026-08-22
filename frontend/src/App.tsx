@@ -42,6 +42,9 @@ const DeckView = lazy(() =>
 const BanList = lazy(() =>
   import("./pages/BanList").then((m) => ({ default: m.BanList })),
 );
+const BanHistory = lazy(() =>
+  import("./pages/BanHistory").then((m) => ({ default: m.BanHistory })),
+);
 const Schedules = lazy(() =>
   import("./pages/Schedules").then((m) => ({ default: m.Schedules })),
 );
@@ -144,6 +147,16 @@ export default function App() {
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
                     <BanList />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/banlist/history"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <BanHistory />
                   </Suspense>
                 }
               />

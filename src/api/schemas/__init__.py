@@ -19,11 +19,13 @@ from src.api.schemas.envelope import (
     success_response,
 )
 from src.api.schemas.market import MarketStats, MoverEntry, MoversResponse
+from src.api.schemas.metrics import CardMetricsResponse
 from src.api.schemas.sets import SetSummary
 
 __all__ = [
     "ApiResponse",
     "BackfillRequest",
+    "CardMetricsResponse",
     "CardDetail",
     "CardListParams",
     "CardSummary",

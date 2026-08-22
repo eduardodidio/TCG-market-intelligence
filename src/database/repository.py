@@ -1524,6 +1524,113 @@ class Repository:
                 )
             return result
 
+    def get_legality_history_paginated(
+        self,
+        card_id: int | None = None,
+        format: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Get paginated legality change history with date filters and card info."""
+        with Session(self.engine) as session:
+            base = select(
+                LegalityHistoryRow.id,
+                LegalityHistoryRow.card_id,
+                LegalityHistoryRow.format,
+                LegalityHistoryRow.old_status,
+                LegalityHistoryRow.new_status,
+                LegalityHistoryRow.changed_at,
+                LegalityHistoryRow.source,
+                CardRow.name_en,
+                CardRow.name_pt,
+                CardRow.set_code,
+                CardRow.collector_number,
+            ).join(CardRow, CardRow.id == LegalityHistoryRow.card_id)
+            if card_id is not None:
+                base = base.where(LegalityHistoryRow.card_id == card_id)
+            if format is not None:
+                base = base.where(LegalityHistoryRow.format == format)
+            if date_from is not None:
+                dt_from = datetime.combine(date_from, datetime.min.time())
+                base = base.where(LegalityHistoryRow.changed_at >= dt_from)
+            if date_to is not None:
+                dt_to = datetime.combine(date_to, datetime.max.time())
+                base = base.where(LegalityHistoryRow.changed_at <= dt_to)
+
+            # Total count (same filters, no limit/offset)
+            count_stmt = select(func.count()).select_from(base.subquery())
+            total = session.execute(count_stmt).scalar() or 0
+
+            # Paginated results
+            stmt = base.order_by(LegalityHistoryRow.changed_at.desc()).offset(offset).limit(limit)
+            rows = session.execute(stmt).all()
+            items = [
+                {
+                    "id": r.id,
+                    "card_id": r.card_id,
+                    "name_en": r.name_en,
+                    "name_pt": r.name_pt,
+                    "set_code": r.set_code,
+                    "collector_number": r.collector_number,
+                    "format": r.format,
+                    "old_status": r.old_status,
+                    "new_status": r.new_status,
+                    "changed_at": r.changed_at,
+                    "source": r.source,
+                }
+                for r in rows
+            ]
+            return items, total
+
+    def get_card_ban_history(self, card_id: int) -> list[dict]:
+        """Get all legality history for a specific card (all formats)."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(LegalityHistoryRow)
+                .where(LegalityHistoryRow.card_id == card_id)
+                .order_by(LegalityHistoryRow.changed_at.desc(), LegalityHistoryRow.format)
+            )
+            rows = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "id": r.id,
+                    "format": r.format,
+                    "old_status": r.old_status,
+                    "new_status": r.new_status,
+                    "changed_at": r.changed_at,
+                    "source": r.source,
+                }
+                for r in rows
+            ]
+
+    def get_ban_events_for_impact(self, card_id: int) -> list[dict]:
+        """Get ban/unban transition events for impact analysis."""
+        ban_statuses = {"banned", "restricted"}
+        with Session(self.engine) as session:
+            stmt = (
+                select(LegalityHistoryRow)
+                .where(LegalityHistoryRow.card_id == card_id)
+                .where(
+                    LegalityHistoryRow.new_status.in_(ban_statuses)
+                    | LegalityHistoryRow.old_status.in_(ban_statuses)
+                )
+                .order_by(LegalityHistoryRow.changed_at.asc())
+            )
+            rows = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "id": r.id,
+                    "format": r.format,
+                    "old_status": r.old_status,
+                    "new_status": r.new_status,
+                    "changed_at": r.changed_at,
+                    "source": r.source,
+                }
+                for r in rows
+            ]
+
     # --- Scheduled scan methods ---
 
     def _scheduled_scan_to_dict(self, row: ScheduledScanRow) -> dict:
@@ -1643,3 +1750,168 @@ class Repository:
             )
             rows = session.execute(stmt).scalars().all()
             return [self._scheduled_scan_to_dict(r) for r in rows]
+
+    # --- Ban engine (collection) methods ---
+
+    def get_banned_collection_cards(
+        self,
+        user_id: str,
+        format_filter: str | None = None,
+        statuses: list[str] | None = None,
+    ) -> list[dict]:
+        """Get collection cards that are banned/restricted, via single JOIN query.
+
+        Only includes cards with card_id IS NOT NULL (linked cards).
+        """
+        if statuses is None:
+            statuses = ["banned", "restricted"]
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    UserCollectionRow.id.label("entry_id"),
+                    UserCollectionRow.card_id,
+                    UserCollectionRow.name_en,
+                    UserCollectionRow.name_pt,
+                    UserCollectionRow.set_code,
+                    UserCollectionRow.collector_number,
+                    UserCollectionRow.quantity,
+                    CardLegalityRow.format,
+                    CardLegalityRow.status,
+                    CardLegalityRow.effective_date,
+                )
+                .join(
+                    CardLegalityRow,
+                    CardLegalityRow.card_id == UserCollectionRow.card_id,
+                )
+                .where(
+                    UserCollectionRow.user_id == user_id,
+                    UserCollectionRow.card_id.isnot(None),
+                    CardLegalityRow.status.in_(statuses),
+                )
+            )
+            if format_filter:
+                stmt = stmt.where(CardLegalityRow.format == format_filter)
+            stmt = stmt.order_by(
+                CardLegalityRow.status,
+                UserCollectionRow.name_en,
+                CardLegalityRow.format,
+            )
+            rows = session.execute(stmt).all()
+            return [
+                {
+                    "entry_id": r.entry_id,
+                    "card_id": r.card_id,
+                    "name_en": r.name_en,
+                    "name_pt": r.name_pt,
+                    "set_code": r.set_code,
+                    "collector_number": r.collector_number,
+                    "quantity": r.quantity,
+                    "format": r.format,
+                    "status": r.status,
+                    "effective_date": r.effective_date,
+                }
+                for r in rows
+            ]
+
+    def get_collection_ban_summary(self, user_id: str) -> dict:
+        """Count distinct banned/restricted cards in the user's collection.
+
+        Returns dict: {"banned_count": int, "restricted_count": int}
+        """
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    CardLegalityRow.status,
+                    func.count(func.distinct(UserCollectionRow.card_id)),
+                )
+                .join(
+                    CardLegalityRow,
+                    CardLegalityRow.card_id == UserCollectionRow.card_id,
+                )
+                .where(
+                    UserCollectionRow.user_id == user_id,
+                    UserCollectionRow.card_id.isnot(None),
+                    CardLegalityRow.status.in_(["banned", "restricted"]),
+                )
+                .group_by(CardLegalityRow.status)
+            )
+            rows = session.execute(stmt).all()
+            result = {"banned_count": 0, "restricted_count": 0}
+            for status, count in rows:
+                if status == "banned":
+                    result["banned_count"] = count
+                elif status == "restricted":
+                    result["restricted_count"] = count
+            return result
+
+    def get_card_legalities_with_history(self, card_id: int, days: int = 30) -> list[dict]:
+        """Fetch all legalities for a card, enriched with recent change info.
+
+        LEFT JOINs legality_history to detect changes within the last N days.
+        """
+        cutoff = datetime.now() - timedelta(days=days)
+        with Session(self.engine) as session:
+            # Subquery: most recent change per (card_id, format)
+            recent_change = (
+                select(
+                    LegalityHistoryRow.format,
+                    LegalityHistoryRow.old_status,
+                    LegalityHistoryRow.changed_at,
+                )
+                .where(
+                    LegalityHistoryRow.card_id == card_id,
+                    LegalityHistoryRow.changed_at >= cutoff,
+                )
+                .order_by(LegalityHistoryRow.changed_at.desc())
+                .subquery()
+            )
+
+            stmt = (
+                select(
+                    CardLegalityRow.format,
+                    CardLegalityRow.status,
+                    CardLegalityRow.effective_date,
+                    recent_change.c.changed_at.label("change_date"),
+                    recent_change.c.old_status.label("old_status"),
+                )
+                .outerjoin(
+                    recent_change,
+                    CardLegalityRow.format == recent_change.c.format,
+                )
+                .where(CardLegalityRow.card_id == card_id)
+                .order_by(CardLegalityRow.format)
+            )
+            rows = session.execute(stmt).all()
+            return [
+                {
+                    "format": r.format,
+                    "status": r.status,
+                    "effective_date": r.effective_date,
+                    "recently_changed": r.change_date is not None,
+                    "change_date": r.change_date,
+                    "old_status": r.old_status,
+                }
+                for r in rows
+            ]
+
+    def get_recently_changed_card_ids(self, user_id: str, days: int = 7) -> set[int]:
+        """Find card_ids in the user's collection that had legality changes recently.
+
+        Returns a set for O(1) lookup.
+        """
+        cutoff = datetime.now() - timedelta(days=days)
+        with Session(self.engine) as session:
+            stmt = (
+                select(func.distinct(UserCollectionRow.card_id))
+                .join(
+                    LegalityHistoryRow,
+                    LegalityHistoryRow.card_id == UserCollectionRow.card_id,
+                )
+                .where(
+                    UserCollectionRow.user_id == user_id,
+                    UserCollectionRow.card_id.isnot(None),
+                    LegalityHistoryRow.changed_at >= cutoff,
+                )
+            )
+            rows = session.execute(stmt).all()
+            return {r[0] for r in rows}

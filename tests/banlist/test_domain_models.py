@@ -3,6 +3,7 @@
 from datetime import date, datetime
 
 from src.domain.models import (
+    BanImpactAnalysis,
     BanlistSyncSummary,
     CardLegality,
     LegalityChange,
@@ -61,6 +62,41 @@ class TestLegalityChange:
             new_status="banned",
         )
         assert change.old_status is None
+
+
+class TestBanImpactAnalysis:
+    def test_defaults(self):
+        impact = BanImpactAnalysis(
+            card_id=1,
+            format="standard",
+            old_status="legal",
+            new_status="banned",
+            changed_at=datetime(2026, 8, 1),
+        )
+        assert impact.window_days == 7
+        assert impact.data_available is False
+        assert impact.price_before is None
+        assert impact.price_after is None
+        assert impact.absolute_change is None
+        assert impact.percent_change is None
+
+    def test_with_data(self):
+        impact = BanImpactAnalysis(
+            card_id=1,
+            format="standard",
+            old_status="legal",
+            new_status="banned",
+            changed_at=datetime(2026, 8, 1),
+            window_days=14,
+            price_before=10.0,
+            price_after=5.0,
+            absolute_change=-5.0,
+            percent_change=-50.0,
+            data_available=True,
+        )
+        assert impact.data_available is True
+        assert impact.price_before == 10.0
+        assert impact.window_days == 14
 
 
 class TestBanlistSyncSummary:

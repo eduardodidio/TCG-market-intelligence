@@ -1,0 +1,44 @@
+graph LR
+    subgraph SQLite
+        LH[legality_history]
+        C[cards]
+    end
+
+    subgraph Repository
+        GHP[get_legality_history_paginated]
+        GCH[get_card_ban_history]
+        GBI[get_ban_events_for_impact]
+    end
+
+    subgraph API Router
+        HE[GET /banlist/history<br>paginated + date filters]
+        CHE[GET /banlist/card/:id/history<br>card-specific timeline]
+        IE[GET /banlist/impact/:id<br>stub - data_available=false]
+    end
+
+    subgraph Frontend
+        BHP[BanHistory Page<br>/banlist/history]
+        CCD[CollectionCardDetail<br>Ban History Section]
+        BEC[BanEventCard]
+        ST[StatusTransition]
+    end
+
+    LH --> GHP
+    C --> GHP
+    LH --> GCH
+    LH --> GBI
+
+    GHP --> HE
+    GCH --> CHE
+    GBI --> IE
+
+    HE --> BHP
+    CHE --> CCD
+    BHP --> BEC
+    CCD --> BEC
+    BEC --> ST
+
+    IE -.->|Future: price_observations| PO[(price_observations)]
+
+    style PO stroke-dasharray: 5 5
+    style IE stroke-dasharray: 5 5

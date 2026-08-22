@@ -179,6 +179,28 @@ class JsonLdPrice:
 
 
 @dataclass
+class PerformanceScore:
+    """Composite performance indicator for a price series."""
+
+    score: int  # 0-100
+    label: str  # "strong" | "moderate" | "weak" | "declining"
+    period_days: int
+    price_field: str
+
+
+@dataclass
+class PeriodComparison:
+    """Current period vs previous period of equal length."""
+
+    current_avg: Decimal
+    previous_avg: Decimal
+    delta: Decimal
+    delta_pct: Decimal
+    period_days: int
+    price_field: str
+
+
+@dataclass
 class CardAnalytics:
     """Composite analytics result for a single card."""
 
@@ -188,6 +210,8 @@ class CardAnalytics:
     extremes: PriceExtremes | None = None
     volatility: Volatility | None = None
     momentum: Momentum | None = None
+    performance: PerformanceScore | None = None
+    period_comparison: PeriodComparison | None = None
     computed_at: datetime = field(default_factory=datetime.now)
 
 
@@ -451,6 +475,26 @@ class ScheduledScan:
     max_retries: int = 3
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+# --- Ban impact analysis domain models ---
+
+
+@dataclass
+class BanImpactAnalysis:
+    """Price impact analysis around a ban/unban event (stub)."""
+
+    card_id: int
+    format: str
+    old_status: str | None
+    new_status: str
+    changed_at: datetime
+    window_days: int = 7
+    price_before: float | None = None
+    price_after: float | None = None
+    absolute_change: float | None = None
+    percent_change: float | None = None
+    data_available: bool = False
 
 
 # --- Deck domain models ---

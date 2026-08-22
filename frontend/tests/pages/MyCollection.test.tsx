@@ -447,7 +447,7 @@ describe("MyCollection -- sort dropdown", () => {
 
     // The initial fetch should include offset=0
     const collectionCalls = mockFetch.mock.calls.filter(
-      (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+      (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets") && !String(c[0]).includes("/banned"),
     );
     const firstCall = String(collectionCalls[0][0]);
     expect(firstCall).toContain("offset=0");

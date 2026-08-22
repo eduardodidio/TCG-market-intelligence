@@ -22,6 +22,8 @@ import type { ApiResponse, PriceHistoryResponse, PriceObservation } from "../typ
 export interface PriceChartProps {
   cardId: number;
   currency?: string;
+  period?: string;
+  onPeriodChange?: (period: string) => void;
   fetchHistory?: (period: string, currency: string) => Promise<ApiResponse<PriceHistoryResponse>>;
 }
 
@@ -85,9 +87,23 @@ interface ZoomState {
   right: string | null;
 }
 
-export function PriceChart({ cardId, currency = "BRL", fetchHistory }: PriceChartProps) {
+export function PriceChart({
+  cardId,
+  currency = "BRL",
+  period: externalPeriod,
+  onPeriodChange,
+  fetchHistory,
+}: PriceChartProps) {
   const { t } = useTranslation();
-  const [period, setPeriod] = useState("30d");
+  const [internalPeriod, setInternalPeriod] = useState("30d");
+  const period = externalPeriod ?? internalPeriod;
+  const setPeriod = (p: string) => {
+    if (onPeriodChange) {
+      onPeriodChange(p);
+    } else {
+      setInternalPeriod(p);
+    }
+  };
   const [zoom, setZoom] = useState<ZoomState>({ left: null, right: null });
   const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
   const [refAreaRight, setRefAreaRight] = useState<string | null>(null);

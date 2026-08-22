@@ -1,0 +1,29 @@
+graph TD
+    A[User opens My Collection] --> B{Has banned cards?}
+    B -->|Yes| C[BanAlertBanner displayed above grid]
+    B -->|No| D[Normal collection view]
+
+    C --> E[User scrolls card grid]
+    E --> F{Card banned/restricted?}
+    F -->|Yes| G["Red BANNED or Yellow RESTRICTED badge on card tile"]
+    F -->|No| H[Normal card tile]
+
+    G --> I{Recently changed?}
+    I -->|Yes| J["Red ring highlight + pulsing badge"]
+    I -->|No| G
+
+    E --> K[User clicks card tile]
+    K --> L[CollectionCardDetail page]
+    L --> M[LegalityPanel shows all formats]
+
+    M --> N{Any recently changed?}
+    N -->|Yes| O["'NEW' cyan chip + tooltip with change details"]
+    N -->|No| P[Standard LegalityBadge display]
+
+    M --> Q{More than 8 formats?}
+    Q -->|Yes| R["'Show all N formats' expander button"]
+    Q -->|No| S[All formats visible]
+
+    C --> T[User clicks dismiss X]
+    T --> U[Banner hidden for session]
+    U --> V[sessionStorage stores dismissed state]

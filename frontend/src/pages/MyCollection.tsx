@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { fetchCollectionBanned } from "../api/banEngine";
 import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPrice } from "../api/collection";
+import { BanAlertBanner } from "../components/BanAlertBanner";
+import { BanBadge } from "../components/BanBadge";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { GridSizeToggle } from "../components/GridSizeToggle";
@@ -16,7 +19,7 @@ import { SortSelect, COLLECTION_SORT_OPTIONS } from "../components/SortSelect";
 import { useDebounce } from "../hooks/useDebounce";
 import { useGridSize } from "../hooks/useGridSize";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
-import type { CollectionCard, CollectionSummary } from "../types/api";
+import type { BannedCollectionCard, CollectionCard, CollectionSummary } from "../types/api";
 import { DEFAULT_PAGE_LIMIT, GRID_SIZE_CONFIG } from "../utils/constants";
 import { useCardName } from "../hooks/useCardName";
 import { useCollectionRefresh } from "../hooks/useCollectionRefresh";
@@ -40,7 +43,7 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
   C: "rarity.common",
 };
 
-function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber" }) {
+function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor, banStatus, banRecentlyChanged }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber"; banStatus?: "banned" | "restricted"; banRecentlyChanged?: boolean }) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
@@ -59,7 +62,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
     <div
       className={`group block bg-slate-800 rounded-lg overflow-hidden
         border transition-all duration-500 hover:scale-[1.02] hover:shadow-lg relative cursor-pointer
-        ${highlightColor === "green" ? "ring-2 ring-emerald-400/60 border-emerald-400/50" : highlightColor === "amber" ? "ring-2 ring-amber-400/40 border-amber-400/40" : "border-slate-600 hover:border-cyan-400/50"}`}
+        ${banRecentlyChanged ? "ring-2 ring-red-400/60 border-red-400/50" : highlightColor === "green" ? "ring-2 ring-emerald-400/60 border-emerald-400/50" : highlightColor === "amber" ? "ring-2 ring-amber-400/40 border-amber-400/40" : "border-slate-600 hover:border-cyan-400/50"}`}
       data-testid={`collection-card-${card.id}`}
     >
       {/* Quantity badge */}
@@ -73,6 +76,13 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
       {card.extras && (
         <span className="absolute top-2 left-2 z-10 bg-amber-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-full">
           {card.extras}
+        </span>
+      )}
+
+      {/* Ban badge */}
+      {banStatus && (
+        <span className={`absolute ${card.extras ? "top-8" : "top-2"} left-2 z-10`}>
+          <BanBadge status={banStatus} recentlyChanged={banRecentlyChanged} />
         </span>
       )}
 
@@ -220,6 +230,8 @@ export function MyCollection() {
   const [summary, setSummary] = useState<CollectionSummary | null>(null);
   const [setOptions, setSetOptions] = useState<{ label: string; value: string }[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bannedCards, setBannedCards] = useState<BannedCollectionCard[]>([]);
+  const [banDismissed, setBanDismissed] = useState(() => sessionStorage.getItem("ban_alert_dismissed") === "1");
   const [recentlyScanned, setRecentlyScanned] = useState<Map<string, { color: "green" | "amber"; timer: ReturnType<typeof setTimeout> }>>(new Map());
   const [priceFoundCount, setPriceFoundCount] = useState(0);
   const [scanStartTime, setScanStartTime] = useState(0);
@@ -300,7 +312,30 @@ export function MyCollection() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load summary and sets on mount (and when currency/refreshKey changes)
+  // Build lookup map for banned cards: card_id -> worst status + recentlyChanged
+  const bannedCardMap = useMemo(() => {
+    const map = new Map<number, { status: "banned" | "restricted"; recentlyChanged: boolean }>();
+    for (const bc of bannedCards) {
+      const existing = map.get(bc.card_id);
+      // Keep worst status: banned > restricted
+      if (!existing || (bc.status === "banned" && existing.status !== "banned")) {
+        map.set(bc.card_id, {
+          status: bc.status as "banned" | "restricted",
+          recentlyChanged: bc.recently_changed || (existing?.recentlyChanged ?? false),
+        });
+      } else if (bc.recently_changed && existing) {
+        map.set(bc.card_id, { ...existing, recentlyChanged: true });
+      }
+    }
+    return map;
+  }, [bannedCards]);
+
+  const handleBanDismiss = useCallback(() => {
+    setBanDismissed(true);
+    sessionStorage.setItem("ban_alert_dismissed", "1");
+  }, []);
+
+  // Load summary, sets, and banned cards on mount (and when currency/refreshKey changes)
   useEffect(() => {
     fetchCollectionSummary({ currency }).then((res) => {
       if (res.data) setSummary(res.data);
@@ -314,6 +349,9 @@ export function MyCollection() {
           })),
         );
       }
+    });
+    fetchCollectionBanned().then((res) => {
+      if (res.data) setBannedCards(res.data);
     });
   }, [currency, refreshKey]);
 
@@ -461,6 +499,18 @@ export function MyCollection() {
         </div>
       )}
 
+      {/* Ban alert banner */}
+      {summary && !banDismissed && (summary.banned_count > 0 || (bannedCards.length > 0)) && (
+        <div className="mb-6">
+          <BanAlertBanner
+            bannedCount={summary.banned_count}
+            restrictedCount={0}
+            recentlyChangedCount={summary.recently_changed_count}
+            onDismiss={handleBanDismiss}
+          />
+        </div>
+      )}
+
       {/* Search, sort, and filters */}
       <div className="space-y-4 mb-6">
         <div className="flex gap-3 items-center">
@@ -562,6 +612,7 @@ export function MyCollection() {
                   }
                 });
               }
+              const banInfo = card.card_id ? bannedCardMap.get(card.card_id) : undefined;
               return (
                 <CollectionCardTile
                   key={card.id}
@@ -570,6 +621,8 @@ export function MyCollection() {
                   currencyOverride={currency}
                   onRefresh={handleCardRefresh}
                   highlightColor={highlightColor}
+                  banStatus={banInfo?.status}
+                  banRecentlyChanged={banInfo?.recentlyChanged}
                 />
               );
             })}

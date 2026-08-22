@@ -100,6 +100,32 @@ function createMockFetch(response: unknown) {
       });
     }
 
+    // Legality endpoint (F42)
+    if (urlStr.includes("/legality")) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: [],
+            meta: { cursor: null, total: null, request_id: "" },
+            errors: [],
+          }),
+      });
+    }
+
+    // Metrics endpoint
+    if (urlStr.includes("/metrics")) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: null,
+            meta: { cursor: null, total: null, request_id: "" },
+            errors: [],
+          }),
+      });
+    }
+
     // Collection detail call
     if (urlStr.includes("/api/v1/collection/")) {
       return Promise.resolve({
@@ -280,5 +306,190 @@ describe("CollectionCardDetail page", () => {
     });
 
     expect(screen.getByTestId("latest-price").textContent).toContain("--");
+  });
+
+  it("renders ban history section when card_id is present", async () => {
+    globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("ban-history-section")).toBeDefined();
+    });
+
+    expect(screen.getByTestId("ban-history-toggle")).toBeDefined();
+  });
+
+  it("hides ban history section when card_id is null", async () => {
+    globalThis.fetch = createMockFetch(makeUnlinkedEntry()) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("page-collection-detail")).toBeDefined();
+    });
+
+    expect(screen.queryByTestId("ban-history-section")).toBeNull();
+  });
+
+  it("ban history section is collapsed by default", async () => {
+    globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("ban-history-section")).toBeDefined();
+    });
+
+    expect(screen.queryByTestId("ban-history-content")).toBeNull();
+  });
+
+  it("expanding ban history section triggers fetch", async () => {
+    const mockBanHistory = {
+      data: [
+        {
+          id: 1,
+          format: "standard",
+          old_status: "legal",
+          new_status: "banned",
+          changed_at: "2026-08-01T00:00:00",
+          source: "scryfall_sync",
+        },
+      ],
+      meta: { cursor: null, total: null, offset: null, request_id: "bh1" },
+      errors: [],
+    };
+
+    const emptyArrayResponse = {
+      data: [],
+      meta: { cursor: null, total: null, request_id: "" },
+      errors: [],
+    };
+
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/card/42/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockBanHistory),
+        });
+      }
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(emptyArrayResponse),
+        });
+      }
+      if (urlStr.includes("/legality")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(emptyArrayResponse),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: null,
+              meta: { cursor: null, total: null, request_id: "" },
+              errors: [],
+            }),
+        });
+      }
+      if (urlStr.includes("/api/v1/collection/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(makeLinkedEntry()),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: null,
+            meta: { cursor: null, total: null, request_id: "" },
+            errors: [],
+          }),
+      });
+    });
+
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("ban-history-toggle")).toBeDefined();
+    });
+
+    // Click to expand
+    screen.getByTestId("ban-history-toggle").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("ban-history-content")).toBeDefined();
+    });
+
+    // Verify ban event card is rendered
+    expect(screen.getByTestId("ban-event-card")).toBeDefined();
+  });
+
+  it("shows empty message when card has no ban history", async () => {
+    const emptyResponse = {
+      data: [],
+      meta: { cursor: null, total: null, request_id: "" },
+      errors: [],
+    };
+    const nullResponse = {
+      data: null,
+      meta: { cursor: null, total: null, request_id: "" },
+      errors: [],
+    };
+
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/card/42/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(emptyResponse),
+        });
+      }
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(emptyResponse),
+        });
+      }
+      if (urlStr.includes("/legality")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(emptyResponse),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(nullResponse),
+        });
+      }
+      if (urlStr.includes("/api/v1/collection/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(makeLinkedEntry()),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(nullResponse),
+      });
+    });
+
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("ban-history-toggle")).toBeDefined();
+    });
+
+    screen.getByTestId("ban-history-toggle").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("ban-history-empty-card")).toBeDefined();
+    });
   });
 });

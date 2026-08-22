@@ -38,7 +38,7 @@ export function SetIconFilter({ options, selected, onSelect }: SetIconFilterProp
   };
 
   return (
-    <div className="relative flex items-center gap-1" data-testid="set-icon-filter">
+    <div className="relative flex items-center gap-1 w-full" data-testid="set-icon-filter">
       {/* Left arrow */}
       {canScrollLeft && (
         <button
@@ -56,7 +56,7 @@ export function SetIconFilter({ options, selected, onSelect }: SetIconFilterProp
       {/* Scrollable container */}
       <div
         ref={scrollRef}
-        className="flex gap-2 overflow-x-auto pb-2 max-w-[520px] scrollbar-thin"
+        className="flex gap-2 overflow-x-auto pb-2 w-full scrollbar-thin"
         onScroll={updateScrollState}
         data-testid="scroll-container"
         style={{

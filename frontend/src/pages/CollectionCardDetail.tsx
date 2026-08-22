@@ -2,18 +2,20 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
-import { fetchCardLegalities } from "../api/banlist";
 import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, refreshCardPrice } from "../api/collection";
+import { fetchCardBanHistory } from "../api/banlist";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
+import { BanEventCard } from "../components/BanEventCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
-import { LegalityBadge } from "../components/LegalityBadge";
-import type { CardLegality } from "../types/banlist";
+import { LegalityPanel } from "../components/LegalityPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { MetricsPanel } from "../components/MetricsPanel";
 import { PriceChart } from "../components/PriceChart";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
+import type { CardBanHistoryEntry } from "../types/banlist";
 import type { CollectionCardDetail as CollectionCardDetailType } from "../types/api";
 
 const RARITY_LABEL_KEYS: Record<string, string> = {
@@ -48,6 +50,7 @@ export function CollectionCardDetail() {
     [entryId, currency],
   );
 
+  const [period, setPeriod] = useState("30d");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [canonizing, setCanonizing] = useState(false);
@@ -396,16 +399,27 @@ export function CollectionCardDetail() {
           </div>
         </div>
 
-        {/* Right panel: Price chart */}
+        {/* Right panel: Price chart + Metrics */}
         <div>
           {entry.card_id != null ? (
-            <PriceChart
-              cardId={entry.card_id}
-              currency={currency}
-              fetchHistory={(period, curr) =>
-                fetchCollectionHistory(entryId, period, curr)
-              }
-            />
+            <>
+              <PriceChart
+                cardId={entry.card_id}
+                currency={currency}
+                period={period}
+                onPeriodChange={setPeriod}
+                fetchHistory={(p, curr) =>
+                  fetchCollectionHistory(entryId, p, curr)
+                }
+              />
+              <div className="mt-4">
+                <MetricsPanel
+                  entryId={entryId}
+                  period={period}
+                  currency={currency}
+                />
+              </div>
+            </>
           ) : (
             <div data-testid="no-price-chart" className="bg-slate-800 border border-slate-600 rounded-lg p-8 text-center">
               <p className="text-slate-400">
@@ -416,116 +430,134 @@ export function CollectionCardDetail() {
         </div>
       </div>
 
-      {/* Legality section */}
-      <LegalitySection cardId={entry.card_id} />
-    </div>
-  );
-}
-
-const DEFAULT_SHOWN = 6;
-
-function LegalitySection({ cardId }: { cardId: number | null }) {
-  const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
-
-  const legalitiesFetcher = useCallback(
-    () => {
-      if (cardId == null) {
-        return Promise.resolve({
-          data: [] as CardLegality[],
-          meta: { cursor: null, total: null, offset: null, request_id: "" },
-          errors: [],
-        });
-      }
-      return fetchCardLegalities(cardId);
-    },
-    [cardId],
-  );
-
-  const { data: legalities, loading } = useApi<CardLegality[]>(
-    legalitiesFetcher,
-    [cardId],
-  );
-
-  if (cardId == null) {
-    return (
-      <div
-        data-testid="legality-section"
-        className="mt-6 bg-slate-800 border border-slate-600 rounded-lg p-6"
-      >
-        <h2 className="text-lg font-bold text-white mb-3">
-          {t("legality.title")}
-        </h2>
-        <p className="text-sm text-slate-400">
-          {t("legality.unavailable")}
-        </p>
+      {/* Format Legality */}
+      <div className="mt-6">
+        <LegalityPanel entryId={entryId} cardId={entry.card_id} />
       </div>
-    );
-  }
 
-  if (loading) {
-    return (
-      <div
-        data-testid="legality-section"
-        className="mt-6 bg-slate-800 border border-slate-600 rounded-lg p-6"
-      >
-        <h2 className="text-lg font-bold text-white mb-3">
-          {t("legality.title")}
-        </h2>
-        <div className="animate-pulse flex gap-2 flex-wrap">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-7 w-28 bg-slate-700 rounded" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!legalities || legalities.length === 0) {
-    return null;
-  }
-
-  // Sort: banned/restricted first, then legal, then not_legal
-  const statusOrder: Record<string, number> = {
-    banned: 0,
-    restricted: 1,
-    legal: 2,
-    not_legal: 3,
-  };
-  const sorted = [...legalities].sort(
-    (a, b) => (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4),
-  );
-
-  const shown = expanded ? sorted : sorted.slice(0, DEFAULT_SHOWN);
-  const hasMore = sorted.length > DEFAULT_SHOWN;
-
-  return (
-    <div
-      data-testid="legality-section"
-      className="mt-6 bg-slate-800 border border-slate-600 rounded-lg p-6"
-    >
-      <h2 className="text-lg font-bold text-white mb-3">
-        {t("legality.title")}
-      </h2>
-      <div className="flex flex-wrap gap-2">
-        {shown.map((leg) => (
-          <LegalityBadge
-            key={leg.format}
-            format={leg.format}
-            status={leg.status}
-            size="md"
-          />
-        ))}
-      </div>
-      {hasMore && (
-        <button
-          data-testid="legality-expand"
-          onClick={() => setExpanded(!expanded)}
-          className="mt-3 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
-        >
-          {expanded ? t("banlist.show_less") : t("banlist.show_all")}
-        </button>
+      {/* Ban History */}
+      {entry.card_id != null && (
+        <BanHistorySection cardId={entry.card_id} />
       )}
     </div>
   );
 }
+
+function BanHistorySection({ cardId }: { cardId: number }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const [history, setHistory] = useState<CardBanHistoryEntry[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleToggle = useCallback(async () => {
+    const willExpand = !expanded;
+    setExpanded(willExpand);
+
+    if (willExpand && history === null) {
+      setLoading(true);
+      try {
+        const res = await fetchCardBanHistory(cardId);
+        setHistory(res.data ?? []);
+      } catch {
+        setHistory([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [expanded, history, cardId]);
+
+  return (
+    <div
+      data-testid="ban-history-section"
+      className="mt-6 bg-slate-800 border border-slate-600 rounded-lg p-6"
+    >
+      <button
+        data-testid="ban-history-toggle"
+        onClick={handleToggle}
+        className="flex items-center gap-2 w-full text-left"
+      >
+        <svg
+          className={`h-5 w-5 text-slate-400 transition-transform ${
+            expanded ? "rotate-90" : ""
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
+        </svg>
+        <svg
+          className="h-5 w-5 text-slate-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <h2 className="text-lg font-bold text-white">
+          {t("banHistory.title")}
+        </h2>
+      </button>
+
+      {expanded && (
+        <div className="mt-4" data-testid="ban-history-content">
+          {loading ? (
+            <div className="space-y-2">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="animate-pulse bg-slate-700 rounded-lg h-16"
+                />
+              ))}
+            </div>
+          ) : history && history.length > 0 ? (
+            <div className="border-l-2 border-slate-600 ml-3 pl-4 space-y-3">
+              {history.map((ev) => (
+                <div key={ev.id} className="relative">
+                  <div
+                    className={`absolute -left-[22px] top-4 w-2.5 h-2.5 rounded-full ring-2 ring-slate-900 ${
+                      ev.new_status === "banned" || ev.new_status === "restricted"
+                        ? "bg-red-500"
+                        : ev.new_status === "legal"
+                          ? "bg-green-500"
+                          : "bg-slate-500"
+                    }`}
+                  />
+                  <BanEventCard
+                    event={{
+                      format: ev.format,
+                      oldStatus: ev.old_status,
+                      newStatus: ev.new_status,
+                      changedAt: ev.changed_at,
+                    }}
+                    showCardInfo={false}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p
+              className="text-sm text-slate-400"
+              data-testid="ban-history-empty-card"
+            >
+              {t("banHistory.noEventsCard")}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+

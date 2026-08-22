@@ -125,36 +125,168 @@ class TestGetCardLegalities:
 
 
 class TestGetLegalityHistory:
-    def test_returns_history(self):
+    def test_returns_paginated_history(self):
         app = _make_app()
         mock_repo = app.state.mock_repo
-        mock_repo.get_legality_history.return_value = [
-            {
-                "card_id": 1,
-                "name_en": "Lightning Bolt",
-                "format": "standard",
-                "old_status": None,
-                "new_status": "banned",
-                "changed_at": datetime(2026, 8, 1),
-            },
-        ]
+        mock_repo.get_legality_history_paginated.return_value = (
+            [
+                {
+                    "id": 1,
+                    "card_id": 1,
+                    "name_en": "Lightning Bolt",
+                    "name_pt": "Raio",
+                    "set_code": "lea",
+                    "collector_number": "161",
+                    "format": "standard",
+                    "old_status": None,
+                    "new_status": "banned",
+                    "changed_at": datetime(2026, 8, 1),
+                    "source": "scryfall_sync",
+                },
+            ],
+            1,
+        )
         client = TestClient(app)
         resp = client.get("/banlist/history")
         assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert len(data) == 1
-        assert data[0]["new_status"] == "banned"
+        wrapper = resp.json()["data"]
+        assert wrapper["total"] == 1
+        assert wrapper["limit"] == 50
+        assert wrapper["offset"] == 0
+        assert len(wrapper["items"]) == 1
+        assert wrapper["items"][0]["new_status"] == "banned"
+        assert wrapper["items"][0]["image_url"] is not None
 
     def test_filter_by_format(self):
         app = _make_app()
         mock_repo = app.state.mock_repo
-        mock_repo.get_legality_history.return_value = []
+        mock_repo.get_legality_history_paginated.return_value = ([], 0)
         client = TestClient(app)
         resp = client.get("/banlist/history?format=standard")
         assert resp.status_code == 200
-        mock_repo.get_legality_history.assert_called_once_with(
-            card_id=None, format="standard", limit=50
+        mock_repo.get_legality_history_paginated.assert_called_once_with(
+            card_id=None,
+            format="standard",
+            date_from=None,
+            date_to=None,
+            limit=50,
+            offset=0,
         )
+
+    def test_date_range_filters(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.get_legality_history_paginated.return_value = ([], 0)
+        client = TestClient(app)
+        resp = client.get("/banlist/history?date_from=2026-01-01&date_to=2026-06-30")
+        assert resp.status_code == 200
+        call_kwargs = mock_repo.get_legality_history_paginated.call_args[1]
+        assert call_kwargs["date_from"] == date(2026, 1, 1)
+        assert call_kwargs["date_to"] == date(2026, 6, 30)
+
+    def test_offset_pagination(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.get_legality_history_paginated.return_value = ([], 0)
+        client = TestClient(app)
+        resp = client.get("/banlist/history?offset=10&limit=5")
+        assert resp.status_code == 200
+        wrapper = resp.json()["data"]
+        assert wrapper["offset"] == 10
+        assert wrapper["limit"] == 5
+
+
+class TestGetCardBanHistory:
+    def test_returns_card_history(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.get_card_by_id.return_value = MagicMock()
+        mock_repo.get_card_ban_history.return_value = [
+            {
+                "id": 10,
+                "format": "standard",
+                "old_status": "legal",
+                "new_status": "banned",
+                "changed_at": datetime(2026, 8, 1),
+                "source": "scryfall_sync",
+            },
+            {
+                "id": 11,
+                "format": "modern",
+                "old_status": None,
+                "new_status": "legal",
+                "changed_at": datetime(2026, 7, 1),
+                "source": "scryfall_sync",
+            },
+        ]
+        client = TestClient(app)
+        resp = client.get("/banlist/card/42/history")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 2
+        assert data[0]["format"] == "standard"
+        assert data[0]["source"] == "scryfall_sync"
+
+    def test_card_not_found(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.get_card_by_id.return_value = None
+        client = TestClient(app)
+        resp = client.get("/banlist/card/9999/history")
+        assert resp.status_code == 404
+
+
+class TestGetBanImpact:
+    def test_returns_stub_impact(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.get_card_by_id.return_value = MagicMock()
+        mock_repo.get_ban_events_for_impact.return_value = [
+            {
+                "id": 1,
+                "format": "standard",
+                "old_status": "legal",
+                "new_status": "banned",
+                "changed_at": datetime(2026, 8, 1),
+                "source": "scryfall_sync",
+            },
+        ]
+        client = TestClient(app)
+        resp = client.get("/banlist/impact/42")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 1
+        assert data[0]["data_available"] is False
+        assert data[0]["price_before"] is None
+        assert data[0]["window_days"] == 7
+
+    def test_respects_window_days(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.get_card_by_id.return_value = MagicMock()
+        mock_repo.get_ban_events_for_impact.return_value = [
+            {
+                "id": 1,
+                "format": "modern",
+                "old_status": "legal",
+                "new_status": "banned",
+                "changed_at": datetime(2026, 8, 1),
+                "source": "scryfall_sync",
+            },
+        ]
+        client = TestClient(app)
+        resp = client.get("/banlist/impact/42?window_days=14")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data[0]["window_days"] == 14
+
+    def test_card_not_found(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.get_card_by_id.return_value = None
+        client = TestClient(app)
+        resp = client.get("/banlist/impact/9999")
+        assert resp.status_code == 404
 
 
 class TestSyncEndpoint:

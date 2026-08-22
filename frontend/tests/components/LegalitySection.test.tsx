@@ -3,6 +3,19 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { CollectionCardDetail } from "../../src/pages/CollectionCardDetail";
 
+// Mock Recharts
+vi.mock("recharts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("recharts")>();
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="responsive-container" style={{ width: 500, height: 300 }}>
+        {children}
+      </div>
+    ),
+  };
+});
+
 const MOCK_ENTRY = {
   data: {
     id: 1,
@@ -36,14 +49,16 @@ const MOCK_ENTRY_UNLINKED = {
 
 const MOCK_LEGALITIES = {
   data: [
-    { format: "standard", status: "banned", effective_date: "2026-01-01" },
-    { format: "modern", status: "legal", effective_date: null },
-    { format: "legacy", status: "restricted", effective_date: null },
-    { format: "vintage", status: "legal", effective_date: null },
-    { format: "commander", status: "legal", effective_date: null },
-    { format: "pioneer", status: "not_legal", effective_date: null },
-    { format: "pauper", status: "legal", effective_date: null },
-    { format: "historic", status: "legal", effective_date: null },
+    { format: "standard", status: "banned", effective_date: "2026-01-01", recently_changed: true, change_date: "2026-08-20T00:00:00", old_status: "legal" },
+    { format: "modern", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+    { format: "legacy", status: "restricted", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+    { format: "vintage", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+    { format: "commander", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+    { format: "pioneer", status: "not_legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+    { format: "pauper", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+    { format: "historic", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+    { format: "brawl", status: "not_legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+    { format: "alchemy", status: "not_legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
   ],
   meta: { cursor: null, total: null, offset: null, request_id: "r2" },
   errors: [],
@@ -55,7 +70,13 @@ const MOCK_HISTORY = {
   errors: [],
 };
 
-describe("LegalitySection in CollectionCardDetail", () => {
+const MOCK_EMPTY = {
+  data: null,
+  meta: { cursor: null, total: null, offset: null, request_id: "re" },
+  errors: [],
+};
+
+describe("LegalityPanel in CollectionCardDetail", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -69,16 +90,30 @@ describe("LegalitySection in CollectionCardDetail", () => {
 
   function mockFetch(entry = MOCK_ENTRY, legalities = MOCK_LEGALITIES) {
     globalThis.fetch = vi.fn().mockImplementation((url: string) => {
-      if (typeof url === "string" && url.includes("/banlist/card/")) {
+      const urlStr = String(url);
+      if (urlStr.includes("/legality")) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(legalities),
         });
       }
-      if (typeof url === "string" && url.includes("/history")) {
+      if (urlStr.includes("/history")) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(MOCK_HISTORY),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(MOCK_EMPTY),
+        });
+      }
+      // banlist/card fallback
+      if (urlStr.includes("/banlist/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, offset: null, request_id: "bl" }, errors: [] }),
         });
       }
       return Promise.resolve({
@@ -88,7 +123,7 @@ describe("LegalitySection in CollectionCardDetail", () => {
     }) as unknown as typeof fetch;
   }
 
-  it("shows legality section when card_id present", async () => {
+  it("shows legality panel when card_id present", async () => {
     mockFetch();
     render(
       <MemoryRouter initialEntries={["/collection/1"]}>
@@ -96,11 +131,11 @@ describe("LegalitySection in CollectionCardDetail", () => {
       </MemoryRouter>,
     );
     await waitFor(() => {
-      expect(screen.getByTestId("legality-section")).toBeInTheDocument();
+      expect(screen.getByTestId("legality-panel")).toBeInTheDocument();
     });
   });
 
-  it("shows 'unavailable' message when card_id is null", async () => {
+  it("shows unavailable message when card_id is null", async () => {
     mockFetch(MOCK_ENTRY_UNLINKED);
     render(
       <MemoryRouter initialEntries={["/collection/1"]}>
@@ -108,12 +143,12 @@ describe("LegalitySection in CollectionCardDetail", () => {
       </MemoryRouter>,
     );
     await waitFor(() => {
-      const section = screen.getByTestId("legality-section");
-      expect(section.textContent).toContain("Legality data not available");
+      const panel = screen.getByTestId("legality-panel");
+      expect(panel.textContent).toContain("not available");
     });
   });
 
-  it("shows expand button when more than 6 formats", async () => {
+  it("shows expand button when more than 8 formats", async () => {
     mockFetch();
     render(
       <MemoryRouter initialEntries={["/collection/1"]}>
@@ -121,7 +156,7 @@ describe("LegalitySection in CollectionCardDetail", () => {
       </MemoryRouter>,
     );
     await waitFor(() => {
-      expect(screen.getByTestId("legality-expand")).toBeInTheDocument();
+      expect(screen.getByTestId("legality-panel-expand")).toBeInTheDocument();
     });
   });
 
@@ -133,13 +168,42 @@ describe("LegalitySection in CollectionCardDetail", () => {
       </MemoryRouter>,
     );
     await waitFor(() => {
-      expect(screen.getByTestId("legality-expand")).toBeInTheDocument();
+      expect(screen.getByTestId("legality-panel-expand")).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTestId("legality-expand"));
+    fireEvent.click(screen.getByTestId("legality-panel-expand"));
     await waitFor(() => {
-      // All 8 badges should now be visible
+      // All 10 badges should now be visible
       const badges = screen.getAllByTestId(/^legality-badge-/);
-      expect(badges.length).toBe(8);
+      expect(badges.length).toBe(10);
+    });
+  });
+
+  it("shows NEW chip for recently changed legality", async () => {
+    mockFetch();
+    render(
+      <MemoryRouter initialEntries={["/collection/1"]}>
+        <CollectionCardDetail />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("legality-new-standard")).toBeInTheDocument();
+    });
+  });
+
+  it("shows empty message when card has no ban history", async () => {
+    const emptyLegalities = {
+      data: [],
+      meta: { cursor: null, total: null, offset: null, request_id: "r2" },
+      errors: [],
+    };
+    mockFetch(MOCK_ENTRY, emptyLegalities);
+    render(
+      <MemoryRouter initialEntries={["/collection/1"]}>
+        <CollectionCardDetail />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/no legality data/i)).toBeInTheDocument();
     });
   });
 });

@@ -1,18 +1,22 @@
-"""Banlist router — format legality queries and sync trigger."""
+"""Banlist router — format legality queries, ban history, and sync trigger."""
 
 from __future__ import annotations
 
 import asyncio
 import os
 import threading
+from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.deps import get_db, require_auth_or_api_key
 from src.api.schemas.banlist import (
+    BanImpactSchema,
     BanListEntry,
+    CardBanHistoryEntry,
     CardLegalitySchema,
     LegalityHistoryEntry,
+    LegalityHistoryResponse,
     SyncTriggerRequest,
 )
 from src.api.schemas.collect import JobStatus
@@ -101,27 +105,105 @@ def get_card_legalities(card_id: int, db: Repository = Depends(get_db)):
     return success_response(schemas)
 
 
-@router.get("/history", response_model=ApiResponse[list[LegalityHistoryEntry]])
-def get_legality_history(
-    format: str | None = None,
-    card_id: int | None = None,
-    limit: int = 50,
-    db: Repository = Depends(get_db),
-):
-    """Get legality change history."""
-    history = db.get_legality_history(card_id=card_id, format=format, limit=limit)
+@router.get(
+    "/card/{card_id}/history",
+    response_model=ApiResponse[list[CardBanHistoryEntry]],
+)
+def get_card_ban_history(card_id: int, db: Repository = Depends(get_db)):
+    """Get full ban history timeline for a specific card."""
+    card = db.get_card_by_id(card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    history = db.get_card_ban_history(card_id)
     entries = [
-        LegalityHistoryEntry(
-            card_id=h["card_id"],
-            name_en=h.get("name_en"),
+        CardBanHistoryEntry(
+            id=h["id"],
             format=h["format"],
             old_status=h.get("old_status"),
             new_status=h["new_status"],
             changed_at=h["changed_at"],
+            source=h["source"],
         )
         for h in history
     ]
     return success_response(entries)
+
+
+@router.get("/history", response_model=ApiResponse[LegalityHistoryResponse])
+def get_legality_history(
+    format: str | None = None,
+    card_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: Repository = Depends(get_db),
+):
+    """Get paginated legality change history with optional filters."""
+    items, total = db.get_legality_history_paginated(
+        card_id=card_id,
+        format=format,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+    entries = [
+        LegalityHistoryEntry(
+            card_id=h["card_id"],
+            name_en=h.get("name_en"),
+            name_pt=h.get("name_pt"),
+            set_code=h.get("set_code"),
+            collector_number=h.get("collector_number"),
+            format=h["format"],
+            old_status=h.get("old_status"),
+            new_status=h["new_status"],
+            changed_at=h["changed_at"],
+            image_url=_scryfall_image_url(h.get("set_code"), h.get("collector_number")),
+        )
+        for h in items
+    ]
+    response = LegalityHistoryResponse(
+        items=entries,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+    return success_response(response)
+
+
+@router.get(
+    "/impact/{card_id}",
+    response_model=ApiResponse[list[BanImpactSchema]],
+)
+def get_ban_impact(
+    card_id: int,
+    window_days: int = 7,
+    db: Repository = Depends(get_db),
+):
+    """Get price impact analysis for ban events (stub — returns data_available=False)."""
+    card = db.get_card_by_id(card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    events = db.get_ban_events_for_impact(card_id)
+    impacts = [
+        BanImpactSchema(
+            format=ev["format"],
+            old_status=ev.get("old_status"),
+            new_status=ev["new_status"],
+            changed_at=ev["changed_at"],
+            window_days=window_days,
+            price_before=None,
+            price_after=None,
+            absolute_change=None,
+            percent_change=None,
+            data_available=False,
+        )
+        for ev in events
+    ]
+    return success_response(impacts)
 
 
 @router.post("/sync", response_model=ApiResponse[JobStatus])

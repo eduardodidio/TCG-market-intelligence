@@ -1,0 +1,59 @@
+graph TB
+    subgraph Database
+        UC[user_collection]
+        CL[card_legalities]
+        LH[legality_history]
+    end
+
+    subgraph Repository
+        GBCC[get_banned_collection_cards]
+        GCBS[get_collection_ban_summary]
+        GCLH[get_card_legalities_with_history]
+        GRCI[get_recently_changed_card_ids]
+    end
+
+    subgraph Service["BanAnalyzer Service"]
+        BA_CARDS[get_banned_collection_cards]
+        BA_SUMMARY[get_ban_summary]
+        BA_LEGALITY[get_card_legalities_with_changes]
+    end
+
+    subgraph API["API Endpoints"]
+        EP_BANNED["GET /collection/banned"]
+        EP_SUMMARY["GET /collection/summary"]
+        EP_LEGALITY["GET /collection/:id/legality"]
+    end
+
+    subgraph Frontend
+        BANNER[BanAlertBanner]
+        BADGE[BanBadge]
+        PANEL[LegalityPanel]
+        MC[MyCollection Page]
+        CCD[CollectionCardDetail Page]
+    end
+
+    UC -->|JOIN card_id| CL
+    UC -->|JOIN card_id| LH
+    CL --> GBCC
+    CL --> GCBS
+    CL --> GCLH
+    LH --> GCLH
+    LH --> GRCI
+
+    GBCC --> BA_CARDS
+    GCBS --> BA_SUMMARY
+    GCLH --> BA_LEGALITY
+    GRCI --> BA_CARDS
+    GRCI --> BA_SUMMARY
+
+    BA_CARDS --> EP_BANNED
+    BA_SUMMARY --> EP_SUMMARY
+    BA_LEGALITY --> EP_LEGALITY
+
+    EP_BANNED --> MC
+    EP_SUMMARY --> MC
+    EP_LEGALITY --> CCD
+
+    MC --> BANNER
+    MC --> BADGE
+    CCD --> PANEL

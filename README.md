@@ -34,6 +34,12 @@ make run-backfill SET=dominaria-remastered LIMIT=5
   Browse banned/restricted cards per format, search by name, view legality
   badges on card detail pages. CLI `banlist-sync` and API `POST /banlist/sync`
   for automated updates.
+- **Ban History (F43)**: chronological ban/unban timeline page at
+  `/banlist/history` with format and date range filters, month-grouped events,
+  and offset pagination. Card-specific ban history section on collection card
+  detail pages (lazy-loaded, collapsible). Price impact analysis stub endpoint
+  (`GET /banlist/impact/{card_id}`) returns `data_available=false` until
+  future price integration.
 
 ## Quick Start
 
@@ -729,6 +735,40 @@ manual intervention:
   pause/resume/trigger/edit/delete), loading/error/empty states.
 - **i18n** -- 30+ keys in EN and PT-BR for schedule management UI.
 - **Tests:** 71 new backend tests, 20 new frontend tests (91 total).
+
+### F42 -- Ban Engine in My Collection (2026-08-22)
+
+Added ban analysis and alerts to the collection experience. When any card
+in the user's collection is banned or restricted in a format, the system
+highlights it with visual indicators and an alert banner:
+
+- **Repository methods** -- 4 new query methods using single JOIN queries
+  (no N+1): `get_banned_collection_cards` (format/status filter),
+  `get_collection_ban_summary` (aggregate counts),
+  `get_card_legalities_with_history` (per-card with change detection),
+  `get_recently_changed_card_ids` (configurable time window)
+- **BanAnalyzer service** -- pure functions that enrich repository data
+  with `recently_changed` flags, image URLs (Scryfall), and status
+  priority sorting (banned > restricted > legal > not_legal)
+- **API endpoints** -- `GET /collection/banned` (lists banned/restricted
+  cards with `?format=` and `?days=` params), `GET /collection/{id}/legality`
+  (per-card legality with change info). Collection summary extended with
+  `banned_count` and `recently_changed_count` fields.
+- **BanAlertBanner** -- dismissible warning banner on My Collection page.
+  Red for banned cards, amber for restricted-only. Session-scoped dismiss
+  via `sessionStorage` (reappears on new browser session).
+- **BanBadge** -- overlay badge on collection card tiles showing "BANNED"
+  or "RESTRICTED" with pulsing ring animation for recently changed items.
+  Red ring highlight on affected card tiles.
+- **LegalityPanel** -- format legality panel on CollectionCardDetail page.
+  Shows all format statuses in a 2x3 grid with expand/collapse (default 8
+  shown). "NEW" cyan chip for recently changed legalities with tooltip
+  showing old status and change date. Handles loading, empty, and unlinked
+  card states.
+- **i18n** -- 18 new keys in EN and PT-BR for ban engine UI
+- **Tests:** 22 new backend tests, 23 new frontend tests
+- **Diagrams** -- architecture and user journey diagrams at
+  `docs/diagrams/F42-architecture.mmd` and `docs/diagrams/F42-journey.mmd`
 
 ## Future
 

@@ -1,0 +1,21 @@
+graph TD
+    Start([User]) --> Nav{Navigate to<br>/banlist/history}
+    Nav --> Timeline[Browse Timeline<br>grouped by month]
+    Timeline --> Filter{Apply Filters?}
+    Filter -->|Format| FormatFilter[Select Format<br>from dropdown]
+    Filter -->|Date Range| DateFilter[Set From/To dates]
+    Filter -->|No| Browse[Browse Events]
+    FormatFilter --> Browse
+    DateFilter --> Browse
+    Browse --> LoadMore{More events?}
+    LoadMore -->|Yes| Load[Click Load More<br>offset pagination]
+    Load --> Browse
+    LoadMore -->|No| ClickCard[Click Card Event]
+    ClickCard --> CardDetail[View Card Detail<br>/collection/:id]
+    CardDetail --> ExpandBH[Expand Ban History<br>section - collapsed]
+    ExpandBH --> FetchBH[Lazy-fetch<br>card ban history]
+    FetchBH --> ViewBH[View card-specific<br>ban timeline]
+
+    Admin([Admin]) --> Sync[Trigger Ban List Sync<br>F41]
+    Sync --> NewEntries[New history entries<br>appear in timeline]
+    NewEntries --> Timeline
