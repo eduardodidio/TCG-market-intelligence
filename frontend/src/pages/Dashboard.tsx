@@ -1,23 +1,22 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useApi } from "../hooks/useApi";
-import { fetchMarketStats, fetchMovers } from "../api/market";
+import { fetchMarketStats } from "../api/market";
 import { fetchCollectionHealth } from "../api/collect";
 import { fetchCollectionSummary } from "../api/collection";
 import { useCurrency } from "../hooks/useCurrency";
-import { formatCurrency, formatDate } from "../utils/format";
+import { formatCurrency } from "../utils/format";
 import { KpiCard } from "../components/KpiCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
-import { MoversPreview } from "../components/MoversPreview";
+import { TrendingSection } from "../components/TrendingSection";
 import { EmptyState } from "../components/EmptyState";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { SkeletonKpi, SkeletonTable } from "../components/Skeleton";
+import { SkeletonKpi } from "../components/Skeleton";
 import type {
   CollectionHealth,
   CollectionSummary,
   MarketStats,
-  MoversResponse,
 } from "../types/api";
 
 export function Dashboard() {
@@ -30,18 +29,14 @@ export function Dashboard() {
   const { currency } = useCurrency();
 
   const stats = useApi<MarketStats>(() => fetchMarketStats({ currency }), [currency]);
-  const movers = useApi<MoversResponse>(() =>
-    fetchMovers({ period: "30d", limit: "5", currency }),
-    [currency],
-  );
   const health = useApi<CollectionHealth>(() => fetchCollectionHealth());
   const collectionSummary = useApi<CollectionSummary>(() =>
     fetchCollectionSummary({ currency }),
     [currency],
   );
 
-  const loading = stats.loading || movers.loading;
-  const error = stats.error || movers.error;
+  const loading = stats.loading;
+  const error = stats.error;
 
   // Collection summary is independent — never blocks dashboard rendering
   const summaryData = collectionSummary.data;
@@ -66,19 +61,38 @@ export function Dashboard() {
   if (loading) {
     return (
       <div data-testid="page-dashboard">
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">{t("dashboard.title")}</h1>
-          {freshnessIndicator}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white">
+            {t("landing.heroTitle")}
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            {t("landing.heroSubtitle")}
+          </p>
+          {freshnessIndicator && (
+            <div className="mt-2">{freshnessIndicator}</div>
+          )}
         </div>
         <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <SkeletonKpi key={i} />
           ))}
         </div>
-        <h2 className="mb-4 text-xl font-semibold text-white">{t("dashboard.marketOverview")}</h2>
-        <div className="grid gap-6 md:grid-cols-2">
-          <SkeletonTable rows={5} />
-          <SkeletonTable rows={5} />
+        {/* Trending skeleton */}
+        <div className="mb-8">
+          <div className="animate-pulse bg-slate-700 rounded h-6 w-32 mb-4" />
+          <div className="flex gap-3 overflow-hidden">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="shrink-0 w-44 h-40 rounded-lg bg-slate-800 animate-pulse" />
+            ))}
+          </div>
+        </div>
+        <div className="mb-8">
+          <div className="animate-pulse bg-slate-700 rounded h-6 w-32 mb-4" />
+          <div className="flex gap-3 overflow-hidden">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="shrink-0 w-44 h-40 rounded-lg bg-slate-800 animate-pulse" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -87,16 +101,22 @@ export function Dashboard() {
   if (error) {
     return (
       <div data-testid="page-dashboard">
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">{t("dashboard.title")}</h1>
-          {freshnessIndicator}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white">
+            {t("landing.heroTitle")}
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            {t("landing.heroSubtitle")}
+          </p>
+          {freshnessIndicator && (
+            <div className="mt-2">{freshnessIndicator}</div>
+          )}
         </div>
         <ErrorBanner
           message={error}
           variant="full"
           onRetry={() => {
             stats.refetch();
-            movers.refetch();
           }}
         />
       </div>
@@ -104,24 +124,22 @@ export function Dashboard() {
   }
 
   const marketStats = stats.data;
-  const moversData = movers.data;
-
-  const dateRange =
-    marketStats?.date_range_start && marketStats?.date_range_end
-      ? `${formatDate(marketStats.date_range_start)} - ${formatDate(marketStats.date_range_end)}`
-      : "--";
 
   const hasMarketData = (marketStats?.total_cards ?? 0) > 0;
-  const hasMoversData =
-    moversData &&
-    (moversData.gainers.length > 0 || moversData.losers.length > 0);
 
   return (
     <div data-testid="page-dashboard">
-      {/* Collection hero section */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-white">{t("collection.title")}</h1>
-        {freshnessIndicator}
+      {/* Hero header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white">
+          {t("landing.heroTitle")}
+        </h1>
+        <p className="mt-1 text-sm text-slate-400">
+          {t("landing.heroSubtitle")}
+        </p>
+        {freshnessIndicator && (
+          <div className="mt-2">{freshnessIndicator}</div>
+        )}
       </div>
 
       {/* Collection KPIs */}
@@ -168,31 +186,29 @@ export function Dashboard() {
         </div>
       ) : null}
 
-      {/* Market Overview section */}
-      <h2 className="mb-4 text-xl font-semibold text-white">{t("dashboard.marketOverview")}</h2>
-
+      {/* Market summary strip */}
       {hasMarketData ? (
-        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4" data-testid="market-kpis">
-          <KpiCard
-            title={t("dashboard.totalCards")}
-            value={String(marketStats?.total_cards ?? 0)}
-            subtitle={t("dashboard.cardsTracked")}
-          />
-          <KpiCard
-            title={t("dashboard.totalObservations")}
-            value={String(marketStats?.total_observations ?? 0)}
-            subtitle={t("dashboard.pricePoints")}
-          />
-          <KpiCard
-            title={t("dashboard.averagePrice")}
-            value={formatCurrency(marketStats?.avg_price ?? null, currency)}
-            subtitle={t("dashboard.acrossAllCards")}
-          />
-          <KpiCard
-            title={t("dashboard.dataRange")}
-            value={dateRange}
-            subtitle={t("dashboard.collectionPeriod")}
-          />
+        <div
+          className="mb-8 flex flex-wrap items-center gap-6 rounded-lg bg-slate-800 border border-slate-600 px-6 py-4"
+          data-testid="market-summary-strip"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-400">{t("landing.cardsTracked")}</span>
+            <span className="text-sm font-semibold text-white">{marketStats?.total_cards ?? 0}</span>
+          </div>
+          <div className="h-4 w-px bg-slate-600" aria-hidden="true" />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-400">{t("landing.observations")}</span>
+            <span className="text-sm font-semibold text-white">{marketStats?.total_observations ?? 0}</span>
+          </div>
+          <div className="h-4 w-px bg-slate-600" aria-hidden="true" />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-400">{t("landing.avgPrice")}</span>
+            <span className="text-sm font-semibold text-white">
+              <CurrencyIndicator currency={currency} size={14} />
+              {" "}{formatCurrency(marketStats?.avg_price ?? null, currency)}
+            </span>
+          </div>
         </div>
       ) : (
         <div className="mb-8" data-testid="market-empty">
@@ -200,18 +216,25 @@ export function Dashboard() {
         </div>
       )}
 
-      {hasMoversData ? (
-        <MoversPreview
-          gainers={moversData.gainers}
-          losers={moversData.losers}
+      {/* Em Alta */}
+      <div className="mb-8" data-testid="landing-trending-up">
+        <TrendingSection
+          direction="gainers"
+          period="30d"
+          currency={currency}
+          limit={10}
         />
-      ) : (
-        !hasMarketData && (
-          <div data-testid="movers-empty">
-            <EmptyState message={t("dashboard.emptyMovers")} />
-          </div>
-        )
-      )}
+      </div>
+
+      {/* Em Baixa */}
+      <div className="mb-8" data-testid="landing-trending-down">
+        <TrendingSection
+          direction="losers"
+          period="30d"
+          currency={currency}
+          limit={10}
+        />
+      </div>
     </div>
   );
 }

@@ -468,3 +468,51 @@ export interface DeckValueDetail {
   currency: string;
   period: string;
 }
+
+// Market summary types (F40)
+
+export interface MarketSummaryResponse {
+  total_cards_tracked: number;
+  total_observations: number;
+  avg_price: number | null;
+  avg_price_change_pct: number | null;
+  gainers_count: number;
+  losers_count: number;
+  unchanged_count: number;
+  market_direction: string;
+  period: string;
+  currency: string;
+  computed_at: string;
+}
+
+// Volatile types (F40)
+
+export interface VolatileCardEntry {
+  card_id: number;
+  name_en: string;
+  name_pt: string | null;
+  set_code: string | null;
+  collector_number: string | null;
+  image_url: string | null;
+  price_start: number;
+  price_end: number;
+  change_pct: number;
+  change_abs: number;
+  consistency: number;
+  composite_score: number;
+  observation_count: number;
+  currency: string;
+}
+
+// Ticker types (F39)
+
+export interface TickerItemData {
+  card_id: number;
+  name_en: string;
+  name_pt: string | null;
+  set_code: string | null;
+  price_end: number;
+  change_pct: number;
+  direction: "up" | "down";
+  currency: string;
+}

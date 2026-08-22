@@ -75,7 +75,7 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
-    expect(linkTexts).toContain("Market Movers");
+    expect(linkTexts).toContain("Market");
     expect(linkTexts).toContain("Trending");
     expect(linkTexts).toContain("Ban History");
     expect(linkTexts).toContain("My Decks");
@@ -90,13 +90,13 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Only public items: Dashboard, Explore Cards, Market Movers, Trending, Ban List, Ban History
+    // Only public items: Dashboard, Explore Cards, Market, Trending, Ban List, Ban History
     expect(links).toHaveLength(6);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("Explore Cards");
-    expect(linkTexts).toContain("Market Movers");
+    expect(linkTexts).toContain("Market");
     expect(linkTexts).toContain("Trending");
     expect(linkTexts).not.toContain("My Collection");
     expect(linkTexts).not.toContain("Top Decks");
@@ -139,7 +139,7 @@ describe("Layout", () => {
     expect(hrefs).toContain("/");
     expect(hrefs).toContain("/collection");
     expect(hrefs).toContain("/cards");
-    expect(hrefs).toContain("/market/movers");
+    expect(hrefs).toContain("/market");
     expect(hrefs).toContain("/scans");
   });
 

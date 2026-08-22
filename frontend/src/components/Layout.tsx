@@ -5,12 +5,13 @@ import { useAuth } from "../hooks/useAuth";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { ExchangeRateBanner } from "./ExchangeRateBanner";
 import { LanguageSelector } from "./LanguageSelector";
+import { MarketTicker } from "./MarketTicker";
 
 const NAV_ITEMS = [
   { to: "/", labelKey: "nav.dashboard", requiresAuth: false },
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
-  { to: "/market/movers", labelKey: "nav.marketMovers", requiresAuth: false },
+  { to: "/market", labelKey: "nav.market", requiresAuth: false },
   { to: "/market/trending", labelKey: "nav.trending", requiresAuth: false },
   { to: "/banlist", labelKey: "nav.banlist", requiresAuth: false },
   { to: "/banlist/history", labelKey: "nav.banHistory", requiresAuth: false },
@@ -179,6 +180,7 @@ export function Layout() {
 
         {/* Exchange rate banner */}
         <ExchangeRateBanner />
+        <MarketTicker />
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6" data-testid="main-content">

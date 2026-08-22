@@ -54,6 +54,9 @@ const Schedules = lazy(() =>
 const Trending = lazy(() =>
   import("./pages/Trending").then((m) => ({ default: m.Trending })),
 );
+const MarketPage = lazy(() =>
+  import("./pages/MarketPage").then((m) => ({ default: m.MarketPage })),
+);
 const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login })),
 );
@@ -153,6 +156,16 @@ export default function App() {
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
                     <Trending />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/market"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <MarketPage />
                   </Suspense>
                 }
               />

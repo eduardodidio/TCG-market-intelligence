@@ -6,6 +6,7 @@ import { useCurrency } from "../hooks/useCurrency";
 import { MoversTable } from "../components/MoversTable";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { EmptyState } from "../components/EmptyState";
+import { PeriodSelector } from "../components/PeriodSelector";
 import { SkeletonTable } from "../components/Skeleton";
 import type { MoversResponse } from "../types/api";
 
@@ -37,21 +38,7 @@ export function MarketMovers() {
       {/* Controls row */}
       <div className="mb-6 flex flex-wrap items-center gap-4">
         {/* Period selector */}
-        <div className="flex rounded-md overflow-hidden" role="group" aria-label={t("market.periodSelector")}>
-          {PERIODS.map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                p === period
-                  ? "bg-indigo-500 text-white shadow-md"
-                  : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
+        <PeriodSelector value={period} onChange={(p) => setPeriod(p as Period)} />
 
         {/* Limit selector */}
         <select

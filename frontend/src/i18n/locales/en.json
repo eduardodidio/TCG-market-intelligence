@@ -34,6 +34,7 @@
     "banlist": "Ban List",
     "banHistory": "Ban History",
     "trending": "Trending",
+    "market": "Market",
     "toggleNav": "Toggle navigation",
     "signIn": "Sign in",
     "signOut": "Sign out"
@@ -438,6 +439,13 @@
     "notAvailable": "N/A",
     "insufficientData": "Not enough data"
   },
+  "landing": {
+    "heroTitle": "TCG Market Intelligence",
+    "heroSubtitle": "Track prices, spot trends, manage your collection",
+    "cardsTracked": "Cards tracked",
+    "observations": "Price observations",
+    "avgPrice": "Avg. price"
+  },
   "trending": {
     "title": "Trending Cards",
     "trendingUp": "Trending Up",
@@ -452,5 +460,37 @@
     "cached": "Cached {{time}} ago",
     "changePercent": "{{value}}%",
     "priceChange": "Price Change"
+  },
+  "marketPage": {
+    "title": "Market Overview",
+    "summary": {
+      "cardsTracked": "Cards Tracked",
+      "avgPrice": "Avg Price",
+      "avgChange": "Avg Change",
+      "sentiment": "Market Sentiment",
+      "gainersRatio": "Gainers Ratio"
+    },
+    "direction": {
+      "up": "Bullish",
+      "down": "Bearish",
+      "flat": "Flat"
+    },
+    "section": {
+      "topGainers": "Top Gainers",
+      "topLosers": "Top Losers",
+      "mostVolatile": "Most Volatile",
+      "topDecks": "Top Decks by Value"
+    },
+    "viewAll": "View All",
+    "empty": "No market data available yet. Run a price scan to get started.",
+    "volatile": {
+      "empty": "No volatile cards found for this period."
+    }
+  },
+  "ticker": {
+    "ariaLabel": "Market price ticker showing trending cards",
+    "itemAriaLabel": "{{name}}, {{price}}, {{direction}} {{change}}%",
+    "up": "up",
+    "down": "down"
   }
 }

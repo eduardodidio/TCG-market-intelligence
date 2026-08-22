@@ -4,13 +4,30 @@ import { MemoryRouter } from "react-router-dom";
 import { Dashboard } from "../../src/pages/Dashboard";
 import {
   mockMarketStats,
-  mockMoversResponse,
   mockCollectionHealth,
   mockCollectionSummary,
   mockEmptyMarketStats,
-  mockEmptyMoversResponse,
   mockApiError,
 } from "../fixtures/api-responses";
+
+// Mock TrendingSection — it fetches its own data internally and has its own tests
+vi.mock("../../src/components/TrendingSection", () => ({
+  TrendingSection: ({ direction, period, currency, limit }: {
+    direction: string;
+    period: string;
+    currency: string;
+    limit?: number;
+  }) => (
+    <div
+      data-testid={`trending-section-${direction}`}
+      data-period={period}
+      data-currency={currency}
+      data-limit={limit}
+    >
+      TrendingSection-{direction}
+    </div>
+  ),
+}));
 
 function renderDashboard() {
   return render(
@@ -31,7 +48,6 @@ describe("Dashboard", () => {
 
   function mockFetchSuccess() {
     const statsResponse = mockMarketStats();
-    const moversResponse = mockMoversResponse();
     const healthResponse = mockCollectionHealth();
     const summaryResponse = mockCollectionSummary();
 
@@ -42,12 +58,6 @@ describe("Dashboard", () => {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve(statsResponse),
-          });
-        }
-        if (urlStr.includes("/market/movers")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(moversResponse),
           });
         }
         if (urlStr.includes("/collect/health")) {
@@ -62,7 +72,11 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(summaryResponse),
           });
         }
-        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+        // Trending endpoints are handled by the mocked TrendingSection
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
       },
     );
   }
@@ -108,6 +122,19 @@ describe("Dashboard", () => {
     expect(skeletons.length).toBe(4);
   });
 
+  it("renders hero header with title and subtitle", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText("TCG Market Intelligence")).toBeDefined();
+    });
+
+    expect(
+      screen.getByText("Track prices, spot trends, manage your collection"),
+    ).toBeDefined();
+  });
+
   it("renders collection KPIs when collection summary is available", async () => {
     mockFetchSuccess();
     renderDashboard();
@@ -135,42 +162,55 @@ describe("Dashboard", () => {
     expect(screen.getByText(/80 priced/)).toBeDefined();
   });
 
-  it("renders market KPIs below collection KPIs", async () => {
+  it("renders market summary strip with compact KPIs", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByTestId("market-kpis")).toBeDefined();
+      expect(screen.getByTestId("market-summary-strip")).toBeDefined();
     });
 
-    // 8 total KPIs: 4 collection + 4 market
-    const kpiCards = screen.getAllByTestId("kpi-card");
-    expect(kpiCards).toHaveLength(8);
-
-    expect(screen.getByText("Total Cards")).toBeDefined();
+    expect(screen.getByText("Cards tracked")).toBeDefined();
     expect(screen.getByText("150")).toBeDefined();
 
-    expect(screen.getByText("Total Observations")).toBeDefined();
+    expect(screen.getByText("Price observations")).toBeDefined();
     expect(screen.getByText("4500")).toBeDefined();
 
-    expect(screen.getByText("Average Price")).toBeDefined();
-
-    expect(screen.getByText("Data Range")).toBeDefined();
-    expect(screen.getByText("01/01/2026 - 18/08/2026")).toBeDefined();
+    expect(screen.getByText("Avg. price")).toBeDefined();
   });
 
-  it("renders movers preview with gainers and losers", async () => {
+  it("renders trending sections for gainers and losers", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByTestId("movers-preview")).toBeDefined();
+      expect(screen.getByTestId("landing-trending-up")).toBeDefined();
     });
 
-    expect(screen.getByText("Top Gainers")).toBeDefined();
-    expect(screen.getByText("Top Losers")).toBeDefined();
-    expect(screen.getByText("Card Gainer 1")).toBeDefined();
-    expect(screen.getByText("Card Loser 1")).toBeDefined();
+    expect(screen.getByTestId("landing-trending-down")).toBeDefined();
+
+    // Verify TrendingSection components are rendered with correct props
+    const gainersSection = screen.getByTestId("trending-section-gainers");
+    expect(gainersSection).toBeDefined();
+    expect(gainersSection.getAttribute("data-period")).toBe("30d");
+    expect(gainersSection.getAttribute("data-limit")).toBe("10");
+
+    const losersSection = screen.getByTestId("trending-section-losers");
+    expect(losersSection).toBeDefined();
+    expect(losersSection.getAttribute("data-period")).toBe("30d");
+    expect(losersSection.getAttribute("data-limit")).toBe("10");
+  });
+
+  it("does NOT render MoversPreview", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("market-summary-strip")).toBeDefined();
+    });
+
+    // MoversPreview is gone — no movers-preview test ID
+    expect(screen.queryByTestId("movers-preview")).toBeNull();
   });
 
   it("shows error banner when API call fails", async () => {
@@ -202,39 +242,28 @@ describe("Dashboard", () => {
     });
   });
 
-  it("renders page title as My Collection", async () => {
+  it("renders hero title instead of old 'My Collection' page title", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText("My Collection")).toBeDefined();
+      expect(screen.getByText("TCG Market Intelligence")).toBeDefined();
     });
+
+    // The old "My Collection" title in the hero section is replaced
+    // "My Collection" may still appear in collection KPIs subtitle, but not as the page heading
   });
 
-  it("renders Market Overview heading", async () => {
+  it("does NOT render Market Overview heading (replaced by summary strip)", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText("Market Overview")).toBeDefined();
-    });
-  });
-
-  it("fetches movers with period=30d by default", async () => {
-    mockFetchSuccess();
-    renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("movers-preview")).toBeDefined();
+      expect(screen.getByTestId("market-summary-strip")).toBeDefined();
     });
 
-    // Verify that at least one fetch call included period=30d
-    const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls;
-    const moversCalls = calls.filter((c: unknown[]) =>
-      String(c[0]).includes("/market/movers"),
-    );
-    expect(moversCalls.length).toBeGreaterThan(0);
-    expect(String(moversCalls[0][0])).toContain("period=30d");
+    // The old "Market Overview" h2 heading is gone
+    expect(screen.queryByText("Market Overview")).toBeNull();
   });
 
   it("renders freshness indicator when health endpoint succeeds", async () => {
@@ -260,7 +289,6 @@ describe("Dashboard", () => {
 
   it("renders dashboard without freshness indicator when health endpoint fails", async () => {
     const statsResponse = mockMarketStats();
-    const moversResponse = mockMoversResponse();
     const summaryResponse = mockCollectionSummary();
     const healthError = mockApiError("SERVER_ERROR", "Health check failed");
 
@@ -271,12 +299,6 @@ describe("Dashboard", () => {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve(statsResponse),
-          });
-        }
-        if (urlStr.includes("/market/movers")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(moversResponse),
           });
         }
         if (urlStr.includes("/collect/health")) {
@@ -293,19 +315,22 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(summaryResponse),
           });
         }
-        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
       },
     );
 
     renderDashboard();
 
-    // Dashboard still loads its KPI cards (4 collection + 4 market = 8)
+    // Dashboard still loads its collection KPIs + market summary strip
     await waitFor(() => {
       expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
     });
 
     const kpiCards = screen.getAllByTestId("kpi-card");
-    expect(kpiCards).toHaveLength(8);
+    expect(kpiCards).toHaveLength(4); // Only 4 collection KPIs now (market is a strip)
 
     // Freshness indicator should NOT be rendered
     expect(screen.queryByTestId("freshness-indicator")).toBeNull();
@@ -313,7 +338,6 @@ describe("Dashboard", () => {
 
   it("renders gracefully when collection summary returns zero values", async () => {
     const statsResponse = mockMarketStats();
-    const moversResponse = mockMoversResponse();
     const healthResponse = mockCollectionHealth();
     const emptySummary = mockCollectionSummary({
       total_unique: 0,
@@ -333,12 +357,6 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(statsResponse),
           });
         }
-        if (urlStr.includes("/market/movers")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(moversResponse),
-          });
-        }
         if (urlStr.includes("/collect/health")) {
           return Promise.resolve({
             ok: true,
@@ -351,7 +369,10 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(emptySummary),
           });
         }
-        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
       },
     );
 
@@ -368,13 +389,12 @@ describe("Dashboard", () => {
     // Coverage should be 0% when total_unique is 0
     expect(screen.getByText("0%")).toBeDefined();
 
-    // Market KPIs still visible
-    expect(screen.getByTestId("market-kpis")).toBeDefined();
+    // Market summary strip still visible
+    expect(screen.getByTestId("market-summary-strip")).toBeDefined();
   });
 
   it("shows low coverage hint when linked percentage is below 50%", async () => {
     const statsResponse = mockMarketStats();
-    const moversResponse = mockMoversResponse();
     const healthResponse = mockCollectionHealth();
     const lowCoverageSummary = mockCollectionSummary({
       total_unique: 100,
@@ -394,12 +414,6 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(statsResponse),
           });
         }
-        if (urlStr.includes("/market/movers")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(moversResponse),
-          });
-        }
         if (urlStr.includes("/collect/health")) {
           return Promise.resolve({
             ok: true,
@@ -412,7 +426,10 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(lowCoverageSummary),
           });
         }
-        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
       },
     );
 
@@ -443,7 +460,6 @@ describe("Dashboard", () => {
 
   it("renders gracefully when market stats returns zero", async () => {
     const emptyStats = mockEmptyMarketStats();
-    const emptyMovers = mockEmptyMoversResponse();
     const healthResponse = mockCollectionHealth();
     const summaryResponse = mockCollectionSummary();
 
@@ -454,12 +470,6 @@ describe("Dashboard", () => {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve(emptyStats),
-          });
-        }
-        if (urlStr.includes("/market/movers")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(emptyMovers),
           });
         }
         if (urlStr.includes("/collect/health")) {
@@ -474,7 +484,10 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(summaryResponse),
           });
         }
-        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
       },
     );
 
@@ -487,7 +500,7 @@ describe("Dashboard", () => {
     // Collection KPIs should still render
     expect(screen.getByTestId("collection-kpis")).toBeDefined();
 
-    // Market KPIs should show empty state instead
+    // Market summary strip should show empty state instead
     expect(screen.getByTestId("market-empty")).toBeDefined();
     expect(
       screen.getByText(
@@ -495,21 +508,13 @@ describe("Dashboard", () => {
       ),
     ).toBeDefined();
 
-    // Movers should show empty state
-    expect(screen.getByTestId("movers-empty")).toBeDefined();
-    expect(
-      screen.getByText(
-        "Not enough price history for movers. Run a sync and check back.",
-      ),
-    ).toBeDefined();
-
-    // No movers preview
-    expect(screen.queryByTestId("movers-preview")).toBeNull();
+    // Trending sections are still rendered (they handle their own empty states)
+    expect(screen.getByTestId("landing-trending-up")).toBeDefined();
+    expect(screen.getByTestId("landing-trending-down")).toBeDefined();
   });
 
   it("shows collection empty state when summary endpoint fails", async () => {
     const statsResponse = mockMarketStats();
-    const moversResponse = mockMoversResponse();
     const healthResponse = mockCollectionHealth();
     const summaryError = mockApiError("SERVER_ERROR", "Collection unavailable");
 
@@ -520,12 +525,6 @@ describe("Dashboard", () => {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve(statsResponse),
-          });
-        }
-        if (urlStr.includes("/market/movers")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(moversResponse),
           });
         }
         if (urlStr.includes("/collect/health")) {
@@ -542,7 +541,10 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(summaryError),
           });
         }
-        return Promise.reject(new Error(`Unexpected URL: ${urlStr}`));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
       },
     );
 
@@ -561,7 +563,25 @@ describe("Dashboard", () => {
     ).toBeDefined();
 
     // Market section still works
-    expect(screen.getByTestId("market-kpis")).toBeDefined();
-    expect(screen.getByTestId("movers-preview")).toBeDefined();
+    expect(screen.getByTestId("market-summary-strip")).toBeDefined();
+
+    // Trending sections present
+    expect(screen.getByTestId("landing-trending-up")).toBeDefined();
+    expect(screen.getByTestId("landing-trending-down")).toBeDefined();
+  });
+
+  it("trending sections render even when data is empty (graceful degradation)", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("landing-trending-up")).toBeDefined();
+    });
+
+    // TrendingSection handles its own loading/empty states internally
+    // We just verify the containers are present
+    expect(screen.getByTestId("landing-trending-down")).toBeDefined();
+    expect(screen.getByText("TrendingSection-gainers")).toBeDefined();
+    expect(screen.getByText("TrendingSection-losers")).toBeDefined();
   });
 });

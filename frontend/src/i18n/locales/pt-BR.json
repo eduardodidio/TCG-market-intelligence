@@ -34,6 +34,7 @@
     "banlist": "Lista de Banimentos",
     "banHistory": "Historico de Banimentos",
     "trending": "Tendencias",
+    "market": "Mercado",
     "toggleNav": "Alternar navegacao",
     "signIn": "Entrar",
     "signOut": "Sair"
@@ -438,6 +439,13 @@
     "notAvailable": "N/D",
     "insufficientData": "Dados insuficientes"
   },
+  "landing": {
+    "heroTitle": "TCG Market Intelligence",
+    "heroSubtitle": "Acompanhe precos, identifique tendencias, gerencie sua colecao",
+    "cardsTracked": "Cards rastreados",
+    "observations": "Observacoes de preco",
+    "avgPrice": "Preco medio"
+  },
   "trending": {
     "title": "Cards em Alta e em Baixa",
     "trendingUp": "Em Alta",
@@ -452,5 +460,37 @@
     "cached": "Cache de {{time}} atras",
     "changePercent": "{{value}}%",
     "priceChange": "Variacao de Preco"
+  },
+  "marketPage": {
+    "title": "Visao Geral do Mercado",
+    "summary": {
+      "cardsTracked": "Cards Monitorados",
+      "avgPrice": "Preco Medio",
+      "avgChange": "Variacao Media",
+      "sentiment": "Sentimento do Mercado",
+      "gainersRatio": "Proporcao de Altas"
+    },
+    "direction": {
+      "up": "Alta",
+      "down": "Baixa",
+      "flat": "Estavel"
+    },
+    "section": {
+      "topGainers": "Maiores Altas",
+      "topLosers": "Maiores Baixas",
+      "mostVolatile": "Mais Volateis",
+      "topDecks": "Top Decks por Valor"
+    },
+    "viewAll": "Ver Todos",
+    "empty": "Sem dados de mercado ainda. Execute um scan de precos para comecar.",
+    "volatile": {
+      "empty": "Nenhum card volatil encontrado para este periodo."
+    }
+  },
+  "ticker": {
+    "ariaLabel": "Ticker de precos de mercado com cards em alta e baixa",
+    "itemAriaLabel": "{{name}}, {{price}}, {{direction}} {{change}}%",
+    "up": "alta",
+    "down": "baixa"
   }
 }
