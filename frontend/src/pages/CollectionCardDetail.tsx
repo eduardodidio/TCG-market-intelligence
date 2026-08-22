@@ -306,8 +306,8 @@ export function CollectionCardDetail() {
             )}
           </div>
 
-          {/* Linked status */}
-          {entry.card_id == null && (
+          {/* Linked status — show canonize when unlinked OR linked but no source cards */}
+          {(entry.card_id == null || entry.source_cards.length === 0) && (
             <div className="mb-6 rounded-md bg-slate-700/50 p-4" data-testid="unlinked-notice">
               <p className="text-sm text-amber-400">
                 {t("collection.notLinked")}

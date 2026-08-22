@@ -499,7 +499,11 @@ async def canonize_card(
     user_id: str = Depends(require_auth_or_api_key),
 ):
     """Canonize an unlinked collection entry: create CardRow, search MYP,
-    link SourceCard, and fetch current price — all in one shot."""
+    link SourceCard, and fetch current price — all in one shot.
+
+    If the entry already has a card_id but no MYP source cards (orphan state),
+    re-runs the MYP search+match flow without creating a new CardRow.
+    """
     from src.collection.converter import row_to_collection_entry
     from src.collection.matcher import match_collection_card
     from src.domain.models import HistoricalPrice, SourceCard
@@ -509,66 +513,86 @@ async def canonize_card(
     if not entry or entry.user_id != user_id:
         raise HTTPException(status_code=404, detail="Collection entry not found")
 
-    if entry.card_id is not None:
-        raise HTTPException(status_code=422, detail="Card is already canonical")
+    # Allow re-canonize when card_id exists but has no MYP source cards
+    already_canonical = entry.card_id is not None
+    if already_canonical:
+        source_cards = repo.get_source_cards_for_card(entry.card_id)
+        has_myp_source = any(sc.source == "myp" for sc in source_cards)
+        if has_myp_source:
+            raise HTTPException(status_code=422, detail="Card is already canonical")
+        card_id = entry.card_id
+    else:
+        # Step 1: Create canonical CardRow from collection data
+        card_id = repo.create_canonical_card(
+            game="magic",
+            name_en=entry.name_en or "Unknown",
+            name_pt=entry.name_pt,
+            set_code=entry.set_code,
+            collector_number=entry.collector_number,
+        )
 
-    # Step 1: Create canonical CardRow from collection data
-    card_id = repo.create_canonical_card(
-        game="magic",
-        name_en=entry.name_en or "Unknown",
-        name_pt=entry.name_pt,
-        set_code=entry.set_code,
-        collector_number=entry.collector_number,
-    )
-
-    # Step 2: Link collection entry to canonical card
-    repo.link_collection_entry(entry_id, card_id)
+        # Step 2: Link collection entry to canonical card
+        repo.link_collection_entry(entry_id, card_id)
 
     # Step 3: Search MYP and try to create SourceCard + fetch price
     provider = MypCardsProvider()
     myp_warning: str | None = None
     try:
         ce = row_to_collection_entry(entry)
+        search_results: list = []
         if ce.name_en:
             search_results = await provider.search_card(ce.name_en)
-            match = match_collection_card(ce, search_results)
 
-            if match.status == "matched" and match.myp_result:
-                myp = match.myp_result
-                source_card = SourceCard(
-                    source="myp",
-                    external_id=myp.external_id,
-                    url=myp.url,
-                    sku=myp.sku,
+        # F47-style PT fallback: retry with name_pt when EN yields no results
+        if not search_results and ce.name_pt:
+            search_results = await provider.search_card(ce.name_pt)
+            if search_results:
+                log.info(
+                    "canonize_pt_fallback_used",
+                    entry_id=entry_id,
+                    name_en=ce.name_en,
+                    name_pt=ce.name_pt,
+                    results=len(search_results),
                 )
 
-                # Fetch full details and upsert source card
-                detailed = await provider.get_card_details(source_card)
-                if detailed:
-                    # Update canonical card with richer data from MYP
-                    repo.upsert_card(detailed)
-                    repo.upsert_source_card(detailed, card_id=card_id)
+        match = match_collection_card(ce, search_results)
 
-                    # Fetch current price
-                    slug = source_card.url.rsplit("/", 1)[-1]
-                    jsonld = await provider.fetch_current_price(
-                        myp.external_id,
-                        slug,
+        if match.status == "matched" and match.myp_result:
+            myp = match.myp_result
+            source_card = SourceCard(
+                source="myp",
+                external_id=myp.external_id,
+                url=myp.url,
+                sku=myp.sku,
+            )
+
+            # Fetch full details and upsert source card
+            detailed = await provider.get_card_details(source_card)
+            if detailed:
+                # Update canonical card with richer data from MYP
+                repo.upsert_card(detailed)
+                repo.upsert_source_card(detailed, card_id=card_id)
+
+                # Fetch current price
+                slug = source_card.url.rsplit("/", 1)[-1]
+                jsonld = await provider.fetch_current_price(
+                    myp.external_id,
+                    slug,
+                )
+                if jsonld and jsonld.price and jsonld.price > 0:
+                    obs = HistoricalPrice(
+                        source="jsonld_snapshot",
+                        external_id=myp.external_id,
+                        observed_at=date.today(),
+                        median_price=jsonld.price,
                     )
-                    if jsonld and jsonld.price and jsonld.price > 0:
-                        obs = HistoricalPrice(
-                            source="jsonld_snapshot",
-                            external_id=myp.external_id,
-                            observed_at=date.today(),
-                            median_price=jsonld.price,
-                        )
-                        repo.insert_price_observations([obs])
-                        log.info(
-                            "canonize_price_fetched",
-                            entry_id=entry_id,
-                            external_id=myp.external_id,
-                            price=str(jsonld.price),
-                        )
+                    repo.insert_price_observations([obs])
+                    log.info(
+                        "canonize_price_fetched",
+                        entry_id=entry_id,
+                        external_id=myp.external_id,
+                        price=str(jsonld.price),
+                    )
     except Exception as exc:
         log.warning(
             "canonize_myp_fetch_failed",

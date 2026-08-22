@@ -57,6 +57,7 @@ def _make_collection_entry_mock():
     """Mock return value for row_to_collection_entry."""
     ce = MagicMock()
     ce.name_en = "Lightning Bolt"
+    ce.name_pt = "Raio"
     return ce
 
 
@@ -73,15 +74,52 @@ class TestCanonizeErrorHandling:
         resp = client.post("/collection/999/canonize")
         assert resp.status_code == 404
 
-    def test_returns_422_when_already_canonical(self) -> None:
+    def test_returns_422_when_already_canonical_with_source(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row(card_id=42)
+        myp_source = MagicMock()
+        myp_source.source = "myp"
+        mock_repo.get_source_cards_for_card.return_value = [myp_source]
 
         app = _make_app(mock_repo)
         client = TestClient(app)
 
         resp = client.post("/collection/1/canonize")
         assert resp.status_code == 422
+
+    @patch(_PATCH_PROVIDER)
+    @patch(_PATCH_MATCHER)
+    @patch(_PATCH_CONVERTER)
+    def test_recanonize_orphan_card_without_source(
+        self, mock_converter, mock_match, mock_provider_cls
+    ) -> None:
+        """When card_id exists but has no MYP source cards, re-run search."""
+        mock_repo = MagicMock()
+        orphan_row = _make_collection_row(card_id=42)
+        mock_repo.get_collection_entry.side_effect = [orphan_row, orphan_row]
+        mock_repo.get_source_cards_for_card.return_value = []  # no source cards
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        mock_converter.return_value = _make_collection_entry_mock()
+
+        mock_match_result = MagicMock()
+        mock_match_result.status = "no_match"
+        mock_match_result.myp_result = None
+        mock_match.return_value = mock_match_result
+
+        mock_provider = AsyncMock()
+        mock_provider.search_card.return_value = []
+        mock_provider.close = AsyncMock()
+        mock_provider_cls.return_value = mock_provider
+
+        app = _make_app(mock_repo)
+        client = TestClient(app)
+
+        resp = client.post("/collection/1/canonize")
+        assert resp.status_code == 200
+        # Should NOT create a new CardRow
+        mock_repo.create_canonical_card.assert_not_called()
+        mock_repo.link_collection_entry.assert_not_called()
 
     @patch(_PATCH_PROVIDER)
     @patch(_PATCH_MATCHER)
@@ -234,3 +272,45 @@ class TestCanonizeErrorHandling:
         assert resp.status_code == 200
 
         mock_provider.close.assert_awaited_once()
+
+    @patch(_PATCH_PROVIDER)
+    @patch(_PATCH_MATCHER)
+    @patch(_PATCH_CONVERTER)
+    def test_pt_fallback_when_en_returns_no_results(
+        self, mock_converter, mock_match, mock_provider_cls
+    ) -> None:
+        """When EN search returns empty, retries with PT name."""
+        mock_repo = MagicMock()
+        unlinked_row = _make_collection_row(card_id=None)
+        linked_row = _make_collection_row(card_id=100)
+        mock_repo.get_collection_entry.side_effect = [unlinked_row, linked_row]
+        mock_repo.create_canonical_card.return_value = 100
+        mock_repo.get_latest_prices_batch.return_value = {}
+        mock_repo.get_source_cards_for_card.return_value = []
+
+        ce = _make_collection_entry_mock()
+        ce.name_en = "Abrade"
+        ce.name_pt = "Abrasão"
+        mock_converter.return_value = ce
+
+        mock_match_result = MagicMock()
+        mock_match_result.status = "no_match"
+        mock_match_result.myp_result = None
+        mock_match.return_value = mock_match_result
+
+        mock_provider = AsyncMock()
+        # EN search returns empty, PT search returns results
+        mock_provider.search_card.side_effect = [[], [MagicMock()]]
+        mock_provider.close = AsyncMock()
+        mock_provider_cls.return_value = mock_provider
+
+        app = _make_app(mock_repo)
+        client = TestClient(app)
+
+        resp = client.post("/collection/1/canonize")
+        assert resp.status_code == 200
+
+        # Should have called search_card twice: EN then PT
+        assert mock_provider.search_card.call_count == 2
+        mock_provider.search_card.assert_any_call("Abrade")
+        mock_provider.search_card.assert_any_call("Abrasão")
