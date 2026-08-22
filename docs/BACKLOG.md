@@ -34,7 +34,7 @@ Prioridade 1 = hotfixes (executar imediato). Prioridade 2 = features planejadas.
 
 ---
 
-## Prioridade 2 — Ecossistema de Aluguel, Trade e Marketplace
+## Prioridade 3 — Ecossistema de Aluguel, Trade e Marketplace - requer Brainstorm
 
 | ID | Titulo (Epico) | Descricao curta | Deps |
 |----|----------------|-----------------|------|
