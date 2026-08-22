@@ -1,0 +1,43 @@
+graph TD
+    subgraph External
+        SF[Scryfall API<br/>Bulk Data / Per-Card]
+    end
+
+    subgraph Backend
+        SYNC[banlist_sync.py<br/>Orchestrator]
+        CLI[CLI: banlist-sync]
+        API[API Router<br/>/banlist/*]
+        REPO[Repository<br/>legality methods]
+    end
+
+    subgraph Database
+        CL[(card_legalities<br/>card_id, format, status)]
+        LH[(legality_history<br/>card_id, format, old/new)]
+        CARDS[(cards<br/>id, name, set_code)]
+    end
+
+    subgraph Frontend
+        BLP[BanList Page<br/>/banlist]
+        LB[LegalityBadge<br/>Component]
+        CCD[CollectionCardDetail<br/>Legality Section]
+        APIC[API Client<br/>banlist.ts]
+    end
+
+    SF -->|NDJSON / JSON| SYNC
+    CLI --> SYNC
+    API -->|POST /sync| SYNC
+    SYNC --> REPO
+    REPO --> CL
+    REPO --> LH
+    REPO --> CARDS
+
+    API -->|GET /banlist| REPO
+    API -->|GET /formats| REPO
+    API -->|GET /card/:id| REPO
+    API -->|GET /history| REPO
+
+    APIC --> API
+    BLP --> APIC
+    CCD --> APIC
+    CCD --> LB
+    BLP --> LB

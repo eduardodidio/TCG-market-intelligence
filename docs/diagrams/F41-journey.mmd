@@ -1,0 +1,29 @@
+graph LR
+    subgraph User Journey - Browse Ban List
+        U1[User opens /banlist] --> U2[Selects format<br/>e.g. Standard]
+        U2 --> U3[Sees banned/restricted<br/>cards in grid]
+        U3 --> U4{Search or filter?}
+        U4 -->|Search| U5[Types card name<br/>debounced 300ms]
+        U4 -->|Filter| U6[Clicks status button<br/>All / Banned / Restricted]
+        U5 --> U3
+        U6 --> U3
+    end
+
+    subgraph User Journey - Card Legality
+        V1[User views card detail<br/>/collection/:id] --> V2{Card linked?}
+        V2 -->|Yes| V3[Legality section loads<br/>from /banlist/card/:id]
+        V2 -->|No| V4[Shows 'data not available']
+        V3 --> V5[Shows top 6 format badges]
+        V5 --> V6{More than 6?}
+        V6 -->|Yes| V7[Click 'Show all' to expand]
+        V6 -->|No| V8[Done]
+        V7 --> V8
+    end
+
+    subgraph Admin Journey - Sync
+        A1[Admin triggers sync<br/>POST /banlist/sync or CLI] --> A2[Backend downloads<br/>Scryfall NDJSON]
+        A2 --> A3[Matches against<br/>local cards]
+        A3 --> A4[Detects status changes<br/>appends to history]
+        A4 --> A5[Upserts legalities<br/>in card_legalities]
+        A5 --> A6[Returns summary]
+    end

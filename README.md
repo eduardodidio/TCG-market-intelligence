@@ -30,6 +30,10 @@ make run-backfill SET=dominaria-remastered LIMIT=5
 - Handles errors gracefully — failed cards are logged and can be retried
 - Architecture supports adding new sources (Liga Magic, Scryfall, etc.)
 - Computes analytics indicators: moving averages, ATH/ATL, volatility, momentum
+- **Ban List (F41)**: centralized format legality data synced from Scryfall.
+  Browse banned/restricted cards per format, search by name, view legality
+  badges on card detail pages. CLI `banlist-sync` and API `POST /banlist/sync`
+  for automated updates.
 
 ## Quick Start
 
