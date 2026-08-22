@@ -29,6 +29,8 @@
     "marketMovers": "Market Movers",
     "myDecks": "My Decks",
     "priceScans": "Price Scans",
+    "schedules": "Schedules",
+    "banlist": "Ban List",
     "toggleNav": "Toggle navigation",
     "signIn": "Sign in",
     "signOut": "Sign out"
@@ -205,6 +207,18 @@
     "startScan": "Start Scan"
   },
   "chart": {
+    "period24h": "24h",
+    "period7d": "7d",
+    "period30d": "30d",
+    "period90d": "90d",
+    "period180d": "180d",
+    "period1y": "1y",
+    "priceStart": "Start",
+    "priceEnd": "Current",
+    "priceChange": "Change",
+    "noDataForPeriod": "No price data for this period",
+    "resolutionDaily": "Daily",
+    "resolutionWeekly": "Weekly",
     "resetZoom": "Reset Zoom",
     "loadingHistory": "Loading price history...",
     "noHistory": "No price history available",
@@ -251,10 +265,80 @@
     "priceHighLow": "Price (High-Low)",
     "priceLowHigh": "Price (Low-High)"
   },
+  "scan": {
+    "streaming": {
+      "connecting": "Connecting to scan stream...",
+      "scanning": "Scanning: \"{{cardName}}\"",
+      "pricesFound": "Prices found: {{found}}/{{total}}",
+      "eta": "ETA: ~{{time}}",
+      "etaMinutes": "{{minutes}}m {{seconds}}s",
+      "etaLessThanMinute": "< 1m",
+      "complete": "Scan complete: {{total}} cards, {{prices}} prices updated",
+      "failed": "Scan failed: {{error}}",
+      "fallback": "Streaming unavailable, using polling..."
+    }
+  },
   "rarity": {
     "mythic": "Mythic",
     "rare": "Rare",
     "uncommon": "Uncommon",
     "common": "Common"
+  },
+  "banlist": {
+    "title": "Ban List",
+    "format": "Format",
+    "status": "Status",
+    "search": "Search cards...",
+    "all": "All",
+    "banned": "Banned",
+    "restricted": "Restricted",
+    "legal": "Legal",
+    "not_legal": "Not Legal",
+    "effective_date": "Effective Date",
+    "no_results": "No banned or restricted cards in this format",
+    "sync": "Sync Ban List",
+    "syncing": "Syncing...",
+    "history": "Change History",
+    "show_all": "Show all formats",
+    "show_less": "Show less"
+  },
+  "legality": {
+    "title": "Format Legality",
+    "unavailable": "Legality data not available"
+  },
+  "schedules": {
+    "title": "Scheduled Scans",
+    "new": "New Schedule",
+    "name": "Name",
+    "description": "Description",
+    "cron": "Cron Expression",
+    "cronHelp": "Standard cron format (min hour day month weekday). Minimum interval: 1 hour.",
+    "scanType": "Scan Type",
+    "maxRetries": "Max Retries",
+    "status": "Status",
+    "active": "Active",
+    "paused": "Paused",
+    "disabled": "Disabled",
+    "lastRun": "Last Run",
+    "nextRun": "Next Run",
+    "errors": "Errors",
+    "actions": "Actions",
+    "trigger": "Run Now",
+    "pause": "Pause",
+    "resume": "Resume",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this schedule?",
+    "empty": "No schedules yet. Create one to automate your price scans.",
+    "presets": {
+      "daily6am": "Daily 6am",
+      "every12h": "Every 12 hours",
+      "weeklyMon": "Weekly (Monday)",
+      "monthly": "Monthly (1st)"
+    },
+    "created": "Schedule created",
+    "updated": "Schedule updated",
+    "deleted": "Schedule deleted",
+    "triggered": "Scan triggered"
   }
 }

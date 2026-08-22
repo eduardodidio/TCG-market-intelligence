@@ -245,23 +245,39 @@ class TestGetHistory:
         assert resp.status_code == 200
         body = resp.json()
         data = body["data"]
-        assert len(data) == 2
+        observations = data["observations"]
+        assert len(observations) == 2
         # Sorted by date ascending
-        assert data[0]["observed_at"] == "2026-08-10"
-        assert data[1]["observed_at"] == "2026-08-15"
+        assert observations[0]["observed_at"] == "2026-08-10"
+        assert observations[1]["observed_at"] == "2026-08-15"
+        # Summary is present
+        assert data["summary"] is not None
+        assert data["summary"]["period"] == "90d"
+        assert data["summary"]["data_points"] == 2
 
     def test_specific_period(self, test_app):
         client, ids = test_app
         resp = client.get(f"/cards/{ids['c2']}/history?period=30d")
         assert resp.status_code == 200
         body = resp.json()
-        assert len(body["data"]) == 1
-        assert body["data"][0]["median_price"] is not None
+        observations = body["data"]["observations"]
+        assert len(observations) == 1
+        assert observations[0]["median_price"] is not None
 
     def test_invalid_period(self, test_app):
         client, ids = test_app
-        resp = client.get(f"/cards/{ids['c1']}/history?period=7d")
+        resp = client.get(f"/cards/{ids['c1']}/history?period=3y")
         assert resp.status_code == 422
+
+    def test_24h_period_accepted(self, test_app):
+        client, ids = test_app
+        resp = client.get(f"/cards/{ids['c1']}/history?period=24h")
+        assert resp.status_code == 200
+
+    def test_7d_period_accepted(self, test_app):
+        client, ids = test_app
+        resp = client.get(f"/cards/{ids['c1']}/history?period=7d")
+        assert resp.status_code == 200
 
     def test_nonexistent_card(self, test_app):
         client, _ = test_app
@@ -273,14 +289,30 @@ class TestGetHistory:
         resp = client.get(f"/cards/{ids['c3']}/history")
         assert resp.status_code == 200
         body = resp.json()
-        assert body["data"] == []
+        assert body["data"]["observations"] == []
 
     def test_history_includes_fields(self, test_app):
         client, ids = test_app
         resp = client.get(f"/cards/{ids['c2']}/history")
         body = resp.json()
-        obs = body["data"][0]
+        obs = body["data"]["observations"][0]
         assert "observed_at" in obs
         assert "median_price" in obs
         assert "tcg_price" in obs
         assert "currency" in obs
+
+    def test_history_response_includes_summary(self, test_app):
+        client, ids = test_app
+        resp = client.get(f"/cards/{ids['c1']}/history")
+        body = resp.json()
+        data = body["data"]
+        assert "observations" in data
+        assert "summary" in data
+        summary = data["summary"]
+        assert "period" in summary
+        assert "price_start" in summary
+        assert "price_end" in summary
+        assert "absolute_change" in summary
+        assert "percent_change" in summary
+        assert "data_points" in summary
+        assert "resolution" in summary

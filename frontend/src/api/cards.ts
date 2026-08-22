@@ -1,4 +1,4 @@
-import type { ApiResponse, CardDetail, CardSummary, PriceObservation } from "../types/api";
+import type { ApiResponse, CardDetail, CardSummary, PriceHistoryResponse } from "../types/api";
 import { apiGet } from "./client";
 
 export function fetchCards(
@@ -18,9 +18,9 @@ export function fetchCardHistory(
   id: number,
   period?: string,
   currency?: string,
-): Promise<ApiResponse<PriceObservation[]>> {
+): Promise<ApiResponse<PriceHistoryResponse>> {
   const params: Record<string, string> = {};
   if (period) params.period = period;
   if (currency) params.currency = currency;
-  return apiGet<PriceObservation[]>(`/api/v1/cards/${id}/history`, params);
+  return apiGet<PriceHistoryResponse>(`/api/v1/cards/${id}/history`, params);
 }

@@ -29,6 +29,8 @@
     "marketMovers": "Movimentacao de Mercado",
     "myDecks": "Meus Decks",
     "priceScans": "Scans de Preco",
+    "schedules": "Agendamentos",
+    "banlist": "Lista de Banimentos",
     "toggleNav": "Alternar navegacao",
     "signIn": "Entrar",
     "signOut": "Sair"
@@ -205,6 +207,18 @@
     "startScan": "Iniciar Scan"
   },
   "chart": {
+    "period24h": "24h",
+    "period7d": "7d",
+    "period30d": "30d",
+    "period90d": "90d",
+    "period180d": "180d",
+    "period1y": "1a",
+    "priceStart": "Inicio",
+    "priceEnd": "Atual",
+    "priceChange": "Variacao",
+    "noDataForPeriod": "Sem dados de preco para este periodo",
+    "resolutionDaily": "Diario",
+    "resolutionWeekly": "Semanal",
     "resetZoom": "Resetar Zoom",
     "loadingHistory": "Carregando historico de precos...",
     "noHistory": "Sem historico de precos disponivel",
@@ -251,10 +265,80 @@
     "priceHighLow": "Preco (Maior-Menor)",
     "priceLowHigh": "Preco (Menor-Maior)"
   },
+  "scan": {
+    "streaming": {
+      "connecting": "Conectando ao stream de varredura...",
+      "scanning": "Varrendo: \"{{cardName}}\"",
+      "pricesFound": "Precos encontrados: {{found}}/{{total}}",
+      "eta": "Tempo restante: ~{{time}}",
+      "etaMinutes": "{{minutes}}m {{seconds}}s",
+      "etaLessThanMinute": "< 1m",
+      "complete": "Varredura completa: {{total}} cartas, {{prices}} precos atualizados",
+      "failed": "Varredura falhou: {{error}}",
+      "fallback": "Streaming indisponivel, usando polling..."
+    }
+  },
   "rarity": {
     "mythic": "Mitica",
     "rare": "Rara",
     "uncommon": "Incomum",
     "common": "Comum"
+  },
+  "banlist": {
+    "title": "Lista de Banimentos",
+    "format": "Formato",
+    "status": "Status",
+    "search": "Buscar cartas...",
+    "all": "Todos",
+    "banned": "Banida",
+    "restricted": "Restrita",
+    "legal": "Legal",
+    "not_legal": "Nao Legal",
+    "effective_date": "Data de Vigencia",
+    "no_results": "Nenhuma carta banida ou restrita neste formato",
+    "sync": "Sincronizar Banimentos",
+    "syncing": "Sincronizando...",
+    "history": "Historico de Alteracoes",
+    "show_all": "Mostrar todos os formatos",
+    "show_less": "Mostrar menos"
+  },
+  "legality": {
+    "title": "Legalidade por Formato",
+    "unavailable": "Dados de legalidade indisponiveis"
+  },
+  "schedules": {
+    "title": "Scans Agendados",
+    "new": "Novo Agendamento",
+    "name": "Nome",
+    "description": "Descricao",
+    "cron": "Expressao Cron",
+    "cronHelp": "Formato cron padrao (min hora dia mes dia_semana). Intervalo minimo: 1 hora.",
+    "scanType": "Tipo de Scan",
+    "maxRetries": "Tentativas Maximas",
+    "status": "Status",
+    "active": "Ativo",
+    "paused": "Pausado",
+    "disabled": "Desativado",
+    "lastRun": "Ultima Execucao",
+    "nextRun": "Proxima Execucao",
+    "errors": "Erros",
+    "actions": "Acoes",
+    "trigger": "Executar Agora",
+    "pause": "Pausar",
+    "resume": "Retomar",
+    "edit": "Editar",
+    "delete": "Excluir",
+    "deleteConfirm": "Tem certeza que deseja excluir este agendamento?",
+    "empty": "Nenhum agendamento ainda. Crie um para automatizar seus scans de preco.",
+    "presets": {
+      "daily6am": "Diario 6h",
+      "every12h": "A cada 12 horas",
+      "weeklyMon": "Semanal (Segunda)",
+      "monthly": "Mensal (Dia 1)"
+    },
+    "created": "Agendamento criado",
+    "updated": "Agendamento atualizado",
+    "deleted": "Agendamento excluido",
+    "triggered": "Scan iniciado"
   }
 }

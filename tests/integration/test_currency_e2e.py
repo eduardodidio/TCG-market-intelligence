@@ -158,7 +158,7 @@ class TestHistoryCurrency:
     def test_brl_history_unchanged(self, client):
         resp = client.get("/api/v1/cards/1/history?period=30d&currency=BRL")
         assert resp.status_code == 200
-        data = resp.json()["data"]
+        data = resp.json()["data"]["observations"]
         assert len(data) == 5
         for obs in data:
             assert obs["currency"] == "BRL"
@@ -168,7 +168,7 @@ class TestHistoryCurrency:
     def test_usd_history_converted(self, client):
         resp = client.get("/api/v1/cards/1/history?period=30d&currency=USD")
         assert resp.status_code == 200
-        data = resp.json()["data"]
+        data = resp.json()["data"]["observations"]
         assert len(data) == 5
         for obs in data:
             assert obs["currency"] == "USD"
@@ -183,7 +183,7 @@ class TestHistoryCurrency:
         seeded_repo.upsert_exchange_rate(ExchangeRate(rate_date=two_days_ago, rate=Decimal("4.00")))
 
         resp = client.get("/api/v1/cards/1/history?period=30d&currency=USD")
-        data = resp.json()["data"]
+        data = resp.json()["data"]["observations"]
 
         # Find the observation for two_days_ago
         obs_2d = [o for o in data if o["observed_at"].startswith(str(two_days_ago))]

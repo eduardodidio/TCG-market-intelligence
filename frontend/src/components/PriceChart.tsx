@@ -17,19 +17,21 @@ import { fetchCardHistory } from "../api/cards";
 import { formatCurrency } from "../utils/format";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { ErrorBanner } from "./ErrorBanner";
-import type { PriceObservation } from "../types/api";
+import type { ApiResponse, PriceHistoryResponse, PriceObservation } from "../types/api";
 
-interface PriceChartProps {
+export interface PriceChartProps {
   cardId: number;
   currency?: string;
+  fetchHistory?: (period: string, currency: string) => Promise<ApiResponse<PriceHistoryResponse>>;
 }
 
 const PERIODS = [
-  { label: "30d", value: "30d" },
-  { label: "90d", value: "90d" },
-  { label: "180d", value: "180d" },
-  { label: "1y", value: "1y" },
-  { label: "3y", value: "3y" },
+  { labelKey: "chart.period24h", value: "24h" },
+  { labelKey: "chart.period7d", value: "7d" },
+  { labelKey: "chart.period30d", value: "30d" },
+  { labelKey: "chart.period90d", value: "90d" },
+  { labelKey: "chart.period180d", value: "180d" },
+  { labelKey: "chart.period1y", value: "1y" },
 ] as const;
 
 function formatChartDate(dateStr: string): string {
@@ -74,28 +76,49 @@ function ChartTooltip({ active, payload, label, currency = "BRL" }: CustomToolti
   );
 }
 
+function isHistoryResponse(data: unknown): data is PriceHistoryResponse {
+  return data != null && typeof data === "object" && "observations" in data;
+}
+
 interface ZoomState {
   left: string | null;
   right: string | null;
 }
 
-export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
+export function PriceChart({ cardId, currency = "BRL", fetchHistory }: PriceChartProps) {
   const { t } = useTranslation();
-  const [period, setPeriod] = useState("90d");
+  const [period, setPeriod] = useState("30d");
   const [zoom, setZoom] = useState<ZoomState>({ left: null, right: null });
   const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
   const [refAreaRight, setRefAreaRight] = useState<string | null>(null);
   const isDragging = useRef(false);
 
   const historyFetcher = useCallback(
-    () => fetchCardHistory(cardId, period, currency),
-    [cardId, period, currency],
+    () => {
+      if (fetchHistory) {
+        return fetchHistory(period, currency);
+      }
+      return fetchCardHistory(cardId, period, currency);
+    },
+    [cardId, period, currency, fetchHistory],
   );
 
-  const { data: observations, loading, error, refetch } = useApi<PriceObservation[]>(
-    historyFetcher,
-    [cardId, period, currency],
+  const { data: rawData, loading, error, refetch } = useApi<PriceHistoryResponse | PriceObservation[]>(
+    historyFetcher as (signal: AbortSignal) => Promise<ApiResponse<PriceHistoryResponse | PriceObservation[]>>,
+    [cardId, period, currency, fetchHistory],
   );
+
+  // Normalize response: support both new {observations, summary} and legacy PriceObservation[]
+  let observations: PriceObservation[] = [];
+  let summary: PriceHistoryResponse["summary"] = null;
+  if (rawData) {
+    if (isHistoryResponse(rawData)) {
+      observations = rawData.observations;
+      summary = rawData.summary;
+    } else if (Array.isArray(rawData)) {
+      observations = rawData;
+    }
+  }
 
   const isZoomed = zoom.left !== null && zoom.right !== null;
 
@@ -128,8 +151,7 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
     isDragging.current = false;
 
     if (refAreaLeft && refAreaRight && refAreaLeft !== refAreaRight) {
-      // Ensure left < right
-      const data = observations ?? [];
+      const data = observations;
       const leftIdx = data.findIndex((d) => d.observed_at === refAreaLeft);
       const rightIdx = data.findIndex((d) => d.observed_at === refAreaRight);
       if (leftIdx !== -1 && rightIdx !== -1) {
@@ -152,11 +174,22 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
     isDragging.current = false;
   }
 
+  function getChangeColor(value: number | null | undefined): string {
+    if (value == null || value === 0) return "text-slate-400";
+    return value > 0 ? "text-green-400" : "text-red-400";
+  }
+
+  function formatChange(abs: number | null | undefined, pct: number | null | undefined, curr: string): string {
+    if (abs == null || pct == null) return "--";
+    const sign = abs >= 0 ? "+" : "";
+    return `${sign}${formatCurrency(abs, curr)} (${sign}${pct.toFixed(1)}%)`;
+  }
+
   return (
     <div data-testid="price-chart" className="bg-slate-800 rounded-lg p-4 border border-slate-600">
       {/* Period selector + zoom reset */}
       <div className="flex items-center justify-between mb-4">
-        <div data-testid="period-selector" className="flex gap-2">
+        <div data-testid="period-selector" className="flex gap-2 flex-wrap">
           {PERIODS.map((p) => (
             <button
               key={p.value}
@@ -171,7 +204,7 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
                   : "bg-slate-700 text-slate-400 hover:text-white hover:bg-slate-600"
               }`}
             >
-              {p.label}
+              {t(p.labelKey)}
             </button>
           ))}
         </div>
@@ -187,18 +220,46 @@ export function PriceChart({ cardId, currency = "BRL" }: PriceChartProps) {
         )}
       </div>
 
+      {/* Price change summary */}
+      {!loading && !error && summary && summary.price_start != null && summary.price_end != null && (
+        <div data-testid="price-summary" className="flex flex-wrap items-center gap-4 mb-4 text-sm">
+          <span className="text-slate-400">
+            {t("chart.priceStart")}: <span className="text-white font-medium">{formatCurrency(summary.price_start, currency)}</span>
+          </span>
+          <span className="text-slate-400">
+            {t("chart.priceEnd")}: <span className="text-white font-medium">{formatCurrency(summary.price_end, currency)}</span>
+          </span>
+          <span className={getChangeColor(summary.absolute_change)}>
+            {t("chart.priceChange")}: {formatChange(summary.absolute_change, summary.percent_change, currency)}
+          </span>
+          <span
+            data-testid="resolution-badge"
+            className="rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-400"
+          >
+            {summary.resolution === "weekly" ? t("chart.resolutionWeekly") : t("chart.resolutionDaily")}
+          </span>
+        </div>
+      )}
+
+      {/* No data for period message */}
+      {!loading && !error && summary && summary.price_start == null && summary.price_end == null && observations.length === 0 && (
+        <p data-testid="no-data-for-period" className="text-slate-400 text-sm mb-3">
+          {t("chart.noDataForPeriod")}
+        </p>
+      )}
+
       {/* Chart area */}
       {loading && <LoadingSpinner message={t("chart.loadingHistory")} />}
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
-      {!loading && !error && (!observations || observations.length === 0) && (
+      {!loading && !error && observations.length === 0 && (
         <p data-testid="empty-history" className="text-slate-400 text-center py-8">
           {t("chart.noHistory")}
         </p>
       )}
 
-      {!loading && !error && observations && observations.length > 0 && (() => {
+      {!loading && !error && observations.length > 0 && (() => {
         const isSparse = observations.length < 7;
         const displayData = getZoomedData(observations);
         return (

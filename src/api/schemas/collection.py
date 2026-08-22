@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from src.api.schemas.cards import PriceObservation, SourceCardSchema
+from src.api.schemas.cards import PriceChangeSummary, PriceObservation, SourceCardSchema
 
 
 class CollectionCard(BaseModel):
@@ -33,6 +33,11 @@ class CollectionCardDetail(CollectionCard):
     source_cards: list[SourceCardSchema] = []
     scryfall_url: str | None = None
     ligamagic_url: str | None = None
+
+
+class CollectionHistoryResponse(BaseModel):
+    observations: list[PriceObservation] = []
+    summary: PriceChangeSummary | None = None
 
 
 class CollectionSummary(BaseModel):

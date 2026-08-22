@@ -203,12 +203,12 @@ class TestHistoryParams:
         params = HistoryParams()
         assert params.period == "90d"
 
-    @pytest.mark.parametrize("period", ["30d", "90d", "180d", "1y", "3y"])
+    @pytest.mark.parametrize("period", ["24h", "7d", "30d", "90d", "180d", "1y"])
     def test_valid_periods(self, period: str) -> None:
         params = HistoryParams(period=period)
         assert params.period == period
 
-    @pytest.mark.parametrize("period", ["7d", "60d", "2y", "all", "abc", ""])
+    @pytest.mark.parametrize("period", ["3y", "60d", "2y", "all", "abc", ""])
     def test_invalid_periods(self, period: str) -> None:
         with pytest.raises(ValidationError):
             HistoryParams(period=period)

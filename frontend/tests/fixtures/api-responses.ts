@@ -7,6 +7,8 @@ import type {
   MarketStats,
   MoverEntry,
   MoversResponse,
+  PriceChangeSummary,
+  PriceHistoryResponse,
   PriceObservation,
   SetSummary,
 } from "../../src/types/api";
@@ -96,8 +98,8 @@ export function mockCardDetail(): ApiResponse<CardDetail> {
   });
 }
 
-export function mockPriceHistory(n = 30): ApiResponse<PriceObservation[]> {
-  const observations: PriceObservation[] = Array.from(
+export function makePriceObservations(n = 30): PriceObservation[] {
+  return Array.from(
     { length: n },
     (_, i) => {
       const date = new Date(2026, 0, 1 + i);
@@ -111,7 +113,46 @@ export function mockPriceHistory(n = 30): ApiResponse<PriceObservation[]> {
       };
     },
   );
-  return envelope<PriceObservation[]>(observations);
+}
+
+export function mockPriceHistory(
+  n = 30,
+  summaryOverrides?: Partial<PriceChangeSummary>,
+): ApiResponse<PriceHistoryResponse> {
+  const observations = makePriceObservations(n);
+  const first = observations[0];
+  const last = observations[observations.length - 1];
+
+  const summary: PriceChangeSummary | null = n > 0
+    ? {
+        period: "30d",
+        price_start: first?.median_price ?? null,
+        price_end: last?.median_price ?? null,
+        absolute_change:
+          first?.median_price != null && last?.median_price != null
+            ? last.median_price - first.median_price
+            : null,
+        percent_change:
+          first?.median_price != null && last?.median_price != null && first.median_price !== 0
+            ? ((last.median_price - first.median_price) / first.median_price) * 100
+            : null,
+        data_points: n,
+        resolution: "daily",
+        ...summaryOverrides,
+      }
+    : null;
+
+  return envelope<PriceHistoryResponse>({
+    observations,
+    summary,
+  });
+}
+
+/**
+ * @deprecated Use mockPriceHistory which returns the new PriceHistoryResponse shape.
+ */
+export function mockPriceHistoryLegacy(n = 30): ApiResponse<PriceObservation[]> {
+  return envelope<PriceObservation[]>(makePriceObservations(n));
 }
 
 export function mockSetSummaries(): ApiResponse<SetSummary[]> {

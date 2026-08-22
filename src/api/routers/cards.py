@@ -6,6 +6,11 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 
+from src.analytics.aggregation import (
+    PERIOD_MAP,
+    aggregate_series,
+    compute_price_change_summary,
+)
 from src.api.deps import get_currency_converter_dep, get_db
 from src.api.schemas.cards import (
     CardDetail,
@@ -13,6 +18,7 @@ from src.api.schemas.cards import (
     PriceObservation,
     SourceCardSchema,
 )
+from src.api.schemas.collection import CollectionHistoryResponse
 from src.api.schemas.envelope import (
     ApiResponse,
     paginated_response,
@@ -22,14 +28,6 @@ from src.database.repository import Repository
 from src.services.currency import CurrencyConverter
 
 router = APIRouter(prefix="/cards", tags=["cards"])
-
-PERIOD_MAP = {
-    "30d": 30,
-    "90d": 90,
-    "180d": 180,
-    "1y": 365,
-    "3y": 1095,
-}
 
 
 def encode_cursor(card_id: int) -> str:
@@ -130,7 +128,7 @@ def get_card(
 
 @router.get(
     "/{card_id}/history",
-    response_model=ApiResponse[list[PriceObservation]],
+    response_model=ApiResponse[CollectionHistoryResponse],
 )
 def get_history(
     card_id: int,
@@ -151,7 +149,7 @@ def get_history(
 
     source_cards = repo.get_source_cards_for_card(card_id)
     if not source_cards:
-        return success_response(data=[])
+        return success_response(data=CollectionHistoryResponse(observations=[], summary=None))
 
     days = PERIOD_MAP[period]
     all_observations = []
@@ -165,7 +163,7 @@ def get_history(
 
     all_observations.sort(key=lambda p: p.observed_at)
 
-    data = [
+    observations = [
         PriceObservation(
             observed_at=p.observed_at,
             median_price=converter.convert(p.median_price, p.observed_at, currency),
@@ -177,4 +175,9 @@ def get_history(
         for p in all_observations
     ]
 
-    return success_response(data=data)
+    observations, resolution = aggregate_series(observations, period)
+    summary = compute_price_change_summary(observations, period, resolution)
+
+    return success_response(
+        data=CollectionHistoryResponse(observations=observations, summary=summary)
+    )

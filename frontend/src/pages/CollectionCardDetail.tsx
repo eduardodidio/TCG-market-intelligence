@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
-import { canonizeCard, fetchCollectionEntry, refreshCardPrice } from "../api/collection";
+import { fetchCardLegalities } from "../api/banlist";
+import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, refreshCardPrice } from "../api/collection";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
+import { LegalityBadge } from "../components/LegalityBadge";
+import type { CardLegality } from "../types/banlist";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PriceChart } from "../components/PriceChart";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
@@ -396,7 +399,13 @@ export function CollectionCardDetail() {
         {/* Right panel: Price chart */}
         <div>
           {entry.card_id != null ? (
-            <PriceChart cardId={entry.card_id} currency={currency} />
+            <PriceChart
+              cardId={entry.card_id}
+              currency={currency}
+              fetchHistory={(period, curr) =>
+                fetchCollectionHistory(entryId, period, curr)
+              }
+            />
           ) : (
             <div data-testid="no-price-chart" className="bg-slate-800 border border-slate-600 rounded-lg p-8 text-center">
               <p className="text-slate-400">
@@ -406,6 +415,117 @@ export function CollectionCardDetail() {
           )}
         </div>
       </div>
+
+      {/* Legality section */}
+      <LegalitySection cardId={entry.card_id} />
+    </div>
+  );
+}
+
+const DEFAULT_SHOWN = 6;
+
+function LegalitySection({ cardId }: { cardId: number | null }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+
+  const legalitiesFetcher = useCallback(
+    () => {
+      if (cardId == null) {
+        return Promise.resolve({
+          data: [] as CardLegality[],
+          meta: { cursor: null, total: null, offset: null, request_id: "" },
+          errors: [],
+        });
+      }
+      return fetchCardLegalities(cardId);
+    },
+    [cardId],
+  );
+
+  const { data: legalities, loading } = useApi<CardLegality[]>(
+    legalitiesFetcher,
+    [cardId],
+  );
+
+  if (cardId == null) {
+    return (
+      <div
+        data-testid="legality-section"
+        className="mt-6 bg-slate-800 border border-slate-600 rounded-lg p-6"
+      >
+        <h2 className="text-lg font-bold text-white mb-3">
+          {t("legality.title")}
+        </h2>
+        <p className="text-sm text-slate-400">
+          {t("legality.unavailable")}
+        </p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div
+        data-testid="legality-section"
+        className="mt-6 bg-slate-800 border border-slate-600 rounded-lg p-6"
+      >
+        <h2 className="text-lg font-bold text-white mb-3">
+          {t("legality.title")}
+        </h2>
+        <div className="animate-pulse flex gap-2 flex-wrap">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-7 w-28 bg-slate-700 rounded" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!legalities || legalities.length === 0) {
+    return null;
+  }
+
+  // Sort: banned/restricted first, then legal, then not_legal
+  const statusOrder: Record<string, number> = {
+    banned: 0,
+    restricted: 1,
+    legal: 2,
+    not_legal: 3,
+  };
+  const sorted = [...legalities].sort(
+    (a, b) => (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4),
+  );
+
+  const shown = expanded ? sorted : sorted.slice(0, DEFAULT_SHOWN);
+  const hasMore = sorted.length > DEFAULT_SHOWN;
+
+  return (
+    <div
+      data-testid="legality-section"
+      className="mt-6 bg-slate-800 border border-slate-600 rounded-lg p-6"
+    >
+      <h2 className="text-lg font-bold text-white mb-3">
+        {t("legality.title")}
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        {shown.map((leg) => (
+          <LegalityBadge
+            key={leg.format}
+            format={leg.format}
+            status={leg.status}
+            size="md"
+          />
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          data-testid="legality-expand"
+          onClick={() => setExpanded(!expanded)}
+          className="mt-3 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+        >
+          {expanded ? t("banlist.show_less") : t("banlist.show_all")}
+        </button>
+      )}
     </div>
   );
 }

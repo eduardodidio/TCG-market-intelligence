@@ -54,6 +54,21 @@ export interface PriceObservation {
   currency: string;
 }
 
+export interface PriceChangeSummary {
+  period: string;
+  price_start: number | null;
+  price_end: number | null;
+  absolute_change: number | null;
+  percent_change: number | null;
+  data_points: number;
+  resolution: string;
+}
+
+export interface PriceHistoryResponse {
+  observations: PriceObservation[];
+  summary: PriceChangeSummary | null;
+}
+
 // Set types
 
 export interface SetSummary {
@@ -221,6 +236,55 @@ export interface DeckImportResult {
   name: string;
   cards_imported: number;
   cards_linked: number;
+}
+
+// Schedule types
+
+export interface ScheduleResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  cron_expression: string;
+  scan_type: string;
+  filters_json: string;
+  status: string;
+  last_run_id: number | null;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  error_count: number;
+  max_retries: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleListResponse {
+  schedules: ScheduleResponse[];
+  total: number;
+}
+
+export interface ScheduleCreateRequest {
+  name: string;
+  cron_expression: string;
+  scan_type?: string;
+  filters_json?: string;
+  description?: string;
+  max_retries?: number;
+}
+
+export interface ScheduleUpdateRequest {
+  name?: string;
+  cron_expression?: string;
+  scan_type?: string;
+  filters_json?: string;
+  description?: string;
+  status?: string;
+  max_retries?: number;
+}
+
+export interface ScheduleTriggerResponse {
+  schedule_id: number;
+  scan_id: number;
+  status: string;
 }
 
 // Auth types

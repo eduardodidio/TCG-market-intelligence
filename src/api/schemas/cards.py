@@ -62,7 +62,17 @@ class CardListParams(BaseModel):
     limit: int = Field(default=50, ge=1, le=200)
 
 
-HistoryPeriod = Literal["30d", "90d", "180d", "1y", "3y"]
+HistoryPeriod = Literal["24h", "7d", "30d", "90d", "180d", "1y"]
+
+
+class PriceChangeSummary(BaseModel):
+    period: str
+    price_start: float | None = None
+    price_end: float | None = None
+    absolute_change: float | None = None
+    percent_change: float | None = None
+    data_points: int = 0
+    resolution: str = "daily"
 
 
 class HistoryParams(BaseModel):

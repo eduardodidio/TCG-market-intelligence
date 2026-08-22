@@ -9,6 +9,11 @@ import structlog
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 
+from src.analytics.aggregation import (
+    PERIOD_MAP,
+    aggregate_series,
+    compute_price_change_summary,
+)
 from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
 from src.api.jobs import job_tracker
 from src.api.schemas.cards import PriceObservation, SourceCardSchema
@@ -16,6 +21,7 @@ from src.api.schemas.collect import JobStatus
 from src.api.schemas.collection import (
     CollectionCard,
     CollectionCardDetail,
+    CollectionHistoryResponse,
     CollectionSummary,
     ImportResult,
     SnapshotRequest,
@@ -158,6 +164,68 @@ def collection_sets(
     sets = repo.get_collection_sets(user_id)
     data = [{"set_code": s[0], "set_name": s[1], "count": s[2]} for s in sets]
     return success_response(data=data)
+
+
+@router.get(
+    "/{entry_id}/history",
+    response_model=ApiResponse[CollectionHistoryResponse],
+)
+def get_collection_history(
+    entry_id: int,
+    period: str = Query(default="30d"),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Get price history for a collection entry."""
+    if period not in PERIOD_MAP:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid period. Must be one of: " + ", ".join(PERIOD_MAP.keys()),
+        )
+
+    entry = repo.get_collection_entry(entry_id)
+    if not entry or entry.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+
+    if entry.card_id is None:
+        return success_response(data=CollectionHistoryResponse(observations=[], summary=None))
+
+    source_cards = repo.get_source_cards_for_card(entry.card_id)
+    if not source_cards:
+        return success_response(data=CollectionHistoryResponse(observations=[], summary=None))
+
+    days = PERIOD_MAP[period]
+    all_observations = []
+    for sc in source_cards:
+        prices = repo.get_price_series(
+            source=[sc.source, "jsonld_snapshot"],
+            external_id=sc.external_id,
+            days=days,
+        )
+        all_observations.extend(prices)
+
+    all_observations.sort(key=lambda p: p.observed_at)
+
+    observations = [
+        PriceObservation(
+            observed_at=p.observed_at,
+            median_price=converter.convert(p.median_price, p.observed_at, currency),
+            tcg_price=converter.convert(p.tcg_price, p.observed_at, currency),
+            last_sold_price=converter.convert(p.last_sold_price, p.observed_at, currency),
+            quantity_available=p.quantity_available,
+            currency=currency,
+        )
+        for p in all_observations
+    ]
+
+    observations, resolution = aggregate_series(observations, period)
+    summary = compute_price_change_summary(observations, period, resolution)
+
+    return success_response(
+        data=CollectionHistoryResponse(observations=observations, summary=summary)
+    )
 
 
 @router.get("/{entry_id}", response_model=ApiResponse[CollectionCardDetail])
@@ -324,7 +392,6 @@ def _build_collection_detail(
 
     image_url = _scryfall_image_url(entry.set_code, entry.collector_number)
     latest_price = None
-    price_history: list[PriceObservation] = []
     source_cards_data: list[SourceCardSchema] = []
 
     if entry.card_id is not None:
@@ -335,24 +402,6 @@ def _build_collection_detail(
 
         source_cards = repo.get_source_cards_for_card(entry.card_id)
         source_cards_data = [SourceCardSchema.model_validate(sc) for sc in source_cards]
-
-        for sc in source_cards:
-            series = repo.get_price_series(
-                source=[sc.source, "jsonld_snapshot"],
-                external_id=sc.external_id,
-            )
-            price_history.extend(
-                PriceObservation(
-                    observed_at=p.observed_at,
-                    median_price=converter.convert(p.median_price, p.observed_at, currency),
-                    tcg_price=converter.convert(p.tcg_price, p.observed_at, currency),
-                    last_sold_price=converter.convert(p.last_sold_price, p.observed_at, currency),
-                    quantity_available=p.quantity_available,
-                    currency=currency,
-                )
-                for p in series
-            )
-        price_history.sort(key=lambda p: p.observed_at)
 
     name = entry.name_en or entry.name_pt or ""
     scryfall_url = None
@@ -381,7 +430,7 @@ def _build_collection_detail(
         latest_price=latest_price,
         currency=currency,
         image_url=image_url,
-        price_history=price_history,
+        price_history=[],
         source_cards=source_cards_data,
         scryfall_url=scryfall_url,
         ligamagic_url=ligamagic_url,

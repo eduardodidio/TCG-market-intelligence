@@ -1,4 +1,4 @@
-import type { ApiResponse, CollectionCard, CollectionCardDetail, CollectionSummary } from "../types/api";
+import type { ApiResponse, CollectionCard, CollectionCardDetail, CollectionSummary, PriceHistoryResponse } from "../types/api";
 import { apiGet, apiPost } from "./client";
 
 export function fetchCollection(
@@ -41,6 +41,20 @@ export function canonizeCard(
     `/api/v1/collection/${entryId}/canonize${query}`,
     {},
     { timeoutMs: 30000 },
+  );
+}
+
+export function fetchCollectionHistory(
+  entryId: number,
+  period?: string,
+  currency?: string,
+): Promise<ApiResponse<PriceHistoryResponse>> {
+  const params: Record<string, string> = {};
+  if (period) params.period = period;
+  if (currency) params.currency = currency;
+  return apiGet<PriceHistoryResponse>(
+    `/api/v1/collection/${entryId}/history`,
+    params,
   );
 }
 

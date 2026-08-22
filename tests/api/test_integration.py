@@ -229,10 +229,13 @@ class TestGetHistory:
         resp = client.get(f"/api/v1/cards/{card_id}/history")
         body = resp.json()
         assert resp.status_code == 200
-        assert len(body["data"]) > 0
+        observations = body["data"]["observations"]
+        assert len(observations) > 0
         # Should be ordered by date
-        dates = [obs["observed_at"] for obs in body["data"]]
+        dates = [obs["observed_at"] for obs in observations]
         assert dates == sorted(dates)
+        # Summary should be present
+        assert body["data"]["summary"] is not None
 
     def test_history_period_30d(self, client):
         list_resp = client.get("/api/v1/cards?set=dmr")
@@ -241,9 +244,10 @@ class TestGetHistory:
         resp = client.get(f"/api/v1/cards/{card_id}/history?period=30d")
         body = resp.json()
         assert resp.status_code == 200
+        observations = body["data"]["observations"]
         # 30d period should have fewer observations than default 90d
         cutoff = date.today() - timedelta(days=30)
-        for obs in body["data"]:
+        for obs in observations:
             assert obs["observed_at"] >= cutoff.isoformat()
 
     def test_history_card_not_found(self, client):
