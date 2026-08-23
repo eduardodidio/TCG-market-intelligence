@@ -5,6 +5,7 @@ Test plan scenarios: #16, #17, #18 (F49-T02).
 
 from __future__ import annotations
 
+import io
 from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
@@ -16,8 +17,9 @@ from src.api.routers.collection import router
 _TEST_USER_ID = "eduardo"
 
 _PATCH_IMPORT = "src.collection.importer.import_collection_csv"
-_PATCH_PATH_EXISTS = "pathlib.Path.exists"
 _PATCH_RUN_CANONIZE = "src.api.routers.collection._run_import_canonize"
+
+_DUMMY_CSV = b"Card (EN),Card (PT),Edicao (Sigla),Card #\nBolt,,lea,161\n"
 
 
 def _make_app(mock_repo: MagicMock, user_id: str = _TEST_USER_ID) -> FastAPI:
@@ -28,15 +30,20 @@ def _make_app(mock_repo: MagicMock, user_id: str = _TEST_USER_ID) -> FastAPI:
     return app
 
 
+def _upload_csv(client: TestClient) -> ...:
+    """POST /collection/import with a dummy CSV file upload."""
+    return client.post(
+        "/collection/import",
+        files={"file": ("collection.csv", io.BytesIO(_DUMMY_CSV), "text/csv")},
+    )
+
+
 class TestImportTriggersBackgroundCanonize:
     """#16: Background task scheduled after import with new_entry_ids."""
 
     @patch(_PATCH_RUN_CANONIZE)
-    @patch(_PATCH_PATH_EXISTS, return_value=True)
     @patch(_PATCH_IMPORT)
-    def test_import_triggers_background_canonize(
-        self, mock_import, _mock_exists, mock_run_canonize
-    ):
+    def test_import_triggers_background_canonize(self, mock_import, mock_run_canonize):
         mock_import.return_value = {
             "imported": 3,
             "skipped": 0,
@@ -49,7 +56,7 @@ class TestImportTriggersBackgroundCanonize:
         app = _make_app(mock_repo)
         client = TestClient(app)
 
-        resp = client.post("/collection/import")
+        resp = _upload_csv(client)
         assert resp.status_code == 200
 
         body = resp.json()
@@ -58,11 +65,8 @@ class TestImportTriggersBackgroundCanonize:
         assert body["data"]["imported"] == 3
 
     @patch(_PATCH_RUN_CANONIZE)
-    @patch(_PATCH_PATH_EXISTS, return_value=True)
     @patch(_PATCH_IMPORT)
-    def test_import_no_new_entries_skips_canonize(
-        self, mock_import, _mock_exists, mock_run_canonize
-    ):
+    def test_import_no_new_entries_skips_canonize(self, mock_import, mock_run_canonize):
         """#18: When all entries are duplicates/skipped, no background task is scheduled."""
         mock_import.return_value = {
             "imported": 0,
@@ -76,7 +80,7 @@ class TestImportTriggersBackgroundCanonize:
         app = _make_app(mock_repo)
         client = TestClient(app)
 
-        resp = client.post("/collection/import")
+        resp = _upload_csv(client)
         assert resp.status_code == 200
 
         body = resp.json()
@@ -87,9 +91,8 @@ class TestImportTriggersBackgroundCanonize:
 class TestImportCanonizeDoesNotBlockResponse:
     """#17: Import returns 200 before canonize completes."""
 
-    @patch(_PATCH_PATH_EXISTS, return_value=True)
     @patch(_PATCH_IMPORT)
-    def test_import_canonize_does_not_block_response(self, mock_import, _mock_exists):
+    def test_import_canonize_does_not_block_response(self, mock_import):
         """The response should return immediately with canonize_scheduled=True.
 
         BackgroundTasks in FastAPI execute after the response is sent,
@@ -107,7 +110,7 @@ class TestImportCanonizeDoesNotBlockResponse:
         app = _make_app(mock_repo)
         client = TestClient(app)
 
-        resp = client.post("/collection/import")
+        resp = _upload_csv(client)
 
         # Response returns immediately (200), not delayed by canonize
         assert resp.status_code == 200
@@ -119,9 +122,8 @@ class TestImportCanonizeDoesNotBlockResponse:
 class TestImportResponseIncludesNewFields:
     """Verify the import response schema includes all new F49-T02 fields."""
 
-    @patch(_PATCH_PATH_EXISTS, return_value=True)
     @patch(_PATCH_IMPORT)
-    def test_import_response_has_all_fields(self, mock_import, _mock_exists):
+    def test_import_response_has_all_fields(self, mock_import):
         mock_import.return_value = {
             "imported": 1,
             "skipped": 1,
@@ -134,7 +136,7 @@ class TestImportResponseIncludesNewFields:
         app = _make_app(mock_repo)
         client = TestClient(app)
 
-        resp = client.post("/collection/import")
+        resp = _upload_csv(client)
         assert resp.status_code == 200
 
         data = resp.json()["data"]
@@ -146,3 +148,19 @@ class TestImportResponseIncludesNewFields:
         # New F49-T02 fields
         assert "new_entry_ids" in data
         assert "canonize_scheduled" in data
+
+
+class TestImportRejectsNonCsv:
+    """T1-03: Import endpoint rejects non-CSV files."""
+
+    def test_rejects_non_csv_file(self):
+        mock_repo = MagicMock()
+        app = _make_app(mock_repo)
+        client = TestClient(app)
+
+        resp = client.post(
+            "/collection/import",
+            files={"file": ("data.json", io.BytesIO(b"{}"), "application/json")},
+        )
+        assert resp.status_code == 400
+        assert "CSV" in resp.json()["detail"]

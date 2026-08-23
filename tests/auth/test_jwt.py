@@ -59,14 +59,13 @@ class TestDecodeToken:
 
     def test_custom_secret_via_env(self):
         with patch.dict(os.environ, {"TCG_JWT_SECRET": "my-test-secret-123"}):
-            # Reset the dev secret cache
-            import src.auth.jwt as jwt_mod
-
-            old_dev = jwt_mod._dev_secret
-            jwt_mod._dev_secret = None
-
             token = create_access_token(user_id=10, email="env@test.com")
             payload = decode_token(token)
             assert payload["sub"] == "10"
 
-            jwt_mod._dev_secret = old_dev
+    def test_missing_secret_raises_runtime_error(self):
+        with patch.dict(os.environ, {}, clear=True):
+            # Remove TCG_JWT_SECRET entirely
+            os.environ.pop("TCG_JWT_SECRET", None)
+            with pytest.raises(RuntimeError, match="TCG_JWT_SECRET"):
+                create_access_token(user_id=1, email="x@y.com")

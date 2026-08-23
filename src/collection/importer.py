@@ -14,7 +14,7 @@ from src.database.models import Base, CardRow, UserCollectionRow
 def import_collection_csv(
     engine,
     csv_path: str | Path,
-    user_id: str = "eduardo",
+    user_id: str,
 ) -> dict[str, int | list[int]]:
     """Parse a collection CSV and insert rows into user_collection.
 
@@ -67,44 +67,47 @@ def import_collection_csv(
             )
 
     with Session(engine) as session:
-        # Clear existing collection for this user before re-import
-        session.query(UserCollectionRow).filter(UserCollectionRow.user_id == user_id).delete()
-        session.commit()
+        try:
+            # Clear existing collection for this user before re-import
+            session.query(UserCollectionRow).filter(UserCollectionRow.user_id == user_id).delete()
 
-        for data in rows_to_insert:
-            # Link to canonical card (both sides are lowercase after normalization)
-            card = session.execute(
-                select(CardRow).where(
-                    CardRow.game == "magic",
-                    CardRow.set_code == data["set_code"],
-                    CardRow.collector_number == data["collector_number"],
-                )
-            ).scalar_one_or_none()
+            for data in rows_to_insert:
+                # Link to canonical card (both sides are lowercase after normalization)
+                card = session.execute(
+                    select(CardRow).where(
+                        CardRow.game == "magic",
+                        CardRow.set_code == data["set_code"],
+                        CardRow.collector_number == data["collector_number"],
+                    )
+                ).scalar_one_or_none()
 
-            if card:
-                card_id = card.id
-            else:
-                # Auto-canonize: create canonical card from collection data
-                new_card = CardRow(
-                    game="magic",
-                    name_en=data["name_en"],
-                    name_pt=data["name_pt"],
-                    set_code=data["set_code"],
-                    collector_number=data["collector_number"],
-                )
-                session.add(new_card)
-                session.flush()
-                card_id = new_card.id
+                if card:
+                    card_id = card.id
+                else:
+                    # Auto-canonize: create canonical card from collection data
+                    new_card = CardRow(
+                        game="magic",
+                        name_en=data["name_en"],
+                        name_pt=data["name_pt"],
+                        set_code=data["set_code"],
+                        collector_number=data["collector_number"],
+                    )
+                    session.add(new_card)
+                    session.flush()
+                    card_id = new_card.id
 
-            linked += 1
+                linked += 1
 
-            row = UserCollectionRow(card_id=card_id, **data)
-            session.add(row)
-            session.flush()  # populate row.id
-            new_entry_ids.append(row.id)
-            imported += 1
+                row = UserCollectionRow(card_id=card_id, **data)
+                session.add(row)
+                session.flush()  # populate row.id
+                new_entry_ids.append(row.id)
+                imported += 1
 
-        session.commit()
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
 
     return {
         "imported": imported,

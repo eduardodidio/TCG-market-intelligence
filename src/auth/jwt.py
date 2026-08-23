@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import uuid
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -12,18 +11,15 @@ _ALGORITHM = "HS256"
 _ACCESS_TOKEN_EXPIRE_MINUTES = 30
 _REFRESH_TOKEN_EXPIRE_DAYS = 7
 
-# Fallback to a random secret for dev; production MUST set TCG_JWT_SECRET.
-_dev_secret: str | None = None
-
 
 def _get_secret() -> str:
-    global _dev_secret
     secret = os.environ.get("TCG_JWT_SECRET")
-    if secret:
-        return secret
-    if _dev_secret is None:
-        _dev_secret = str(uuid.uuid4())
-    return _dev_secret
+    if not secret:
+        raise RuntimeError(
+            "TCG_JWT_SECRET environment variable is required. "
+            "Set it before starting the application."
+        )
+    return secret
 
 
 def create_access_token(user_id: int, email: str) -> str:

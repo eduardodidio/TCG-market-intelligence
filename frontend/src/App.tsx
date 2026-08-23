@@ -60,6 +60,9 @@ const MarketPage = lazy(() =>
 const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login })),
 );
+const NotFoundPage = lazy(() =>
+  import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
+);
 
 /**
  * Syncs user's preferred_language from their profile to the LanguageContext
@@ -276,6 +279,18 @@ export default function App() {
                 }
               />
             </Route>
+
+            {/* 404 catch-all */}
+            <Route
+              path="*"
+              element={
+                <Suspense
+                  fallback={<LoadingSpinner message="Loading page..." />}
+                >
+                  <NotFoundPage />
+                </Suspense>
+              }
+            />
           </Routes>
         </BrowserRouter>
       </CurrencyProvider>

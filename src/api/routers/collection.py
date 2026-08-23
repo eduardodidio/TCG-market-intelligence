@@ -7,7 +7,7 @@ from datetime import date
 from decimal import Decimal
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile
 from fastapi.exceptions import HTTPException
 
 from src.analytics.aggregation import (
@@ -820,24 +820,32 @@ def _build_collection_detail(
 
 @router.post("/import", response_model=ApiResponse[ImportResult])
 def import_collection(
+    file: UploadFile,
     background_tasks: BackgroundTasks,
     repo: Repository = Depends(get_db),
     user_id: str = Depends(require_auth_or_api_key),
 ):
-    """Import collection from the default CSV file."""
+    """Import collection from an uploaded CSV file."""
+    import tempfile
     from pathlib import Path
 
     from src.collection.importer import import_collection_csv
 
-    csv_path = Path("docs/colecaoImport/export_1b19325b553f22c3260d042d65c1d7dcb07f2743.csv")
-    if not csv_path.exists():
-        raise HTTPException(status_code=404, detail="Collection CSV not found")
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
 
-    result = import_collection_csv(
-        engine=repo.engine,
-        csv_path=csv_path,
-        user_id=user_id,
-    )
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+        tmp.write(file.file.read())
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = import_collection_csv(
+            engine=repo.engine,
+            csv_path=tmp_path,
+            user_id=user_id,
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
     new_entry_ids = result.get("new_entry_ids", [])
     canonize_scheduled = False

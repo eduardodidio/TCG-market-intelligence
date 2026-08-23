@@ -7,6 +7,9 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# JWT secret — required for auth; use a default for local dev
+export TCG_JWT_SECRET="${TCG_JWT_SECRET:-dev-secret-change-in-production}"
+
 cleanup() {
   echo ""
   echo "Shutting down..."

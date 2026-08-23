@@ -514,6 +514,10 @@
       "auto": "Automatico"
     }
   },
+  "notFound": {
+    "message": "Pagina nao encontrada",
+    "backHome": "Voltar ao Inicio"
+  },
   "gaucho": {
     "dashboard": {
       "message": "Bah meu, ta tri a plataforma ne?! Os guris se puxaram!",
