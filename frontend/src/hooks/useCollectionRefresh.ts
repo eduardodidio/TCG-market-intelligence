@@ -82,6 +82,7 @@ export function useCollectionRefresh(
     setIsRefreshing(false);
     setIsDone(true);
     setScanId(null);
+    localStorage.removeItem("tcg_active_scan");
     onCompleteRef.current?.();
     doneTimerRef.current = setTimeout(() => {
       setIsDone(false);
@@ -94,6 +95,7 @@ export function useCollectionRefresh(
     clearTimers();
     setIsRefreshing(false);
     setScanId(null);
+    localStorage.removeItem("tcg_active_scan");
     setError(msg);
     errorTimerRef.current = setTimeout(() => {
       setError(null);
@@ -116,6 +118,7 @@ export function useCollectionRefresh(
     disconnect();
     setScanId(null);
     setIsRefreshing(false);
+    localStorage.removeItem("tcg_active_scan");
     setProgress(null);
     setError(null);
     setIsDone(false);
@@ -145,7 +148,24 @@ export function useCollectionRefresh(
 
     // Set scanId to trigger SSE connection via useScanStream
     setScanId(res.data.scan_id);
+    localStorage.setItem("tcg_active_scan", JSON.stringify({ scanId: res.data.scan_id }));
   }, [isRefreshing]);
+
+  // Resume active scan from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("tcg_active_scan");
+    if (stored) {
+      try {
+        const { scanId: storedScanId } = JSON.parse(stored);
+        if (storedScanId && !isRefreshing) {
+          setIsRefreshing(true);
+          setScanId(storedScanId);
+        }
+      } catch {
+        localStorage.removeItem("tcg_active_scan");
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup on unmount
   useEffect(() => {

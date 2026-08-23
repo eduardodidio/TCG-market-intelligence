@@ -14,7 +14,7 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const [refreshing, setRefreshing] = useState(false);
-  const displayName = getCardName(card.name_en, (card as any).name_pt, t("common.unknownCard"));
+  const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const linkTo = card.in_collection && card.collection_entry_id
     ? `/collection/${card.collection_entry_id}`
     : card.card_id

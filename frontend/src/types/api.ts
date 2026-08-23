@@ -247,6 +247,7 @@ export interface DeckSummary {
 export interface DeckCard {
   id: number;
   name_en: string;
+  name_pt: string | null;
   set_code: string | null;
   collector_number: string | null;
   quantity: number;

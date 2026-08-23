@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, refreshCardPrice } from "../api/collection";
 import { fetchCardBanHistory } from "../api/banlist";
@@ -37,6 +37,7 @@ function sourceLabel(source: string): string {
 export function CollectionCardDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const entryId = Number(id);
 
   const { currency } = useCurrency();
@@ -70,10 +71,10 @@ export function CollectionCardDetail() {
         setRefreshMsg({ type: "success", text: t("collection.refreshSuccess") });
       } else {
         const msg = res.errors?.[0]?.message || t("collection.refreshError");
-        setRefreshMsg({ type: "error", text: msg });
+        setRefreshMsg({ type: "error", text: `${msg}. ${t("collection.refreshFallbackHint")}` });
       }
     } catch {
-      setRefreshMsg({ type: "error", text: t("collection.refreshError") });
+      setRefreshMsg({ type: "error", text: `${t("collection.refreshError")}. ${t("collection.refreshFallbackHint")}` });
     } finally {
       setRefreshing(false);
       setTimeout(() => setRefreshMsg(null), 3000);
@@ -185,6 +186,17 @@ export function CollectionCardDetail() {
 
   return (
     <div data-testid="page-collection-detail">
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-1 text-sm text-slate-400 hover:text-white transition-colors mb-4"
+        data-testid="back-button"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        {t("common.back")}
+      </button>
+
       {/* Breadcrumb */}
       <nav data-testid="breadcrumb" className="mb-6 text-sm text-slate-400" aria-label="Breadcrumb">
         <Link to="/collection" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded">

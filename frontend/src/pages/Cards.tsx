@@ -43,10 +43,14 @@ export function Cards() {
 
   // Load sets on mount
   useEffect(() => {
-    fetchSets().then((res) => {
-      if (res.data) setSets(res.data);
-    });
-  }, []);
+    fetchSets()
+      .then((res) => {
+        if (res.data) setSets(res.data);
+      })
+      .catch(() => {
+        setError(t("cards.setsLoadError"));
+      });
+  }, [t]);
 
   // Sync search params to URL
   useEffect(() => {

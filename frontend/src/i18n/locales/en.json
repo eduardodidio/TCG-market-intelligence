@@ -20,7 +20,8 @@
     "all": "All",
     "noImage": "No Image",
     "notOwned": "Not Owned",
-    "networkError": "Unable to connect to the server. Please check your connection."
+    "networkError": "Unable to connect to the server. Please check your connection.",
+    "back": "Back"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -69,7 +70,8 @@
     "title": "Explore Cards",
     "searchPlaceholder": "Search cards by name...",
     "noCardsFiltered": "No cards found. Try a different search.",
-    "noCardsEmpty": "No cards with price data yet. Run a collection sync to fetch prices."
+    "noCardsEmpty": "No cards with price data yet. Run a collection sync to fetch prices.",
+    "setsLoadError": "Failed to load sets filter"
   },
   "cardDetail": {
     "pageTitle": "Card Detail | TCG Market",
@@ -118,7 +120,8 @@
     "unlinkedCount": "{{count}} unlinked",
     "canonizeResult": "Canonized {{canonized}} of {{total}} cards",
     "canonizeFailed": "{{failed}} cards failed",
-    "canonizeScheduled": "Canonization scheduled"
+    "canonizeScheduled": "Canonization scheduled",
+    "refreshFallbackHint": "Last known price shown. Use manual entry below to update."
   },
   "market": {
     "title": "Market Movers",
@@ -149,7 +152,8 @@
     "noCards": "No cards in this deck.",
     "deleteTitle": "Delete Deck?",
     "deleteMessage": "This will permanently delete \"{{name}}\" and all its cards. This action cannot be undone.",
-    "failedDelete": "Failed to delete deck"
+    "failedDelete": "Failed to delete deck",
+    "cardNotFound": "Card not found"
   },
   "deckImport": {
     "title": "Import Deck",
@@ -394,7 +398,8 @@
     "created": "Schedule created",
     "updated": "Schedule updated",
     "deleted": "Schedule deleted",
-    "triggered": "Scan triggered"
+    "triggered": "Scan triggered",
+    "pausedByErrors": "Auto-paused after {{count}} errors"
   },
   "topDecks": {
     "title": "Top Decks by Value",

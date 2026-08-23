@@ -106,6 +106,17 @@ export function DeckView() {
 
   return (
     <div data-testid="page-deck-view">
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-1 text-sm text-slate-400 hover:text-white transition-colors mb-4"
+        data-testid="back-button"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        {t("common.back")}
+      </button>
+
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -271,9 +282,20 @@ export function DeckView() {
         </p>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {deck.cards.map((card) => (
-            <DeckCardTile key={card.id} card={card} onRefresh={handleDeckCardRefresh} />
-          ))}
+          {deck.cards.map((card) => {
+            if (!card.name_en && !card.card_id) {
+              return (
+                <div
+                  key={card.id}
+                  className="rounded-lg bg-slate-800 border border-slate-600/50 p-4 flex items-center justify-center aspect-[488/680]"
+                  data-testid={`deck-card-missing-${card.id}`}
+                >
+                  <p className="text-xs text-slate-500 text-center">{t("decks.cardNotFound")}</p>
+                </div>
+              );
+            }
+            return <DeckCardTile key={card.id} card={card} onRefresh={handleDeckCardRefresh} />;
+          })}
         </div>
       )}
 

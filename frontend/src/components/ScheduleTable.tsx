@@ -100,6 +100,11 @@ export function ScheduleTable({
               </td>
               <td className="px-4 py-3">
                 <StatusBadge status={schedule.status} />
+                {schedule.status === "paused" && schedule.error_count > 0 && (
+                  <span className="block text-xs text-amber-400/70 mt-0.5" data-testid={`pause-reason-${schedule.id}`}>
+                    {t("schedules.pausedByErrors", { count: schedule.error_count })}
+                  </span>
+                )}
               </td>
               <td className="px-4 py-3 text-slate-300">
                 {formatRelativeTime(schedule.last_run_at)}

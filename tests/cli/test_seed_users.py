@@ -12,10 +12,11 @@ from src.database.repository import Repository
 
 
 class TestSeedUsers:
-    def test_creates_both_users(self, tmp_path):
+    def test_creates_both_users_with_env_password(self, tmp_path, monkeypatch):
         db_path = tmp_path / "test_seed.db"
         db_url = f"sqlite:///{db_path}"
 
+        monkeypatch.setenv("TCG_SEED_PASSWORD", "test-password-123")
         runner = CliRunner()
         result = runner.invoke(cli, ["seed-users", "--db", db_url])
         assert result.exit_code == 0
@@ -33,9 +34,19 @@ class TestSeedUsers:
         assert user2 is not None
         assert user2.display_name == "Anderson Serafim"
 
-        # Verify passwords
-        assert verify_password("mudar@123", user1.password_hash)
-        assert verify_password("mudar@123", user2.password_hash)
+        # Verify passwords match the env var
+        assert verify_password("test-password-123", user1.password_hash)
+        assert verify_password("test-password-123", user2.password_hash)
+
+    def test_generates_random_password_when_no_env(self, tmp_path, monkeypatch):
+        db_path = tmp_path / "test_seed_rand.db"
+        db_url = f"sqlite:///{db_path}"
+
+        monkeypatch.delenv("TCG_SEED_PASSWORD", raising=False)
+        runner = CliRunner()
+        result = runner.invoke(cli, ["seed-users", "--db", db_url])
+        assert result.exit_code == 0
+        assert "generated password:" in result.output
 
     def test_idempotent_second_run(self, tmp_path):
         db_path = tmp_path / "test_seed2.db"

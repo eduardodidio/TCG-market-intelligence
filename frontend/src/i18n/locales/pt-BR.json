@@ -20,7 +20,8 @@
     "all": "Todas",
     "noImage": "Sem Imagem",
     "notOwned": "Nao possui",
-    "networkError": "Nao foi possivel conectar ao servidor. Verifique sua conexao."
+    "networkError": "Nao foi possivel conectar ao servidor. Verifique sua conexao.",
+    "back": "Voltar"
   },
   "nav": {
     "dashboard": "Painel",
@@ -69,7 +70,8 @@
     "title": "Explorar Cartas",
     "searchPlaceholder": "Buscar cartas por nome...",
     "noCardsFiltered": "Nenhuma carta encontrada. Tente uma busca diferente.",
-    "noCardsEmpty": "Ainda nao ha cartas com dados de preco. Execute uma sincronizacao de colecao para buscar precos."
+    "noCardsEmpty": "Ainda nao ha cartas com dados de preco. Execute uma sincronizacao de colecao para buscar precos.",
+    "setsLoadError": "Falha ao carregar filtro de edicoes"
   },
   "cardDetail": {
     "pageTitle": "Detalhe da Carta | TCG Market",
@@ -118,7 +120,8 @@
     "unlinkedCount": "{{count}} sem vinculo",
     "canonizeResult": "Canonizadas {{canonized}} de {{total}} cartas",
     "canonizeFailed": "{{failed}} cartas falharam",
-    "canonizeScheduled": "Canonizacao agendada"
+    "canonizeScheduled": "Canonizacao agendada",
+    "refreshFallbackHint": "Ultimo preco conhecido exibido. Use a entrada manual abaixo para atualizar."
   },
   "market": {
     "title": "Movimentacao de Mercado",
@@ -149,7 +152,8 @@
     "noCards": "Nenhuma carta neste deck.",
     "deleteTitle": "Excluir Deck?",
     "deleteMessage": "Isso excluira permanentemente \"{{name}}\" e todas as suas cartas. Esta acao nao pode ser desfeita.",
-    "failedDelete": "Falha ao excluir deck"
+    "failedDelete": "Falha ao excluir deck",
+    "cardNotFound": "Carta nao encontrada"
   },
   "deckImport": {
     "title": "Importar Deck",
@@ -394,7 +398,8 @@
     "created": "Agendamento criado",
     "updated": "Agendamento atualizado",
     "deleted": "Agendamento excluido",
-    "triggered": "Scan iniciado"
+    "triggered": "Scan iniciado",
+    "pausedByErrors": "Auto-pausado apos {{count}} erro(s)"
   },
   "topDecks": {
     "title": "Top Decks por Valor",

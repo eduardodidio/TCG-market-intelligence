@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 
 import click
 import structlog
@@ -517,18 +518,24 @@ def migrate_user(db, old_id, new_id):
 @click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
 def seed_users(db):
     """Create initial seed users (idempotent)."""
+    import secrets
+
     from src.auth.passwords import hash_password
     from src.database.repository import Repository
 
     log = structlog.get_logger()
 
+    password = os.environ.get("TCG_SEED_PASSWORD")
+    if password is None:
+        password = secrets.token_urlsafe(16)
+        click.echo(f"  No TCG_SEED_PASSWORD set — generated password: {password}")
+
     SEED_USERS = [
         {
             "email": "eduardorutkoskididio@gmail.com",
             "display_name": "Eduardo Didio",
-            "password": "mudar@123",
         },
-        {"email": "anderson.serafim", "display_name": "Anderson Serafim", "password": "mudar@123"},
+        {"email": "anderson.serafim", "display_name": "Anderson Serafim"},
     ]
 
     repo = Repository(db_url=db)
@@ -539,7 +546,7 @@ def seed_users(db):
             click.echo(f"  Skipped (exists): {user_data['email']}")
             continue
 
-        pw_hash = hash_password(user_data["password"])
+        pw_hash = hash_password(password)
         repo.create_user(
             email=user_data["email"],
             display_name=user_data["display_name"],

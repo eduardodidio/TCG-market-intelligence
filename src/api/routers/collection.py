@@ -555,6 +555,8 @@ def set_manual_price(
 
     # Reload entry to get card_id (may have been auto-created above)
     entry = repo.get_collection_entry(entry_id)
+    if entry is None or entry.card_id is None:
+        raise HTTPException(status_code=422, detail="Failed to link collection entry to card")
     repo.upsert_manual_price(entry.card_id, price_brl, date.today())
     log.info(
         "manual_price_set",
