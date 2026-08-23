@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { fetchMarketStats } from "../api/market";
 import { fetchCollectionHealth } from "../api/collect";
@@ -234,6 +235,19 @@ export function Dashboard() {
           currency={currency}
           limit={10}
         />
+      </div>
+
+      {/* View All link */}
+      <div className="text-center" data-testid="trending-view-all">
+        <Link
+          to="/market/trending"
+          className="inline-flex items-center gap-1 text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors"
+        >
+          {t("common.viewAll")}
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
       </div>
     </div>
   );

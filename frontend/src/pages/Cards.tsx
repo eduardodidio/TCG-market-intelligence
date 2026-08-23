@@ -9,6 +9,7 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { FilterChips } from "../components/FilterChips";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
+import { SortSelect, EXPLORE_SORT_OPTIONS } from "../components/SortSelect";
 import { useCurrency } from "../hooks/useCurrency";
 import { useDebounce } from "../hooks/useDebounce";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
@@ -31,6 +32,8 @@ export function Cards() {
   const [selectedSet, setSelectedSet] = useState<string | null>(
     searchParams.get("set") ?? null,
   );
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">((searchParams.get("dir") as "asc" | "desc") ?? "asc");
   const [cards, setCards] = useState<CardSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,8 +60,10 @@ export function Cards() {
     const params: Record<string, string> = {};
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
+    if (sortBy !== "name") params.sort = sortBy;
+    if (sortDir !== "asc") params.dir = sortDir;
     setSearchParams(params, { replace: true });
-  }, [debouncedSearch, selectedSet, setSearchParams]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, setSearchParams]);
 
   // Fetch cards when filters change
   useEffect(() => {
@@ -76,6 +81,10 @@ export function Cards() {
     };
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
+    if (sortBy !== "price") {
+      params.sort_by = sortBy;
+      params.sort_dir = sortDir;
+    }
 
     fetchCards(params)
       .then((res) => {
@@ -96,7 +105,7 @@ export function Cards() {
           setLoading(false);
         }
       });
-  }, [debouncedSearch, selectedSet, currency]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, currency]);
 
   // Load more handler
   const handleLoadMore = useCallback(() => {
@@ -110,6 +119,10 @@ export function Cards() {
     };
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
+    if (sortBy !== "price") {
+      params.sort_by = sortBy;
+      params.sort_dir = sortDir;
+    }
 
     fetchCards(params)
       .then((res) => {
@@ -126,7 +139,7 @@ export function Cards() {
       .finally(() => {
         setLoadingMore(false);
       });
-  }, [cursor, loadingMore, debouncedSearch, selectedSet, currency]);
+  }, [cursor, loadingMore, debouncedSearch, selectedSet, sortBy, sortDir, currency]);
 
   const setOptions = sets.map((s) => ({
     label: s.set_code,
@@ -142,13 +155,27 @@ export function Cards() {
     setSelectedSet(null);
   }, []);
 
+  const handleSortChange = useCallback((newSortBy: string, newSortDir: "asc" | "desc") => {
+    setSortBy(newSortBy);
+    setSortDir(newSortDir);
+  }, []);
+
   return (
     <div data-testid="page-cards">
       <h2 className="text-2xl font-bold text-white mb-6">{t("cards.title")}</h2>
 
       {/* Search and filters */}
       <div className="space-y-4 mb-6">
-        <SearchBar value={searchTerm} onChange={setSearchTerm} />
+        <div className="flex gap-3 items-center">
+          <div className="flex-1">
+            <SearchBar value={searchTerm} onChange={setSearchTerm} />
+          </div>
+          <SortSelect
+            options={EXPLORE_SORT_OPTIONS}
+            value={`${sortBy}-${sortDir}`}
+            onChange={handleSortChange}
+          />
+        </div>
 
         {setOptions.length > 0 && (
           <FilterChips

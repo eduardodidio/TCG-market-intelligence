@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { importDeck } from "../api/decks";
+import type { DeckImportResult } from "../types/api";
 
 interface DeckImportModalProps {
   onClose: () => void;
@@ -15,6 +16,7 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<DeckImportResult | null>(null);
 
   const handleImport = async () => {
     if (!name.trim() || !content.trim()) {
@@ -39,10 +41,64 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
       return;
     }
 
+    if (resp.data) {
+      setResult(resp.data);
+    } else {
+      onSuccess();
+    }
+  };
+
+  const handleDone = () => {
     onSuccess();
   };
 
   const inputClasses = "w-full px-3 py-2 rounded-md bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors";
+
+  // Summary view after successful import
+  if (result) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        data-testid="deck-import-modal"
+      >
+        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 w-full max-w-lg mx-4 p-6">
+          <h2 className="text-xl font-bold text-white mb-4">{t("deckImport.importComplete")}</h2>
+
+          <div className="space-y-3 mb-6" data-testid="import-summary">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">{t("deckImport.summaryName")}</span>
+              <span className="text-white font-medium">{result.name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">{t("deckImport.summaryImported")}</span>
+              <span className="text-white font-medium">{result.cards_imported}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">{t("deckImport.summaryLinked")}</span>
+              <span className="text-green-400 font-medium">{result.cards_linked}</span>
+            </div>
+            {result.cards_imported > result.cards_linked && (
+              <p className="text-xs text-amber-400 mt-2">
+                {t("deckImport.summaryUnlinkedHint", {
+                  count: result.cards_imported - result.cards_linked,
+                })}
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={handleDone}
+              className="px-4 py-2 rounded-md text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-400 transition-colors shadow-md"
+              data-testid="import-done-btn"
+            >
+              {t("common.viewAll")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -110,6 +166,11 @@ export function DeckImportModal({ onClose, onSuccess }: DeckImportModalProps) {
             <label className="block text-sm font-medium text-slate-400 mb-1">
               {t("deckImport.deckList")}
             </label>
+            <p className="text-xs text-slate-500 mb-1" data-testid="format-help">
+              {format === "text"
+                ? t("deckImport.textFormatHelp")
+                : t("deckImport.csvFormatHelp")}
+            </p>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}

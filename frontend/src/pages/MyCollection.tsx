@@ -6,6 +6,7 @@ import { fetchCollectionBanned } from "../api/banEngine";
 import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPrice } from "../api/collection";
 import { BanAlertBanner } from "../components/BanAlertBanner";
 import { BulkCanonizeButton } from "../components/BulkCanonizeButton";
+import { FreshnessIndicator } from "../components/FreshnessIndicator";
 import { BanBadge } from "../components/BanBadge";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -22,6 +23,7 @@ import { useGridSize } from "../hooks/useGridSize";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { BannedCollectionCard, CollectionCard, CollectionSummary } from "../types/api";
 import { DEFAULT_PAGE_LIMIT, GRID_SIZE_CONFIG } from "../utils/constants";
+import { fetchCollectionHealth } from "../api/collect";
 import { useCardName } from "../hooks/useCardName";
 import { useCollectionRefresh } from "../hooks/useCollectionRefresh";
 import { useCurrency } from "../hooks/useCurrency";
@@ -254,6 +256,8 @@ export function MyCollection() {
   const [recentlyScanned, setRecentlyScanned] = useState<Map<string, { color: "green" | "amber"; timer: ReturnType<typeof setTimeout> }>>(new Map());
   const [priceFoundCount, setPriceFoundCount] = useState(0);
   const [scanStartTime, setScanStartTime] = useState(0);
+  const [lastCollectionAt, setLastCollectionAt] = useState<string | null>(null);
+  const [healthStatus, setHealthStatus] = useState<string>("healthy");
 
   const debouncedSearch = useDebounce(searchTerm, 300);
   const fetchIdRef = useRef(0);
@@ -371,6 +375,12 @@ export function MyCollection() {
     });
     fetchCollectionBanned().then((res) => {
       if (res.data) setBannedCards(res.data);
+    });
+    fetchCollectionHealth().then((res) => {
+      if (res.data) {
+        setLastCollectionAt(res.data.last_collection_at);
+        setHealthStatus(res.data.status);
+      }
     });
   }, [currency, refreshKey]);
 
@@ -502,7 +512,10 @@ export function MyCollection() {
 
   return (
     <div data-testid="page-collection">
-      <h2 className="text-2xl font-bold text-white mb-6">{t("collection.title")}</h2>
+      <div className="flex items-center gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-white">{t("collection.title")}</h2>
+        <FreshnessIndicator lastCollectionAt={lastCollectionAt} status={healthStatus} />
+      </div>
 
       {/* Summary KPIs */}
       {summary && (

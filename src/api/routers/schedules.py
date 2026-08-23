@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,6 +14,7 @@ from src.api.schemas.schedules import (
     ScheduleTriggerResponse,
     ScheduleUpdateRequest,
 )
+from src.config import get_db_url
 from src.database.repository import Repository
 from src.scheduler.service import validate_cron
 
@@ -24,7 +24,7 @@ MAX_SCHEDULES_PER_USER = 10
 
 
 def _get_db_url() -> str:
-    return os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+    return get_db_url()
 
 
 def _dt_to_str(val: object) -> str | None:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import threading
 from datetime import date
 
@@ -21,6 +20,7 @@ from src.api.schemas.banlist import (
 )
 from src.api.schemas.collect import JobStatus
 from src.api.schemas.envelope import ApiResponse, success_response
+from src.config import get_db_url
 from src.database.repository import Repository
 from src.utils.set_code_map import map_to_scryfall_set_code
 
@@ -219,7 +219,7 @@ async def trigger_sync(
     def _run() -> None:
         from src.collectors.banlist_sync import run_banlist_sync
 
-        db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+        db_url = get_db_url()
         try:
             summary = asyncio.run(
                 run_banlist_sync(

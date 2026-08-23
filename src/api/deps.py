@@ -5,6 +5,7 @@ from collections.abc import Generator
 
 from fastapi import Header, HTTPException
 
+from src.config import get_db_url
 from src.database.repository import Repository
 
 
@@ -22,7 +23,7 @@ def verify_api_key(x_api_key: str | None = Header(None)) -> None:
 
 def get_db() -> Generator[Repository, None, None]:
     """FastAPI dependency that yields a Repository instance."""
-    db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+    db_url = get_db_url()
     repo = Repository(db_url=db_url)
     yield repo
 
@@ -31,7 +32,7 @@ def get_currency_converter_dep():  # noqa: F811
     """FastAPI dependency that yields a CurrencyConverter."""
     from src.services.currency import CurrencyConverter
 
-    db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+    db_url = get_db_url()
     repo = Repository(db_url=db_url)
     yield CurrencyConverter(repo)
 
@@ -51,7 +52,7 @@ def _create_market_data_service():
         from src.services.currency import CurrencyConverter
         from src.services.market_data import MarketDataService
 
-        db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+        db_url = get_db_url()
         repo = Repository(db_url=db_url)
         converter = CurrencyConverter(repo)
         cache = AggregateCache()

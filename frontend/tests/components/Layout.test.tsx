@@ -69,7 +69,7 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    expect(links).toHaveLength(11);
+    expect(links).toHaveLength(12);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -83,6 +83,7 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Price Scans");
     expect(linkTexts).toContain("Schedules");
     expect(linkTexts).toContain("Ban List");
+    expect(linkTexts).toContain("Settings");
   });
 
   it("hides protected nav items when unauthenticated", () => {

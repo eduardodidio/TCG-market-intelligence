@@ -60,6 +60,9 @@ const MarketPage = lazy(() =>
 const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login })),
 );
+const Settings = lazy(() =>
+  import("./pages/Settings").then((m) => ({ default: m.Settings })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -262,6 +265,18 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <Scans />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <Settings />
                     </ProtectedRoute>
                   </Suspense>
                 }

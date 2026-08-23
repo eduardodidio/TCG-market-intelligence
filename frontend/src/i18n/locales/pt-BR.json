@@ -38,7 +38,8 @@
     "market": "Mercado",
     "toggleNav": "Alternar navegacao",
     "signIn": "Entrar",
-    "signOut": "Sair"
+    "signOut": "Sair",
+    "settings": "Configuracoes"
   },
   "dashboard": {
     "title": "Minha Colecao",
@@ -169,7 +170,14 @@
     "descriptionPlaceholder": "ex: Deck aggro rapido para FNM",
     "importing": "Importando...",
     "import": "Importar",
-    "requiredError": "Nome e conteudo sao obrigatorios."
+    "requiredError": "Nome e conteudo sao obrigatorios.",
+    "textFormatHelp": "Uma carta por linha: quantidade nome [SET:numero]. Exemplo: 4 Lightning Bolt [LEA:161]",
+    "csvFormatHelp": "CSV com cabecalhos: Card (EN), Edicao (Sigla), Card #, Quantidade",
+    "importComplete": "Importacao Concluida",
+    "summaryName": "Nome do Deck",
+    "summaryImported": "Cartas Importadas",
+    "summaryLinked": "Cartas Vinculadas a Colecao",
+    "summaryUnlinkedHint": "{{count}} carta(s) nao puderam ser vinculadas a sua colecao."
   },
   "auth": {
     "appTitle": "TCG Market",
@@ -518,6 +526,15 @@
       "myp": "MYP",
       "auto": "Automatico"
     }
+  },
+  "settings": {
+    "title": "Configuracoes",
+    "account": "Conta",
+    "preferences": "Preferencias",
+    "apiKeys": "Chaves de API",
+    "dataExport": "Exportacao de Dados",
+    "comingSoon": "Em breve.",
+    "saved": "Preferencias salvas"
   },
   "notFound": {
     "message": "Pagina nao encontrada",

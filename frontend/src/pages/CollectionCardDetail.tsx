@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, refreshCardPrice } from "../api/collection";
 import { fetchCardBanHistory } from "../api/banlist";
@@ -8,6 +8,7 @@ import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { BanEventCard } from "../components/BanEventCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { LegalityPanel } from "../components/LegalityPanel";
@@ -37,7 +38,7 @@ function sourceLabel(source: string): string {
 export function CollectionCardDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+
   const entryId = Number(id);
 
   const { currency } = useCurrency();
@@ -169,12 +170,12 @@ export function CollectionCardDetail() {
     return (
       <div data-testid="page-collection-detail">
         <div data-testid="entry-not-found" className="text-center py-12">
-          <h2 className="text-2xl font-bold text-white mb-4">Collection entry not found</h2>
+          <h2 className="text-2xl font-bold text-white mb-4">{t("collection.entryNotFound")}</h2>
           <Link
             to="/collection"
             className="inline-block rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
-            Back to Collection
+            {t("collection.backToCollection")}
           </Link>
         </div>
       </div>
@@ -186,25 +187,12 @@ export function CollectionCardDetail() {
 
   return (
     <div data-testid="page-collection-detail">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm text-slate-400 hover:text-white transition-colors mb-4"
-        data-testid="back-button"
-      >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        {t("common.back")}
-      </button>
-
-      {/* Breadcrumb */}
-      <nav data-testid="breadcrumb" className="mb-6 text-sm text-slate-400" aria-label="Breadcrumb">
-        <Link to="/collection" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded">
-          {t("collection.breadcrumbCollection")}
-        </Link>
-        <span className="mx-2" aria-hidden="true">&gt;</span>
-        <span className="text-white">{displayName}</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: t("collection.breadcrumbCollection"), to: "/collection" },
+          { label: displayName },
+        ]}
+      />
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -119,8 +119,8 @@ describe("DeckView page", () => {
       expect(screen.getByTestId("deck-title")).toBeDefined();
     });
 
-    expect(screen.getByText("Mono Red Burn")).toBeDefined();
-    expect(screen.getByText("Fast aggro deck")).toBeDefined();
+    expect(screen.getByTestId("deck-title").textContent).toBe("Mono Red Burn");
+    expect(screen.getByTestId("deck-description").textContent).toBe("Fast aggro deck");
   });
 
   it("renders deck stats", async () => {

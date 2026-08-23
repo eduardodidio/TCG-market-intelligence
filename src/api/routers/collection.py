@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import os
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile
@@ -42,6 +41,7 @@ from src.api.schemas.metrics import (
     PriceExtremesSchema,
     VolatilitySchema,
 )
+from src.config import get_db_url
 from src.database.repository import Repository
 from src.domain.models import CardAnalytics, HistoricalPrice
 from src.services import ban_analyzer
@@ -538,7 +538,7 @@ def set_manual_price(
             raise HTTPException(
                 status_code=422, detail="Exchange rate unavailable for USD conversion"
             )
-        price_brl = (price_brl * rate).quantize(Decimal("0.01"))
+        price_brl = (price_brl * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     # PILA is 1:1 with BRL, no conversion needed
 
     # Auto-create minimal CardRow if entry has no card_id
@@ -948,7 +948,7 @@ async def _run_sync_job(
     try:
         from src.collectors.sync_collection import run_sync_collection
 
-        db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+        db_url = get_db_url()
         summary = await run_sync_collection(
             db_url=db_url,
             limit=limit,
@@ -993,7 +993,7 @@ async def _run_snapshot_job(
     try:
         from src.collectors.snapshot_prices import run_snapshot_prices
 
-        db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+        db_url = get_db_url()
         summary = await run_snapshot_prices(
             db_url=db_url,
             limit=limit,

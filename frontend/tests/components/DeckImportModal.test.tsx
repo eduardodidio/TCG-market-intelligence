@@ -87,7 +87,7 @@ describe("DeckImportModal", () => {
     expect(submitBtn.disabled).toBe(true);
   });
 
-  it("calls API and onSuccess on successful import", async () => {
+  it("calls API and shows summary on successful import", async () => {
     const envelope = {
       data: { deck_id: 1, name: "My Deck", cards_imported: 4, cards_linked: 2 },
       meta: { cursor: null, total: null, offset: null, request_id: "r1" },
@@ -109,9 +109,14 @@ describe("DeckImportModal", () => {
 
     fireEvent.click(screen.getByTestId("submit-import-btn"));
 
+    // Shows summary view with import results
     await waitFor(() => {
-      expect(onSuccess).toHaveBeenCalledOnce();
+      expect(screen.getByTestId("import-summary")).toBeDefined();
     });
+
+    // Clicking done calls onSuccess
+    fireEvent.click(screen.getByTestId("import-done-btn"));
+    expect(onSuccess).toHaveBeenCalledOnce();
   });
 
   it("shows error on API failure", async () => {

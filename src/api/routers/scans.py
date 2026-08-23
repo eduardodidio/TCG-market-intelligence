@@ -20,6 +20,7 @@ from src.api.schemas.scans import (
     ScanTriggerResponse,
 )
 from src.auth.jwt import decode_token
+from src.config import get_db_url
 from src.database.repository import Repository
 from src.domain.models import ScanFilter, ScanType
 from src.events import scan_bus
@@ -30,7 +31,7 @@ _KEEPALIVE_TIMEOUT = 30  # seconds
 
 
 def _get_db_url() -> str:
-    return os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+    return get_db_url()
 
 
 def _dt_to_str(val: object) -> str | None:

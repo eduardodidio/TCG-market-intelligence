@@ -5,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 import { refreshCardPrice } from "../api/collection";
 import { fetchDeckValue } from "../api/deckRanking";
 import { deleteDeck, fetchDeck } from "../api/decks";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckCardTile } from "../components/DeckCardTile";
 import type { DeckDetail, DeckValueDetail } from "../types/api";
 
@@ -106,16 +107,12 @@ export function DeckView() {
 
   return (
     <div data-testid="page-deck-view">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm text-slate-400 hover:text-white transition-colors mb-4"
-        data-testid="back-button"
-      >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        {t("common.back")}
-      </button>
+      <Breadcrumb
+        items={[
+          { label: t("decks.title"), to: "/decks" },
+          { label: deck.name },
+        ]}
+      />
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6">

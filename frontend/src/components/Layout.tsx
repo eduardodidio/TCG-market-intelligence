@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true },
   { to: "/scans", labelKey: "nav.priceScans", requiresAuth: true },
   { to: "/schedules", labelKey: "nav.schedules", requiresAuth: true },
+  { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
 ] as const;
 
 function getInitials(name: string | null | undefined): string {

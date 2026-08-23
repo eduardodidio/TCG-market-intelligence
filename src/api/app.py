@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.api.schemas.envelope import ErrorDetail
+from src.config import get_db_url
 
 
 @asynccontextmanager
@@ -21,7 +22,7 @@ async def lifespan(app: FastAPI):
         try:
             from src.scheduler.service import ScanScheduler
 
-            db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+            db_url = get_db_url()
             scheduler = ScanScheduler(db_url)
             scheduler.start()
             app.state.scheduler = scheduler
@@ -51,7 +52,7 @@ async def lifespan(app: FastAPI):
         if _trending_service is not None:
             trending_svc = _trending_service
         else:
-            db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+            db_url = get_db_url()
             repo = Repository(db_url=db_url)
             trending_svc = get_trending_service(repo)
         trending_hook = make_trending_invalidation_hook(trending_svc)
