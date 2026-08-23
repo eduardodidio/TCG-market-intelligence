@@ -86,11 +86,14 @@ Write tests for new components. Run full test suite before finishing.
 
 ---
 
-## Wave D — Missing Features (backlog, discuss before executing)
+## Prioridade 3 — Backlog (requer brainstorm antes de executar)
+
+> **Status:** Nenhum item abaixo deve ser executado sem brainstorm prévio.
+> Use `/brainstorm` para explorar cada tema antes de planejar.
+
+### Wave D — Missing Features
 
 ```
-These are new features, not fixes. Discuss priority with user before implementing.
-
 D-01. Watchlist / Price Alerts
 - New model: WatchlistEntry (user_id, card_id, target_price, direction, active)
 - CRUD API endpoints
@@ -118,4 +121,35 @@ D-05. Bulk Operations
 - Multi-select mode on collection page (checkboxes)
 - Bulk delete, bulk export, bulk refresh selected
 - Select all / deselect all
+```
+
+### Ideias Futuras — Brainstorm
+
+```
+I-01. Guia de Investimento em Cards
+- Ensino de investimento em cards de Magic
+- Mostrar riscos, retornos e mecânicas para rendimentos
+- Conteúdo focado na plataforma (educacional, não consultoria)
+- Filtros por ano de tiragem do card (cartas antigas que ainda são boas se valorizam?)
+
+I-02. Sistema de Trocas, Aluguéis e Comodato
+- Trocas e aluguéis via lojas parceiras e pessoas de confiança
+- Plataforma ganha pelas transações (taxa/comissão)
+- Facilidade de leva-e-traz via Correios (busca em casa)
+- Aluguel de decks para torneios ("faça seus cards renderem")
+- Contratos a comodato para deixar nas lojas
+
+I-03. Sistemas de Pagamento
+- Pesquisar opções de gateway/pagamento integrado
+- Definir modelo de cobrança (taxa por transação, assinatura, freemium)
+
+I-04. Propaganda de Proxys
+- Seção "quer esta mega carta aqui?" com proxys de alta qualidade
+- Modelo de monetização (parceria com fornecedores de proxy)
+
+I-05. Orgulho Gaúcho — Slogan + Benefícios
+- Slogan gaúcho para a plataforma
+- 5% de desconto em taxas para gaúchos residentes no Sul
+- Verificação por DDD do celular + endereço
+- Se não for DDD nacional: "tá e aí?" + perguntas gaúchas de verificação
 ```
