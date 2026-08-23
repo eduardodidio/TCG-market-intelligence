@@ -121,6 +121,7 @@ export interface CollectionCard {
   color: string | null;
   extras: string | null;
   latest_price: number | null;
+  price_source?: string | null;
   currency?: string;
   image_url: string | null;
 }
@@ -502,6 +503,16 @@ export interface VolatileCardEntry {
   composite_score: number;
   observation_count: number;
   currency: string;
+}
+
+// Bulk canonize types (F49)
+
+export interface BulkCanonizeResult {
+  total: number;
+  canonized: number;
+  failed: number;
+  skipped: number;
+  rate_limited: number;
 }
 
 // Ticker types (F39)

@@ -12,8 +12,10 @@ import { BanEventCard } from "../components/BanEventCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { LegalityPanel } from "../components/LegalityPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { ManualPriceInput } from "../components/ManualPriceInput";
 import { MetricsPanel } from "../components/MetricsPanel";
 import { PriceChart } from "../components/PriceChart";
+import { PriceSourceBadge } from "../components/PriceSourceBadge";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
 import type { CardBanHistoryEntry } from "../types/banlist";
 import type { CollectionCardDetail as CollectionCardDetailType } from "../types/api";
@@ -267,6 +269,7 @@ export function CollectionCardDetail() {
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-1">
               <p className="text-sm text-slate-400">{t("cardDetail.latestPrice")}</p>
+              <PriceSourceBadge priceSource={entry.price_source} />
               {entry.card_id != null && (
                 <button
                   data-testid="refresh-price-btn"
@@ -304,6 +307,7 @@ export function CollectionCardDetail() {
                 {refreshMsg.text}
               </p>
             )}
+            <ManualPriceInput entryId={entryId} currency={currency} onSaved={refetch} />
           </div>
 
           {/* Linked status — show canonize when unlinked OR linked but no source cards */}

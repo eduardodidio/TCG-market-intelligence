@@ -1,0 +1,34 @@
+graph TD
+    START((User)) --> IMPORT{Import CSV?}
+
+    IMPORT -->|Yes| CSV[Upload CSV File]
+    CSV --> PARSE[Parse & Create CardRows]
+    PARSE --> INSERT[Insert UserCollectionRows]
+    INSERT --> AUTO[Auto-schedule background canonize]
+    AUTO --> BULK
+
+    IMPORT -->|No, existing cards| CLICK[Click 'Canonize All' button]
+    CLICK --> BULK
+
+    subgraph BULK[Bulk Canonize Process]
+        QUERY[Query unlinked entries]
+        QUERY --> LOOP{More entries?}
+        LOOP -->|Yes| SEARCH[Search MYP by name]
+        SEARCH --> MATCH{Match found?}
+        MATCH -->|Yes| LINK[Create CardRow + SourceCardRow]
+        LINK --> PRICE[Fetch current price]
+        PRICE --> UPDATE[Link entry to card_id]
+        UPDATE --> LOOP
+        MATCH -->|No| SKIP[Skip / log error]
+        SKIP --> LOOP
+        LOOP -->|No| DONE[Return summary]
+    end
+
+    DONE --> RESULT[Show result banner]
+    RESULT --> REFRESH[Refresh collection data]
+    REFRESH --> END((Collection updated))
+
+    CLI_START((Admin)) --> DRY{Dry run?}
+    DRY -->|Yes| COUNT[Show unlinked count]
+    COUNT --> CLI_END((Done))
+    DRY -->|No| BULK

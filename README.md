@@ -79,6 +79,7 @@ python -m src.cli.main retry-failed
 | `schedule-remove` | Remove a scheduled scan by ID |
 | `analyze list` | List all cards with observation counts |
 | `analyze card <id>` | Compute analytics for a single card by external ID |
+| `canonize-all` | Bulk-canonize all unlinked collection entries |
 
 ### Options
 
@@ -784,6 +785,51 @@ Hardened the canonize (link to price tracking) flow:
   red (error).
 - **i18n** -- `collection.canonizePartial` key in EN and PT-BR.
 - **Tests** -- 6 new backend tests, 3 new frontend tests.
+
+### F49 -- Auto-Canonize Collection (2026-08-22)
+
+Automatic bulk linking of collection cards to MYP price tracking, replacing
+one-by-one manual canonization:
+
+- **Bulk canonize service** -- `src/collectors/bulk_canonize.py` finds all
+  unlinked entries (card_id IS NULL) and orphans (card_id but no SourceCard),
+  then canonizes each via MYP search+match+fetch with asyncio.Semaphore
+  concurrency control. Handles NotFoundError, RateLimitError, ServerError
+  gracefully. Returns detailed summary (total/canonized/failed/skipped/rate_limited).
+- **API endpoint** -- `POST /api/v1/collection/canonize-all` (JWT auth,
+  optional `?limit=` param). Returns BulkCanonizeResult.
+- **Auto-canonize on import** -- CSV import now tracks new entry IDs and
+  schedules background canonization via FastAPI BackgroundTasks. Import
+  response includes `canonize_scheduled: bool`.
+- **CLI** -- `canonize-all --user-id <id>` with `--limit`, `--concurrency`,
+  and `--dry-run` options. Dry-run shows unlinked count without MYP calls.
+- **Frontend** -- BulkCanonizeButton on MyCollection page, visible only
+  when unlinked cards exist. Amber button with unlinked count, loading
+  spinner, result/error banners, auto-refresh on completion.
+- **i18n** -- 6 new keys in EN and PT-BR for canonize UI.
+- **Tests:** 61 new tests (34 backend + 27 frontend).
+
+### F50 -- Manual Price Entry (2026-08-22)
+
+Manual price input for collection cards, filling the gap for cards without
+automatic MYP pricing data:
+
+- **API endpoint** -- `PATCH /api/v1/collection/{entry_id}/price` accepts
+  `{price, currency}` body (BRL/USD/PILA). Auth + IDOR check. USD prices
+  converted to BRL via PTAX before storage. Auto-creates minimal CardRow
+  for unlinked entries.
+- **Price storage** -- reuses `PriceObservationRow` with `source="manual"`.
+  Manual prices coexist with MYP/jsonld prices in the timeline. Same-day
+  upsert (setting price twice updates, not duplicates).
+- **Price source indicator** -- `price_source` field on all collection
+  responses ("manual", "myp", "jsonld_snapshot", null). Priority: latest
+  date wins; manual wins same-day ties.
+- **Frontend** -- `ManualPriceInput` component on card detail page (numeric
+  input + Save button + validation + success/error feedback).
+  `PriceSourceBadge` amber badge for manual prices. Pencil icon on
+  collection tiles for manually priced cards.
+- **i18n** -- 10 new keys in EN and PT-BR for manual price UI.
+- **Tests:** 92 new tests (47 backend + 45 frontend).
 
 ## Future
 

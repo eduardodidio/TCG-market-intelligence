@@ -635,6 +635,184 @@ describe("CollectionCardDetail page", () => {
     });
   });
 
+  it("renders PriceSourceBadge when price_source is manual", async () => {
+    globalThis.fetch = createMockFetch(makeLinkedEntry({ price_source: "manual" })) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("price-source-badge")).toBeDefined();
+    });
+
+    expect(screen.getByTestId("price-source-badge").textContent).toContain("Manual Price");
+  });
+
+  it("does not render PriceSourceBadge for auto prices", async () => {
+    globalThis.fetch = createMockFetch(makeLinkedEntry({ price_source: "myp" })) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("card-info-panel")).toBeDefined();
+    });
+
+    expect(screen.queryByTestId("price-source-badge")).toBeNull();
+  });
+
+  it("does not render PriceSourceBadge when price_source is null", async () => {
+    globalThis.fetch = createMockFetch(makeLinkedEntry({ price_source: undefined })) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("card-info-panel")).toBeDefined();
+    });
+
+    expect(screen.queryByTestId("price-source-badge")).toBeNull();
+  });
+
+  it("renders ManualPriceInput section on card detail page", async () => {
+    globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("manual-price-input")).toBeDefined();
+    });
+
+    expect(screen.getByTestId("manual-price-field")).toBeDefined();
+    expect(screen.getByTestId("manual-price-save")).toBeDefined();
+  });
+
+  it("manual price input calls PATCH and refreshes on success", async () => {
+    const linkedEntry = makeLinkedEntry();
+    const updatedEntry = makeLinkedEntry({ latest_price: 25.5, price_source: "manual" });
+
+    let callCount = 0;
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      const urlStr = String(url);
+
+      // PATCH price endpoint
+      if (urlStr.includes("/price") && options?.method === "PATCH") {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(updatedEntry),
+        });
+      }
+
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/legality")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+
+      if (urlStr.includes("/api/v1/collection/")) {
+        callCount++;
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(callCount <= 1 ? linkedEntry : updatedEntry),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+      });
+    });
+
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("manual-price-field")).toBeDefined();
+    });
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.change(screen.getByTestId("manual-price-field"), { target: { value: "25.50" } });
+    screen.getByTestId("manual-price-save").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("manual-price-success")).toBeDefined();
+    });
+
+    // Verify PATCH was called
+    const patchCall = mockFetch.mock.calls.find(
+      ([u, o]: [string, RequestInit | undefined]) => String(u).includes("/price") && o?.method === "PATCH",
+    );
+    expect(patchCall).toBeDefined();
+  });
+
+  it("manual price input shows error on API failure", async () => {
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      const urlStr = String(url);
+
+      if (urlStr.includes("/price") && options?.method === "PATCH") {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({
+            data: null,
+            meta: { cursor: null, total: null, offset: null, request_id: "e1" },
+            errors: [{ code: "internal", message: "Server error" }],
+          }),
+        });
+      }
+
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/legality")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+
+      if (urlStr.includes("/api/v1/collection/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(makeLinkedEntry()),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+      });
+    });
+
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("manual-price-field")).toBeDefined();
+    });
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.change(screen.getByTestId("manual-price-field"), { target: { value: "10" } });
+    screen.getByTestId("manual-price-save").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("manual-price-error")).toBeDefined();
+    });
+  });
+
   it("canonize full success shows green message", async () => {
     const unlinkedResponse = makeUnlinkedEntry();
     const linkedResponse = makeLinkedEntry();

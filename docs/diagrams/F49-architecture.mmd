@@ -1,0 +1,49 @@
+graph TD
+    subgraph Frontend
+        MC[MyCollection Page]
+        BCB[BulkCanonizeButton]
+        MC --> BCB
+    end
+
+    subgraph API["FastAPI API Layer"]
+        CE[POST /collection/canonize-all]
+        IE[POST /collection/import]
+        BT[BackgroundTasks]
+        IE --> BT
+    end
+
+    subgraph Services
+        BC[bulk_canonize]
+        CS[_canonize_single]
+        BC --> CS
+    end
+
+    subgraph Providers
+        MYP[MypCardsProvider]
+        SEARCH[Search API]
+        FETCH[Fetch Product Page]
+        MYP --> SEARCH
+        MYP --> FETCH
+    end
+
+    subgraph Database
+        UCR[UserCollectionRow]
+        CR[CardRow]
+        SCR[SourceCardRow]
+        PO[PriceObservation]
+    end
+
+    subgraph CLI
+        CMD[canonize-all command]
+    end
+
+    BCB -->|POST| CE
+    CE --> BC
+    BT -->|background| BC
+    CMD --> BC
+    BC -->|query unlinked| UCR
+    CS --> MYP
+    CS -->|upsert| CR
+    CS -->|upsert| SCR
+    CS -->|insert| PO
+    CS -->|link card_id| UCR

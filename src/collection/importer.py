@@ -15,10 +15,10 @@ def import_collection_csv(
     engine,
     csv_path: str | Path,
     user_id: str = "eduardo",
-) -> dict[str, int]:
+) -> dict[str, int | list[int]]:
     """Parse a collection CSV and insert rows into user_collection.
 
-    Returns summary dict with counts.
+    Returns summary dict with counts and list of new entry IDs.
     """
     Base.metadata.create_all(engine)
     csv_path = Path(csv_path)
@@ -26,6 +26,7 @@ def import_collection_csv(
     imported = 0
     skipped = 0
     linked = 0
+    new_entry_ids: list[int] = []
 
     with open(csv_path, encoding="utf-8", errors="replace", newline="") as f:
         reader = csv.DictReader(f)
@@ -99,6 +100,8 @@ def import_collection_csv(
 
             row = UserCollectionRow(card_id=card_id, **data)
             session.add(row)
+            session.flush()  # populate row.id
+            new_entry_ids.append(row.id)
             imported += 1
 
         session.commit()
@@ -108,4 +111,5 @@ def import_collection_csv(
         "skipped": skipped,
         "linked": linked,
         "total_csv_rows": imported + skipped,
+        "new_entry_ids": new_entry_ids,
     }

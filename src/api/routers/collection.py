@@ -7,7 +7,7 @@ from datetime import date
 from decimal import Decimal
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.exceptions import HTTPException
 
 from src.analytics.aggregation import (
@@ -22,11 +22,13 @@ from src.api.schemas.ban_engine import BannedCollectionCard, CardLegalityWithCha
 from src.api.schemas.cards import PriceObservation, SourceCardSchema
 from src.api.schemas.collect import JobStatus
 from src.api.schemas.collection import (
+    BulkCanonizeResult,
     CollectionCard,
     CollectionCardDetail,
     CollectionHistoryResponse,
     CollectionSummary,
     ImportResult,
+    ManualPriceRequest,
     SnapshotRequest,
     SyncRequest,
 )
@@ -109,6 +111,7 @@ def list_collection(
         obs = latest_prices.get(r.card_id) if r.card_id else None
         raw_price = obs.median_price if obs else None
         price = converter.convert(raw_price, date.today(), currency) if raw_price else None
+        price_source = obs.source if obs else None
         data.append(
             CollectionCard(
                 id=r.id,
@@ -125,6 +128,7 @@ def list_collection(
                 color=r.color,
                 extras=r.extras,
                 latest_price=price,
+                price_source=price_source,
                 currency=currency,
                 image_url=_scryfall_image_url(r.set_code, r.collector_number),
             )
@@ -201,6 +205,38 @@ def list_banned_cards(
 ):
     """List banned/restricted cards in the user's collection."""
     data = ban_analyzer.get_banned_collection_cards(repo, user_id, format, days)
+    return success_response(data=data)
+
+
+@router.post("/canonize-all", response_model=ApiResponse[BulkCanonizeResult])
+async def canonize_all(
+    limit: int | None = Query(default=None, ge=1),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Bulk canonize all unlinked/orphan collection entries."""
+    from src.collectors.bulk_canonize import bulk_canonize
+    from src.providers.myp.provider import MypCardsProvider
+
+    provider = MypCardsProvider()
+    try:
+        result = await bulk_canonize(
+            engine=repo.engine,
+            user_id=user_id,
+            provider=provider,
+            concurrency=3,
+            limit=limit,
+        )
+    finally:
+        await provider.close()
+
+    data = BulkCanonizeResult(
+        total=result.total,
+        canonized=result.canonized,
+        failed=result.failed,
+        skipped=result.skipped,
+        rate_limited=result.rate_limited,
+    )
     return success_response(data=data)
 
 
@@ -478,6 +514,59 @@ def get_entry_legality(
     return success_response(data=data)
 
 
+@router.patch("/{entry_id}/price", response_model=ApiResponse[CollectionCardDetail])
+def set_manual_price(
+    entry_id: int,
+    request: ManualPriceRequest,
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Set a manual price for a collection entry."""
+    entry = repo.get_collection_entry(entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+    if entry.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this entry")
+
+    # Convert price to BRL for storage
+    price_brl = Decimal(str(request.price))
+    if request.currency == "USD":
+        rate = converter.get_display_rate(date.today())
+        if rate is None:
+            raise HTTPException(
+                status_code=422, detail="Exchange rate unavailable for USD conversion"
+            )
+        price_brl = (price_brl * rate).quantize(Decimal("0.01"))
+    # PILA is 1:1 with BRL, no conversion needed
+
+    # Auto-create minimal CardRow if entry has no card_id
+    if entry.card_id is None:
+        card_id = repo.create_canonical_card(
+            game="magic",
+            name_en=entry.name_en or "Unknown",
+            name_pt=entry.name_pt,
+            set_code=entry.set_code,
+            collector_number=entry.collector_number,
+        )
+        repo.link_collection_entry(entry_id, card_id)
+        log.info("manual_price_auto_created_card", entry_id=entry_id, card_id=card_id)
+
+    # Reload entry to get card_id (may have been auto-created above)
+    entry = repo.get_collection_entry(entry_id)
+    repo.upsert_manual_price(entry.card_id, price_brl, date.today())
+    log.info(
+        "manual_price_set",
+        entry_id=entry_id,
+        price_brl=str(price_brl),
+        original_currency=request.currency,
+        original_price=request.price,
+    )
+
+    return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+
+
 @router.get("/{entry_id}", response_model=ApiResponse[CollectionCardDetail])
 def get_collection_entry(
     entry_id: int,
@@ -678,6 +767,7 @@ def _build_collection_detail(
 
     image_url = _scryfall_image_url(entry.set_code, entry.collector_number)
     latest_price = None
+    price_source = None
     source_cards_data: list[SourceCardSchema] = []
 
     if entry.card_id is not None:
@@ -685,6 +775,8 @@ def _build_collection_detail(
         obs = prices.get(entry.card_id)
         if obs and obs.median_price:
             latest_price = converter.convert(obs.median_price, date.today(), currency)
+        if obs:
+            price_source = obs.source
 
         source_cards = repo.get_source_cards_for_card(entry.card_id)
         source_cards_data = [SourceCardSchema.model_validate(sc) for sc in source_cards]
@@ -714,6 +806,7 @@ def _build_collection_detail(
         color=entry.color,
         extras=entry.extras,
         latest_price=latest_price,
+        price_source=price_source,
         currency=currency,
         image_url=image_url,
         price_history=[],
@@ -727,6 +820,7 @@ def _build_collection_detail(
 
 @router.post("/import", response_model=ApiResponse[ImportResult])
 def import_collection(
+    background_tasks: BackgroundTasks,
     repo: Repository = Depends(get_db),
     user_id: str = Depends(require_auth_or_api_key),
 ):
@@ -744,7 +838,62 @@ def import_collection(
         csv_path=csv_path,
         user_id=user_id,
     )
-    return success_response(data=ImportResult(**result))
+
+    new_entry_ids = result.get("new_entry_ids", [])
+    canonize_scheduled = False
+    if new_entry_ids:
+        background_tasks.add_task(
+            _run_import_canonize,
+            engine=repo.engine,
+            user_id=user_id,
+        )
+        canonize_scheduled = True
+        log.info(
+            "import_canonize_scheduled",
+            user_id=user_id,
+            new_entries=len(new_entry_ids),
+        )
+
+    import_result = ImportResult(
+        imported=result["imported"],
+        skipped=result["skipped"],
+        linked=result["linked"],
+        total_csv_rows=result["total_csv_rows"],
+        new_entry_ids=new_entry_ids,
+        canonize_scheduled=canonize_scheduled,
+    )
+    return success_response(data=import_result)
+
+
+async def _run_import_canonize(engine, user_id: str) -> None:
+    """Background task: canonize newly imported collection entries."""
+    from src.collectors.bulk_canonize import bulk_canonize
+    from src.providers.myp.provider import MypCardsProvider
+
+    provider = MypCardsProvider()
+    try:
+        result = await bulk_canonize(
+            engine=engine,
+            user_id=user_id,
+            provider=provider,
+            concurrency=3,
+        )
+        log.info(
+            "import_canonize_complete",
+            user_id=user_id,
+            total=result.total,
+            canonized=result.canonized,
+            failed=result.failed,
+            rate_limited=result.rate_limited,
+        )
+    except Exception as exc:
+        log.warning(
+            "import_canonize_failed",
+            user_id=user_id,
+            error=str(exc),
+        )
+    finally:
+        await provider.close()
 
 
 @router.post("/sync", response_model=ApiResponse[JobStatus])

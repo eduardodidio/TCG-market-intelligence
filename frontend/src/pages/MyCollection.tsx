@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { fetchCollectionBanned } from "../api/banEngine";
 import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPrice } from "../api/collection";
 import { BanAlertBanner } from "../components/BanAlertBanner";
+import { BulkCanonizeButton } from "../components/BulkCanonizeButton";
 import { BanBadge } from "../components/BanBadge";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -186,10 +187,28 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
 
         <div className="flex items-center justify-between mt-2">
           <p
-            className={`text-sm font-bold ${card.latest_price != null ? "text-cyan-400" : "text-slate-500"}`}
+            className={`text-sm font-bold flex items-center gap-1 ${card.latest_price != null ? "text-cyan-400" : "text-slate-500"}`}
             data-testid="card-price"
           >
             {formatCurrency(card.latest_price, currencyOverride || "BRL")}
+            {card.price_source === "manual" && (
+              <svg
+                data-testid="manual-price-indicator"
+                className="h-3 w-3 text-amber-400 inline-block"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                title={t("price.manualTooltip")}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+            )}
           </p>
           {!compact && (
             <div className="flex items-center gap-1 text-xs text-slate-400">
@@ -527,6 +546,14 @@ export function MyCollection() {
           <SetIconFilter options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
         )}
         <div className="flex justify-end items-center gap-3">
+          {/* Bulk canonize button (only when unlinked cards exist) */}
+          {summary && (
+            <BulkCanonizeButton
+              unlinkedCount={summary.total_unique - summary.linked_count}
+              onComplete={handleRefreshComplete}
+            />
+          )}
+
           {/* Refresh All button (only show when not refreshing) */}
           {!isRefreshing && !refreshDone && !refreshError && (
             <button

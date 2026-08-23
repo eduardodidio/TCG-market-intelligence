@@ -191,6 +191,43 @@ class Repository:
             session.commit()
         return inserted
 
+    def upsert_manual_price(self, card_id: int, price_brl: Decimal, observed_date: date) -> int:
+        """Insert or update a manual price observation for a card.
+
+        Uses INSERT OR REPLACE semantics on (source, external_id, observed_at)
+        so that setting price twice on the same day updates the existing row.
+        external_id uses card_id to align with get_latest_prices_batch queries.
+        Returns the PriceObservationRow id.
+        """
+        external_id = f"manual_{card_id}"
+        with Session(self.engine) as session:
+            stmt = (
+                sqlite_insert(PriceObservationRow)
+                .values(
+                    source="manual",
+                    external_id=external_id,
+                    observed_at=observed_date,
+                    median_price=price_brl,
+                    currency="BRL",
+                )
+                .on_conflict_do_update(
+                    index_elements=["source", "external_id", "observed_at"],
+                    set_={"median_price": price_brl},
+                )
+            )
+            session.execute(stmt)
+            session.commit()
+
+            # Fetch the row id
+            row = session.execute(
+                select(PriceObservationRow).where(
+                    PriceObservationRow.source == "manual",
+                    PriceObservationRow.external_id == external_id,
+                    PriceObservationRow.observed_at == observed_date,
+                )
+            ).scalar_one()
+            return row.id
+
     def insert_error(self, error: CollectionError) -> None:
         with Session(self.engine) as session:
             row = CollectionErrorRow(
@@ -384,7 +421,13 @@ class Repository:
             )
 
     def get_latest_prices_batch(self, card_ids: list[int]) -> dict[int, PriceObservationRow | None]:
-        """Get the latest price observation for each card_id."""
+        """Get the latest price observation for each card_id.
+
+        Priority logic:
+        - Latest observation by date wins (newer MYP beats older manual)
+        - When manual and non-manual prices share the same date, manual wins
+        - Also considers source="manual" with external_id="manual_{card_id}"
+        """
         if not card_ids:
             return {}
         with Session(self.engine) as session:
@@ -395,7 +438,9 @@ class Repository:
                     .scalars()
                     .all()
                 )
-                latest = None
+                candidates: list[PriceObservationRow] = []
+
+                # Gather latest from each source card (MYP, jsonld_snapshot, etc.)
                 for sc in source_cards:
                     obs = session.execute(
                         select(PriceObservationRow)
@@ -406,9 +451,35 @@ class Repository:
                         .order_by(PriceObservationRow.observed_at.desc())
                         .limit(1)
                     ).scalar_one_or_none()
-                    if obs and (latest is None or obs.observed_at > latest.observed_at):
-                        latest = obs
-                result[card_id] = latest
+                    if obs:
+                        candidates.append(obs)
+
+                # Also check for manual price observations
+                manual_external_id = f"manual_{card_id}"
+                manual_obs = session.execute(
+                    select(PriceObservationRow)
+                    .where(
+                        PriceObservationRow.source == "manual",
+                        PriceObservationRow.external_id == manual_external_id,
+                    )
+                    .order_by(PriceObservationRow.observed_at.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+                if manual_obs:
+                    candidates.append(manual_obs)
+
+                # Pick winner: latest date first, manual wins ties
+                if candidates:
+                    candidates.sort(
+                        key=lambda o: (
+                            o.observed_at,
+                            1 if o.source == "manual" else 0,
+                        ),
+                        reverse=True,
+                    )
+                    result[card_id] = candidates[0]
+                else:
+                    result[card_id] = None
             return result
 
     def get_price_series_batch(

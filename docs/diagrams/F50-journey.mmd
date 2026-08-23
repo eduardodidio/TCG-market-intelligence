@@ -1,0 +1,36 @@
+graph TD
+    START((Collector)) --> DETAIL[Open Card Detail]
+    DETAIL --> CHECK{Has price?}
+
+    CHECK -->|Yes, auto| VIEW_AUTO[See price with no badge]
+    CHECK -->|Yes, manual| VIEW_MANUAL[See price with amber 'Manual' badge]
+    CHECK -->|No| VIEW_NONE[See 'No price data']
+
+    VIEW_AUTO --> INPUT[Enter manual price in 'Set Price' field]
+    VIEW_MANUAL --> INPUT
+    VIEW_NONE --> INPUT
+
+    INPUT --> VALIDATE{Valid price?}
+    VALIDATE -->|No| ERROR[Show validation error]
+    ERROR --> INPUT
+    VALIDATE -->|Yes| SAVE[Click Save]
+
+    SAVE --> CURRENCY{Currency = USD?}
+    CURRENCY -->|Yes| CONVERT[Convert USD to BRL via PTAX]
+    CURRENCY -->|No| STORE
+    CONVERT --> STORE
+
+    STORE --> LINKED{Entry has card_id?}
+    LINKED -->|No| AUTO_CARD[Auto-create CardRow + link]
+    AUTO_CARD --> UPSERT
+    LINKED -->|Yes| UPSERT[Upsert PriceObservation source=manual]
+
+    UPSERT --> REFRESH[Refresh card detail]
+    REFRESH --> VIEW_MANUAL
+
+    subgraph Collection List
+        LIST[My Collection Grid]
+        LIST --> TILE{price_source?}
+        TILE -->|manual| PENCIL[Show pencil icon on tile]
+        TILE -->|auto/null| NO_ICON[No indicator]
+    end

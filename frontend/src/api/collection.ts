@@ -1,5 +1,5 @@
-import type { ApiResponse, CollectionCard, CollectionCardDetail, CollectionSummary, PriceHistoryResponse } from "../types/api";
-import { apiGet, apiPost } from "./client";
+import type { ApiResponse, BulkCanonizeResult, CollectionCard, CollectionCardDetail, CollectionSummary, PriceHistoryResponse } from "../types/api";
+import { apiGet, apiPatch, apiPost } from "./client";
 
 export function fetchCollection(
   params?: Record<string, string>,
@@ -55,6 +55,28 @@ export function fetchCollectionHistory(
   return apiGet<PriceHistoryResponse>(
     `/api/v1/collection/${entryId}/history`,
     params,
+  );
+}
+
+export function canonizeAll(
+  limit?: number,
+): Promise<ApiResponse<BulkCanonizeResult>> {
+  const query = limit != null ? `?limit=${limit}` : "";
+  return apiPost<BulkCanonizeResult>(
+    `/api/v1/collection/canonize-all${query}`,
+    {},
+    { timeoutMs: 120_000 },
+  );
+}
+
+export function setManualPrice(
+  entryId: number,
+  price: number,
+  currency: string,
+): Promise<ApiResponse<CollectionCardDetail>> {
+  return apiPatch<CollectionCardDetail>(
+    `/api/v1/collection/${entryId}/price`,
+    { price, currency },
   );
 }
 

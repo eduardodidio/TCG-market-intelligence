@@ -707,6 +707,67 @@ def schedule_remove(db, schedule_id):
         raise SystemExit(1)
 
 
+@cli.command("canonize-all")
+@click.option("--user-id", required=True, help="User ID to canonize for")
+@click.option("--limit", type=int, default=None, help="Max entries to process")
+@click.option("--concurrency", type=int, default=3, help="Parallel MYP calls")
+@click.option("--dry-run", is_flag=True, help="Show unlinked count without processing")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+def canonize_all(user_id, limit, concurrency, dry_run, db):
+    """Bulk-canonize all unlinked collection entries."""
+    from src.collectors.bulk_canonize import _get_unlinked_entries, bulk_canonize
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    engine = repo.engine
+
+    if dry_run:
+        entries = _get_unlinked_entries(engine, user_id, limit=None)
+        click.echo(f"\n  Unlinked entries: {len(entries)}")
+        click.echo("  DRY RUN — no processing performed.\n")
+        return
+
+    from src.providers.myp.provider import MypCardsProvider
+
+    async def _run():
+        provider = MypCardsProvider()
+        try:
+            return await bulk_canonize(
+                engine=engine,
+                user_id=user_id,
+                provider=provider,
+                concurrency=concurrency,
+                limit=limit,
+                repo=repo,
+            )
+        finally:
+            await provider.close()
+
+    result = asyncio.run(_run())
+    _print_canonize_summary(result)
+
+
+def _print_canonize_summary(result):
+    """Format and print bulk canonize summary to stdout."""
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  BULK CANONIZE SUMMARY")
+    click.echo(f"  Total:          {result.total}")
+    click.echo(f"  Canonized:      {result.canonized}")
+    click.echo(f"  Failed:         {result.failed}")
+    click.echo(f"  Skipped:        {result.skipped}")
+    click.echo(f"  Rate limited:   {result.rate_limited}")
+    click.echo("=" * 60)
+
+    if result.errors:
+        click.echo(f"\n  Errors ({len(result.errors)}):")
+        for err in result.errors[:20]:
+            click.echo(f"    - entry {err['entry_id']}: {err['error'][:80]}")
+        if len(result.errors) > 20:
+            click.echo(f"    ... and {len(result.errors) - 20} more")
+    click.echo("")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")

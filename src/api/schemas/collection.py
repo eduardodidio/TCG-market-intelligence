@@ -20,6 +20,7 @@ class CollectionCard(BaseModel):
     color: str | None = None
     extras: str | None = None
     latest_price: float | None = None
+    price_source: str | None = None
     currency: str = "BRL"
     image_url: str | None = None
 
@@ -57,6 +58,8 @@ class ImportResult(BaseModel):
     skipped: int
     linked: int
     total_csv_rows: int
+    new_entry_ids: list[int] = []
+    canonize_scheduled: bool = False
 
 
 class SyncRequest(BaseModel):
@@ -76,3 +79,39 @@ class SnapshotRequest(BaseModel):
             msg = "limit must be a positive integer"
             raise ValueError(msg)
         return v
+
+
+class ManualPriceRequest(BaseModel):
+    """Request body for manual price entry."""
+
+    price: float
+    currency: str = "BRL"
+
+    @field_validator("price")
+    @classmethod
+    def price_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            msg = "price must be a positive number"
+            raise ValueError(msg)
+        if v > 99999.99:
+            msg = "price must not exceed 99999.99"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_valid(cls, v: str) -> str:
+        if v not in ("BRL", "USD", "PILA"):
+            msg = "currency must be BRL, USD, or PILA"
+            raise ValueError(msg)
+        return v
+
+
+class BulkCanonizeResult(BaseModel):
+    """Summary of a bulk canonize run."""
+
+    total: int
+    canonized: int
+    failed: int
+    skipped: int
+    rate_limited: int

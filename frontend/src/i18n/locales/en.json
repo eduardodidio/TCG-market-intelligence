@@ -112,7 +112,13 @@
     "canonizing": "Linking...",
     "canonizeSuccess": "Card linked! Price data is now being tracked.",
     "canonizeError": "Failed to link card",
-    "canonizePartial": "Card linked, but price data could not be fetched. Try refreshing later."
+    "canonizePartial": "Card linked, but price data could not be fetched. Try refreshing later.",
+    "canonizeAll": "Canonize All",
+    "canonizeAllDescription": "Link all unlinked cards to price tracking",
+    "unlinkedCount": "{{count}} unlinked",
+    "canonizeResult": "Canonized {{canonized}} of {{total}} cards",
+    "canonizeFailed": "{{failed}} cards failed",
+    "canonizeScheduled": "Canonization scheduled"
   },
   "market": {
     "title": "Market Movers",
@@ -493,5 +499,19 @@
     "itemAriaLabel": "{{name}}, {{price}}, {{direction}} {{change}}%",
     "up": "up",
     "down": "down"
+  },
+  "price": {
+    "manual": "Manual Price",
+    "manualTooltip": "Price was manually set",
+    "setPrice": "Set Price",
+    "enterPrice": "Enter price",
+    "save": "Save",
+    "saved": "Price saved",
+    "invalidPrice": "Enter a valid price (0.01 - 99,999.99)",
+    "source": {
+      "manual": "Manual",
+      "myp": "MYP",
+      "auto": "Automatic"
+    }
   }
 }

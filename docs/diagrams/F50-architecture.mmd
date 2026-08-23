@@ -1,0 +1,46 @@
+graph TD
+    subgraph Frontend
+        CCD[CollectionCardDetail Page]
+        MPI[ManualPriceInput]
+        PSB[PriceSourceBadge]
+        MC[MyCollection Page]
+        CCD --> MPI
+        CCD --> PSB
+        MC -->|pencil icon| PSB
+    end
+
+    subgraph API["FastAPI API Layer"]
+        PATCH["PATCH /collection/{id}/price"]
+        GET["GET /collection"]
+        GETD["GET /collection/{id}"]
+    end
+
+    subgraph Repository
+        UMP[upsert_manual_price]
+        GLPB[get_latest_prices_batch]
+        CC[create_canonical_card]
+    end
+
+    subgraph Database
+        PO[PriceObservationRow]
+        CR[CardRow]
+        UCR[UserCollectionRow]
+    end
+
+    subgraph Services
+        CV[CurrencyConverter]
+    end
+
+    MPI -->|PATCH| PATCH
+    PATCH --> CV
+    PATCH -->|if unlinked| CC
+    CC --> CR
+    CC -->|link card_id| UCR
+    PATCH --> UMP
+    UMP -->|source=manual| PO
+
+    GET --> GLPB
+    GETD --> GLPB
+    GLPB -->|priority: manual wins same-day| PO
+    GLPB -->|returns price_source| GET
+    GLPB -->|returns price_source| GETD

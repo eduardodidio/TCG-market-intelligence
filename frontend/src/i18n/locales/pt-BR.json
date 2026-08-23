@@ -112,7 +112,13 @@
     "canonizing": "Vinculando...",
     "canonizeSuccess": "Carta vinculada! Dados de preco estao sendo rastreados.",
     "canonizeError": "Falha ao vincular carta",
-    "canonizePartial": "Carta vinculada, mas dados de preco nao puderam ser obtidos. Tente atualizar mais tarde."
+    "canonizePartial": "Carta vinculada, mas dados de preco nao puderam ser obtidos. Tente atualizar mais tarde.",
+    "canonizeAll": "Canonizar Todas",
+    "canonizeAllDescription": "Vincular todas as cartas sem rastreamento de preco",
+    "unlinkedCount": "{{count}} sem vinculo",
+    "canonizeResult": "Canonizadas {{canonized}} de {{total}} cartas",
+    "canonizeFailed": "{{failed}} cartas falharam",
+    "canonizeScheduled": "Canonizacao agendada"
   },
   "market": {
     "title": "Movimentacao de Mercado",
@@ -493,5 +499,19 @@
     "itemAriaLabel": "{{name}}, {{price}}, {{direction}} {{change}}%",
     "up": "alta",
     "down": "baixa"
+  },
+  "price": {
+    "manual": "Preco Manual",
+    "manualTooltip": "Preco definido manualmente",
+    "setPrice": "Definir Preco",
+    "enterPrice": "Informe o preco",
+    "save": "Salvar",
+    "saved": "Preco salvo",
+    "invalidPrice": "Informe um preco valido (0,01 - 99.999,99)",
+    "source": {
+      "manual": "Manual",
+      "myp": "MYP",
+      "auto": "Automatico"
+    }
   }
 }
