@@ -4,8 +4,9 @@ import type { ApiResponse, TrendingResponse, TickerItemData } from "../types/api
 export function fetchTrending(
   direction: "gainers" | "losers",
   params: { period?: string; limit?: string; currency?: string },
+  options?: { signal?: AbortSignal },
 ): Promise<ApiResponse<TrendingResponse>> {
-  return apiGet<TrendingResponse>(`/api/v1/market/trending/${direction}`, params);
+  return apiGet<TrendingResponse>(`/api/v1/market/trending/${direction}`, params, options);
 }
 
 export async function fetchTickerData(

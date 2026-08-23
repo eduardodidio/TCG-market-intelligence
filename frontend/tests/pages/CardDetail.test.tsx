@@ -214,7 +214,7 @@ describe("CardDetail page", () => {
     expect(img.className).toContain("max-w-[250px]");
   });
 
-  it("does not render image when set_code is null", async () => {
+  it("renders fallback image by name when set_code is null", async () => {
     const detailNoSet = mockCardDetail();
     (detailNoSet.data as CardDetailType).set_code = null;
     (detailNoSet.data as CardDetailType).collector_number = null;
@@ -226,10 +226,13 @@ describe("CardDetail page", () => {
       expect(screen.getByTestId("card-info-panel")).toBeDefined();
     });
 
-    expect(screen.queryByTestId("card-image")).toBeNull();
+    // Should show name-based fallback image (no primary URL available)
+    const img = screen.getByTestId("card-image") as HTMLImageElement;
+    expect(img.src).toContain("api.scryfall.com/cards/named");
+    expect(img.src).toContain("Lightning%20Bolt");
   });
 
-  it("hides image on load error via onError handler", async () => {
+  it("falls back to name-based image when primary URL fails", async () => {
     globalThis.fetch = createMockFetch() as unknown as typeof fetch;
     renderCardDetail();
 
@@ -238,9 +241,35 @@ describe("CardDetail page", () => {
     });
 
     const img = screen.getByTestId("card-image") as HTMLImageElement;
+    // Primary URL uses set/number
+    expect(img.src).toContain("api.scryfall.com/cards/dmr/123");
+
+    // Trigger error on primary
     fireEvent.error(img);
 
-    expect(img.style.display).toBe("none");
+    // Should now use name-based fallback
+    const fallbackImg = screen.getByTestId("card-image") as HTMLImageElement;
+    expect(fallbackImg.src).toContain("api.scryfall.com/cards/named");
+    expect(fallbackImg.src).toContain("Lightning%20Bolt");
+  });
+
+  it("shows placeholder when both primary and fallback images fail", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("card-image")).toBeDefined();
+    });
+
+    const img = screen.getByTestId("card-image") as HTMLImageElement;
+    // Trigger primary error
+    fireEvent.error(img);
+    // Now on fallback — trigger fallback error
+    fireEvent.error(screen.getByTestId("card-image"));
+
+    // Should show placeholder
+    expect(screen.getByTestId("card-image-placeholder")).toBeDefined();
+    expect(screen.queryByTestId("card-image")).toBeNull();
   });
 
   it("shows updated 404 message with sync hint", async () => {
@@ -309,7 +338,7 @@ describe("CardDetail page", () => {
     );
   });
 
-  it("renders '--' for latest price when latest_price is null", async () => {
+  it("shows 'No price data' when latest_price is null", async () => {
     const detailNoPrice = mockCardDetail();
     (detailNoPrice.data as CardDetailType).latest_price = null;
 
@@ -321,7 +350,123 @@ describe("CardDetail page", () => {
     });
 
     const priceEl = screen.getByTestId("latest-price");
-    expect(priceEl.textContent).toBe("--");
+    expect(priceEl.textContent).toBe("No price data");
+    expect(priceEl.className).toContain("text-slate-500");
+  });
+
+  it("shows formatted price with currency indicator when price exists", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("latest-price")).toBeDefined();
+    });
+
+    const priceEl = screen.getByTestId("latest-price");
+    expect(priceEl.textContent).toContain("8,50");
+    // Currency indicator should be present
+    expect(priceEl.querySelector("[data-testid='currency-indicator-brl']")).toBeDefined();
+  });
+
+  it("shows refresh button when collection_entry_id is present", async () => {
+    const detailWithEntry = mockCardDetail();
+    (detailWithEntry.data as CardDetailType).collection_entry_id = 42;
+
+    globalThis.fetch = createMockFetch({ detail: detailWithEntry }) as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-price-btn")).toBeDefined();
+    });
+  });
+
+  it("hides refresh button when collection_entry_id is null", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("card-info-panel")).toBeDefined();
+    });
+
+    expect(screen.queryByTestId("refresh-price-btn")).toBeNull();
+  });
+
+  it("triggers refresh API call and updates price on success", async () => {
+    const detailWithEntry = mockCardDetail();
+    (detailWithEntry.data as CardDetailType).collection_entry_id = 42;
+
+    globalThis.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      const urlStr = String(url);
+
+      // POST to collection refresh endpoint
+      if (urlStr.includes("/collection/42/refresh") && options?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            data: {
+              id: 42,
+              card_id: 1,
+              set_code: "DMR",
+              collector_number: "123",
+              name_en: "Lightning Bolt",
+              name_pt: "Raio",
+              quantity: 1,
+              quality: null,
+              language: null,
+              rarity: null,
+              color: null,
+              extras: null,
+              latest_price: 12.50,
+              currency: "BRL",
+              image_url: null,
+              price_history: [],
+              source_cards: [],
+              scryfall_url: null,
+              ligamagic_url: null,
+              set_name_en: null,
+            },
+            meta: { cursor: null, total: null, offset: null, request_id: "req-test" },
+            errors: [],
+          }),
+        });
+      }
+
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockPriceHistory()),
+        });
+      }
+
+      if (urlStr.includes("/api/v1/cards/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(detailWithEntry),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+      });
+    }) as unknown as typeof fetch;
+
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-price-btn")).toBeDefined();
+    });
+
+    // Click refresh
+    fireEvent.click(screen.getByTestId("refresh-price-btn"));
+
+    // Should show success message after refresh
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-message")).toBeDefined();
+    });
+
+    const msg = screen.getByTestId("refresh-message");
+    expect(msg.className).toContain("text-green-400");
   });
 
   it("shows error banner on non-404 error", async () => {

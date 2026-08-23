@@ -11,6 +11,7 @@ from src.domain.models import ScanRun
 
 if TYPE_CHECKING:
     from src.services.market_data import MarketDataService
+    from src.services.trending import TrendingService
 
 log = structlog.get_logger()
 
@@ -63,5 +64,23 @@ def make_cache_invalidation_hook(
                 scan_id=scan_run.id,
                 cards_invalidated=len(card_ids),
             )
+
+    return _hook
+
+
+def make_trending_invalidation_hook(
+    trending_service: TrendingService,
+) -> ScanHook:
+    """Create a hook that invalidates trending cache after a scan completes."""
+
+    def _hook(scan_run: ScanRun, external_ids: list[str]) -> None:
+        if not external_ids:
+            return
+        trending_service.invalidate_cache()
+        log.info(
+            "trending_cache_invalidated_after_scan",
+            scan_id=scan_run.id,
+            scanned_cards=len(external_ids),
+        )
 
     return _hook

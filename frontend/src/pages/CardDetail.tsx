@@ -1,12 +1,14 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { fetchCardDetail } from "../api/cards";
+import { refreshCardPrice } from "../api/collection";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
-import { formatCurrency, formatDate } from "../utils/format";
-import { scryfallImageUrl } from "../utils/scryfall";
+import { formatDate, formatPriceOrFallback } from "../utils/format";
+import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PriceChart } from "../components/PriceChart";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
@@ -32,10 +34,43 @@ export function CardDetail() {
     [cardId, currency],
   );
 
-  const { data: card, loading, error, refetch } = useApi<CardDetailType>(
+  const { data: card, loading, error, refetch, setData: setCard } = useApi<CardDetailType>(
     detailFetcher,
     [cardId, currency],
   );
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleRefresh = useCallback(async () => {
+    if (refreshing || !card?.collection_entry_id) return;
+    setRefreshing(true);
+    setRefreshMsg(null);
+    try {
+      const params: Record<string, string> = {};
+      if (currency !== "BRL") params.currency = currency;
+      const res = await refreshCardPrice(
+        card.collection_entry_id,
+        Object.keys(params).length > 0 ? params : undefined,
+      );
+      if (res.data) {
+        // Update the displayed price from the refreshed collection entry
+        setCard({
+          ...card,
+          latest_price: res.data.latest_price,
+        });
+        setRefreshMsg({ type: "success", text: t("collection.refreshSuccess") });
+      } else {
+        const msg = res.errors?.[0]?.message || t("collection.refreshError");
+        setRefreshMsg({ type: "error", text: msg });
+      }
+    } catch {
+      setRefreshMsg({ type: "error", text: t("collection.refreshError") });
+    } finally {
+      setRefreshing(false);
+      setTimeout(() => setRefreshMsg(null), 3000);
+    }
+  }, [refreshing, card, currency, t, setCard]);
 
   // Set page title
   useEffect(() => {
@@ -124,19 +159,13 @@ export function CardDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left panel: Card info */}
         <div data-testid="card-info-panel" className="bg-slate-800 border border-slate-600 rounded-lg p-6">
-          {/* Scryfall card image */}
-          {card.set_code && card.collector_number && (
-            <div className="mb-6 flex justify-center">
-              <img
-                src={scryfallImageUrl(card.set_code, card.collector_number, "normal")}
-                alt={getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}
-                data-testid="card-image"
-                className="rounded-lg shadow-lg max-w-[250px] w-full"
-                loading="eager"
-                onError={(e) => { e.currentTarget.style.display = 'none' }}
-              />
-            </div>
-          )}
+          {/* Card image with dual fallback */}
+          <CardImage
+            setCode={card.set_code}
+            collectorNumber={card.collector_number}
+            nameEn={card.name_en}
+            alt={getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}
+          />
 
           {/* Card name */}
           <h1 className="text-2xl font-bold text-white mb-1">{getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}</h1>
@@ -168,10 +197,54 @@ export function CardDetail() {
 
           {/* Latest price */}
           <div className="mb-6">
-            <p className="text-sm text-slate-400 mb-1">{t("cardDetail.latestPrice")}</p>
-            <p data-testid="latest-price" className="text-3xl font-bold text-white">
-              {formatCurrency(card.latest_price, currency)}
-            </p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm text-slate-400">{t("cardDetail.latestPrice")}</p>
+              {card.collection_entry_id != null && (
+                <button
+                  data-testid="refresh-price-btn"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  <svg
+                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {(() => {
+              const formattedPrice = formatPriceOrFallback(card.latest_price, currency);
+              return formattedPrice ? (
+                <p data-testid="latest-price" className="text-3xl font-bold text-white flex items-center gap-2">
+                  <CurrencyIndicator currency={currency} size={24} />
+                  {formattedPrice}
+                </p>
+              ) : (
+                <p data-testid="latest-price" className="text-3xl font-bold text-slate-500">
+                  {t("common.noPriceData")}
+                </p>
+              );
+            })()}
+            {refreshMsg && (
+              <p
+                data-testid="refresh-message"
+                className={`text-xs mt-1 ${refreshMsg.type === "success" ? "text-green-400" : "text-red-400"}`}
+              >
+                {refreshMsg.text}
+              </p>
+            )}
           </div>
 
           {/* Source links */}
@@ -280,6 +353,83 @@ export function CardDetail() {
           <PriceChart cardId={cardId} currency={currency} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Card image with dual fallback: set/number -> name -> placeholder */
+function CardImage({
+  setCode,
+  collectorNumber,
+  nameEn,
+  alt,
+}: {
+  setCode: string | null;
+  collectorNumber: string | null;
+  nameEn: string;
+  alt: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const [fallbackError, setFallbackError] = useState(false);
+
+  const primaryUrl =
+    setCode && collectorNumber
+      ? scryfallImageUrl(setCode, collectorNumber, "normal")
+      : null;
+  const fallbackUrl = nameEn ? scryfallImageByName(nameEn, "normal") : null;
+
+  // If no primary URL, go straight to fallback
+  let currentUrl: string | null;
+  let showImage: boolean;
+
+  if (primaryUrl) {
+    // Has primary: primary -> fallback -> placeholder
+    currentUrl = imgError && fallbackUrl ? fallbackUrl : primaryUrl;
+    showImage = !!currentUrl && !(imgError && (fallbackError || !fallbackUrl));
+  } else {
+    // No primary: fallback -> placeholder
+    currentUrl = fallbackUrl;
+    showImage = !!fallbackUrl && !fallbackError;
+  }
+
+  return (
+    <div className="mb-6 flex justify-center">
+      {showImage && currentUrl ? (
+        <img
+          src={currentUrl}
+          alt={alt}
+          data-testid="card-image"
+          className="rounded-lg shadow-lg max-w-[250px] w-full"
+          loading="eager"
+          onError={() => {
+            if (primaryUrl && !imgError) {
+              setImgError(true);
+            } else {
+              setFallbackError(true);
+            }
+          }}
+        />
+      ) : (
+        <div
+          data-testid="card-image-placeholder"
+          className="flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg max-w-[250px] w-full aspect-[5/7]"
+        >
+          <svg
+            className="h-12 w-12 text-slate-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1}
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+      )}
     </div>
   );
 }

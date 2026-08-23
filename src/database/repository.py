@@ -831,6 +831,18 @@ class Repository:
                 select(UserCollectionRow).where(UserCollectionRow.id == entry_id)
             ).scalar_one_or_none()
 
+    def get_collection_entry_id_by_card(self, user_id: str, card_id: int) -> int | None:
+        """Return the first collection entry ID for a given user+card, or None."""
+        with Session(self.engine) as session:
+            return session.execute(
+                select(UserCollectionRow.id)
+                .where(
+                    UserCollectionRow.user_id == user_id,
+                    UserCollectionRow.card_id == card_id,
+                )
+                .limit(1)
+            ).scalar_one_or_none()
+
     def link_collection_entry(self, entry_id: int, card_id: int) -> None:
         """Set card_id on a user_collection entry."""
         with Session(self.engine) as session:

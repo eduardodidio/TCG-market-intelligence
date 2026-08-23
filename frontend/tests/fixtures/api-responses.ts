@@ -76,7 +76,9 @@ export function mockCardSummaries(n = 3): ApiResponse<CardSummary[]> {
   });
 }
 
-export function mockCardDetail(): ApiResponse<CardDetail> {
+export function mockCardDetail(
+  overrides?: Partial<CardDetail>,
+): ApiResponse<CardDetail> {
   return envelope<CardDetail>({
     id: 1,
     game: "magic",
@@ -93,8 +95,10 @@ export function mockCardDetail(): ApiResponse<CardDetail> {
         url: "https://mypcards.com/magic/12345/lightning-bolt",
       },
     ],
+    collection_entry_id: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-08-18T12:00:00Z",
+    ...overrides,
   });
 }
 

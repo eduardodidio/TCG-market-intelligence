@@ -41,6 +41,7 @@ export interface SourceCard {
 
 export interface CardDetail extends CardSummary {
   source_cards: SourceCard[];
+  collection_entry_id: number | null;
   created_at: string;
   updated_at: string;
 }

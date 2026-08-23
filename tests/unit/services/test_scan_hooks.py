@@ -10,6 +10,7 @@ from src.domain.models import ScanRun
 from src.services.scan_hooks import (
     ScanHookRegistry,
     make_cache_invalidation_hook,
+    make_trending_invalidation_hook,
 )
 
 
@@ -92,3 +93,30 @@ class TestMakeCacheInvalidationHook:
         hook(scan_run, ["unknown"])
 
         mock_service.invalidate_cards.assert_not_called()
+
+
+class TestMakeTrendingInvalidationHook:
+    def test_invalidates_trending_cache_on_scan(self, scan_run):
+        mock_trending = MagicMock()
+
+        hook = make_trending_invalidation_hook(mock_trending)
+        hook(scan_run, ["ext1", "ext2"])
+
+        mock_trending.invalidate_cache.assert_called_once()
+
+    def test_skips_invalidation_when_no_external_ids(self, scan_run):
+        mock_trending = MagicMock()
+
+        hook = make_trending_invalidation_hook(mock_trending)
+        hook(scan_run, [])
+
+        mock_trending.invalidate_cache.assert_not_called()
+
+    def test_trending_hook_registered_in_registry(self, registry, scan_run):
+        mock_trending = MagicMock()
+        hook = make_trending_invalidation_hook(mock_trending)
+        registry.register(hook)
+
+        registry.notify(scan_run, ["ext1"])
+
+        mock_trending.invalidate_cache.assert_called_once()

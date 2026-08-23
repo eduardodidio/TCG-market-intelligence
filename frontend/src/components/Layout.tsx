@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
+import { useGauchoEasterEgg } from "../hooks/useGauchoEasterEgg";
+import { ChimarraoIcon } from "./ChimarraoIcon";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { ExchangeRateBanner } from "./ExchangeRateBanner";
+import { GauchoDialog } from "./GauchoDialog";
 import { LanguageSelector } from "./LanguageSelector";
 import { MarketTicker } from "./MarketTicker";
 
@@ -51,6 +54,9 @@ export function Layout() {
   const visibleNavItems = NAV_ITEMS.filter(
     (item) => !item.requiresAuth || isAuthenticated,
   );
+
+  // Gaucho easter egg (PILA currency)
+  const gaucho = useGauchoEasterEgg(location.pathname);
 
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100">
@@ -184,6 +190,19 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Gaucho easter egg (PILA currency) */}
+      {gaucho.showIcon && (
+        <ChimarraoIcon onClick={gaucho.openDialog} />
+      )}
+      {gaucho.showDialog && gaucho.dialogData && (
+        <GauchoDialog
+          message={gaucho.dialogData.message}
+          options={gaucho.dialogData.options}
+          autoDismissMs={gaucho.dialogData.autoDismissMs}
+          onDismiss={gaucho.dismissDialog}
+        />
+      )}
     </div>
   );
 }

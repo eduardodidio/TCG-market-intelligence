@@ -32,7 +32,7 @@ export function TrendingSection({ direction, period, currency, limit }: Trending
   if (limit) params.limit = String(limit);
 
   const { data, loading, error, refetch } = useApi<TrendingResponse>(
-    (signal) => fetchTrending(direction, params),
+    (signal) => fetchTrending(direction, params, { signal }),
     [direction, period, currency, limit],
   );
 

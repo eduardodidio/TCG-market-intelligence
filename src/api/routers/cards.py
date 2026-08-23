@@ -11,7 +11,7 @@ from src.analytics.aggregation import (
     aggregate_series,
     compute_price_change_summary,
 )
-from src.api.deps import get_currency_converter_dep, get_db
+from src.api.deps import get_currency_converter_dep, get_db, get_optional_user
 from src.api.schemas.cards import (
     CardDetail,
     CardSummary,
@@ -25,6 +25,7 @@ from src.api.schemas.envelope import (
     success_response,
 )
 from src.database.repository import Repository
+from src.domain.models import User
 from src.services.currency import CurrencyConverter
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -98,6 +99,7 @@ def get_card(
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user: User | None = Depends(get_optional_user),
 ):
     card = repo.get_card_by_id(card_id)
     if not card:
@@ -109,6 +111,13 @@ def get_card(
     raw_price = obs.median_price if obs else None
     price = converter.convert(raw_price, date.today(), currency) if raw_price else None
 
+    # Look up collection entry if user is authenticated
+    collection_entry_id = None
+    if user is not None:
+        collection_entry_id = repo.get_collection_entry_id_by_card(
+            user_id=str(user.id), card_id=card_id
+        )
+
     data = CardDetail(
         id=card.id,
         game=card.game,
@@ -119,6 +128,7 @@ def get_card(
         latest_price=price,
         currency=currency,
         source_cards=[SourceCardSchema.model_validate(sc) for sc in source_cards],
+        collection_entry_id=collection_entry_id,
         created_at=card.created_at,
         updated_at=card.updated_at,
     )

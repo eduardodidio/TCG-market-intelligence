@@ -513,5 +513,35 @@
       "myp": "MYP",
       "auto": "Automatico"
     }
+  },
+  "gaucho": {
+    "dashboard": {
+      "message": "Bah meu, ta tri a plataforma ne?! Os guris se puxaram!",
+      "opt1": "ahaaam!"
+    },
+    "collection": {
+      "message": "Tche, que ta o Luxo do gaucho esta colecao?",
+      "opt1": "to estorado",
+      "reply1": "Dale!",
+      "opt2": "me caiu os butias do bolso!",
+      "reply2": "Que barbaridade! Na proxima na rateia meu, fica experto nas trocas de realese e cards muitos roubados"
+    },
+    "banlist": {
+      "message": "Olhou os bans recentes? Tudo em ordem?",
+      "opt1": "Deu bom!",
+      "reply1": "Ai sim!",
+      "opt2": "Deu ruim!",
+      "reply2": "Ai nao!"
+    },
+    "decksEmpty": {
+      "message": "Bah, mas nenhum deckzinho aqui eihn! Nem te apresenta"
+    },
+    "decks": {
+      "message": "E este deckzinho ai? O luxo do gaucho?",
+      "opt1": "sim",
+      "reply1": "dale!",
+      "opt2": "nao",
+      "reply2": "ta te michando p importar o ouro aqui!?"
+    }
   }
 }

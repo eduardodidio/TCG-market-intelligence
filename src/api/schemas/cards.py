@@ -39,6 +39,7 @@ class CardDetail(BaseModel):
     latest_price: float | None = None
     currency: str = "BRL"
     source_cards: list[SourceCardSchema] = []
+    collection_entry_id: int | None = None
     created_at: datetime
     updated_at: datetime
 

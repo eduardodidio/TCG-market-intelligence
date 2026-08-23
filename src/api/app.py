@@ -31,14 +31,31 @@ async def lifespan(app: FastAPI):
             log = structlog.get_logger()
             log.warning("scheduler_startup_failed", exc_info=True)
 
-    # Register scan completion hook for cache invalidation
+    # Register scan completion hooks for cache invalidation
     try:
         from src.api.deps import _create_market_data_service
-        from src.services.scan_hooks import default_registry, make_cache_invalidation_hook
+        from src.services.scan_hooks import (
+            default_registry,
+            make_cache_invalidation_hook,
+            make_trending_invalidation_hook,
+        )
 
         service = _create_market_data_service()
         hook = make_cache_invalidation_hook(service)
         default_registry.register(hook)
+
+        # Invalidate trending cache on scan completion
+        from src.api.routers.market import _trending_service, get_trending_service
+        from src.database.repository import Repository
+
+        if _trending_service is not None:
+            trending_svc = _trending_service
+        else:
+            db_url = os.environ.get("TCG_DATABASE_URL", "sqlite:///tcg_market.db")
+            repo = Repository(db_url=db_url)
+            trending_svc = get_trending_service(repo)
+        trending_hook = make_trending_invalidation_hook(trending_svc)
+        default_registry.register(trending_hook)
     except Exception:
         import structlog
 
