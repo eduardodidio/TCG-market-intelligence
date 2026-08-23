@@ -90,3 +90,8 @@ Each entry is a lesson that generalizes beyond a single bug.)
 ## F51/F52/F53 -- Explore Cards Fix, Dashboard Trending Fix, Pila Easter Eggs (2026-08-23)
 - **Always verify custom Tailwind classes are defined before using them.** `animate-fade-in-up` was used in GauchoDialog but never added to `tailwind.config.ts`. Tailwind silently drops unknown classes with no build error. Before using any class that is not part of the default Tailwind palette, check the config file or add the definition in the same commit.
 - **Thread AbortSignal through every layer of the fetch chain.** When using a hook like `useApi` that provides a `signal`, the fetcher function must forward it: `(signal) => fetchFn(params, { signal })`. Omitting it causes the request to ignore component unmount/re-render signals, leading to stale data or silent failures that are hard to reproduce in tests.
+
+## F54 -- Trending List Layout + Gaucho Orthography + Ticker Animation (2026-08-23)
+
+- **Use a `variant` prop with a backward-compatible default to extend component rendering modes.** `TrendingSection` gained `variant?: "cards" | "list"` with default `"cards"`, meaning all existing consumers (Dashboard, MarketPage) continued working with zero changes. This is the correct pattern for adding new rendering modes to shared components -- never change the default behavior, always opt-in to the new mode.
+- **Keep loading skeletons consistent with the active variant.** The loading skeleton in `TrendingSection` always shows card-style skeletons even when `variant="list"` is active. While non-blocking (loading is transient), it creates a visual mismatch. When adding a variant prop that changes content layout, consider adapting the loading state to match.

@@ -116,4 +116,30 @@ describe("Trending page", () => {
     renderPage();
     expect(screen.getByTestId("page-trending")).toBeTruthy();
   });
+
+  it("renders two sections in side-by-side grid layout", async () => {
+    global.fetch = mockFetch() as unknown as typeof fetch;
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("trending-section-gainers")).toBeTruthy();
+      expect(screen.getByTestId("trending-section-losers")).toBeTruthy();
+    });
+
+    // The parent container should use grid layout
+    const gainersSection = screen.getByTestId("trending-section-gainers");
+    const gridContainer = gainersSection.parentElement;
+    expect(gridContainer?.className).toContain("grid");
+    expect(gridContainer?.className).toContain("md:grid-cols-2");
+  });
+
+  it("renders list variant (not card variant) for trending sections", async () => {
+    global.fetch = mockFetch() as unknown as typeof fetch;
+    renderPage();
+    await waitFor(() => {
+      // Should render list items, not card tiles
+      const listContainers = screen.getAllByTestId("trending-list");
+      expect(listContainers.length).toBe(2);
+    });
+    expect(screen.queryByTestId("trending-card")).toBeNull();
+  });
 });

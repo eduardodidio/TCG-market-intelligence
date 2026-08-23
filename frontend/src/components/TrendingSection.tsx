@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useApi } from "../hooks/useApi";
 import { fetchTrending } from "../api/trending";
 import { TrendingCard } from "./TrendingCard";
+import { TrendingListItem } from "./TrendingListItem";
 import { ErrorBanner } from "./ErrorBanner";
 import { EmptyState } from "./EmptyState";
 import type { TrendingResponse } from "../types/api";
@@ -11,6 +12,7 @@ interface TrendingSectionProps {
   period: string;
   currency: string;
   limit?: number;
+  variant?: "cards" | "list";
 }
 
 function SkeletonCard() {
@@ -25,7 +27,7 @@ function SkeletonCard() {
   );
 }
 
-export function TrendingSection({ direction, period, currency, limit }: TrendingSectionProps) {
+export function TrendingSection({ direction, period, currency, limit, variant = "cards" }: TrendingSectionProps) {
   const { t } = useTranslation();
 
   const params: Record<string, string> = { period, currency };
@@ -73,13 +75,21 @@ export function TrendingSection({ direction, period, currency, limit }: Trending
         <EmptyState message={t("trending.noTrending")} />
       )}
 
-      {/* Cards scroll container */}
+      {/* Cards / list content */}
       {!loading && !error && data && data.cards.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          {data.cards.map((entry) => (
-            <TrendingCard key={entry.card_id} entry={entry} />
-          ))}
-        </div>
+        variant === "list" ? (
+          <div className="flex flex-col divide-y divide-slate-700/50" data-testid="trending-list">
+            {data.cards.map((entry) => (
+              <TrendingListItem key={entry.card_id} entry={entry} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+            {data.cards.map((entry) => (
+              <TrendingCard key={entry.card_id} entry={entry} />
+            ))}
+          </div>
+        )
       )}
     </section>
   );

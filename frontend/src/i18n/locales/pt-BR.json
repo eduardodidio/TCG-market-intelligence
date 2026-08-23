@@ -542,32 +542,32 @@
   },
   "gaucho": {
     "dashboard": {
-      "message": "Bah meu, ta tri a plataforma ne?! Os guris se puxaram!",
+      "message": "Bah meu, tá tri a plataforma né?! Os guris se puxaram!",
       "opt1": "ahaaam!"
     },
     "collection": {
-      "message": "Tche, que ta o Luxo do gaucho esta colecao?",
+      "message": "Tchê, que tá o luxo do gaúcho esta coleção?",
       "opt1": "to estorado",
       "reply1": "Dale!",
-      "opt2": "me caiu os butias do bolso!",
-      "reply2": "Que barbaridade! Na proxima na rateia meu, fica experto nas trocas de realese e cards muitos roubados"
+      "opt2": "me caiu os butiás do bolso!",
+      "reply2": "Que barbaridade! Na próxima não rateia meu, fica experto nas trocas de release e cards muito roubados"
     },
     "banlist": {
       "message": "Olhou os bans recentes? Tudo em ordem?",
       "opt1": "Deu bom!",
-      "reply1": "Ai sim!",
+      "reply1": "Aí sim!",
       "opt2": "Deu ruim!",
-      "reply2": "Ai nao!"
+      "reply2": "Aí não!"
     },
     "decksEmpty": {
       "message": "Bah, mas nenhum deckzinho aqui eihn! Nem te apresenta"
     },
     "decks": {
-      "message": "E este deckzinho ai? O luxo do gaucho?",
+      "message": "E esse deckzinho aí? O luxo do gaúcho?",
       "opt1": "sim",
       "reply1": "dale!",
-      "opt2": "nao",
-      "reply2": "ta te michando p importar o ouro aqui!?"
+      "opt2": "não",
+      "reply2": "tá te michando p importar o ouro aqui!?"
     }
   }
 }

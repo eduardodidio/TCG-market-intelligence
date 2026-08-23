@@ -59,7 +59,10 @@ function mockFetch(response: ApiResponse<TrendingResponse>) {
   );
 }
 
-function renderSection(direction: "gainers" | "losers" = "gainers") {
+function renderSection(
+  direction: "gainers" | "losers" = "gainers",
+  variant?: "cards" | "list",
+) {
   return render(
     <MemoryRouter>
       <TrendingSection
@@ -67,6 +70,7 @@ function renderSection(direction: "gainers" | "losers" = "gainers") {
         period="30d"
         currency="BRL"
         limit={20}
+        variant={variant}
       />
     </MemoryRouter>,
   );
@@ -140,5 +144,33 @@ describe("TrendingSection", () => {
     await waitFor(() => {
       expect(screen.getByTestId("cached-badge")).toBeTruthy();
     });
+  });
+
+  it("renders TrendingCard by default (no variant)", async () => {
+    global.fetch = mockFetch(envelope(mockTrendingResponse())) as unknown as typeof fetch;
+    renderSection();
+    await waitFor(() => {
+      expect(screen.getByTestId("trending-card")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("trending-list")).toBeNull();
+  });
+
+  it("renders TrendingCard when variant is 'cards'", async () => {
+    global.fetch = mockFetch(envelope(mockTrendingResponse())) as unknown as typeof fetch;
+    renderSection("gainers", "cards");
+    await waitFor(() => {
+      expect(screen.getByTestId("trending-card")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("trending-list")).toBeNull();
+  });
+
+  it("renders TrendingListItem when variant is 'list'", async () => {
+    global.fetch = mockFetch(envelope(mockTrendingResponse())) as unknown as typeof fetch;
+    renderSection("gainers", "list");
+    await waitFor(() => {
+      expect(screen.getByTestId("trending-list")).toBeTruthy();
+      expect(screen.getByTestId("trending-list-item")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("trending-card")).toBeNull();
   });
 });

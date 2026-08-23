@@ -10,8 +10,8 @@ export function MarketTicker() {
 
   if (loading || items.length === 0) return null;
 
-  // Calculate animation duration for consistent speed (~80px/item, ~60px/s)
-  const duration = Math.max(20, (items.length * 80) / 60);
+  // Calculate animation duration for consistent speed (~60px/item, ~60px/s)
+  const duration = Math.max(10, (items.length * 60) / 60);
 
   const handleClick = (cardId: number) => {
     navigate(`/cards/${cardId}`);

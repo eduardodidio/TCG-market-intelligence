@@ -79,18 +79,20 @@ export function Trending() {
       </div>
 
       {/* Trending sections */}
-      <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <TrendingSection
           direction="gainers"
           period={period}
           currency={currency}
           limit={Number(limit)}
+          variant="list"
         />
         <TrendingSection
           direction="losers"
           period={period}
           currency={currency}
           limit={Number(limit)}
+          variant="list"
         />
       </div>
     </div>

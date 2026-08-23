@@ -92,8 +92,8 @@ describe("MarketTicker", () => {
     renderTicker();
     const ticker = screen.getByTestId("market-ticker");
     const scrollDiv = ticker.firstElementChild as HTMLElement;
-    // duration = max(20, (5 * 80) / 60) = max(20, 6.67) = 20
-    expect(scrollDiv.style.getPropertyValue("--ticker-duration")).toBe("20s");
+    // duration = max(10, (5 * 60) / 60) = max(10, 5) = 10
+    expect(scrollDiv.style.getPropertyValue("--ticker-duration")).toBe("10s");
   });
 
   it("calculates longer duration for many items", () => {
@@ -102,9 +102,9 @@ describe("MarketTicker", () => {
     renderTicker();
     const ticker = screen.getByTestId("market-ticker");
     const scrollDiv = ticker.firstElementChild as HTMLElement;
-    // duration = max(20, (20 * 80) / 60) = max(20, 26.67) ~= 26.67
+    // duration = max(10, (20 * 60) / 60) = max(10, 20) = 20
     const dur = parseFloat(scrollDiv.style.getPropertyValue("--ticker-duration"));
-    expect(dur).toBeGreaterThan(20);
+    expect(dur).toBeGreaterThanOrEqual(20);
   });
 
   it("duplicate items have tabIndex=-1", () => {

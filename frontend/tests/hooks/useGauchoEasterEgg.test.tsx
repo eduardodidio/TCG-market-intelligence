@@ -42,7 +42,7 @@ describe("useGauchoEasterEgg", () => {
       () => useGauchoEasterEgg("/collection"),
       { wrapper: createWrapper() },
     );
-    expect(result.current.dialogData?.message).toContain("Luxo do gaucho");
+    expect(result.current.dialogData?.message).toContain("luxo do gaúcho");
     expect(result.current.dialogData?.options).toHaveLength(2);
   });
 
@@ -70,7 +70,7 @@ describe("useGauchoEasterEgg", () => {
       () => useGauchoEasterEgg("/decks"),
       { wrapper: createWrapper() },
     );
-    expect(result.current.dialogData?.message).toContain("deckzinho ai");
+    expect(result.current.dialogData?.message).toContain("deckzinho aí");
     expect(result.current.dialogData?.options).toHaveLength(2);
   });
 

@@ -28,6 +28,7 @@
 
   .animate-ticker {
     animation: ticker-scroll var(--ticker-duration, 30s) linear infinite;
+    will-change: transform;
   }
 
   .animate-ticker:hover {
