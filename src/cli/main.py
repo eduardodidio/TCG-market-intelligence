@@ -269,9 +269,18 @@ def db_cleanup(db, dry_run, no_backup):
 @click.option("--dry-run", is_flag=True, help="Don't write to database")
 @click.option("--delay", default=1.0, type=float, help="Seconds between requests")
 @click.option("--concurrency", default=3, type=int, help="Max concurrent requests")
-def snapshot_prices(db, limit, dry_run, delay, concurrency):
+@click.option(
+    "--provider",
+    type=click.Choice(["auto", "liga", "myp"]),
+    default="auto",
+    help="Price provider: auto (registry), liga, or myp",
+)
+def snapshot_prices(db, limit, dry_run, delay, concurrency, provider):
     """Daily price snapshot from JSON-LD on product pages."""
     from src.collectors.snapshot_prices import run_snapshot_prices
+
+    if provider == "liga":
+        click.echo("Note: LigaMagic not yet wired for snapshots — using MYP.")
 
     summary = asyncio.run(
         run_snapshot_prices(
@@ -369,6 +378,40 @@ def _print_snapshot_summary(summary, dry_run):
             click.echo(f"    ... and {len(summary.error_details) - 20} more")
 
 
+def _resolve_provider(provider_name: str, delay: float = 1.0):
+    """Create a MYP provider based on the --provider flag.
+
+    Args:
+        provider_name: "auto", "liga", or "myp".
+        delay: Delay between requests for MYP.
+
+    Returns:
+        MypCardsProvider instance or None (let run_scan create its own).
+
+    Note: LigaMagic integration is wired via the provider registry
+    at the API level. For CLI ``--provider liga``, this is a placeholder
+    that currently falls back to MYP with a warning.  The ``auto`` mode
+    delegates to the scan orchestrator's default (MYP) since the scan
+    function fetches via ``provider.fetch_current_price`` which is
+    MYP-specific.
+    """
+    if provider_name == "myp":
+        from src.providers.myp.provider import MypCardsProvider, MypConfig
+
+        config = MypConfig(delay_seconds=delay)
+        return MypCardsProvider(config)
+
+    if provider_name == "liga":
+        click.echo("Note: LigaMagic CLI provider not yet wired for scans — using MYP fallback.")
+        from src.providers.myp.provider import MypCardsProvider, MypConfig
+
+        config = MypConfig(delay_seconds=delay)
+        return MypCardsProvider(config)
+
+    # "auto" — let run_scan create its default provider
+    return None
+
+
 @cli.command()
 @click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
 @click.option(
@@ -386,8 +429,24 @@ def _print_snapshot_summary(summary, dry_run):
 @click.option("--dry-run", is_flag=True, help="Don't write to database")
 @click.option("--delay", default=1.0, type=float, help="Seconds between requests")
 @click.option("--concurrency", default=3, type=int, help="Max concurrent requests")
+@click.option(
+    "--provider",
+    type=click.Choice(["auto", "liga", "myp"]),
+    default="auto",
+    help="Price provider: auto (registry), liga, or myp",
+)
 def scan(
-    db, scan_type, set_codes, format_name, rarity, card_ids, limit, dry_run, delay, concurrency
+    db,
+    scan_type,
+    set_codes,
+    format_name,
+    rarity,
+    card_ids,
+    limit,
+    dry_run,
+    delay,
+    concurrency,
+    provider,
 ):
     """Run a price scan with optional filters."""
     from src.collectors.scan import run_scan
@@ -402,6 +461,8 @@ def scan(
         limit=limit,
     )
 
+    myp_provider = _resolve_provider(provider, delay)
+
     result = asyncio.run(
         run_scan(
             db_url=db,
@@ -409,6 +470,7 @@ def scan(
             dry_run=dry_run,
             delay=delay,
             concurrency=concurrency,
+            provider=myp_provider,
         )
     )
     _print_scan_summary(result, dry_run)

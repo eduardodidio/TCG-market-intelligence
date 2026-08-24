@@ -35,6 +35,7 @@ async def run_scan(
     concurrency: int = 3,
     run_id: int | None = None,
     on_complete: Callable[[ScanRun, list[str]], None] | None = None,
+    provider: MypCardsProvider | None = None,
 ) -> ScanRun:
     """Run a collection price scan with optional filtering.
 
@@ -44,10 +45,15 @@ async def run_scan(
         dry_run: If True, create scan run and get cards but skip fetching.
         delay: Seconds between requests.
         concurrency: Max concurrent requests.
+        run_id: Pre-created scan run ID (from API).
+        on_complete: Hook called after scan finishes.
+        provider: MYP provider instance; created internally if None.
     """
     scan_filter = scan_filter or ScanFilter()
-    config = MypConfig(delay_seconds=delay)
-    provider = MypCardsProvider(config)
+    owns_provider = provider is None
+    if provider is None:
+        config = MypConfig(delay_seconds=delay)
+        provider = MypCardsProvider(config)
     repo = Repository(db_url)
     today = date.today()
 
@@ -351,7 +357,8 @@ async def run_scan(
         )
         raise
     finally:
-        await provider.close()
+        if owns_provider:
+            await provider.close()
         # Delayed cleanup: give SSE clients time to receive the final event
         await asyncio.sleep(5)
         scan_bus.cleanup(run_id)

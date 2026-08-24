@@ -60,6 +60,20 @@ def _create_market_data_service():
     return _create_market_data_service._instance
 
 
+def get_provider_registry():
+    """FastAPI dependency for the ProviderRegistry singleton.
+
+    Returns a ProviderRegistry configured from the ``TCG_PROVIDER_ORDER``
+    environment variable (default: ``liga,myp``).  If LigaMagic is not
+    available (e.g. Playwright not installed), it is silently skipped.
+    """
+    if not hasattr(get_provider_registry, "_instance"):
+        from src.providers.registry import create_registry_from_env
+
+        get_provider_registry._instance = create_registry_from_env()
+    return get_provider_registry._instance
+
+
 # Re-export auth dependencies for convenience
 from src.auth.dependencies import (  # noqa: E402, F401
     get_current_user,

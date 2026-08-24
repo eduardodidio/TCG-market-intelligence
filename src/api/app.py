@@ -32,6 +32,18 @@ async def lifespan(app: FastAPI):
             log = structlog.get_logger()
             log.warning("scheduler_startup_failed", exc_info=True)
 
+    # Initialize provider registry (best-effort: skips unavailable providers)
+    try:
+        from src.api.deps import get_provider_registry
+
+        registry = get_provider_registry()
+        app.state.provider_registry = registry
+    except Exception:
+        import structlog
+
+        log = structlog.get_logger()
+        log.warning("provider_registry_init_failed", exc_info=True)
+
     # Register scan completion hooks for cache invalidation
     try:
         from src.api.deps import _create_market_data_service
