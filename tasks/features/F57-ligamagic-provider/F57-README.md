@@ -1,6 +1,6 @@
 # F57 — LigaMagic Price Provider
 
-**Status:** planned
+**Status:** done
 **Priority:** medium
 **Depends on:** none (independent of F56/F58)
 
