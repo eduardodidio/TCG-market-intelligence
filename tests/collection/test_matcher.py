@@ -3,7 +3,7 @@
 Covers test plan scenarios 8--14:
   8.  SKU exact match → matched / sku_exact
   9.  Name + set match → matched / name_set
- 10.  Multiple name matches, no SKU → ambiguous
+ 10.  Multiple name matches, no SKU → best_effort
  11.  Empty search results → unmatched
  12.  Case-insensitive set code comparison
  13.  Collector numbers with letters
@@ -192,8 +192,9 @@ class TestNameSetMatch:
 
 
 class TestAmbiguousMatch:
-    """Matcher returns status='ambiguous' when multiple candidates match
-    by name but none match by set_code + collector_number."""
+    """Matcher returns status='matched', confidence='best_effort' when
+    multiple candidates match by name but none match by set_code +
+    collector_number (picks first candidate)."""
 
     def test_multiple_name_matches_no_sku_or_set(self):
         entry = _entry(set_code="m21", collector_number="152", name_en="Lightning Bolt")
@@ -216,9 +217,9 @@ class TestAmbiguousMatch:
 
         match = match_collection_card(entry, results)
 
-        assert match.status == "ambiguous"
-        assert match.confidence == "none"
-        assert match.myp_result is None
+        assert match.status == "matched"
+        assert match.confidence == "best_effort"
+        assert match.myp_result is results[0]
         assert match.candidates == results
 
     def test_multiple_name_matches_different_sets_none_matching(self):
@@ -243,9 +244,9 @@ class TestAmbiguousMatch:
 
         match = match_collection_card(entry, results)
 
-        assert match.status == "ambiguous"
-        assert match.confidence == "none"
-        assert match.myp_result is None
+        assert match.status == "matched"
+        assert match.confidence == "best_effort"
+        assert match.myp_result is results[0]
 
 
 # ── Test Plan Scenario 11: Unmatched (empty results) ────────────
@@ -539,9 +540,10 @@ class TestEdgeCases:
 
         match = match_collection_card(entry, results)
 
-        # Two name+set matches with no SKU to disambiguate → ambiguous
-        assert match.status == "ambiguous"
-        assert match.confidence == "none"
+        # Two name+set matches with no SKU to disambiguate → best_effort
+        assert match.status == "matched"
+        assert match.confidence == "best_effort"
+        assert match.myp_result is results[0]
 
     def test_split_card_name_no_match(self):
         """Split card with different MYP name format does not match."""
@@ -666,8 +668,9 @@ class TestNamePtMatching:
 
         match = match_collection_card(entry, results)
 
-        assert match.status == "ambiguous"
-        assert match.confidence == "none"
+        assert match.status == "matched"
+        assert match.confidence == "best_effort"
+        assert match.myp_result is results[0]
 
     def test_name_set_match_via_pt_name(self):
         """PT name + matching set_code yields name_set confidence."""
@@ -714,3 +717,175 @@ class TestNamePtMatching:
 
         assert match.status == "matched"
         assert match.confidence == "name_only"
+
+
+# ── F55: Best-effort matching ──────────────────────────────────
+
+
+class TestBestEffortMatch:
+    """Best-effort matching picks the first candidate when multiple
+    name matches exist but no SKU or single set narrows the match."""
+
+    def test_best_effort_picks_first_candidate(self):
+        """3 name matches, no set match → picks first candidate."""
+        entry = _entry(set_code="m21", collector_number="152", name_en="Lightning Bolt")
+        results = [
+            _result(
+                external_id="20000",
+                name="Lightning Bolt",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+            _result(
+                external_id="20001",
+                name="Lightning Bolt",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+            _result(
+                external_id="20002",
+                name="Lightning Bolt",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "best_effort"
+        assert match.myp_result is results[0]
+
+    def test_best_effort_preserves_all_candidates(self):
+        """candidates list contains all original search results, not just
+        name matches."""
+        entry = _entry(set_code="m21", collector_number="152", name_en="Lightning Bolt")
+        results = [
+            _result(
+                external_id="21000",
+                name="Lightning Bolt",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+            _result(
+                external_id="21001",
+                name="Lightning Bolt",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+            _result(
+                external_id="21002",
+                name="Counterspell",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "best_effort"
+        assert match.candidates == results
+        assert len(match.candidates) == 3
+
+    def test_best_effort_does_not_override_sku_exact(self):
+        """Entry with SKU match still returns sku_exact, not best_effort."""
+        entry = _entry(set_code="dmr", collector_number="123", name_en="Lightning Bolt")
+        results = [
+            _result(
+                external_id="22000",
+                name="Lightning Bolt",
+                set_code="dmr",
+                collector_number="123",
+            ),
+            _result(
+                external_id="22001",
+                name="Lightning Bolt",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "sku_exact"
+        assert match.myp_result is results[0]
+
+    def test_best_effort_does_not_override_name_set(self):
+        """Single name+set match still returns name_set."""
+        entry = _entry(set_code="ltr", collector_number="20", name_en="Lightning Bolt")
+        results = [
+            _result(
+                external_id="23000",
+                name="Lightning Bolt",
+                sku=None,
+                set_code="ltr",
+                collector_number=None,
+            ),
+            _result(
+                external_id="23001",
+                name="Lightning Bolt",
+                sku=None,
+                set_code="dmr",
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "name_set"
+        assert match.myp_result is results[0]
+
+    def test_best_effort_does_not_override_name_only(self):
+        """Single name match still returns name_only."""
+        entry = _entry(set_code="m21", collector_number="152", name_en="Lightning Bolt")
+        results = [
+            _result(
+                external_id="24000",
+                name="Lightning Bolt",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "name_only"
+        assert match.myp_result is results[0]
+
+    def test_best_effort_multiple_name_set_matches(self):
+        """2 results match both name and set → best_effort picks first."""
+        entry = _entry(set_code="dmr", collector_number="123", name_en="Lightning Bolt")
+        results = [
+            _result(
+                external_id="25000",
+                name="Lightning Bolt",
+                sku=None,
+                set_code="dmr",
+                collector_number=None,
+            ),
+            _result(
+                external_id="25001",
+                name="Lightning Bolt",
+                sku=None,
+                set_code="dmr",
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "best_effort"
+        assert match.myp_result is results[0]

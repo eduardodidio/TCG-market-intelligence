@@ -1,0 +1,10 @@
+{
+  "id": "D-F55-001",
+  "feature": "F55",
+  "type": "feature_start",
+  "status": "executed",
+  "action": "plan-feature",
+  "rationale": "F55 fixes orphan cards (linked but no MYP source) that cannot refresh prices. Two root causes: (1) matcher returns 'ambiguous' instead of best-effort pick, (2) refresh endpoint doesn't auto-canonize orphans. Low risk — pure logic fixes in matcher + endpoint fallback. Benefits 10 orphan entries immediately and improves bulk-canonize success rate for 417 unlinked entries.",
+  "actions": [{"action": "plan-feature", "target": "F55"}],
+  "created_at": "2026-08-24T10:00:00Z"
+}

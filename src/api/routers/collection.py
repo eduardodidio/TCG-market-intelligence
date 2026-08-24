@@ -66,10 +66,7 @@ def _decode_cursor(cursor: str) -> int | None:
 
 def _scryfall_image_url(set_code: str, collector_number: str) -> str:
     mapped = map_to_scryfall_set_code(set_code)
-    return (
-        f"https://api.scryfall.com/cards/{mapped}/{collector_number}"
-        f"?format=image&version=normal"
-    )
+    return f"https://api.scryfall.com/cards/{mapped}/{collector_number}?format=image&version=normal"
 
 
 @router.get("", response_model=ApiResponse[list[CollectionCard]])
@@ -724,7 +721,70 @@ async def refresh_card_price(
     source_cards = repo.get_source_cards_for_card(entry.card_id)
     myp_sources = [sc for sc in source_cards if sc.source == "myp"]
     if not myp_sources:
-        raise HTTPException(status_code=422, detail="No MYP source card linked")
+        # Auto-canonize: search MYP and create source card before refresh
+        from src.collection.converter import row_to_collection_entry
+        from src.collection.matcher import match_collection_card
+        from src.domain.models import SourceCard
+
+        provider = MypCardsProvider()
+        try:
+            ce = row_to_collection_entry(entry)
+            search_results: list = []
+            if ce.name_en:
+                search_results = await provider.search_card(ce.name_en)
+            if not search_results and ce.name_pt:
+                search_results = await provider.search_card(ce.name_pt)
+
+            match = match_collection_card(ce, search_results)
+
+            if match.status != "matched" or not match.myp_result:
+                raise HTTPException(
+                    status_code=422,
+                    detail="No MYP source card linked and auto-match failed",
+                )
+
+            myp = match.myp_result
+            source_card = SourceCard(
+                source="myp",
+                external_id=myp.external_id,
+                url=myp.url,
+                sku=myp.sku,
+            )
+
+            detailed = await provider.get_card_details(source_card)
+            if detailed:
+                repo.upsert_card(detailed)
+                repo.upsert_source_card(detailed, card_id=entry.card_id)
+
+            # Re-fetch source cards after canonize
+            source_cards = repo.get_source_cards_for_card(entry.card_id)
+            myp_sources = [sc for sc in source_cards if sc.source == "myp"]
+            if not myp_sources:
+                raise HTTPException(
+                    status_code=422,
+                    detail="No MYP source card linked and auto-canonize failed",
+                )
+
+            log.info(
+                "refresh_auto_canonized",
+                entry_id=entry_id,
+                card_id=entry.card_id,
+                external_id=myp.external_id,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.warning(
+                "refresh_auto_canonize_failed",
+                entry_id=entry_id,
+                error=str(exc),
+            )
+            raise HTTPException(
+                status_code=422,
+                detail=f"No MYP source card linked and auto-canonize failed: {exc}",
+            )
+        finally:
+            await provider.close()
 
     sc = myp_sources[0]
     slug = sc.url.rsplit("/", 1)[-1]
@@ -957,7 +1017,7 @@ async def _run_sync_job(
         )
         job_tracker.complete(
             job_id,
-            f"Synced {summary.matched} cards, " f"{summary.observations_saved} observations saved",
+            f"Synced {summary.matched} cards, {summary.observations_saved} observations saved",
         )
     except Exception as e:
         job_tracker.fail(job_id, str(e))

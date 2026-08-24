@@ -483,6 +483,15 @@ class TestRunSyncCollection:
                     set_code="ltr",
                     collector_number="42",
                 ),
+                # Card 4: now matched via best_effort (was ambiguous)
+                _detailed_source_card(
+                    external_id="4000",
+                    slug="amb1",
+                    sku=None,
+                    name_en="Ambiguous Name",
+                    set_code=None,
+                    collector_number=None,
+                ),
             ]
         )
         provider.get_price_history = AsyncMock(return_value=_history_prices(count=5))
@@ -495,11 +504,11 @@ class TestRunSyncCollection:
         assert summary.total_entries == 6
         assert summary.skipped_already_linked == 1
         assert summary.searched == 4  # 5 minus the no-name, which is not searched
-        assert summary.matched == 2
+        assert summary.matched == 3  # card 4 now matched via best_effort
         assert summary.unmatched == 1
-        assert summary.ambiguous == 1
-        assert summary.cards_created == 2
-        assert summary.observations_saved == 10  # 5 * 2 matched cards
+        assert summary.ambiguous == 0  # best_effort no longer returns ambiguous
+        assert summary.cards_created == 3
+        assert summary.observations_saved == 15  # 5 * 3 matched cards
         assert len(summary.errors) == 0
 
     @patch("src.collectors.sync_collection.MypCardsProvider")
@@ -556,11 +565,14 @@ class TestRunSyncCollection:
 
     @patch("src.collectors.sync_collection.MypCardsProvider")
     @patch("src.collectors.sync_collection.Repository")
-    async def test_ambiguous_card_not_stored(self, MockRepo, MockProvider):
-        """Ambiguous matches are logged but not stored."""
+    async def test_best_effort_card_is_stored(self, MockRepo, MockProvider):
+        """Best-effort matches (formerly ambiguous) are stored."""
         rows = [_fake_row(id=1, set_code="m21", collector_number="152", name_en="Lightning Bolt")]
         repo = MockRepo.return_value
         repo.get_all_collection_entries.return_value = rows
+        repo.upsert_card.return_value = 42
+        repo.upsert_source_card.return_value = 100
+        repo.insert_price_observations.return_value = 5
 
         provider = MockProvider.return_value
         provider.search_card = AsyncMock(
@@ -582,18 +594,24 @@ class TestRunSyncCollection:
                 ),
             ]
         )
+        provider.get_card_details = AsyncMock(
+            return_value=_detailed_source_card(
+                external_id="7000",
+                name_en="Lightning Bolt",
+            )
+        )
+        provider.get_price_history = AsyncMock(return_value=_history_prices(count=3))
         provider.close = AsyncMock()
 
         summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
 
-        assert summary.ambiguous == 1
-        assert summary.matched == 0
+        assert summary.ambiguous == 0
+        assert summary.matched == 1
 
-        # No DB writes for ambiguous cards
-        repo.upsert_card.assert_not_called()
-        repo.upsert_source_card.assert_not_called()
-        repo.insert_price_observations.assert_not_called()
-        repo.link_collection_entry.assert_not_called()
+        # Best-effort matches are stored (first candidate picked)
+        repo.upsert_card.assert_called_once()
+        repo.upsert_source_card.assert_called_once()
+        repo.link_collection_entry.assert_called_once()
 
     @patch("src.collectors.sync_collection.MypCardsProvider")
     @patch("src.collectors.sync_collection.Repository")

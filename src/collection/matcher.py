@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import structlog
+
 from src.domain.models import MypSearchResult
+
+log = structlog.get_logger()
 
 
 @dataclass
@@ -25,10 +29,10 @@ class CollectionEntry:
 class MatchResult:
     """Outcome of matching a collection entry against MYP search results."""
 
-    status: str  # "matched" | "ambiguous" | "unmatched"
+    status: str  # "matched" | "unmatched"
     collection_entry: CollectionEntry
     myp_result: MypSearchResult | None  # best match, if any
-    confidence: str  # "sku_exact" | "name_set" | "name_only" | "none"
+    confidence: str  # "sku_exact" | "name_set" | "name_only" | "best_effort" | "none"
     candidates: list[MypSearchResult] = field(default_factory=list)
 
 
@@ -45,7 +49,8 @@ def match_collection_card(
        (case-insensitive, stripped) AND ``set_code``.
     3. **Name only** -- Exactly one search result matches by ``name``
        (case-insensitive, stripped) regardless of set.
-    4. **Ambiguous** -- Multiple candidates match by name but none by SKU.
+    4. **Best-effort** -- Multiple candidates match by name but none by SKU;
+       picks the first candidate (any printing has ~same price).
     5. **Unmatched** -- Zero search results or no name/SKU overlap.
 
     All comparisons are pure; no DB or network calls.
@@ -148,6 +153,23 @@ def _try_name_match(
             candidates=results,
         )
 
+    if len(name_set_matches) > 1:
+        # Multiple name+set matches (e.g., same card, same set, diff arts)
+        log.info(
+            "matcher_best_effort",
+            entry_name=entry.name_en,
+            entry_set=entry.set_code,
+            picked_id=name_set_matches[0].external_id,
+            candidates=len(name_set_matches),
+        )
+        return MatchResult(
+            status="matched",
+            collection_entry=entry,
+            myp_result=name_set_matches[0],
+            confidence="best_effort",
+            candidates=results,
+        )
+
     # Exactly one name match (regardless of set) → name_only
     if len(name_matches) == 1:
         return MatchResult(
@@ -158,12 +180,20 @@ def _try_name_match(
             candidates=results,
         )
 
-    # Multiple name matches, none narrowed by set → ambiguous
+    # Multiple name matches, none narrowed by set → best-effort pick
+    # For pricing, any printing of the same card has ~same price.
+    log.info(
+        "matcher_best_effort",
+        entry_name=entry.name_en,
+        entry_set=entry.set_code,
+        picked_id=name_matches[0].external_id,
+        candidates=len(name_matches),
+    )
     return MatchResult(
-        status="ambiguous",
+        status="matched",
         collection_entry=entry,
-        myp_result=None,
-        confidence="none",
+        myp_result=name_matches[0],
+        confidence="best_effort",
         candidates=results,
     )
 

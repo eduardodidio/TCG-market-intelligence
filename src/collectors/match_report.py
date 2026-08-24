@@ -138,10 +138,10 @@ async def run_match_report(
                             summary.matched_sku += 1
                         elif result.confidence == "name_set":
                             summary.matched_name_set += 1
+                        elif result.confidence == "best_effort":
+                            summary.ambiguous += 1
                         else:
                             summary.matched_name_only += 1
-                    elif result.status == "ambiguous":
-                        summary.ambiguous += 1
                     else:
                         summary.unmatched += 1
 
