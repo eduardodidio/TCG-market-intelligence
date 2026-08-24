@@ -815,6 +815,109 @@ async def refresh_card_price(
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
 
 
+@router.post("/{entry_id}/refresh-liga", response_model=ApiResponse[CollectionCardDetail])
+async def refresh_card_price_liga(
+    entry_id: int,
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Refresh a single card's price from LigaMagic in real-time."""
+    from src.domain.models import HistoricalPrice
+    from src.providers.liga.exceptions import (
+        LigaError,
+        LigaNotFoundError,
+        LigaRateLimitError,
+    )
+    from src.providers.liga.provider import LigaMagicProvider
+
+    entry = repo.get_collection_entry(entry_id)
+    if not entry or entry.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+
+    card_name = entry.name_en or entry.name_pt
+    if not card_name:
+        raise HTTPException(
+            status_code=422,
+            detail="Card has no name (name_en or name_pt required for LigaMagic search)",
+        )
+
+    provider = LigaMagicProvider()
+    try:
+        prices = await provider.search_card(card_name)
+    except LigaNotFoundError:
+        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+        response.errors.append(
+            ErrorDetail(code="liga_warning", message="Card not found on LigaMagic")
+        )
+        return response
+    except LigaRateLimitError:
+        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+        response.errors.append(
+            ErrorDetail(
+                code="liga_warning",
+                message="LigaMagic rate limited, try again later",
+            )
+        )
+        return response
+    except LigaError as exc:
+        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+        response.errors.append(ErrorDetail(code="liga_warning", message=f"LigaMagic error: {exc}"))
+        return response
+    except Exception as exc:
+        log.warning("liga_refresh_unexpected_error", entry_id=entry_id, error=str(exc))
+        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+        response.errors.append(ErrorDetail(code="liga_warning", message=f"Unexpected error: {exc}"))
+        return response
+    finally:
+        await provider.close()
+
+    # Extract price: prefer normal.mid, fallback normal.low, then normal.high
+    normal = prices.get("normal", {})
+    price = normal.get("mid") or normal.get("low") or normal.get("high")
+
+    if price is None:
+        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+        response.errors.append(
+            ErrorDetail(
+                code="liga_warning",
+                message="No price found on LigaMagic for this card",
+            )
+        )
+        return response
+
+    # Auto-create canonical card if entry has no card_id
+    if entry.card_id is None:
+        card_id = repo.create_canonical_card(
+            game="magic",
+            name_en=entry.name_en or "Unknown",
+            name_pt=entry.name_pt,
+            set_code=entry.set_code,
+            collector_number=entry.collector_number,
+        )
+        repo.link_collection_entry(entry_id, card_id)
+        log.info("liga_refresh_auto_created_card", entry_id=entry_id, card_id=card_id)
+        # Reload entry to get card_id
+        entry = repo.get_collection_entry(entry_id)
+
+    obs = HistoricalPrice(
+        source="liga",
+        external_id=f"liga_{card_name}",
+        observed_at=date.today(),
+        median_price=price,
+    )
+    repo.insert_price_observations([obs])
+    log.info(
+        "card_price_refreshed_liga",
+        entry_id=entry_id,
+        card_name=card_name,
+        price=str(price),
+    )
+
+    return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+
+
 def _build_collection_detail(
     entry_id: int,
     currency: str,

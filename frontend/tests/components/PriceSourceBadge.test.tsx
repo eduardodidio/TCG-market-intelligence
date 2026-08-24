@@ -45,6 +45,29 @@ describe("PriceSourceBadge", () => {
     expect(svg!.getAttribute("aria-hidden")).toBe("true");
   });
 
+  it("renders violet badge with 'LigaMagic' text for source='liga'", () => {
+    render(<PriceSourceBadge priceSource="liga" />);
+    const badge = screen.getByTestId("price-source-badge");
+    expect(badge).toBeDefined();
+    expect(badge.textContent).toContain("LigaMagic");
+    expect(badge.className).toContain("text-violet-400");
+    expect(badge.className).toContain("bg-violet-600/20");
+  });
+
+  it("renders globe icon SVG for liga source", () => {
+    render(<PriceSourceBadge priceSource="liga" />);
+    const badge = screen.getByTestId("price-source-badge");
+    const svg = badge.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(svg!.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("has tooltip with LigaMagic label for liga source", () => {
+    render(<PriceSourceBadge priceSource="liga" />);
+    const badge = screen.getByTestId("price-source-badge");
+    expect(badge.getAttribute("title")).toBe("LigaMagic");
+  });
+
   it("uses i18n t() for badge text (renders translated text)", () => {
     // The test setup initializes i18n with EN translations.
     // This verifies the component uses t("price.manual") which resolves to "Manual Price"

@@ -32,6 +32,18 @@ export function refreshCardPrice(
   );
 }
 
+export function refreshCardPriceLiga(
+  entryId: number,
+  params?: Record<string, string>,
+): Promise<ApiResponse<CollectionCardDetail>> {
+  const query = params ? "?" + new URLSearchParams(params).toString() : "";
+  return apiPost<CollectionCardDetail>(
+    `/api/v1/collection/${entryId}/refresh-liga${query}`,
+    {},
+    { timeoutMs: 45000 },
+  );
+}
+
 export function canonizeCard(
   entryId: number,
   params?: Record<string, string>,

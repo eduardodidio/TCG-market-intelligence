@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
-import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, refreshCardPrice } from "../api/collection";
+import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, refreshCardPrice, refreshCardPriceLiga } from "../api/collection";
 import { fetchCardBanHistory } from "../api/banlist";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
@@ -31,6 +31,7 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
 function sourceLabel(source: string): string {
   const labels: Record<string, string> = {
     myp: "MYP Cards",
+    liga: "LigaMagic",
   };
   return labels[source] ?? source;
 }
@@ -56,6 +57,7 @@ export function CollectionCardDetail() {
 
   const [period, setPeriod] = useState("30d");
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingLiga, setRefreshingLiga] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
   const [canonizing, setCanonizing] = useState(false);
 
@@ -81,6 +83,35 @@ export function CollectionCardDetail() {
       setTimeout(() => setRefreshMsg(null), 3000);
     }
   }, [refreshing, entry, entryId, currency, t, setEntry]);
+
+  const handleRefreshLiga = useCallback(async () => {
+    if (refreshingLiga || !entry) return;
+    const hasName = !!(entry.name_en || entry.name_pt);
+    if (!hasName) return;
+    setRefreshingLiga(true);
+    setRefreshMsg(null);
+    try {
+      const params: Record<string, string> = {};
+      if (currency !== "BRL") params.currency = currency;
+      const res = await refreshCardPriceLiga(entryId, Object.keys(params).length > 0 ? params : undefined);
+      if (res.data) {
+        setEntry(res.data);
+        if (res.errors && res.errors.length > 0) {
+          setRefreshMsg({ type: "warning", text: res.errors[0].message });
+        } else {
+          setRefreshMsg({ type: "success", text: t("collection.refreshLigaSuccess") });
+        }
+      } else {
+        const msg = res.errors?.[0]?.message || t("collection.refreshLigaError");
+        setRefreshMsg({ type: "error", text: msg });
+      }
+    } catch {
+      setRefreshMsg({ type: "error", text: t("collection.refreshLigaError") });
+    } finally {
+      setRefreshingLiga(false);
+      setTimeout(() => setRefreshMsg(null), 5000);
+    }
+  }, [refreshingLiga, entry, entryId, currency, t, setEntry]);
 
   const handleCanonize = useCallback(async () => {
     if (canonizing || !entry || entry.card_id != null) return;
@@ -292,6 +323,31 @@ export function CollectionCardDetail() {
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     />
                   </svg>
+                </button>
+              )}
+              {!!(entry.name_en || entry.name_pt) && (
+                <button
+                  data-testid="refresh-liga-btn"
+                  onClick={handleRefreshLiga}
+                  disabled={refreshingLiga}
+                  title={t("collection.refreshLigaTooltip")}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 hover:bg-violet-500 px-2.5 py-1 text-xs font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  <svg
+                    className={`h-3.5 w-3.5 ${refreshingLiga ? "animate-spin" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                    />
+                  </svg>
+                  {t("collection.refreshLiga")}
                 </button>
               )}
             </div>

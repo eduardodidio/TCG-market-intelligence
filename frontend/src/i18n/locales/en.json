@@ -122,7 +122,13 @@
     "canonizeResult": "Canonized {{canonized}} of {{total}} cards",
     "canonizeFailed": "{{failed}} cards failed",
     "canonizeScheduled": "Canonization scheduled",
-    "refreshFallbackHint": "Last known price shown. Use manual entry below to update."
+    "refreshFallbackHint": "Last known price shown. Use manual entry below to update.",
+    "refreshLiga": "LigaMagic",
+    "refreshLigaTooltip": "Fetch price from LigaMagic (~10s)",
+    "refreshLigaSuccess": "Price updated from LigaMagic",
+    "refreshLigaNotFound": "Card not found on LigaMagic",
+    "refreshLigaError": "LigaMagic fetch failed",
+    "refreshLigaRateLimit": "LigaMagic rate limited, try later"
   },
   "market": {
     "title": "Market Movers",
@@ -526,6 +532,9 @@
       "myp": "MYP",
       "auto": "Automatic"
     }
+  },
+  "priceSource": {
+    "liga": "LigaMagic"
   },
   "settings": {
     "title": "Settings",
