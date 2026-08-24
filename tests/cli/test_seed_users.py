@@ -38,15 +38,20 @@ class TestSeedUsers:
         assert verify_password("test-password-123", user1.password_hash)
         assert verify_password("test-password-123", user2.password_hash)
 
-    def test_generates_random_password_when_no_env(self, tmp_path, monkeypatch):
-        db_path = tmp_path / "test_seed_rand.db"
+    def test_uses_default_password_when_no_env(self, tmp_path, monkeypatch):
+        db_path = tmp_path / "test_seed_default.db"
         db_url = f"sqlite:///{db_path}"
 
         monkeypatch.delenv("TCG_SEED_PASSWORD", raising=False)
         runner = CliRunner()
         result = runner.invoke(cli, ["seed-users", "--db", db_url])
         assert result.exit_code == 0
-        assert "generated password:" in result.output
+
+        # Verify default password mudar@123 works
+        repo = Repository(db_url=db_url)
+        user = repo.get_user_by_email("eduardorutkoskididio@gmail.com")
+        assert user is not None
+        assert verify_password("mudar@123", user.password_hash)
 
     def test_idempotent_second_run(self, tmp_path):
         db_path = tmp_path / "test_seed2.db"

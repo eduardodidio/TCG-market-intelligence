@@ -580,17 +580,12 @@ def migrate_user(db, old_id, new_id):
 @click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
 def seed_users(db):
     """Create initial seed users (idempotent)."""
-    import secrets
-
     from src.auth.passwords import hash_password
     from src.database.repository import Repository
 
     log = structlog.get_logger()
 
-    password = os.environ.get("TCG_SEED_PASSWORD")
-    if password is None:
-        password = secrets.token_urlsafe(16)
-        click.echo(f"  No TCG_SEED_PASSWORD set — generated password: {password}")
+    password = os.environ.get("TCG_SEED_PASSWORD", "mudar@123")
 
     SEED_USERS = [
         {

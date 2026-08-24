@@ -8,8 +8,8 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 
 _ALGORITHM = "HS256"
-_ACCESS_TOKEN_EXPIRE_MINUTES = 30
-_REFRESH_TOKEN_EXPIRE_DAYS = 7
+_ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+_REFRESH_TOKEN_EXPIRE_DAYS = 30  # 30 days
 
 
 def _get_secret() -> str:
@@ -23,7 +23,7 @@ def _get_secret() -> str:
 
 
 def create_access_token(user_id: int, email: str) -> str:
-    """Create a short-lived JWT access token (30 min)."""
+    """Create a JWT access token (24 hours)."""
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
@@ -36,7 +36,7 @@ def create_access_token(user_id: int, email: str) -> str:
 
 
 def create_refresh_token(user_id: int) -> str:
-    """Create a long-lived JWT refresh token (7 days)."""
+    """Create a long-lived JWT refresh token (30 days)."""
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),

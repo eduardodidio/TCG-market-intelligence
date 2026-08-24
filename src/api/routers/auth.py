@@ -73,7 +73,7 @@ def login(
         value=access_token,
         httponly=True,
         samesite="lax",
-        max_age=30 * 60,  # 30 minutes
+        max_age=1440 * 60,  # 24 hours
     )
 
     tokens = AuthTokens(

@@ -1,6 +1,6 @@
 # F56 — Auth Hardening & Login UX
 
-**Status:** planned
+**Status:** done
 **Priority:** high
 **Depends on:** none
 

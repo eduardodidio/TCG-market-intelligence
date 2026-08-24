@@ -11,6 +11,8 @@ import {
   clearTokens,
   fetchMe,
   getStoredToken,
+  getStoredRefreshToken,
+  refreshTokens,
   login as apiLogin,
   logout as apiLogout,
   register as apiRegister,
@@ -54,9 +56,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     fetchMe()
-      .then((resp) => {
+      .then(async (resp) => {
         if (resp.data) {
           setUser(resp.data);
+          return;
+        }
+        // If fetchMe failed (e.g. expired token), try refreshing
+        const hasRefresh = getStoredRefreshToken();
+        if (!hasRefresh) {
+          clearTokens();
+          return;
+        }
+        const refreshResp = await refreshTokens();
+        if (!refreshResp.data) {
+          clearTokens();
+          return;
+        }
+        // Retry fetchMe with new access token
+        const retryResp = await fetchMe();
+        if (retryResp.data) {
+          setUser(retryResp.data);
         } else {
           clearTokens();
         }

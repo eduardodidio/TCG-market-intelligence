@@ -114,17 +114,21 @@ export default function App() {
 
             {/* Main layout routes */}
             <Route element={<Layout />}>
-              {/* Public routes */}
+              {/* Dashboard — protected (redirects to /login) */}
               <Route
                 path="/"
                 element={
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <Dashboard />
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
                   </Suspense>
                 }
               />
+
+              {/* Public routes */}
               <Route
                 path="/cards"
                 element={
