@@ -127,7 +127,7 @@ def _try_name_match(
 
     name_matches: list[MypSearchResult] = []
     for r in results:
-        if _normalize(r.name) in entry_names:
+        if _name_matches(r.name, entry_names):
             name_matches.append(r)
 
     if not name_matches:
@@ -201,3 +201,20 @@ def _try_name_match(
 def _normalize(name: str) -> str:
     """Lowercase and strip whitespace for case-insensitive name comparison."""
     return name.strip().lower()
+
+
+def _name_matches(result_name: str, entry_names: set[str]) -> bool:
+    """Check if a search result name matches any entry name.
+
+    Handles double-faced cards where MYP uses "Front // Back" format
+    (e.g., "Abrade // Abrade") by also checking each face individually.
+    """
+    normalized = _normalize(result_name)
+    if normalized in entry_names:
+        return True
+    # Check individual faces for DFC names (e.g., "Abrade // Abrade")
+    if " // " in normalized:
+        for face in normalized.split(" // "):
+            if face.strip() in entry_names:
+                return True
+    return False

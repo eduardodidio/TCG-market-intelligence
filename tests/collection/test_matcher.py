@@ -889,3 +889,39 @@ class TestBestEffortMatch:
         assert match.status == "matched"
         assert match.confidence == "best_effort"
         assert match.myp_result is results[0]
+
+    def test_dfc_name_matches_single_face(self):
+        """MYP result 'Abrade // Abrade' matches entry name 'Abrade'."""
+        entry = _entry(set_code="vow", collector_number="139", name_en="Abrade")
+        results = [
+            _result(
+                external_id="146734",
+                name="Abrade // Abrade",
+                sku="magic_tavow_038",
+                set_code="tavow",
+                collector_number="038",
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "matched"
+        assert match.confidence == "name_only"
+        assert match.myp_result is results[0]
+
+    def test_dfc_name_does_not_match_unrelated(self):
+        """MYP result 'Fire // Ice' does not match entry name 'Abrade'."""
+        entry = _entry(set_code="vow", collector_number="139", name_en="Abrade")
+        results = [
+            _result(
+                external_id="99999",
+                name="Fire // Ice",
+                sku=None,
+                set_code=None,
+                collector_number=None,
+            ),
+        ]
+
+        match = match_collection_card(entry, results)
+
+        assert match.status == "unmatched"
