@@ -585,14 +585,13 @@ def seed_users(db):
 
     log = structlog.get_logger()
 
-    password = os.environ.get("TCG_SEED_PASSWORD", "mudar@123")
+    password = os.environ.get("TCG_SEED_PASSWORD", "mudar12345")
 
     SEED_USERS = [
         {
             "email": "eduardorutkoskididio@gmail.com",
             "display_name": "Eduardo Didio",
         },
-        {"email": "anderson.serafim", "display_name": "Anderson Serafim"},
     ]
 
     repo = Repository(db_url=db)
