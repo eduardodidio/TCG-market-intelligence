@@ -31,7 +31,7 @@ export function GauchoDialog({
   // Dismiss after showing reply
   useEffect(() => {
     if (replyText !== null) {
-      const timer = setTimeout(onDismiss, 2500);
+      const timer = setTimeout(onDismiss, 4500);
       return () => clearTimeout(timer);
     }
   }, [replyText, onDismiss]);

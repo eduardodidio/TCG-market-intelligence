@@ -58,7 +58,7 @@ describe("GauchoDialog", () => {
     fireEvent.click(screen.getByTestId("gaucho-option-ok"));
     expect(onDismiss).not.toHaveBeenCalled();
     act(() => {
-      vi.advanceTimersByTime(2500);
+      vi.advanceTimersByTime(4500);
     });
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
