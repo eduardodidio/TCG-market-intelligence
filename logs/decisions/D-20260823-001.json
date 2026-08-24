@@ -1,0 +1,38 @@
+{
+  "decision_id": "D-20260823-001",
+  "timestamp": "2026-08-23T10:00:00Z",
+  "type": "feature_start",
+  "context_summary": "Batch planning of 3 independent features: F51 (fix explore cards images/prices + refresh), F52 (fix dashboard trending regression), F53 (Pila easter eggs with gaucho dialogues). All P2 QoL features are shipped (F49-F50). These 3 features address UX gaps, a regression bug, and a fun engagement feature for PILA currency users.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Plan all 3 features in parallel (F51, F52, F53) — they are fully independent.",
+      "pros": [
+        "F51 fixes real UX issues (missing images/prices) that affect user experience",
+        "F52 fixes a regression bug — trending section was working before recent refactors",
+        "F53 adds cultural engagement for Brazilian gaúcho users (core audience)",
+        "All 3 are independent — can be planned and executed in parallel",
+        "Small-to-medium scope each — manageable risk"
+      ],
+      "cons": [
+        "3 features in parallel increases review burden",
+        "F53 is cosmetic/fun — lower priority than bug fixes"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Only plan F51+F52 (bug fixes), defer F53.",
+      "pros": ["Focus on fixing broken functionality first"],
+      "cons": ["F53 is user-requested and adds engagement value", "No technical reason to defer"]
+    }
+  ],
+  "decision": "A",
+  "rationale": "All 3 features are independent, user-requested, and address different concerns (UX fix, bug fix, engagement). Planning in parallel maximizes throughput. F51+F52 are bug fixes that should ship ASAP. F53 is a fun cultural feature that enhances the PILA currency experience.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F51" },
+    { "action": "plan-feature", "feature": "F52" },
+    { "action": "plan-feature", "feature": "F53" }
+  ],
+  "status": "executed",
+  "governance": null
+}

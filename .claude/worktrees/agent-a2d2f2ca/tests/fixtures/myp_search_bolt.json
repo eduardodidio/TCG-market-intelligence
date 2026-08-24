@@ -1,0 +1,23 @@
+[
+  {
+    "id": 45231,
+    "nome": "Raio / Lightning Bolt",
+    "slug": "raio-lightning-bolt",
+    "sku": "magic_sta_062",
+    "imagem": "https://mypcards.com/images/magic/sta/062.jpg"
+  },
+  {
+    "id": 78442,
+    "nome": "Raio / Lightning Bolt",
+    "slug": "raio-lightning-bolt-m11",
+    "sku": "magic_m11_148",
+    "imagem": "https://mypcards.com/images/magic/m11/148.jpg"
+  },
+  {
+    "id": 91205,
+    "nome": "Raio / Lightning Bolt",
+    "slug": "raio-lightning-bolt-a25",
+    "sku": "magic_a25_141",
+    "imagem": "https://mypcards.com/images/magic/a25/141.jpg"
+  }
+]

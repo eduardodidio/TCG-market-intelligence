@@ -1,0 +1,56 @@
+{
+  "decision_id": "D-20260822-009",
+  "timestamp": "2026-08-22T20:05:00Z",
+  "type": "feature_start",
+  "context_summary": "F49 Auto-Canonize Collection is ready to start. All P2 features (F32-F48) are shipped. F49 has 5 tasks across 2 Waves with a complete architect plan. F50 Manual Price Entry is also planned but independent.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with F49 now via create-feature (full pipeline: Architect already done, run Waves then TechLead then QA).",
+      "pros": [
+        "Plan already exists with clear tasks — no architect rework needed",
+        "QoL feature that immediately improves user experience (auto-linking cards to MYP for price tracking)",
+        "Reuses existing canonize_card logic and provider infrastructure — low architectural risk",
+        "5 small tasks across 2 waves — well-scoped, quick to ship",
+        "No blocking dependencies on other features"
+      ],
+      "cons": [
+        "MYP rate limits may slow bulk canonize at scale — but existing backoff handles this",
+        "Consumes agent cycles that could go to F50 — but F49 is higher impact (enables price tracking for all cards)"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Batch F49 and F50 together as a single execution cycle to ship both price-related features at once.",
+      "pros": [
+        "Both features relate to price data — shipping together gives a coherent user experience",
+        "Single TechLead/QA pass for both saves review overhead"
+      ],
+      "cons": [
+        "F50 is independent — batching couples unrelated code changes and increases blast radius",
+        "Larger scope means longer cycle time — F49 could ship sooner alone",
+        "F49 is prerequisite-like for F50 (cards need MYP links before manual prices matter as much)",
+        "Combined testing is more complex with no real benefit"
+      ]
+    },
+    {
+      "option": "C",
+      "description": "Defer F49 and start F50 (Manual Price Entry) first.",
+      "pros": [
+        "Manual price entry works regardless of MYP linking — provides immediate value for unlinked cards"
+      ],
+      "cons": [
+        "F49 auto-canonize is higher priority — it enables automatic price tracking for all collection cards",
+        "Without F49, users must manually canonize each card one by one before prices flow",
+        "F50 is more valuable AFTER F49 ships (manual prices supplement auto-tracked prices)"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "F49 is a well-scoped, low-risk QoL feature with an existing architect plan and clear task breakdown. It reuses proven infrastructure (canonize_card, MYP provider, rate limiting) and directly improves the core value proposition — automatic price tracking for collection cards. Shipping F49 before F50 is the right sequence since auto-canonize enables price data flow, making manual price entry (F50) a complement rather than a workaround.",
+  "actions": [
+    { "action": "create-feature", "feature": "F49" }
+  ],
+  "status": "pending",
+  "governance": null
+}

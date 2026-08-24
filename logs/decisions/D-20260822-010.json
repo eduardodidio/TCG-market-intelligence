@@ -1,0 +1,44 @@
+{
+  "decision_id": "D-20260822-010",
+  "timestamp": "2026-08-22T21:05:00Z",
+  "type": "feature_start",
+  "context_summary": "F49 Auto-Canonize just shipped successfully (TechLead approved, QA passed). F50 Manual Price Entry is next in the backlog with a complete plan (4 tasks, 2 Waves). F50 complements F49 by allowing manual price entry for cards that MYP doesn't cover.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with F50 now via create-feature (full pipeline). The architect plan already exists with clear tasks and waves.",
+      "pros": [
+        "Plan already exists with well-defined 4-task breakdown across 2 waves — no architect rework needed",
+        "Natural sequel to F49: auto-canonize links cards to MYP, manual price fills the gap for unlinked/uncovered cards",
+        "Low architectural risk — reuses existing PriceObservationRow with source='manual', no new tables",
+        "Small scope (4 tasks) means fast cycle time",
+        "Addresses the MYP coverage gap identified in project notes (many cards have no MYP price data)"
+      ],
+      "cons": [
+        "Consumes agent cycles — but no competing features are pending",
+        "Manual prices add UX complexity (source badges, input forms) — but the plan handles this cleanly"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Defer F50 and focus on other priorities (e.g., F21 Price Fallback Sources, or tech debt).",
+      "pros": [
+        "Could address the MYP auth-wall problem more fundamentally with alternative data sources",
+        "Reduces maintenance surface by not adding manual entry workflows"
+      ],
+      "cons": [
+        "F21 is deferred with no plan ready — would require architect work from scratch",
+        "Users currently have NO way to record prices for cards without MYP coverage (140/349 cards missing prices)",
+        "F50 is already planned and ready to execute — deferring wastes completed planning work",
+        "Manual price entry provides immediate value regardless of future automated sources"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "F50 is the logical next step after F49. With auto-canonize now linking cards to MYP, manual price entry fills the remaining gap for cards that MYP doesn't cover (40% of the collection currently lacks price data). The plan is already complete, the scope is small (4 tasks), and it reuses existing infrastructure with zero new tables. No competing features are ready to execute.",
+  "actions": [
+    { "action": "create-feature", "feature": "F50" }
+  ],
+  "status": "pending",
+  "governance": null
+}
