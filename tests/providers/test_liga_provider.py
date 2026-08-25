@@ -305,6 +305,99 @@ class TestSearchCard:
 
         assert result["normal"]["low"] is None
 
+    @pytest.mark.asyncio
+    async def test_unexpected_error_wraps_to_liga_error(self, provider):
+        """Non-LigaError exceptions are wrapped into LigaError with type name."""
+        with patch.object(
+            provider,
+            "_fetch_page",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("something broke"),
+        ):
+            with pytest.raises(LigaError, match="Unexpected RuntimeError: something broke"):
+                await provider.search_card("Lightning Bolt")
+
+    @pytest.mark.asyncio
+    async def test_empty_message_exception_wraps_with_type(self, provider):
+        """Exception with empty str() gets type name in wrapped LigaError."""
+        with patch.object(
+            provider,
+            "_fetch_page",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError(""),
+        ):
+            with pytest.raises(LigaError, match="Unexpected RuntimeError \\(no message\\)"):
+                await provider.search_card("Lightning Bolt")
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_preserves_cause(self, provider):
+        """Wrapped LigaError should chain the original exception."""
+        original = ValueError("root cause")
+        with patch.object(
+            provider,
+            "_fetch_page",
+            new_callable=AsyncMock,
+            side_effect=original,
+        ):
+            with pytest.raises(LigaError) as exc_info:
+                await provider.search_card("Lightning Bolt")
+            assert exc_info.value.__cause__ is original
+
+
+# ---------------------------------------------------------------------------
+# _fetch_page error message improvement
+# ---------------------------------------------------------------------------
+
+
+class TestFetchPageErrorMessages:
+    """_fetch_page produces descriptive error messages including exception type."""
+
+    @pytest.fixture
+    def provider(self):
+        return LigaMagicProvider(LigaConfig(delay_seconds=0, max_retries=1))
+
+    @pytest.mark.asyncio
+    async def test_timeout_error_includes_type_in_message(self, provider):
+        with patch.object(
+            provider,
+            "_ensure_page",
+            new_callable=AsyncMock,
+        ) as mock_ensure:
+            mock_page = AsyncMock()
+            mock_page.goto = AsyncMock(side_effect=TimeoutError("page.goto timed out"))
+            mock_ensure.return_value = mock_page
+
+            with pytest.raises(LigaError, match=r"TimeoutError.*page\.goto timed out"):
+                await provider._fetch_page("http://example.com")
+
+    @pytest.mark.asyncio
+    async def test_empty_message_error_includes_type(self, provider):
+        with patch.object(
+            provider,
+            "_ensure_page",
+            new_callable=AsyncMock,
+        ) as mock_ensure:
+            mock_page = AsyncMock()
+            mock_page.goto = AsyncMock(side_effect=OSError(""))
+            mock_ensure.return_value = mock_page
+
+            with pytest.raises(LigaError, match=r"OSError, no details"):
+                await provider._fetch_page("http://example.com")
+
+    @pytest.mark.asyncio
+    async def test_os_error_includes_type_in_message(self, provider):
+        with patch.object(
+            provider,
+            "_ensure_page",
+            new_callable=AsyncMock,
+        ) as mock_ensure:
+            mock_page = AsyncMock()
+            mock_page.goto = AsyncMock(side_effect=OSError("Connection refused"))
+            mock_ensure.return_value = mock_page
+
+            with pytest.raises(LigaError, match=r"OSError.*Connection refused"):
+                await provider._fetch_page("http://example.com")
+
 
 # ---------------------------------------------------------------------------
 # Lifecycle (open/close)

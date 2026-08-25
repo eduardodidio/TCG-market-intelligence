@@ -424,4 +424,97 @@ describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
       screen.getByTestId("refresh-liga-btn"),
     );
   });
+
+  it("shows warning with liga error hint when liga_warning code returned", async () => {
+    const warningResponse: ApiResponse<CollectionCardDetailType> = {
+      ...makeLinkedEntry(),
+      errors: [{ code: "liga_warning", message: "LigaMagic error: TimeoutError: page.goto timed out" }],
+    };
+
+    const postHandler = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes("/refresh-liga")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(warningResponse),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: null,
+            meta: { cursor: null, total: null, request_id: "" },
+            errors: [],
+          }),
+      });
+    });
+
+    globalThis.fetch = createMockFetch(
+      makeLinkedEntry(),
+      postHandler,
+    ) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
+    });
+
+    screen.getByTestId("refresh-liga-btn").click();
+
+    await waitFor(() => {
+      const msg = screen.getByTestId("refresh-message");
+      expect(msg).toBeDefined();
+      // Should show amber warning
+      expect(msg.className).toContain("text-amber-400");
+      // Should include the backend error message
+      expect(msg.textContent).toContain("TimeoutError");
+      // Should include the MYP fallback hint
+      expect(msg.textContent).toContain("MYP");
+    });
+  });
+
+  it("shows warning without hint when error code is not liga_warning", async () => {
+    const warningResponse: ApiResponse<CollectionCardDetailType> = {
+      ...makeLinkedEntry(),
+      errors: [{ code: "other_warning", message: "Some other warning" }],
+    };
+
+    const postHandler = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes("/refresh-liga")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(warningResponse),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: null,
+            meta: { cursor: null, total: null, request_id: "" },
+            errors: [],
+          }),
+      });
+    });
+
+    globalThis.fetch = createMockFetch(
+      makeLinkedEntry(),
+      postHandler,
+    ) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
+    });
+
+    screen.getByTestId("refresh-liga-btn").click();
+
+    await waitFor(() => {
+      const msg = screen.getByTestId("refresh-message");
+      expect(msg).toBeDefined();
+      expect(msg.textContent).toContain("Some other warning");
+      // Should NOT contain the MYP fallback hint
+      expect(msg.textContent).not.toContain("MYP");
+    });
+  });
 });

@@ -144,7 +144,8 @@
     "refreshLigaSuccess": "Price updated from LigaMagic",
     "refreshLigaNotFound": "Card not found on LigaMagic",
     "refreshLigaError": "LigaMagic fetch failed",
-    "refreshLigaRateLimit": "LigaMagic rate limited, try later"
+    "refreshLigaRateLimit": "LigaMagic rate limited, try later",
+    "ligaErrorHint": "Try the MYP refresh button as fallback."
   },
   "market": {
     "title": "Market Movers",

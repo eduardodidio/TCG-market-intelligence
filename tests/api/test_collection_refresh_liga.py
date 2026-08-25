@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -17,6 +17,8 @@ from src.providers.liga.exceptions import (
     LigaNotFoundError,
     LigaRateLimitError,
 )
+from src.providers.liga.provider import LigaMagicProvider
+from src.providers.registry import ProviderRegistry
 from src.services.currency import CurrencyConverter
 
 _TEST_USER_ID = "eduardo"
@@ -66,10 +68,23 @@ def _make_price_obs(**overrides) -> MagicMock:
     return obs
 
 
+def _make_mock_provider(**overrides) -> MagicMock:
+    """Create a mock LigaMagicProvider that passes isinstance checks."""
+    provider = MagicMock(spec=LigaMagicProvider)
+    provider.source_name = "liga"
+    provider.search_card = AsyncMock()
+    provider.close = AsyncMock()
+    for k, v in overrides.items():
+        setattr(provider, k, v)
+    return provider
+
+
 def _make_app(
     mock_repo: MagicMock,
+    mock_provider: MagicMock | None = None,
     mock_converter: MagicMock | None = None,
     user_id: str = _TEST_USER_ID,
+    include_registry: bool = True,
 ) -> FastAPI:
     app = FastAPI()
     app.include_router(router)
@@ -82,6 +97,15 @@ def _make_app(
         converter.convert.return_value = Decimal("5.50")
         converter.get_display_rate.return_value = Decimal("5.00")
         app.dependency_overrides[get_currency_converter_dep] = lambda: converter
+
+    # Set up provider registry on app.state
+    if include_registry and mock_provider is not None:
+        registry = ProviderRegistry([mock_provider])
+        app.state.provider_registry = registry
+    elif not include_registry:
+        # Simulate no registry (or empty one)
+        pass
+
     return app
 
 
@@ -105,18 +129,15 @@ def _liga_prices(mid=None, low=None, high=None) -> dict:
 class TestRefreshLigaHappyPath:
     """Happy path: provider returns prices, price is stored."""
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_returns_detail_with_price(self, mock_provider_cls) -> None:
+    def test_returns_detail_with_price(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -133,20 +154,17 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].external_id == "liga_42"
         assert obs_list[0].median_price == Decimal("5.50")
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_prefers_mid_price(self, mock_provider_cls) -> None:
+    def test_prefers_mid_price(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.return_value = _liga_prices(
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(
             mid=Decimal("10.00"), low=Decimal("8.00"), high=Decimal("12.00")
         )
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -154,18 +172,15 @@ class TestRefreshLigaHappyPath:
         obs_list = mock_repo.insert_price_observations.call_args[0][0]
         assert obs_list[0].median_price == Decimal("10.00")
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_falls_back_to_low_price(self, mock_provider_cls) -> None:
+    def test_falls_back_to_low_price(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.return_value = _liga_prices(low=Decimal("3.00"))
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(low=Decimal("3.00"))
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -173,18 +188,15 @@ class TestRefreshLigaHappyPath:
         obs_list = mock_repo.insert_price_observations.call_args[0][0]
         assert obs_list[0].median_price == Decimal("3.00")
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_falls_back_to_high_price(self, mock_provider_cls) -> None:
+    def test_falls_back_to_high_price(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.return_value = _liga_prices(high=Decimal("15.00"))
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(high=Decimal("15.00"))
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -192,58 +204,50 @@ class TestRefreshLigaHappyPath:
         obs_list = mock_repo.insert_price_observations.call_args[0][0]
         assert obs_list[0].median_price == Decimal("15.00")
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_uses_name_pt_fallback(self, mock_provider_cls) -> None:
+    def test_uses_name_pt_fallback(self) -> None:
         """When name_en is None, should use name_pt for search."""
         entry = _make_collection_row(name_en=None, name_pt="Raio")
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
         assert resp.status_code == 200
-        provider_instance.search_card.assert_called_once_with("Raio")
+        provider.search_card.assert_called_once_with("Raio")
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_provider_close_called(self, mock_provider_cls) -> None:
+    def test_no_provider_close_per_request(self) -> None:
+        """Singleton provider should NOT be closed per request."""
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         client.post("/collection/1/refresh-liga")
 
-        provider_instance.close.assert_called_once()
+        provider.close.assert_not_called()
 
 
 class TestRefreshLigaNoPrice:
     """Provider returns empty prices — 200 with warning."""
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_no_price_returns_warning(self, mock_provider_cls) -> None:
+    def test_no_price_returns_warning(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.return_value = _liga_prices()  # all None
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices()  # all None
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -258,12 +262,12 @@ class TestRefreshLigaNoPrice:
 class TestRefreshLigaEntryNotFound:
     """Entry does not exist — 404."""
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_nonexistent_entry_404(self, mock_provider_cls) -> None:
+    def test_nonexistent_entry_404(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = None
 
-        app = _make_app(mock_repo)
+        provider = _make_mock_provider()
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/999/refresh-liga")
 
@@ -273,13 +277,13 @@ class TestRefreshLigaEntryNotFound:
 class TestRefreshLigaIDOR:
     """Entry belongs to different user — 404."""
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_wrong_user_404(self, mock_provider_cls) -> None:
+    def test_wrong_user_404(self) -> None:
         entry = _make_collection_row(user_id="other_user")
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = entry
 
-        app = _make_app(mock_repo, user_id=_TEST_USER_ID)
+        provider = _make_mock_provider()
+        app = _make_app(mock_repo, mock_provider=provider, user_id=_TEST_USER_ID)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -289,13 +293,13 @@ class TestRefreshLigaIDOR:
 class TestRefreshLigaNoName:
     """Card has no name — 422."""
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_no_name_422(self, mock_provider_cls) -> None:
+    def test_no_name_422(self) -> None:
         entry = _make_collection_row(name_en=None, name_pt=None)
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = entry
 
-        app = _make_app(mock_repo)
+        provider = _make_mock_provider()
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -306,18 +310,15 @@ class TestRefreshLigaNoName:
 class TestRefreshLigaProviderErrors:
     """Provider raises exceptions — 200 with warning, never 500."""
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_not_found_error_warning(self, mock_provider_cls) -> None:
+    def test_not_found_error_warning(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.side_effect = LigaNotFoundError("not found")
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.side_effect = LigaNotFoundError("not found")
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -326,18 +327,15 @@ class TestRefreshLigaProviderErrors:
         assert len(body["errors"]) == 1
         assert "not found" in body["errors"][0]["message"].lower()
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_rate_limit_error_warning(self, mock_provider_cls) -> None:
+    def test_rate_limit_error_warning(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.side_effect = LigaRateLimitError("rate limited")
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.side_effect = LigaRateLimitError("rate limited")
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -346,18 +344,15 @@ class TestRefreshLigaProviderErrors:
         assert len(body["errors"]) == 1
         assert "rate limit" in body["errors"][0]["message"].lower()
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_generic_liga_error_warning(self, mock_provider_cls) -> None:
+    def test_generic_liga_error_warning(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.side_effect = LigaError("timeout")
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.side_effect = LigaError("timeout")
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
@@ -366,50 +361,100 @@ class TestRefreshLigaProviderErrors:
         assert len(body["errors"]) == 1
         assert body["errors"][0]["code"] == "liga_warning"
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_unexpected_error_warning(self, mock_provider_cls) -> None:
+    def test_unexpected_error_includes_type_name(self) -> None:
+        """Catch-all error includes exception type in message."""
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.side_effect = RuntimeError("unexpected")
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.side_effect = RuntimeError("unexpected")
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
         assert resp.status_code == 200
         body = resp.json()
         assert len(body["errors"]) == 1
-        assert "unexpected" in body["errors"][0]["message"].lower()
+        msg = body["errors"][0]["message"]
+        assert "RuntimeError" in msg
+        assert "unexpected" in msg
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_provider_close_on_error(self, mock_provider_cls) -> None:
-        """Provider.close() is called even when search raises."""
+    def test_empty_message_error_includes_type(self) -> None:
+        """Exception with empty str() still produces readable error."""
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.side_effect = LigaError("boom")
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.side_effect = RuntimeError("")
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["errors"]) == 1
+        msg = body["errors"][0]["message"]
+        assert "RuntimeError" in msg
+        assert "no details" in msg
+
+    def test_no_provider_close_on_error(self) -> None:
+        """Singleton provider.close() is NOT called on error."""
+        entry = _make_collection_row()
+        mock_repo = MagicMock()
+        _mock_repo_for_detail(mock_repo, entry)
+
+        provider = _make_mock_provider()
+        provider.search_card.side_effect = LigaError("boom")
+
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         client.post("/collection/1/refresh-liga")
 
-        provider_instance.close.assert_called_once()
+        provider.close.assert_not_called()
+
+
+class TestRefreshLigaNoRegistry:
+    """Liga provider not in registry — 503."""
+
+    def test_no_registry_returns_503(self) -> None:
+        entry = _make_collection_row()
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = entry
+
+        app = _make_app(mock_repo, include_registry=False)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 503
+        assert "Liga provider" in resp.json()["detail"]
+
+    def test_registry_without_liga_returns_503(self) -> None:
+        """Registry exists but has no Liga provider."""
+        entry = _make_collection_row()
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = entry
+
+        # Registry with a non-Liga provider
+        other_provider = MagicMock()
+        other_provider.source_name = "myp"
+        registry = ProviderRegistry([other_provider])
+
+        app = _make_app(mock_repo, include_registry=False)
+        app.state.provider_registry = registry
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 503
 
 
 class TestRefreshLigaAutoCreateCard:
     """Entry has no card_id — auto-create canonical card."""
 
-    @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)
-    def test_auto_creates_card_id(self, mock_provider_cls) -> None:
+    def test_auto_creates_card_id(self) -> None:
         entry_no_card = _make_collection_row(card_id=None)
         entry_with_card = _make_collection_row(card_id=99)
 
@@ -425,12 +470,10 @@ class TestRefreshLigaAutoCreateCard:
         mock_repo.get_latest_prices_batch.return_value = {99: price_obs}
         mock_repo.get_source_cards_for_card.return_value = []
 
-        provider_instance = AsyncMock()
-        provider_instance.search_card.return_value = _liga_prices(mid=Decimal("7.00"))
-        provider_instance.close = AsyncMock()
-        mock_provider_cls.return_value = provider_instance
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(mid=Decimal("7.00"))
 
-        app = _make_app(mock_repo)
+        app = _make_app(mock_repo, mock_provider=provider)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 

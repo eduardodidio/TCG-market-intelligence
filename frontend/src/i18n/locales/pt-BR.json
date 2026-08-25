@@ -144,7 +144,8 @@
     "refreshLigaSuccess": "Preço atualizado via LigaMagic",
     "refreshLigaNotFound": "Carta não encontrada na LigaMagic",
     "refreshLigaError": "Falha ao buscar na LigaMagic",
-    "refreshLigaRateLimit": "LigaMagic limitou requisições, tente depois"
+    "refreshLigaRateLimit": "LigaMagic limitou requisições, tente depois",
+    "ligaErrorHint": "Tente o botao MYP como alternativa."
   },
   "market": {
     "title": "Movimentacao de Mercado",

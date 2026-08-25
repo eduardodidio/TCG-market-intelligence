@@ -6,7 +6,7 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, UploadFile
 from fastapi.exceptions import HTTPException
 
 from src.analytics.aggregation import (
@@ -870,12 +870,15 @@ async def refresh_card_price(
 @router.post("/{entry_id}/refresh-liga", response_model=ApiResponse[CollectionCardDetail])
 async def refresh_card_price_liga(
     entry_id: int,
+    request: Request,
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
 ):
     """Refresh a single card's price from LigaMagic in real-time."""
+    import traceback as _tb
+
     from src.domain.models import HistoricalPrice
     from src.providers.liga.exceptions import (
         LigaError,
@@ -895,7 +898,17 @@ async def refresh_card_price_liga(
             detail="Card has no name (name_en or name_pt required for LigaMagic search)",
         )
 
-    provider = LigaMagicProvider()
+    # Reuse singleton provider from registry (avoids Playwright resource conflicts)
+    registry = getattr(request.app.state, "provider_registry", None)
+    provider = None
+    if registry is not None:
+        provider = next(
+            (p for p in registry.providers if isinstance(p, LigaMagicProvider)),
+            None,
+        )
+    if provider is None:
+        raise HTTPException(status_code=503, detail="Liga provider not available")
+
     try:
         prices = await provider.search_card(card_name)
     except LigaNotFoundError:
@@ -914,16 +927,27 @@ async def refresh_card_price_liga(
         )
         return response
     except LigaError as exc:
+        log.warning(
+            "liga_refresh_error",
+            entry_id=entry_id,
+            error=str(exc),
+            exc_type=type(exc).__name__,
+        )
         response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
         response.errors.append(ErrorDetail(code="liga_warning", message=f"LigaMagic error: {exc}"))
         return response
     except Exception as exc:
-        log.warning("liga_refresh_unexpected_error", entry_id=entry_id, error=str(exc))
+        msg = f"{type(exc).__name__}: {exc}" if str(exc) else f"{type(exc).__name__} (no details)"
+        log.warning(
+            "liga_refresh_unexpected_error",
+            entry_id=entry_id,
+            error=str(exc),
+            exc_type=type(exc).__name__,
+            traceback=_tb.format_exc(),
+        )
         response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(ErrorDetail(code="liga_warning", message=f"Unexpected error: {exc}"))
+        response.errors.append(ErrorDetail(code="liga_warning", message=f"LigaMagic error: {msg}"))
         return response
-    finally:
-        await provider.close()
 
     # Extract price: prefer normal.mid, fallback normal.low, then normal.high
     normal = prices.get("normal", {})

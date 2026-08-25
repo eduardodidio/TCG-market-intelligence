@@ -1,0 +1,10 @@
+{
+  "id": "D-F61-20260825",
+  "feature": "F61",
+  "type": "feature_start",
+  "status": "executed",
+  "decision": "proceed",
+  "rationale": "Straightforward bug fix — Liga refresh endpoint returns empty error message to users. No strategic risk, no new dependencies, no architectural changes. Improves existing error handling and diagnostics.",
+  "actions": ["plan-feature"],
+  "created_at": "2026-08-25T14:45:00-03:00"
+}

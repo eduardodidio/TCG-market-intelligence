@@ -97,7 +97,9 @@ export function CollectionCardDetail() {
       if (res.data) {
         setEntry(res.data);
         if (res.errors && res.errors.length > 0) {
-          setRefreshMsg({ type: "warning", text: res.errors[0].message });
+          const errMsg = res.errors[0].message;
+          const hint = res.errors[0].code === "liga_warning" ? ` ${t("collection.ligaErrorHint")}` : "";
+          setRefreshMsg({ type: "warning", text: `${errMsg}.${hint}` });
         } else {
           setRefreshMsg({ type: "success", text: t("collection.refreshLigaSuccess") });
         }

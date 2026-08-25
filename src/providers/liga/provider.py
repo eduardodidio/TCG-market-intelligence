@@ -131,6 +131,12 @@ class LigaMagicProvider(CardSourceProvider):
         Applies rate limiting, retries on failure, and raises typed
         exceptions based on HTTP status.
         """
+        # Import Playwright error lazily (playwright may not be installed)
+        try:
+            from playwright.async_api import Error as PlaywrightError
+        except ImportError:
+            PlaywrightError = type(None)  # type: ignore[misc,assignment]
+
         page = await self._ensure_page()
         last_status = 0
         timeout_ms = int(self.config.timeout_seconds * 1000)
@@ -214,16 +220,23 @@ class LigaMagicProvider(CardSourceProvider):
 
                 return await page.content()
 
-            except (TimeoutError, OSError) as e:
+            except (TimeoutError, OSError, PlaywrightError) as e:
                 log.warning(
                     "liga_request_error",
                     url=url,
                     attempt=attempt,
                     error=str(e),
+                    exc_type=type(e).__name__,
                 )
                 if attempt == self.config.max_retries:
+                    etype = type(e).__name__
+                    msg = (
+                        f"Request failed ({etype}): {e}"
+                        if str(e)
+                        else f"Request failed ({etype}, no details) after {attempt} attempts: {url}"
+                    )
                     raise LigaError(
-                        f"Request failed after {attempt} attempts: {url}",
+                        msg,
                         url=url,
                         status_code=0,
                         attempts=attempt,
@@ -338,7 +351,21 @@ class LigaMagicProvider(CardSourceProvider):
                 "liga_search_failed",
                 card=card_name,
                 error=str(e),
+                exc_type=type(e).__name__,
             )
             return parse_card_prices("", card_name)
+        except Exception as e:
+            msg = (
+                f"Unexpected {type(e).__name__}: {e}"
+                if str(e)
+                else f"Unexpected {type(e).__name__} (no message)"
+            )
+            log.warning(
+                "liga_search_unexpected_error",
+                card=card_name,
+                error=repr(e),
+                exc_type=type(e).__name__,
+            )
+            raise LigaError(msg, url=url) from e
 
         return parse_card_prices(html, card_name)
