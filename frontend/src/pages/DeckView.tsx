@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { refreshCardPrice } from "../api/collection";
+import { refreshCardPriceLiga } from "../api/collection";
 import { fetchDeckValue } from "../api/deckRanking";
 import { deleteDeck, fetchDeck } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
@@ -60,7 +60,7 @@ export function DeckView() {
   };
 
   const handleDeckCardRefresh = useCallback(async (entryId: number) => {
-    const res = await refreshCardPrice(entryId);
+    const res = await refreshCardPriceLiga(entryId);
     if (res.data && deck) {
       setDeck({
         ...deck,

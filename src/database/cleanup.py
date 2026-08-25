@@ -20,6 +20,106 @@ from src.database.repository import Repository
 log = structlog.get_logger()
 
 
+# ---------------------------------------------------------------------------
+# Clear prices by source
+# ---------------------------------------------------------------------------
+
+PROTECTED_SOURCES = {"liga", "manual"}
+
+
+@dataclass
+class ClearPricesResult:
+    """Result of clearing price observations by source."""
+
+    deleted: int = 0
+    dry_run: bool = False
+    backup_path: str | None = None
+
+
+def clear_prices_by_source(
+    db_url: str,
+    source: str,
+    *,
+    dry_run: bool = True,
+    skip_backup: bool = False,
+) -> ClearPricesResult:
+    """Delete all price_observations for a given source.
+
+    Safety rules:
+    - Refuses to delete protected sources (liga, manual).
+    - Creates a backup before deleting (unless *skip_backup*).
+    - Runs VACUUM after deletion to reclaim space.
+    - Does NOT touch scan_runs (preserves audit trail).
+
+    Parameters
+    ----------
+    db_url:
+        SQLAlchemy database URL.
+    source:
+        The source value to match in price_observations.source.
+    dry_run:
+        If True, return the count without deleting.
+    skip_backup:
+        If True, skip the automatic pre-delete backup.
+
+    Returns
+    -------
+    ClearPricesResult
+        Count of rows deleted (or that would be deleted) and backup path.
+    """
+    if source in PROTECTED_SOURCES:
+        raise ValueError(
+            f"Refusing to clear protected source '{source}'. "
+            f"Protected sources: {sorted(PROTECTED_SOURCES)}"
+        )
+
+    repo = Repository(db_url=db_url)
+
+    with Session(repo.engine) as session:
+        count = (
+            session.execute(
+                select(func.count())
+                .select_from(PriceObservationRow)
+                .where(PriceObservationRow.source == source)
+            ).scalar()
+            or 0
+        )
+
+    log.info("clear_prices.count", source=source, count=count, dry_run=dry_run)
+
+    if dry_run:
+        return ClearPricesResult(deleted=count, dry_run=True, backup_path=None)
+
+    # Backup before deleting
+    backup_path = None
+    if not skip_backup:
+        db_path = extract_db_path(db_url)
+        backup_path = str(backup_database(db_path))
+
+    # Delete
+    with Session(repo.engine) as session:
+        result = session.execute(
+            delete(PriceObservationRow).where(PriceObservationRow.source == source)
+        )
+        deleted = result.rowcount
+        session.commit()
+
+    log.info("clear_prices.deleted", source=source, deleted=deleted)
+
+    # VACUUM to reclaim space
+    with repo.engine.connect() as conn:
+        conn.execute(text("VACUUM"))
+        conn.commit()
+    log.info("clear_prices.vacuum_done")
+
+    return ClearPricesResult(deleted=deleted, dry_run=False, backup_path=backup_path)
+
+
+# ---------------------------------------------------------------------------
+# Non-collection cleanup
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class CleanupResult:
     """Counts of rows deleted (or that would be deleted in dry-run mode)."""

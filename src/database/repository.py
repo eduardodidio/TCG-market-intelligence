@@ -420,13 +420,22 @@ class Repository:
                 .all()
             )
 
+    # Source priority for same-date tiebreaking (lower = higher priority)
+    SOURCE_PRIORITY: dict[str, int] = {
+        "manual": 0,
+        "liga": 1,
+        "jsonld_snapshot": 2,
+        "myp": 3,
+    }
+
     def get_latest_prices_batch(self, card_ids: list[int]) -> dict[int, PriceObservationRow | None]:
         """Get the latest price observation for each card_id.
 
         Priority logic:
-        - Latest observation by date wins (newer MYP beats older manual)
-        - When manual and non-manual prices share the same date, manual wins
-        - Also considers source="manual" with external_id="manual_{card_id}"
+        - Latest observation by date wins (newer data always beats older)
+        - When multiple sources share the same date, SOURCE_PRIORITY decides:
+          manual > liga > jsonld_snapshot > myp
+        - Checks source_cards (MYP/jsonld_snapshot), manual, and liga observations
         """
         if not card_ids:
             return {}
@@ -468,14 +477,28 @@ class Repository:
                 if manual_obs:
                     candidates.append(manual_obs)
 
-                # Pick winner: latest date first, manual wins ties
+                # Also check for liga price observations
+                # Liga external_ids follow pattern "liga_{card_id}"
+                liga_ext_id = f"liga_{card_id}"
+                liga_match = session.execute(
+                    select(PriceObservationRow)
+                    .where(
+                        PriceObservationRow.source == "liga",
+                        PriceObservationRow.external_id == liga_ext_id,
+                    )
+                    .order_by(PriceObservationRow.observed_at.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+                if liga_match:
+                    candidates.append(liga_match)
+
+                # Pick winner: latest date first, then source priority (lower = better)
                 if candidates:
                     candidates.sort(
                         key=lambda o: (
-                            o.observed_at,
-                            1 if o.source == "manual" else 0,
+                            -o.observed_at.toordinal(),
+                            self.SOURCE_PRIORITY.get(o.source, 99),
                         ),
-                        reverse=True,
                     )
                     result[card_id] = candidates[0]
                 else:
@@ -1234,6 +1257,78 @@ class Repository:
                 )
             return results
 
+    def get_cards_for_liga_scan(
+        self,
+        scan_filter: ScanFilter,
+        user_id: str | None = None,
+        max_age_days: int | None = None,
+    ) -> list[dict]:
+        """Return collection entries eligible for Liga scanning.
+
+        Unlike get_cards_for_scan (MYP), this does NOT require a source_card.
+        Returns entries with card_id + name_en/name_pt for Liga search.
+        Optionally filters by set_codes, rarities, card_ids, limit.
+        When max_age_days is set, excludes cards that have a source='liga'
+        price observation within the last N days.
+        """
+        with Session(self.engine) as session:
+            stmt = select(
+                UserCollectionRow.id.label("entry_id"),
+                UserCollectionRow.card_id,
+                UserCollectionRow.name_en,
+                UserCollectionRow.name_pt,
+                UserCollectionRow.set_code,
+                UserCollectionRow.collector_number,
+            ).where(UserCollectionRow.card_id.isnot(None))
+
+            if user_id is not None:
+                stmt = stmt.where(UserCollectionRow.user_id == user_id)
+
+            if scan_filter.set_codes:
+                stmt = stmt.where(UserCollectionRow.set_code.in_(scan_filter.set_codes))
+            if scan_filter.rarities:
+                stmt = stmt.where(UserCollectionRow.rarity.in_(scan_filter.rarities))
+            if scan_filter.card_ids:
+                stmt = stmt.where(UserCollectionRow.card_id.in_(scan_filter.card_ids))
+
+            if max_age_days is not None:
+                cutoff = date.today() - timedelta(days=max_age_days)
+                # Subquery: card names that have a recent liga observation
+                recent_liga = (
+                    select(PriceObservationRow.external_id)
+                    .where(
+                        PriceObservationRow.source == "liga",
+                        PriceObservationRow.observed_at >= cutoff,
+                    )
+                    .distinct()
+                    .subquery()
+                )
+                # Exclude entries whose liga external_id (liga_{card_id}) is in recent
+                # We build the liga external_id as 'liga_' || card_id
+                from sqlalchemy import String as SAString
+                from sqlalchemy import cast as sa_cast
+
+                liga_ext_id = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
+                stmt = stmt.where(liga_ext_id.notin_(select(recent_liga.c.external_id)))
+
+            stmt = stmt.order_by(UserCollectionRow.id.asc())
+
+            if scan_filter.limit:
+                stmt = stmt.limit(scan_filter.limit)
+
+            rows = session.execute(stmt).all()
+            return [
+                {
+                    "entry_id": r.entry_id,
+                    "card_id": r.card_id,
+                    "name_en": r.name_en,
+                    "name_pt": r.name_pt,
+                    "set_code": r.set_code,
+                    "collector_number": r.collector_number,
+                }
+                for r in rows
+            ]
+
     # ── Exchange Rates ──────────────────────────────────────────
 
     def upsert_exchange_rate(self, rate: ExchangeRate) -> None:
@@ -1982,6 +2077,51 @@ class Repository:
             rows = session.execute(stmt).scalars().all()
             return [self._scheduled_scan_to_dict(r) for r in rows]
 
+    def seed_default_liga_schedules(self, system_user_id: str = "system") -> int:
+        """Seed default Liga scheduled scans if none exist.
+
+        Creates two schedules:
+        - Liga Daily Partial: 3 AM daily, 50 cards, max_age_days=1
+        - Liga Weekly Full: 1 AM Sunday, all cards
+
+        Returns the number of schedules created (0 if already seeded).
+        """
+        with Session(self.engine) as session:
+            # Check if any Liga schedules already exist
+            existing = session.execute(
+                select(func.count(ScheduledScanRow.id)).where(
+                    ScheduledScanRow.scan_type.in_(["liga_partial", "liga_full"])
+                )
+            ).scalar_one()
+
+            if existing > 0:
+                return 0
+
+            defaults = [
+                ScheduledScanRow(
+                    user_id=system_user_id,
+                    name="Liga Daily Partial",
+                    cron_expression="0 3 * * *",
+                    scan_type="liga_partial",
+                    filters_json=(
+                        '{"scan_type": "liga_partial", "limit": 50,'
+                        ' "provider": "liga", "max_age_days": 1}'
+                    ),
+                    status="active",
+                ),
+                ScheduledScanRow(
+                    user_id=system_user_id,
+                    name="Liga Weekly Full",
+                    cron_expression="0 1 * * 0",
+                    scan_type="liga_full",
+                    filters_json='{"scan_type": "liga_full", "provider": "liga"}',
+                    status="active",
+                ),
+            ]
+            session.add_all(defaults)
+            session.commit()
+            return len(defaults)
+
     # --- Ban engine (collection) methods ---
 
     def get_banned_collection_cards(
@@ -2124,6 +2264,175 @@ class Repository:
                 }
                 for r in rows
             ]
+
+    # ── Liga Coverage ─────────────────────────────────────────
+
+    def get_liga_coverage_stats(self, user_id: str, stale_days: int = 7) -> dict:
+        """Count cards with/without/stale Liga prices for a user's collection."""
+        cutoff = date.today() - timedelta(days=stale_days)
+        with Session(self.engine) as session:
+            # Total entries with card_id
+            total_cards = (
+                session.execute(
+                    select(func.count())
+                    .select_from(UserCollectionRow)
+                    .where(
+                        UserCollectionRow.user_id == user_id,
+                        UserCollectionRow.card_id.isnot(None),
+                    )
+                ).scalar()
+                or 0
+            )
+
+            # Unlinked entries (card_id IS NULL)
+            unlinked = (
+                session.execute(
+                    select(func.count())
+                    .select_from(UserCollectionRow)
+                    .where(
+                        UserCollectionRow.user_id == user_id,
+                        UserCollectionRow.card_id.is_(None),
+                    )
+                ).scalar()
+                or 0
+            )
+
+            # Liga external_ids follow pattern "liga_{card_id}"
+            # Use a single query with LEFT JOIN for efficiency (M1 fix)
+            from sqlalchemy import String as SAString
+            from sqlalchemy import cast as sa_cast
+
+            liga_obs_sub = (
+                select(
+                    PriceObservationRow.external_id,
+                    func.max(PriceObservationRow.observed_at).label("latest"),
+                )
+                .where(PriceObservationRow.source == "liga")
+                .group_by(PriceObservationRow.external_id)
+                .subquery()
+            )
+
+            liga_ext = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
+
+            rows = session.execute(
+                select(
+                    UserCollectionRow.id,
+                    liga_obs_sub.c.latest,
+                )
+                .outerjoin(
+                    liga_obs_sub,
+                    liga_obs_sub.c.external_id == liga_ext,
+                )
+                .where(
+                    UserCollectionRow.user_id == user_id,
+                    UserCollectionRow.card_id.isnot(None),
+                )
+            ).all()
+
+            liga_priced = 0
+            liga_stale = 0
+            liga_missing = 0
+
+            for row in rows:
+                latest_liga = row.latest
+                if latest_liga is None:
+                    liga_missing += 1
+                elif latest_liga < cutoff:
+                    liga_stale += 1
+                else:
+                    liga_priced += 1
+
+            coverage_pct = (liga_priced / total_cards * 100) if total_cards > 0 else 0.0
+
+            # Last liga scan: most recent liga observation timestamp
+            last_liga_obs = session.execute(
+                select(PriceObservationRow.observed_at)
+                .where(PriceObservationRow.source == "liga")
+                .order_by(PriceObservationRow.observed_at.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+
+            last_liga_scan = str(last_liga_obs) if last_liga_obs else None
+
+            return {
+                "total_cards": total_cards,
+                "liga_priced": liga_priced,
+                "liga_stale": liga_stale,
+                "liga_missing": liga_missing,
+                "unlinked": unlinked,
+                "coverage_pct": round(coverage_pct, 1),
+                "last_liga_scan": last_liga_scan,
+            }
+
+    def get_liga_missing_cards(
+        self,
+        user_id: str,
+        stale_days: int = 7,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Return collection entries missing or with stale Liga prices.
+
+        Returns (list_of_card_dicts, total_count).
+        """
+        cutoff = date.today() - timedelta(days=stale_days)
+        with Session(self.engine) as session:
+            # Liga external_ids follow pattern "liga_{card_id}"
+            from sqlalchemy import String as SAString
+            from sqlalchemy import cast as sa_cast
+
+            liga_obs_sub = (
+                select(
+                    PriceObservationRow.external_id,
+                    func.max(PriceObservationRow.observed_at).label("latest"),
+                )
+                .where(PriceObservationRow.source == "liga")
+                .group_by(PriceObservationRow.external_id)
+                .subquery()
+            )
+
+            liga_ext = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
+
+            # Get entries where liga price is missing or stale
+            stmt = (
+                select(UserCollectionRow)
+                .outerjoin(
+                    liga_obs_sub,
+                    liga_obs_sub.c.external_id == liga_ext,
+                )
+                .where(
+                    UserCollectionRow.user_id == user_id,
+                    UserCollectionRow.card_id.isnot(None),
+                )
+                .where((liga_obs_sub.c.latest.is_(None)) | (liga_obs_sub.c.latest < cutoff))
+                .order_by(UserCollectionRow.id.asc())
+            )
+
+            all_missing = session.execute(stmt).scalars().all()
+            total_count = len(all_missing)
+            paginated = all_missing[offset : offset + limit]
+
+            results = []
+            for e in paginated:
+                results.append(
+                    {
+                        "id": e.id,
+                        "card_id": e.card_id,
+                        "set_code": e.set_code,
+                        "collector_number": e.collector_number,
+                        "name_en": e.name_en,
+                        "name_pt": e.name_pt,
+                        "set_name_en": e.set_name_en,
+                        "quantity": e.quantity,
+                        "quality": e.quality,
+                        "language": e.language,
+                        "rarity": e.rarity,
+                        "color": e.color,
+                        "extras": e.extras,
+                    }
+                )
+
+            return results, total_count
 
     def get_recently_changed_card_ids(self, user_id: str, days: int = 7) -> set[int]:
         """Find card_ids in the user's collection that had legality changes recently.

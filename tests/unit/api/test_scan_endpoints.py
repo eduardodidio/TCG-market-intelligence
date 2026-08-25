@@ -153,6 +153,91 @@ class TestTriggerScan:
         )
         assert resp.status_code == 200
 
+    @patch("src.api.routers.scans.threading.Thread")
+    @patch("src.api.routers.scans.Repository")
+    def test_trigger_default_provider_is_liga(
+        self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
+    ) -> None:
+        """POST /scans with no provider field defaults to liga."""
+        import json
+
+        mock_repo = MagicMock()
+        mock_repo.create_scan_run.return_value = 1
+        mock_repo_cls.return_value = mock_repo
+        mock_thread_cls.return_value = MagicMock()
+
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post("/scans", json={"scan_type": "collection"})
+        assert resp.status_code == 200
+
+        # Verify provider encoded in filters_json
+        call_args = mock_repo.create_scan_run.call_args
+        filters_json = call_args[0][1]
+        filters = json.loads(filters_json)
+        assert filters["provider"] == "liga"
+
+    @patch("src.api.routers.scans.threading.Thread")
+    @patch("src.api.routers.scans.Repository")
+    def test_trigger_provider_liga_routes_to_liga(
+        self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
+    ) -> None:
+        """POST /scans with provider=liga encodes liga in filters."""
+        import json
+
+        mock_repo = MagicMock()
+        mock_repo.create_scan_run.return_value = 1
+        mock_repo_cls.return_value = mock_repo
+
+        captured_target = {}
+        original_thread = mock_thread_cls
+
+        def capture_thread(*args, **kwargs):
+            captured_target.update(kwargs)
+            return MagicMock()
+
+        original_thread.side_effect = capture_thread
+
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post(
+            "/scans",
+            json={"scan_type": "collection", "provider": "liga"},
+        )
+        assert resp.status_code == 200
+
+        filters_json = mock_repo.create_scan_run.call_args[0][1]
+        filters = json.loads(filters_json)
+        assert filters["provider"] == "liga"
+
+    @patch("src.api.routers.scans.threading.Thread")
+    @patch("src.api.routers.scans.Repository")
+    def test_trigger_provider_myp_routes_to_myp(
+        self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
+    ) -> None:
+        """POST /scans with provider=myp encodes myp in filters."""
+        import json
+
+        mock_repo = MagicMock()
+        mock_repo.create_scan_run.return_value = 1
+        mock_repo_cls.return_value = mock_repo
+        mock_thread_cls.return_value = MagicMock()
+
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post(
+            "/scans",
+            json={"scan_type": "collection", "provider": "myp"},
+        )
+        assert resp.status_code == 200
+
+        filters_json = mock_repo.create_scan_run.call_args[0][1]
+        filters = json.loads(filters_json)
+        assert filters["provider"] == "myp"
+
 
 # ---------------------------------------------------------------------------
 # GET /scans — list

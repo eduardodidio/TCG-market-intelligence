@@ -220,6 +220,7 @@ export interface ScanTriggerResponse {
 
 export interface ScanRequest {
   scan_type: string;
+  provider?: string;
   set_codes?: string[];
   format_name?: string;
   rarities?: string[];
@@ -505,6 +506,18 @@ export interface VolatileCardEntry {
   composite_score: number;
   observation_count: number;
   currency: string;
+}
+
+// Liga status types (F60)
+
+export interface LigaStatusResponse {
+  total_cards: number;
+  liga_priced: number;
+  liga_stale: number;
+  liga_missing: number;
+  unlinked: number;
+  coverage_pct: number;
+  last_liga_scan: string | null;
 }
 
 // Bulk canonize types (F49)

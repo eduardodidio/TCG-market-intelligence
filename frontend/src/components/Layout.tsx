@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { to: "/scans", labelKey: "nav.priceScans", requiresAuth: true },
   { to: "/schedules", labelKey: "nav.schedules", requiresAuth: true },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
+  { to: "/admin/liga-status", labelKey: "nav.ligaStatus", requiresAuth: true },
 ] as const;
 
 function getInitials(name: string | null | undefined): string {

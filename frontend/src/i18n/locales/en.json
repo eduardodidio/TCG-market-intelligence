@@ -39,7 +39,23 @@
     "toggleNav": "Toggle navigation",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "settings": "Settings"
+    "settings": "Settings",
+    "admin": "Admin",
+    "ligaStatus": "Liga Status"
+  },
+  "admin": {
+    "ligaStatus": {
+      "title": "Liga Price Coverage",
+      "totalCards": "Total Cards",
+      "ligaPriced": "Liga Priced",
+      "ligaMissing": "Missing",
+      "ligaStale": "Stale (>7d)",
+      "coverage": "Coverage",
+      "scanAllMissing": "Scan All Missing",
+      "lastScan": "Last Liga Scan",
+      "unlinked": "Unlinked",
+      "noMissing": "All cards have Liga prices!"
+    }
   },
   "dashboard": {
     "title": "My Collection",
@@ -294,7 +310,20 @@
     "priceHighLow": "Price (High-Low)",
     "priceLowHigh": "Price (Low-High)"
   },
+  "card": {
+    "refreshLiga": "Refresh Liga",
+    "refreshMyp": "Refresh MYP (fallback)",
+    "priceSource": {
+      "liga": "Liga",
+      "myp": "MYP",
+      "manual": "Manual"
+    }
+  },
   "scan": {
+    "provider": {
+      "liga": "LigaMagic",
+      "myp": "MYP Cards"
+    },
     "streaming": {
       "connecting": "Connecting to scan stream...",
       "scanning": "Scanning: \"{{cardName}}\"",

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { fetchCollectionBanned } from "../api/banEngine";
-import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPrice } from "../api/collection";
+import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPriceLiga } from "../api/collection";
 import { BanAlertBanner } from "../components/BanAlertBanner";
 import { BulkCanonizeButton } from "../components/BulkCanonizeButton";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
@@ -490,7 +490,7 @@ export function MyCollection() {
     const params: Record<string, string> = {};
     const cur = cardCurrency || currency;
     if (cur !== "BRL") params.currency = cur;
-    const res = await refreshCardPrice(entryId, Object.keys(params).length > 0 ? params : undefined);
+    const res = await refreshCardPriceLiga(entryId, Object.keys(params).length > 0 ? params : undefined);
     if (res.data) {
       setCards((prev) =>
         prev.map((c) =>

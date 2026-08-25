@@ -263,6 +263,45 @@ def db_cleanup(db, dry_run, no_backup):
     click.echo("")
 
 
+@cli.command("db-clear-prices")
+@click.option(
+    "--db",
+    default=None,
+    help="Database URL (default from TCG_DATABASE_URL or sqlite:///tcg_market.db)",
+)
+@click.option("--source", required=True, help="Source to clear (e.g. jsonld_snapshot, myp)")
+@click.option("--confirm", is_flag=True, help="Required to actually delete")
+@click.option("--skip-backup", is_flag=True, help="Skip pre-delete backup")
+def db_clear_prices(db, source, confirm, skip_backup):
+    """Clear all price observations for a given source."""
+    from src.config import get_db_url
+    from src.database.cleanup import clear_prices_by_source
+
+    db_url = db or get_db_url()
+
+    try:
+        result = clear_prices_by_source(
+            db_url=db_url,
+            source=source,
+            dry_run=not confirm,
+            skip_backup=skip_backup,
+        )
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+    if result.dry_run:
+        click.echo(
+            f"\n  [DRY RUN] Would delete {result.deleted} price observations (source='{source}')."
+        )
+        click.echo("  Pass --confirm to actually delete.\n")
+    else:
+        click.echo(f"\n  Deleted {result.deleted} price observations (source='{source}').")
+        if result.backup_path:
+            click.echo(f"  Backup saved to: {result.backup_path}")
+        click.echo("")
+
+
 @cli.command("snapshot-prices")
 @click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
 @click.option("--limit", default=None, type=int, help="Max cards to process")
@@ -379,37 +418,29 @@ def _print_snapshot_summary(summary, dry_run):
 
 
 def _resolve_provider(provider_name: str, delay: float = 1.0):
-    """Create a MYP provider based on the --provider flag.
+    """Create a provider based on the --provider flag.
 
     Args:
         provider_name: "auto", "liga", or "myp".
         delay: Delay between requests for MYP.
 
     Returns:
-        MypCardsProvider instance or None (let run_scan create its own).
-
-    Note: LigaMagic integration is wired via the provider registry
-    at the API level. For CLI ``--provider liga``, this is a placeholder
-    that currently falls back to MYP with a warning.  The ``auto`` mode
-    delegates to the scan orchestrator's default (MYP) since the scan
-    function fetches via ``provider.fetch_current_price`` which is
-    MYP-specific.
+        Tuple of (provider_instance_or_None, effective_provider_name).
+        For Liga, returns (None, "liga") — the scan orchestrator handles
+        Liga internally via ``provider_name="liga"``.
     """
     if provider_name == "myp":
         from src.providers.myp.provider import MypCardsProvider, MypConfig
 
         config = MypConfig(delay_seconds=delay)
-        return MypCardsProvider(config)
+        return MypCardsProvider(config), "myp"
 
     if provider_name == "liga":
-        click.echo("Note: LigaMagic CLI provider not yet wired for scans — using MYP fallback.")
-        from src.providers.myp.provider import MypCardsProvider, MypConfig
+        # Liga is handled internally by run_scan via provider_name="liga"
+        return None, "liga"
 
-        config = MypConfig(delay_seconds=delay)
-        return MypCardsProvider(config)
-
-    # "auto" — let run_scan create its default provider
-    return None
+    # "auto" — default to Liga
+    return None, "liga"
 
 
 @cli.command()
@@ -432,8 +463,8 @@ def _resolve_provider(provider_name: str, delay: float = 1.0):
 @click.option(
     "--provider",
     type=click.Choice(["auto", "liga", "myp"]),
-    default="auto",
-    help="Price provider: auto (registry), liga, or myp",
+    default="liga",
+    help="Price provider: liga (default), myp, or auto (defaults to liga)",
 )
 def scan(
     db,
@@ -461,7 +492,7 @@ def scan(
         limit=limit,
     )
 
-    myp_provider = _resolve_provider(provider, delay)
+    resolved_provider, effective_provider_name = _resolve_provider(provider, delay)
 
     result = asyncio.run(
         run_scan(
@@ -470,7 +501,8 @@ def scan(
             dry_run=dry_run,
             delay=delay,
             concurrency=concurrency,
-            provider=myp_provider,
+            provider=resolved_provider,
+            provider_name=effective_provider_name,
         )
     )
     _print_scan_summary(result, dry_run)
@@ -829,6 +861,56 @@ def _print_canonize_summary(result):
         if len(result.errors) > 20:
             click.echo(f"    ... and {len(result.errors) - 20} more")
     click.echo("")
+
+
+@cli.command("liga-sweep")
+@click.option(
+    "--db",
+    default=None,
+    help="Database URL (default from TCG_DATABASE_URL or sqlite:///tcg_market.db)",
+)
+@click.option("--batch-size", default=20, type=int, help="Cards per batch")
+@click.option("--batch-pause", default=60, type=int, help="Seconds between batches")
+@click.option("--delay", default=5.0, type=float, help="Seconds between cards")
+@click.option(
+    "--max-age-days", default=7, type=int, help="Skip cards with Liga price newer than N days"
+)
+@click.option("--limit", default=None, type=int, help="Max total cards to process")
+@click.option("--dry-run", is_flag=True, help="Show eligible count without fetching")
+@click.option("--set", "set_filter", default=None, help="Only sweep this set code")
+def liga_sweep(db, batch_size, batch_pause, delay, max_age_days, limit, dry_run, set_filter):
+    """Sweep entire collection through LigaMagic with configurable pacing."""
+    from src.collectors.liga_sweep import run_liga_sweep
+
+    result = asyncio.run(
+        run_liga_sweep(
+            db_url=db,
+            batch_size=batch_size,
+            batch_pause=batch_pause,
+            delay=delay,
+            max_age_days=max_age_days,
+            limit=limit,
+            dry_run=dry_run,
+            set_filter=set_filter,
+        )
+    )
+    _print_liga_sweep_summary(result)
+
+
+def _print_liga_sweep_summary(result):
+    """Format and print Liga sweep summary to stdout."""
+    click.echo("")
+    click.echo("=" * 60)
+    if result.dry_run:
+        click.echo("  DRY RUN -- no data was fetched")
+    click.echo("  LIGA SWEEP SUMMARY")
+    click.echo(f"  Eligible cards:          {result.total_eligible}")
+    click.echo(f"  Processed:               {result.total_processed}")
+    click.echo(f"  Prices found:            {result.prices_found}")
+    click.echo(f"  Prices not found:        {result.prices_not_found}")
+    click.echo(f"  Errors:                  {result.errors}")
+    click.echo(f"  Batches completed:       {result.batches_completed}")
+    click.echo("=" * 60)
 
 
 @cli.command()

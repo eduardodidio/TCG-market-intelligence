@@ -301,16 +301,19 @@ export function CollectionCardDetail() {
             <div className="flex items-center gap-2 mb-1">
               <p className="text-sm text-slate-400">{t("cardDetail.latestPrice")}</p>
               <PriceSourceBadge priceSource={entry.price_source} />
-              {entry.card_id != null && (
+            </div>
+            {/* Refresh button hierarchy: Liga primary, MYP secondary */}
+            <div className="flex items-center gap-2 mb-2" data-testid="refresh-buttons">
+              {!!(entry.name_en || entry.name_pt) && (
                 <button
-                  data-testid="refresh-price-btn"
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                  data-testid="refresh-liga-btn"
+                  onClick={handleRefreshLiga}
+                  disabled={refreshingLiga}
+                  title={t("collection.refreshLigaTooltip")}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
                   <svg
-                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                    className={`h-4 w-4 ${refreshingLiga ? "animate-spin" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -323,18 +326,19 @@ export function CollectionCardDetail() {
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     />
                   </svg>
+                  {t("card.refreshLiga")}
                 </button>
               )}
-              {!!(entry.name_en || entry.name_pt) && (
+              {entry.card_id != null && (
                 <button
-                  data-testid="refresh-liga-btn"
-                  onClick={handleRefreshLiga}
-                  disabled={refreshingLiga}
-                  title={t("collection.refreshLigaTooltip")}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 hover:bg-violet-500 px-2.5 py-1 text-xs font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                  data-testid="refresh-price-btn"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-500 bg-transparent hover:bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
                   <svg
-                    className={`h-3.5 w-3.5 ${refreshingLiga ? "animate-spin" : ""}`}
+                    className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -344,10 +348,10 @@ export function CollectionCardDetail() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     />
                   </svg>
-                  {t("collection.refreshLiga")}
+                  {t("card.refreshMyp")}
                 </button>
               )}
             </div>

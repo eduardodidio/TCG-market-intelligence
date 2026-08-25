@@ -134,7 +134,7 @@ export function useCollectionRefresh(
     setProgress(null);
     setLastScannedCard(null);
 
-    const res = await triggerScanAuth({ scan_type: "collection" });
+    const res = await triggerScanAuth({ scan_type: "collection", provider: "liga" });
 
     if (res.errors.length > 0 || !res.data) {
       const msg = res.errors[0]?.message || "Failed to start scan";

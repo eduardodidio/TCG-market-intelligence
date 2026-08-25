@@ -115,3 +115,15 @@ class BulkCanonizeResult(BaseModel):
     failed: int
     skipped: int
     rate_limited: int
+
+
+class LigaStatusResponse(BaseModel):
+    """Liga price coverage stats for a user's collection."""
+
+    total_cards: int
+    liga_priced: int
+    liga_stale: int
+    liga_missing: int
+    unlinked: int
+    coverage_pct: float
+    last_liga_scan: str | None = None

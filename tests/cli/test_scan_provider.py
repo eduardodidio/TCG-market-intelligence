@@ -1,10 +1,10 @@
-"""Tests for the CLI scan --provider flag (F57-T05).
+"""Tests for the CLI scan --provider flag (F60-T06).
 
 Covers:
- 1. --provider auto: lets run_scan create its own provider (passes None)
- 2. --provider myp: creates MypCardsProvider and passes it
- 3. --provider liga: falls back to MYP with note message
- 4. Default (no flag): same as auto
+ 1. --provider liga: passes provider_name="liga" to run_scan (no provider instance)
+ 2. --provider myp: creates MypCardsProvider and passes provider_name="myp"
+ 3. --provider auto: defaults to liga behavior
+ 4. Default (no flag): defaults to liga
  5. snapshot-prices --provider flag accepted
 """
 
@@ -41,27 +41,35 @@ def _make_scan_run(**overrides) -> ScanRun:
 class TestScanProviderFlag:
     """Tests for --provider flag on the scan CLI command."""
 
-    def test_provider_auto_passes_none(self):
-        """--provider auto passes provider=None to run_scan."""
+    def test_provider_liga_passes_provider_name_liga(self):
+        """--provider liga passes provider_name='liga' to run_scan."""
         runner = CliRunner()
         scan_run = _make_scan_run()
+        captured_kwargs = {}
 
-        with patch("src.cli.main.asyncio.run", return_value=scan_run) as mock_run:
-            result = runner.invoke(cli, ["scan", "--provider", "auto"])
+        async def capture_scan(**kwargs):
+            captured_kwargs.update(kwargs)
+            return scan_run
+
+        with patch("src.collectors.scan.run_scan", side_effect=capture_scan):
+            result = runner.invoke(cli, ["scan", "--provider", "liga"])
 
         assert result.exit_code == 0
-        # asyncio.run receives the coroutine — inspect its creation
-        mock_run.assert_called_once()
-        coro = mock_run.call_args[0][0]
-        coro.close()
+        assert captured_kwargs["provider_name"] == "liga"
+        assert captured_kwargs["provider"] is None
 
     def test_provider_myp_creates_myp_provider(self):
-        """--provider myp creates a MypCardsProvider and passes it."""
+        """--provider myp creates a MypCardsProvider and passes provider_name='myp'."""
         runner = CliRunner()
         scan_run = _make_scan_run()
+        captured_kwargs = {}
+
+        async def capture_scan(**kwargs):
+            captured_kwargs.update(kwargs)
+            return scan_run
 
         with (
-            patch("src.cli.main.asyncio.run", return_value=scan_run),
+            patch("src.collectors.scan.run_scan", side_effect=capture_scan),
             patch(
                 "src.providers.myp.provider.MypCardsProvider",
                 autospec=True,
@@ -70,30 +78,43 @@ class TestScanProviderFlag:
             result = runner.invoke(cli, ["scan", "--provider", "myp"])
 
         assert result.exit_code == 0
+        assert captured_kwargs["provider_name"] == "myp"
         # MypCardsProvider was instantiated (via _resolve_provider)
         MockMypProvider.assert_called_once()
+        assert captured_kwargs["provider"] is not None
 
-    def test_provider_liga_shows_fallback_note(self):
-        """--provider liga shows MYP fallback note."""
+    def test_provider_auto_defaults_to_liga(self):
+        """--provider auto defaults to liga behavior."""
         runner = CliRunner()
         scan_run = _make_scan_run()
+        captured_kwargs = {}
 
-        with patch("src.cli.main.asyncio.run", return_value=scan_run):
-            result = runner.invoke(cli, ["scan", "--provider", "liga"])
+        async def capture_scan(**kwargs):
+            captured_kwargs.update(kwargs)
+            return scan_run
+
+        with patch("src.collectors.scan.run_scan", side_effect=capture_scan):
+            result = runner.invoke(cli, ["scan", "--provider", "auto"])
 
         assert result.exit_code == 0
-        assert "LigaMagic CLI provider not yet wired" in result.output
-        assert "MYP fallback" in result.output
+        assert captured_kwargs["provider_name"] == "liga"
+        assert captured_kwargs["provider"] is None
 
-    def test_provider_default_is_auto(self):
-        """No --provider flag defaults to auto behavior."""
+    def test_provider_default_is_liga(self):
+        """No --provider flag defaults to liga."""
         runner = CliRunner()
         scan_run = _make_scan_run()
+        captured_kwargs = {}
 
-        with patch("src.cli.main.asyncio.run", return_value=scan_run):
+        async def capture_scan(**kwargs):
+            captured_kwargs.update(kwargs)
+            return scan_run
+
+        with patch("src.collectors.scan.run_scan", side_effect=capture_scan):
             result = runner.invoke(cli, ["scan"])
 
         assert result.exit_code == 0
+        assert captured_kwargs["provider_name"] == "liga"
 
     def test_provider_invalid_choice_rejected(self):
         """Invalid --provider value is rejected by Click."""
@@ -110,7 +131,6 @@ class TestScanProviderFlag:
 
         assert result.exit_code == 0
         assert "--provider" in result.output
-        assert "auto" in result.output
         assert "liga" in result.output
         assert "myp" in result.output
 

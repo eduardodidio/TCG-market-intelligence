@@ -63,6 +63,11 @@ const Login = lazy(() =>
 const Settings = lazy(() =>
   import("./pages/Settings").then((m) => ({ default: m.Settings })),
 );
+const AdminLigaStatus = lazy(() =>
+  import("./pages/AdminLigaStatus").then((m) => ({
+    default: m.AdminLigaStatus,
+  })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -293,6 +298,18 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <Schedules />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/liga-status"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <AdminLigaStatus />
                     </ProtectedRoute>
                   </Suspense>
                 }

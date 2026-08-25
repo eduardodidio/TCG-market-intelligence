@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { DeckCardTile } from "../../src/components/DeckCardTile";
 import type { DeckCard } from "../../src/types/api";
 
-function renderTile(card: DeckCard) {
+function renderTile(card: DeckCard, onRefresh?: (entryId: number) => Promise<void>) {
   return render(
     <MemoryRouter>
-      <DeckCardTile card={card} />
+      <DeckCardTile card={card} onRefresh={onRefresh} />
     </MemoryRouter>,
   );
 }
@@ -106,5 +106,26 @@ describe("DeckCardTile", () => {
     renderTile(noIdCard);
     expect(screen.queryByTestId("deck-card-link-11")).toBeNull();
     expect(screen.getByTestId("deck-card-tile-11")).toBeDefined();
+  });
+
+  it("shows refresh button for owned cards when onRefresh is provided", () => {
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    renderTile(OWNED_CARD, onRefresh);
+    expect(screen.getByTestId(`refresh-deck-card-${OWNED_CARD.id}`)).toBeDefined();
+  });
+
+  it("does not show refresh button when onRefresh is not provided", () => {
+    renderTile(OWNED_CARD);
+    expect(screen.queryByTestId(`refresh-deck-card-${OWNED_CARD.id}`)).toBeNull();
+  });
+
+  it("calls onRefresh with collection_entry_id when refresh button clicked", async () => {
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    renderTile(OWNED_CARD, onRefresh);
+
+    const refreshBtn = screen.getByTestId(`refresh-deck-card-${OWNED_CARD.id}`);
+    refreshBtn.click();
+
+    expect(onRefresh).toHaveBeenCalledWith(OWNED_CARD.collection_entry_id);
   });
 });

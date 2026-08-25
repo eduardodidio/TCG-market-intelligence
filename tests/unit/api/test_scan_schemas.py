@@ -12,12 +12,21 @@ class TestScanRequestDefaults:
     def test_empty_request_has_defaults(self) -> None:
         req = ScanRequest()
         assert req.scan_type == "collection"
+        assert req.provider == "liga"
         assert req.dry_run is False
         assert req.set_codes is None
         assert req.format_name is None
         assert req.rarities is None
         assert req.card_ids is None
         assert req.limit is None
+
+    def test_provider_defaults_to_liga(self) -> None:
+        req = ScanRequest()
+        assert req.provider == "liga"
+
+    def test_provider_can_be_myp(self) -> None:
+        req = ScanRequest(provider="myp")
+        assert req.provider == "myp"
 
 
 class TestScanRequestWithFilters:
@@ -65,6 +74,37 @@ class TestScanRunResponse:
         assert resp.started_at == "2026-08-20T10:00:00"
         assert resp.finished_at == "2026-08-20T10:05:00"
         assert resp.created_at == "2026-08-20T09:59:00"
+
+    def test_provider_field_optional(self) -> None:
+        data = {
+            "id": 1,
+            "scan_type": "collection",
+            "filters_json": "{}",
+            "status": "completed",
+            "cards_total": 10,
+            "cards_processed": 10,
+            "cards_failed": 0,
+            "observations_saved": 10,
+            "provider": "liga",
+            "created_at": "2026-08-20T10:00:00",
+        }
+        resp = ScanRunResponse(**data)
+        assert resp.provider == "liga"
+
+    def test_provider_field_defaults_to_none(self) -> None:
+        data = {
+            "id": 1,
+            "scan_type": "collection",
+            "filters_json": "{}",
+            "status": "completed",
+            "cards_total": 10,
+            "cards_processed": 10,
+            "cards_failed": 0,
+            "observations_saved": 10,
+            "created_at": "2026-08-20T10:00:00",
+        }
+        resp = ScanRunResponse(**data)
+        assert resp.provider is None
 
     def test_error_summary_optional(self) -> None:
         data = {

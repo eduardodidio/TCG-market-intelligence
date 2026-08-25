@@ -27,6 +27,7 @@ from src.api.schemas.collection import (
     CollectionHistoryResponse,
     CollectionSummary,
     ImportResult,
+    LigaStatusResponse,
     ManualPriceRequest,
     SnapshotRequest,
     SyncRequest,
@@ -235,6 +236,57 @@ async def canonize_all(
         rate_limited=result.rate_limited,
     )
     return success_response(data=data)
+
+
+@router.get("/liga-status", response_model=ApiResponse[LigaStatusResponse])
+def get_liga_status(
+    stale_days: int = Query(default=7, ge=1),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Get Liga price coverage stats for the user's collection."""
+    stats = repo.get_liga_coverage_stats(user_id, stale_days=stale_days)
+    data = LigaStatusResponse(**stats)
+    return success_response(data=data)
+
+
+@router.get("/liga-missing", response_model=ApiResponse[list[CollectionCard]])
+def list_liga_missing(
+    stale_days: int = Query(default=7, ge=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """List collection cards missing or with stale Liga prices."""
+    cards, total = repo.get_liga_missing_cards(
+        user_id, stale_days=stale_days, limit=limit, offset=offset
+    )
+    data = [
+        CollectionCard(
+            id=c["id"],
+            card_id=c["card_id"],
+            set_code=c["set_code"],
+            collector_number=c["collector_number"],
+            name_en=c["name_en"],
+            name_pt=c["name_pt"],
+            set_name_en=c["set_name_en"],
+            quantity=c["quantity"],
+            quality=c["quality"],
+            language=c["language"],
+            rarity=c["rarity"],
+            color=c["color"],
+            extras=c["extras"],
+            image_url=_scryfall_image_url(c["set_code"], c["collector_number"]),
+        )
+        for c in cards
+    ]
+    return paginated_response(
+        data=data,
+        cursor=None,
+        total=total,
+        offset=offset + limit if offset + limit < total else None,
+    )
 
 
 METRICS_PERIOD_MAP = {"24h": 1, "7d": 7, "30d": 30, "90d": 90, "180d": 180, "1y": 365}
@@ -903,7 +955,7 @@ async def refresh_card_price_liga(
 
     obs = HistoricalPrice(
         source="liga",
-        external_id=f"liga_{card_name}",
+        external_id=f"liga_{entry.card_id}",
         observed_at=date.today(),
         median_price=price,
     )

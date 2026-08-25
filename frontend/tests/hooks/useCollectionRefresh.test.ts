@@ -93,7 +93,7 @@ describe("useCollectionRefresh", () => {
       await result.current.startRefresh();
     });
 
-    expect(mockTrigger).toHaveBeenCalledWith({ scan_type: "collection" });
+    expect(mockTrigger).toHaveBeenCalledWith({ scan_type: "collection", provider: "liga" });
     expect(result.current.isRefreshing).toBe(true);
     // EventSource should have been created
     expect(MockEventSource.instances.length).toBeGreaterThanOrEqual(1);

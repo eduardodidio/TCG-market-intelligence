@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 class ScanRequest(BaseModel):
     scan_type: str = "collection"
+    provider: str = "liga"  # "liga" | "myp", default liga
     set_codes: list[str] | None = None
     format_name: str | None = None
     rarities: list[str] | None = None
@@ -24,6 +25,7 @@ class ScanRunResponse(BaseModel):
     cards_processed: int
     cards_failed: int
     observations_saved: int
+    provider: str | None = None
     error_summary: str | None = None
     started_at: str | None = None
     finished_at: str | None = None

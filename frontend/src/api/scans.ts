@@ -74,9 +74,12 @@ export function triggerScan(body: ScanRequest): Promise<ScanTriggerResponse> {
 // Auth-aware variants using apiPost/apiGet (for useCollectionRefresh hook)
 
 export function triggerScanAuth(
-  request: { scan_type: string },
+  request: { scan_type: string; provider?: string },
 ): Promise<ApiResponse<ScanTriggerResponse>> {
-  return apiPost<ScanTriggerResponse>("/api/v1/scans", request);
+  return apiPost<ScanTriggerResponse>("/api/v1/scans", {
+    ...request,
+    provider: request.provider ?? "liga",
+  });
 }
 
 export function getScanStatusAuth(

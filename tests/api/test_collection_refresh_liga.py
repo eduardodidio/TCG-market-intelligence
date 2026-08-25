@@ -50,7 +50,7 @@ def _make_price_obs(**overrides) -> MagicMock:
     defaults = {
         "id": 100,
         "source": "liga",
-        "external_id": "liga_Lightning Bolt",
+        "external_id": "liga_42",
         "observed_at": date(2026, 8, 24),
         "median_price": Decimal("5.50"),
         "tcg_price": None,
@@ -130,7 +130,7 @@ class TestRefreshLigaHappyPath:
         obs_list = mock_repo.insert_price_observations.call_args[0][0]
         assert len(obs_list) == 1
         assert obs_list[0].source == "liga"
-        assert obs_list[0].external_id == "liga_Lightning Bolt"
+        assert obs_list[0].external_id == "liga_42"
         assert obs_list[0].median_price == Decimal("5.50")
 
     @patch("src.providers.liga.provider.LigaMagicProvider", autospec=False)

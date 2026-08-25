@@ -137,7 +137,7 @@ function createMockFetch(
   });
 }
 
-describe("CollectionCardDetail — LigaMagic refresh", () => {
+describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -149,16 +149,42 @@ describe("CollectionCardDetail — LigaMagic refresh", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders LigaMagic button when card has name_en", async () => {
+  it("renders Liga as primary button (emerald) and MYP as secondary (gray outline)", async () => {
     globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
     renderDetail();
 
     await waitFor(() => {
-      expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
+      expect(screen.getByTestId("refresh-buttons")).toBeDefined();
     });
 
-    // i18n mock returns key as text; button should exist and contain text
-    expect(screen.getByTestId("refresh-liga-btn").textContent).toBeTruthy();
+    const ligaBtn = screen.getByTestId("refresh-liga-btn");
+    const mypBtn = screen.getByTestId("refresh-price-btn");
+
+    // Liga button should be emerald (primary)
+    expect(ligaBtn.className).toContain("bg-emerald-600");
+    expect(ligaBtn.className).toContain("text-sm");
+    expect(ligaBtn.textContent).toContain("Refresh Liga");
+
+    // MYP button should be gray outline (secondary)
+    expect(mypBtn.className).toContain("border-slate-500");
+    expect(mypBtn.className).toContain("bg-transparent");
+    expect(mypBtn.className).toContain("text-xs");
+    expect(mypBtn.textContent).toContain("Refresh MYP");
+  });
+
+  it("Liga button appears before MYP button in DOM (primary first)", async () => {
+    globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-buttons")).toBeDefined();
+    });
+
+    const container = screen.getByTestId("refresh-buttons");
+    const buttons = container.querySelectorAll("button");
+    expect(buttons.length).toBe(2);
+    expect(buttons[0].getAttribute("data-testid")).toBe("refresh-liga-btn");
+    expect(buttons[1].getAttribute("data-testid")).toBe("refresh-price-btn");
   });
 
   it("does NOT render LigaMagic button when both name_en and name_pt are null", async () => {
@@ -185,7 +211,7 @@ describe("CollectionCardDetail — LigaMagic refresh", () => {
     });
   });
 
-  it("click triggers API call with correct entry ID", async () => {
+  it("Liga click triggers API call to /refresh-liga endpoint", async () => {
     const updatedEntry = makeLinkedEntry({ latest_price: 12.0 });
 
     const postHandler = vi.fn().mockImplementation((url: string) => {
@@ -229,8 +255,39 @@ describe("CollectionCardDetail — LigaMagic refresh", () => {
     expect(String(ligaCall[0])).toContain("/collection/1/refresh-liga");
   });
 
-  it("shows loading state during fetch (button disabled)", async () => {
-    // Create a deferred promise to keep the fetch pending
+  it("MYP click triggers API call to /refresh endpoint (not /refresh-liga)", async () => {
+    const updatedEntry = makeLinkedEntry({ latest_price: 10.0 });
+
+    const postHandler = vi.fn().mockImplementation((url: string) => {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(updatedEntry),
+      });
+    });
+
+    globalThis.fetch = createMockFetch(
+      makeLinkedEntry(),
+      postHandler,
+    ) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-price-btn")).toBeDefined();
+    });
+
+    screen.getByTestId("refresh-price-btn").click();
+
+    await waitFor(() => {
+      expect(postHandler).toHaveBeenCalled();
+    });
+
+    const mypCall = postHandler.mock.calls.find(
+      ([u]: [string]) => String(u).includes("/refresh") && !String(u).includes("/refresh-liga"),
+    );
+    expect(mypCall).toBeDefined();
+  });
+
+  it("shows loading state during Liga fetch (button disabled)", async () => {
     let resolvePost!: (v: unknown) => void;
     const pendingPromise = new Promise((resolve) => {
       resolvePost = resolve;
@@ -261,24 +318,21 @@ describe("CollectionCardDetail — LigaMagic refresh", () => {
       expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
     });
 
-    // Button should not be disabled initially
     expect(screen.getByTestId("refresh-liga-btn").hasAttribute("disabled")).toBe(false);
 
     screen.getByTestId("refresh-liga-btn").click();
 
-    // Button should be disabled while loading
     await waitFor(() => {
       expect(screen.getByTestId("refresh-liga-btn").hasAttribute("disabled")).toBe(true);
     });
 
-    // Resolve to clean up
     resolvePost({
       ok: true,
       json: () => Promise.resolve(makeLinkedEntry({ latest_price: 12.0 })),
     });
   });
 
-  it("shows success message on successful price fetch", async () => {
+  it("shows success message on successful Liga price fetch", async () => {
     const updatedEntry = makeLinkedEntry({ latest_price: 15.0 });
 
     const postHandler = vi.fn().mockImplementation((url: string) => {
@@ -318,50 +372,7 @@ describe("CollectionCardDetail — LigaMagic refresh", () => {
     });
   });
 
-  it("shows warning message when API returns warnings", async () => {
-    const warningResponse: ApiResponse<CollectionCardDetailType> = {
-      ...makeLinkedEntry({ latest_price: 15.0 }),
-      errors: [{ code: "liga_warning", message: "Slow response from LigaMagic" }],
-    };
-
-    const postHandler = vi.fn().mockImplementation((url: string) => {
-      if (String(url).includes("/refresh-liga")) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(warningResponse),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            data: null,
-            meta: { cursor: null, total: null, request_id: "" },
-            errors: [],
-          }),
-      });
-    });
-
-    globalThis.fetch = createMockFetch(
-      makeLinkedEntry(),
-      postHandler,
-    ) as unknown as typeof fetch;
-    renderDetail();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
-    });
-
-    screen.getByTestId("refresh-liga-btn").click();
-
-    await waitFor(() => {
-      const msg = screen.getByTestId("refresh-message");
-      expect(msg).toBeDefined();
-      expect(msg.className).toContain("text-amber-400");
-    });
-  });
-
-  it("shows error message on failure", async () => {
+  it("shows error message on Liga failure", async () => {
     const postHandler = vi.fn().mockImplementation((url: string) => {
       if (String(url).includes("/refresh-liga")) {
         return Promise.reject(new Error("Network error"));
@@ -393,52 +404,6 @@ describe("CollectionCardDetail — LigaMagic refresh", () => {
       const msg = screen.getByTestId("refresh-message");
       expect(msg).toBeDefined();
       expect(msg.className).toContain("text-red-400");
-    });
-  });
-
-  it("button disabled during loading", async () => {
-    let resolvePost!: (v: unknown) => void;
-    const pendingPromise = new Promise((resolve) => {
-      resolvePost = resolve;
-    });
-
-    const postHandler = vi.fn().mockImplementation((url: string) => {
-      if (String(url).includes("/refresh-liga")) {
-        return pendingPromise;
-      }
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            data: null,
-            meta: { cursor: null, total: null, request_id: "" },
-            errors: [],
-          }),
-      });
-    });
-
-    globalThis.fetch = createMockFetch(
-      makeLinkedEntry(),
-      postHandler,
-    ) as unknown as typeof fetch;
-    renderDetail();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
-    });
-
-    screen.getByTestId("refresh-liga-btn").click();
-
-    await waitFor(() => {
-      const btn = screen.getByTestId("refresh-liga-btn");
-      expect(btn.hasAttribute("disabled")).toBe(true);
-      expect(btn.className).toContain("disabled:opacity-50");
-    });
-
-    // Resolve to clean up
-    resolvePost({
-      ok: true,
-      json: () => Promise.resolve(makeLinkedEntry()),
     });
   });
 

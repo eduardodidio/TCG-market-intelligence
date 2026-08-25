@@ -646,7 +646,7 @@ describe("CollectionCardDetail page", () => {
     expect(screen.getByTestId("price-source-badge").textContent).toContain("Manual Price");
   });
 
-  it("does not render PriceSourceBadge for auto prices", async () => {
+  it("renders amber MYP badge for source='myp'", async () => {
     globalThis.fetch = createMockFetch(makeLinkedEntry({ price_source: "myp" })) as unknown as typeof fetch;
     renderDetail();
 
@@ -654,7 +654,10 @@ describe("CollectionCardDetail page", () => {
       expect(screen.getByTestId("card-info-panel")).toBeDefined();
     });
 
-    expect(screen.queryByTestId("price-source-badge")).toBeNull();
+    const badge = screen.getByTestId("price-source-badge");
+    expect(badge).toBeDefined();
+    expect(badge.textContent).toContain("MYP");
+    expect(badge.className).toContain("text-amber-400");
   });
 
   it("does not render PriceSourceBadge when price_source is null", async () => {

@@ -39,7 +39,23 @@
     "toggleNav": "Alternar navegacao",
     "signIn": "Entrar",
     "signOut": "Sair",
-    "settings": "Configuracoes"
+    "settings": "Configuracoes",
+    "admin": "Administracao",
+    "ligaStatus": "Status Liga"
+  },
+  "admin": {
+    "ligaStatus": {
+      "title": "Cobertura de Precos Liga",
+      "totalCards": "Total de Cards",
+      "ligaPriced": "Com Preco Liga",
+      "ligaMissing": "Sem Preco",
+      "ligaStale": "Desatualizado (>7d)",
+      "coverage": "Cobertura",
+      "scanAllMissing": "Escanear Faltantes",
+      "lastScan": "Ultimo Scan Liga",
+      "unlinked": "Nao Linkados",
+      "noMissing": "Todos os cards tem preco Liga!"
+    }
   },
   "dashboard": {
     "title": "Minha Colecao",
@@ -294,7 +310,20 @@
     "priceHighLow": "Preco (Maior-Menor)",
     "priceLowHigh": "Preco (Menor-Maior)"
   },
+  "card": {
+    "refreshLiga": "Atualizar Liga",
+    "refreshMyp": "Atualizar MYP (alternativo)",
+    "priceSource": {
+      "liga": "Liga",
+      "myp": "MYP",
+      "manual": "Manual"
+    }
+  },
   "scan": {
+    "provider": {
+      "liga": "LigaMagic",
+      "myp": "MYP Cards"
+    },
     "streaming": {
       "connecting": "Conectando ao stream de varredura...",
       "scanning": "Varrendo: \"{{cardName}}\"",

@@ -45,6 +45,17 @@ def _dt_to_str(val: object) -> str | None:
     return str(val)
 
 
+def _extract_provider(filters_json: str) -> str | None:
+    """Extract provider from filters_json if present."""
+    import json as _json
+
+    try:
+        data = _json.loads(filters_json)
+        return data.get("provider")
+    except (ValueError, TypeError):
+        return None
+
+
 def _row_to_response(row: dict) -> ScanRunResponse:
     """Convert a repository scan-run dict to a ScanRunResponse."""
     return ScanRunResponse(
@@ -56,6 +67,7 @@ def _row_to_response(row: dict) -> ScanRunResponse:
         cards_processed=row["cards_processed"],
         cards_failed=row["cards_failed"],
         observations_saved=row["observations_saved"],
+        provider=_extract_provider(row["filters_json"]),
         error_summary=row.get("error_summary"),
         started_at=_dt_to_str(row.get("started_at")),
         finished_at=_dt_to_str(row.get("finished_at")),
@@ -104,9 +116,11 @@ async def trigger_scan(
     _user_id: str = Depends(require_auth_or_api_key),
 ):
     """Trigger a new collection price scan in a background thread."""
+    from src.collectors.liga_scan import run_liga_scan
     from src.collectors.scan import run_scan
 
     db_url = _get_db_url()
+    provider_name = request.provider if request.provider in ("liga", "myp") else "liga"
 
     scan_filter = ScanFilter(
         scan_type=ScanType(request.scan_type),
@@ -117,23 +131,42 @@ async def trigger_scan(
         limit=request.limit,
     )
 
+    # Encode provider in filters_json for traceability
+    import json as _json
+
+    filters_data = _json.loads(scan_filter.to_json())
+    filters_data["provider"] = provider_name
+    filters_json = _json.dumps(filters_data)
+
     # Create scan run immediately so we can return the ID
     repo = Repository(db_url)
-    scan_id = repo.create_scan_run(scan_filter.scan_type.value, scan_filter.to_json())
+    scan_id = repo.create_scan_run(scan_filter.scan_type.value, filters_json)
 
     # Launch in background thread (scan uses its own event loop)
     def _run() -> None:
         from src.services.scan_hooks import default_registry
 
-        asyncio.run(
-            run_scan(
-                db_url=db_url,
-                scan_filter=scan_filter,
-                dry_run=request.dry_run,
-                run_id=scan_id,
-                on_complete=default_registry.notify,
+        if provider_name == "liga":
+            asyncio.run(
+                run_liga_scan(
+                    db_url=db_url,
+                    scan_filter=scan_filter,
+                    dry_run=request.dry_run,
+                    run_id=scan_id,
+                    on_complete=default_registry.notify,
+                )
             )
-        )
+        else:
+            asyncio.run(
+                run_scan(
+                    db_url=db_url,
+                    scan_filter=scan_filter,
+                    dry_run=request.dry_run,
+                    run_id=scan_id,
+                    on_complete=default_registry.notify,
+                    provider_name=provider_name,
+                )
+            )
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()

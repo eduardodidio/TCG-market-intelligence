@@ -23,6 +23,24 @@ async def lifespan(app: FastAPI):
             from src.scheduler.service import ScanScheduler
 
             db_url = get_db_url()
+
+            # Seed default Liga schedules before starting the scheduler
+            try:
+                from src.database.repository import Repository
+
+                repo = Repository(db_url)
+                seeded = repo.seed_default_liga_schedules()
+                if seeded > 0:
+                    import structlog
+
+                    log = structlog.get_logger()
+                    log.info("liga_schedules_seeded", count=seeded)
+            except Exception:
+                import structlog
+
+                log = structlog.get_logger()
+                log.warning("liga_schedule_seed_failed", exc_info=True)
+
             scheduler = ScanScheduler(db_url)
             scheduler.start()
             app.state.scheduler = scheduler

@@ -150,9 +150,10 @@ class ScanScheduler:
         return scan_id
 
     def _execute_scheduled_scan(self, schedule_id: int, scan_id: int | None = None) -> None:
-        """Callback executed by APScheduler. Runs scan, updates schedule metadata."""
-        from src.collectors.scan import run_scan
+        """Callback executed by APScheduler. Runs scan, updates schedule metadata.
 
+        Routes to Liga provider when filters_json contains ``"provider": "liga"``.
+        """
         with self._lock:
             repo = Repository(self._db_url)
             schedule = repo.get_scheduled_scan(schedule_id)
@@ -177,13 +178,38 @@ class ScanScheduler:
 
         try:
             scan_filter = ScanFilter.from_json(schedule["filters_json"])
-            asyncio.run(
-                run_scan(
-                    db_url=self._db_url,
-                    scan_filter=scan_filter,
-                    run_id=scan_id,
+
+            # Determine provider from filters_json
+            import json as _json
+
+            try:
+                filters_data = _json.loads(schedule["filters_json"] or "{}")
+            except (ValueError, TypeError):
+                filters_data = {}
+            provider_name = filters_data.get("provider", "myp")
+
+            if provider_name == "liga":
+                from src.collectors.liga_scan import run_liga_scan
+
+                max_age_days = filters_data.get("max_age_days")
+                asyncio.run(
+                    run_liga_scan(
+                        db_url=self._db_url,
+                        scan_filter=scan_filter,
+                        run_id=scan_id,
+                        max_age_days=max_age_days,
+                    )
                 )
-            )
+            else:
+                from src.collectors.scan import run_scan
+
+                asyncio.run(
+                    run_scan(
+                        db_url=self._db_url,
+                        scan_filter=scan_filter,
+                        run_id=scan_id,
+                    )
+                )
 
             # Success: update schedule metadata
             repo = Repository(self._db_url)

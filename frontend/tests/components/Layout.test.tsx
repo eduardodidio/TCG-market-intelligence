@@ -69,7 +69,7 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    expect(links).toHaveLength(12);
+    expect(links).toHaveLength(13);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -82,6 +82,7 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Top Decks");
     expect(linkTexts).toContain("Price Scans");
     expect(linkTexts).toContain("Schedules");
+    expect(linkTexts).toContain("Liga Status");
     expect(linkTexts).toContain("Ban List");
     expect(linkTexts).toContain("Settings");
   });
