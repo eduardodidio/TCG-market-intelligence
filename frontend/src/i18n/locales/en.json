@@ -21,7 +21,10 @@
     "noImage": "No Image",
     "notOwned": "Not Owned",
     "networkError": "Unable to connect to the server. Please check your connection.",
-    "back": "Back"
+    "back": "Back",
+    "of": "of",
+    "prev": "Previous",
+    "next": "Next"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -44,6 +47,30 @@
     "ligaStatus": "Liga Status"
   },
   "admin": {
+    "title": "Admin Panel",
+    "usersTab": "Users",
+    "dashboardTab": "Dashboard",
+    "adminBadge": "Admin",
+    "adjustCredits": "Adjust Credits",
+    "amountPlaceholder": "Amount",
+    "reasonPlaceholder": "Reason",
+    "apply": "Apply",
+    "noUsers": "No users found",
+    "colName": "Name",
+    "colEmail": "Email",
+    "colRole": "Role",
+    "colBalance": "Balance",
+    "colActions": "Actions",
+    "kpi": {
+      "totalUsers": "Total Users",
+      "activeUsers": "Active Users",
+      "adminUsers": "Admin Users",
+      "creditsInCirculation": "Credits in Circulation",
+      "creditsGranted": "Credits Granted",
+      "creditsSpent": "Credits Spent",
+      "collectionEntries": "Collection Entries",
+      "totalScans": "Total Scans"
+    },
     "ligaStatus": {
       "title": "Liga Price Coverage",
       "totalCards": "Total Cards",
@@ -145,7 +172,14 @@
     "refreshLigaNotFound": "Card not found on LigaMagic",
     "refreshLigaError": "LigaMagic fetch failed",
     "refreshLigaRateLimit": "LigaMagic rate limited, try later",
-    "ligaErrorHint": "Try the MYP refresh button as fallback."
+    "ligaErrorHint": "Try the MYP refresh button as fallback.",
+    "maxAgeDays": "Skip recently scanned",
+    "maxAgeDaysOption1": "Last 24 hours",
+    "maxAgeDaysOption3": "Last 3 days",
+    "maxAgeDaysOption7": "Last 7 days",
+    "maxAgeDaysOptionAll": "Scan all cards",
+    "skippedCards": "{{count}} cards skipped (recently scanned)",
+    "cardsToScan": "{{count}} cards to scan"
   },
   "market": {
     "title": "Market Movers",

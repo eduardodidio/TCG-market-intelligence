@@ -1,0 +1,92 @@
+{
+  "id": "D-F66-20260826-001",
+  "type": "feature_start",
+  "feature": "F66",
+  "title": "Admin Panel — user management, credit grants, dashboard stats",
+  "requested_at": "2026-08-26T00:00:00Z",
+  "decided_at": "2026-08-26T00:00:01Z",
+  "status": "executed",
+  "pipeline": "create-feature",
+
+  "summary": "Proceed with create-feature pipeline. F66 is a straightforward CRUD+UI feature with well-established patterns in the codebase. All foundational pieces exist (is_admin, CreditService.grant, JWT auth, FastAPI deps). Risk is low and scope is bounded.",
+
+  "options": [
+    {
+      "id": "A",
+      "name": "Full create-feature pipeline (Architect → Waves → TechLead → QA)",
+      "description": "Run the standard 4-agent pipeline. Architect plans tasks for: (1) require_admin FastAPI dependency, (2) admin API router (GET /admin/users, PATCH /admin/users/{id}/credits, GET /admin/dashboard), (3) AdminRoute frontend guard, (4) Admin page with user table + credit grant/revoke, (5) conditional nav for is_admin. Tests and i18n included.",
+      "pros": [
+        "Follows established project workflow — consistency with F22-F65",
+        "TechLead review catches edge cases (e.g. admin granting to self, negative balance, pagination)",
+        "QA ensures test coverage stays above 91% backend / 90% frontend",
+        "ADR for admin authorization pattern is documented"
+      ],
+      "cons": [
+        "Higher ceremony for a relatively straightforward feature",
+        "May take 4 waves when 2 would suffice"
+      ],
+      "risk": "low",
+      "effort": "medium"
+    },
+    {
+      "id": "B",
+      "name": "Lightweight implementation — skip Architect, direct Developer+QA",
+      "description": "Since all building blocks exist (is_admin, CreditService, auth deps, existing admin page pattern in AdminLigaStatus), skip the Architect phase and go straight to implementation with a QA pass at the end.",
+      "pros": [
+        "Faster delivery for a well-understood feature",
+        "Less overhead"
+      ],
+      "cons": [
+        "Skips structured task planning — risk of scope creep or missed edge cases",
+        "No TechLead review means potential security gaps in admin authorization",
+        "Breaks workflow consistency — all prior features used full pipeline"
+      ],
+      "risk": "medium",
+      "effort": "low"
+    },
+    {
+      "id": "C",
+      "name": "Defer — admin manages credits via CLI/DB only",
+      "description": "The seed user already has is_admin=1 and 50 credits. Admin could grant credits via a new CLI command (e.g. `cli grant-credits --user-id 2 --amount 10`) without building a full UI.",
+      "pros": [
+        "Minimal implementation effort",
+        "CLI-only is adequate for single-admin scenario"
+      ],
+      "cons": [
+        "No visibility into user list or credit balances without DB queries",
+        "Does not scale if more users are onboarded",
+        "Feature explicitly requests a frontend admin page — would not satisfy requirements"
+      ],
+      "risk": "low",
+      "effort": "very low"
+    }
+  ],
+
+  "selected_option": "A",
+  "rationale": "Option A (full pipeline) is the right choice for three reasons: (1) Admin endpoints are security-sensitive — the TechLead review is valuable for catching authorization bypass, IDOR, and privilege escalation issues. (2) The overhead is modest since all building blocks exist — the Architect will likely produce only 2 waves. (3) Consistency with the project's established workflow ensures documentation (ADR, diagrams, i18n) is not forgotten. Option B saves marginal time but sacrifices the security review. Option C does not satisfy the stated requirements.",
+
+  "preconditions_met": [
+    "is_admin field exists on UserRow (F65)",
+    "CreditService has grant() and deduct() methods (F65)",
+    "JWT auth and get_current_user dependency exist (F22)",
+    "AdminLigaStatus page provides frontend admin pattern reference",
+    "get_credit_service FastAPI dependency exists in deps.py"
+  ],
+
+  "risks": [
+    {
+      "risk": "Admin privilege escalation — non-admin accessing admin endpoints",
+      "mitigation": "require_admin dependency must raise 403 before any business logic runs"
+    },
+    {
+      "risk": "Admin granting negative credits to drain a user's balance below 0",
+      "mitigation": "Validate grant amount > 0, use separate revoke action with balance floor check"
+    },
+    {
+      "risk": "No audit trail for admin credit operations",
+      "mitigation": "CreditService already logs CreditTransaction rows — ensure admin grants include admin_user_id in reference_id or reason"
+    }
+  ],
+
+  "next_action": "Run /create-feature F66 with the full pipeline"
+}

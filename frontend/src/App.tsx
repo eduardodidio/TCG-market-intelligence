@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { LoadingSpinner } from "./components/LoadingSpinner";
+import { AdminRoute } from "./components/AdminRoute";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CurrencyProvider } from "./contexts/CurrencyContext";
@@ -62,6 +63,9 @@ const Login = lazy(() =>
 );
 const Settings = lazy(() =>
   import("./pages/Settings").then((m) => ({ default: m.Settings })),
+);
+const AdminPanel = lazy(() =>
+  import("./pages/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
 const AdminLigaStatus = lazy(() =>
   import("./pages/AdminLigaStatus").then((m) => ({
@@ -303,14 +307,26 @@ export default function App() {
                 }
               />
               <Route
+                path="/admin"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <AdminRoute>
+                      <AdminPanel />
+                    </AdminRoute>
+                  </Suspense>
+                }
+              />
+              <Route
                 path="/admin/liga-status"
                 element={
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
+                    <AdminRoute>
                       <AdminLigaStatus />
-                    </ProtectedRoute>
+                    </AdminRoute>
                   </Suspense>
                 }
               />

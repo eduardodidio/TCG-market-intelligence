@@ -1,0 +1,378 @@
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  fetchAdminUsers,
+  fetchAdminDashboard,
+  adjustUserCredits,
+} from "../api/admin";
+import type { AdminUser, AdminDashboard } from "../api/admin";
+import type { ApiResponse } from "../types/api";
+
+const LIMIT = 50;
+
+function KpiCard({
+  label,
+  value,
+  accent = "cyan",
+}: {
+  label: string;
+  value: number | string;
+  accent?: string;
+}) {
+  const colorMap: Record<string, string> = {
+    cyan: "text-cyan-400",
+    green: "text-green-400",
+    amber: "text-amber-400",
+    red: "text-red-400",
+  };
+  return (
+    <div
+      className="bg-slate-800 rounded-lg p-4 border border-slate-700"
+      data-testid={`kpi-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
+    >
+      <p className="text-sm text-slate-400 mb-1">{label}</p>
+      <p className={`text-2xl font-bold ${colorMap[accent] || "text-white"}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function AdjustCreditsRow({
+  user,
+  onApplied,
+}: {
+  user: AdminUser;
+  onApplied: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleApply = async () => {
+    const parsed = parseInt(amount, 10);
+    if (isNaN(parsed) || parsed === 0) return;
+    setSubmitting(true);
+    setError(null);
+    const resp: ApiResponse<unknown> = await adjustUserCredits(
+      user.id,
+      parsed,
+      reason || undefined,
+    );
+    setSubmitting(false);
+    if (resp.errors.length > 0) {
+      setError(resp.errors.map((e) => e.message).join("; "));
+    } else {
+      setOpen(false);
+      setAmount("");
+      setReason("");
+      onApplied();
+    }
+  };
+
+  return (
+    <tr
+      key={user.id}
+      className="border-t border-slate-700 hover:bg-slate-700/50"
+      data-testid={`user-row-${user.id}`}
+    >
+      <td className="px-4 py-2 text-white">
+        {user.display_name || user.email}
+      </td>
+      <td className="px-4 py-2 text-slate-400">{user.email}</td>
+      <td className="px-4 py-2">
+        {user.is_admin ? (
+          <span className="text-xs bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded" data-testid={`admin-badge-${user.id}`}>
+            {t("admin.adminBadge")}
+          </span>
+        ) : null}
+      </td>
+      <td className="px-4 py-2 text-white font-mono" data-testid={`balance-${user.id}`}>
+        {user.credit_balance}
+      </td>
+      <td className="px-4 py-2">
+        {!open ? (
+          <button
+            onClick={() => setOpen(true)}
+            className="px-3 py-1 text-sm bg-cyan-700 hover:bg-cyan-600 text-white rounded"
+            data-testid={`adjust-btn-${user.id}`}
+          >
+            {t("admin.adjustCredits")}
+          </button>
+        ) : (
+          <div className="flex flex-col gap-2" data-testid={`adjust-form-${user.id}`}>
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder={t("admin.amountPlaceholder")}
+                className="w-24 px-2 py-1 text-sm bg-slate-900 border border-slate-600 text-white rounded focus:outline-none focus:border-cyan-400"
+                data-testid={`amount-input-${user.id}`}
+              />
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder={t("admin.reasonPlaceholder")}
+                className="w-40 px-2 py-1 text-sm bg-slate-900 border border-slate-600 text-white rounded focus:outline-none focus:border-cyan-400"
+                data-testid={`reason-input-${user.id}`}
+              />
+              <button
+                onClick={handleApply}
+                disabled={submitting || !amount || parseInt(amount, 10) === 0}
+                className="px-3 py-1 text-sm bg-green-700 hover:bg-green-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded"
+                data-testid={`apply-btn-${user.id}`}
+              >
+                {submitting ? t("common.pleaseWait") : t("admin.apply")}
+              </button>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  setAmount("");
+                  setReason("");
+                  setError(null);
+                }}
+                className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+            {error && (
+              <p className="text-xs text-red-400" data-testid={`adjust-error-${user.id}`}>
+                {error}
+              </p>
+            )}
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+export function AdminPanel() {
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<"users" | "dashboard">("users");
+
+  // Users state
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersOffset, setUsersOffset] = useState(0);
+
+  // Dashboard state
+  const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+
+  useEffect(() => {
+    document.title = `${t("admin.title")} | TCG Market`;
+  }, [t]);
+
+  const loadUsers = useCallback(async (offset: number) => {
+    setUsersLoading(true);
+    setUsersError(null);
+    const resp = await fetchAdminUsers(LIMIT, offset);
+    if (resp.errors.length > 0) {
+      setUsersError(resp.errors.map((e) => e.message).join("; "));
+      setUsers([]);
+    } else if (resp.data) {
+      setUsers(resp.data);
+      setUsersTotal(resp.meta.total ?? resp.data.length);
+    }
+    setUsersLoading(false);
+  }, []);
+
+  const loadDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    setDashboardError(null);
+    const resp = await fetchAdminDashboard();
+    if (resp.errors.length > 0) {
+      setDashboardError(resp.errors.map((e) => e.message).join("; "));
+      setDashboard(null);
+    } else {
+      setDashboard(resp.data);
+    }
+    setDashboardLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "users") {
+      loadUsers(usersOffset);
+    } else {
+      loadDashboard();
+    }
+  }, [activeTab, usersOffset, loadUsers, loadDashboard]);
+
+  const hasNextPage = usersOffset + LIMIT < usersTotal;
+  const hasPrevPage = usersOffset > 0;
+
+  const tabClass = (tab: string) =>
+    `px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+      activeTab === tab
+        ? "bg-slate-800 text-cyan-400 border-b-2 border-cyan-400"
+        : "bg-slate-900 text-slate-400 hover:text-white"
+    }`;
+
+  return (
+    <div data-testid="page-admin-panel">
+      <h1 className="text-2xl font-bold text-white mb-6">
+        {t("admin.title")}
+      </h1>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6" data-testid="admin-tabs">
+        <button
+          onClick={() => setActiveTab("users")}
+          className={tabClass("users")}
+          data-testid="tab-users"
+        >
+          {t("admin.usersTab")}
+        </button>
+        <button
+          onClick={() => setActiveTab("dashboard")}
+          className={tabClass("dashboard")}
+          data-testid="tab-dashboard"
+        >
+          {t("admin.dashboardTab")}
+        </button>
+      </div>
+
+      {/* Users Tab */}
+      {activeTab === "users" && (
+        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden" data-testid="users-section">
+          {usersLoading ? (
+            <p className="p-4 text-slate-400" data-testid="users-loading">
+              {t("common.loading")}
+            </p>
+          ) : usersError ? (
+            <p className="p-4 text-red-400" data-testid="users-error">
+              {usersError}
+            </p>
+          ) : users.length === 0 ? (
+            <p className="p-4 text-slate-400" data-testid="users-empty">
+              {t("admin.noUsers")}
+            </p>
+          ) : (
+            <>
+              <table
+                className="w-full text-sm text-left"
+                data-testid="users-table"
+              >
+                <thead className="text-xs text-slate-400 uppercase bg-slate-900/50">
+                  <tr>
+                    <th className="px-4 py-2">{t("admin.colName")}</th>
+                    <th className="px-4 py-2">{t("admin.colEmail")}</th>
+                    <th className="px-4 py-2">{t("admin.colRole")}</th>
+                    <th className="px-4 py-2">{t("admin.colBalance")}</th>
+                    <th className="px-4 py-2">{t("admin.colActions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <AdjustCreditsRow
+                      key={user.id}
+                      user={user}
+                      onApplied={() => loadUsers(usersOffset)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-700">
+                <span className="text-xs text-slate-400" data-testid="users-pagination-info">
+                  {usersOffset + 1}--
+                  {Math.min(usersOffset + LIMIT, usersTotal)} {t("common.of")}{" "}
+                  {usersTotal}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    disabled={!hasPrevPage}
+                    onClick={() =>
+                      setUsersOffset(Math.max(0, usersOffset - LIMIT))
+                    }
+                    className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
+                    data-testid="users-prev"
+                  >
+                    {t("common.prev")}
+                  </button>
+                  <button
+                    disabled={!hasNextPage}
+                    onClick={() => setUsersOffset(usersOffset + LIMIT)}
+                    className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
+                    data-testid="users-next"
+                  >
+                    {t("common.next")}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Dashboard Tab */}
+      {activeTab === "dashboard" && (
+        <div data-testid="dashboard-section">
+          {dashboardLoading ? (
+            <p className="text-slate-400" data-testid="dashboard-loading">
+              {t("common.loading")}
+            </p>
+          ) : dashboardError ? (
+            <p className="text-red-400" data-testid="dashboard-error">
+              {dashboardError}
+            </p>
+          ) : dashboard ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <KpiCard
+                label={t("admin.kpi.totalUsers")}
+                value={dashboard.total_users}
+                accent="cyan"
+              />
+              <KpiCard
+                label={t("admin.kpi.activeUsers")}
+                value={dashboard.active_users}
+                accent="green"
+              />
+              <KpiCard
+                label={t("admin.kpi.adminUsers")}
+                value={dashboard.admin_users}
+                accent="amber"
+              />
+              <KpiCard
+                label={t("admin.kpi.creditsInCirculation")}
+                value={dashboard.total_credits_in_circulation}
+                accent="cyan"
+              />
+              <KpiCard
+                label={t("admin.kpi.creditsGranted")}
+                value={dashboard.total_credits_granted}
+                accent="green"
+              />
+              <KpiCard
+                label={t("admin.kpi.creditsSpent")}
+                value={dashboard.total_credits_spent}
+                accent="red"
+              />
+              <KpiCard
+                label={t("admin.kpi.collectionEntries")}
+                value={dashboard.total_collection_entries}
+                accent="cyan"
+              />
+              <KpiCard
+                label={t("admin.kpi.totalScans")}
+                value={dashboard.total_scans}
+                accent="green"
+              />
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -2083,50 +2083,77 @@ class Repository:
             rows = session.execute(stmt).scalars().all()
             return [self._scheduled_scan_to_dict(r) for r in rows]
 
+    def get_admin_user_ids(self) -> list[int]:
+        """Return IDs of all users with is_admin=1."""
+        with Session(self.engine) as session:
+            stmt = select(UserRow.id).where(UserRow.is_admin == 1)
+            return list(session.execute(stmt).scalars().all())
+
     def seed_default_liga_schedules(self, system_user_id: str = "system") -> int:
         """Seed default Liga scheduled scans if none exist.
 
-        Creates two schedules:
+        Creates up to three schedules:
         - Liga Daily Partial: 3 AM daily, 50 cards, max_age_days=1
         - Liga Weekly Full: 1 AM Sunday, all cards
+        - Admin Daily Liga: 6 AM daily, admin collections, max_age_days=1
 
         Returns the number of schedules created (0 if already seeded).
         """
+        created = 0
         with Session(self.engine) as session:
-            # Check if any Liga schedules already exist
-            existing = session.execute(
+            # Check if Liga partial/full schedules already exist
+            existing_liga = session.execute(
                 select(func.count(ScheduledScanRow.id)).where(
                     ScheduledScanRow.scan_type.in_(["liga_partial", "liga_full"])
                 )
             ).scalar_one()
 
-            if existing > 0:
-                return 0
-
-            defaults = [
-                ScheduledScanRow(
-                    user_id=system_user_id,
-                    name="Liga Daily Partial",
-                    cron_expression="0 3 * * *",
-                    scan_type="liga_partial",
-                    filters_json=(
-                        '{"scan_type": "liga_partial", "limit": 50,'
-                        ' "provider": "liga", "max_age_days": 1}'
+            if existing_liga == 0:
+                defaults = [
+                    ScheduledScanRow(
+                        user_id=system_user_id,
+                        name="Liga Daily Partial",
+                        cron_expression="0 3 * * *",
+                        scan_type="liga_partial",
+                        filters_json=(
+                            '{"scan_type": "liga_partial", "limit": 50,'
+                            ' "provider": "liga", "max_age_days": 1}'
+                        ),
+                        status="active",
                     ),
-                    status="active",
-                ),
-                ScheduledScanRow(
+                    ScheduledScanRow(
+                        user_id=system_user_id,
+                        name="Liga Weekly Full",
+                        cron_expression="0 1 * * 0",
+                        scan_type="liga_full",
+                        filters_json='{"scan_type": "liga_full", "provider": "liga"}',
+                        status="active",
+                    ),
+                ]
+                session.add_all(defaults)
+                created += len(defaults)
+
+            # Check if admin daily liga schedule already exists
+            existing_admin = session.execute(
+                select(func.count(ScheduledScanRow.id)).where(
+                    ScheduledScanRow.scan_type == "admin_daily_liga"
+                )
+            ).scalar_one()
+
+            if existing_admin == 0:
+                admin_schedule = ScheduledScanRow(
                     user_id=system_user_id,
-                    name="Liga Weekly Full",
-                    cron_expression="0 1 * * 0",
-                    scan_type="liga_full",
-                    filters_json='{"scan_type": "liga_full", "provider": "liga"}',
+                    name="Admin Daily Liga",
+                    cron_expression="0 6 * * *",
+                    scan_type="admin_daily_liga",
+                    filters_json='{"provider": "liga", "max_age_days": 1}',
                     status="active",
-                ),
-            ]
-            session.add_all(defaults)
+                )
+                session.add(admin_schedule)
+                created += 1
+
             session.commit()
-            return len(defaults)
+            return created
 
     # --- Ban engine (collection) methods ---
 
@@ -2561,3 +2588,118 @@ class Repository:
             if row is not None:
                 row.last_bonus_at = timestamp
                 session.commit()
+
+    # --- Admin methods ---
+
+    def list_users_with_balances(self, limit: int = 50, offset: int = 0) -> tuple[list[dict], int]:
+        """Return all users joined with credit_balances, plus total count.
+
+        Each dict: {id, email, display_name, is_admin, is_active,
+                    credit_balance, created_at}
+        Uses LEFT JOIN so users without a credit_balances row get balance=0.
+        """
+        with Session(self.engine) as session:
+            # Total count
+            total = session.execute(select(func.count()).select_from(UserRow)).scalar() or 0
+
+            # LEFT JOIN users with credit_balances
+            stmt = (
+                select(
+                    UserRow.id,
+                    UserRow.email,
+                    UserRow.display_name,
+                    UserRow.is_admin,
+                    UserRow.is_active,
+                    func.coalesce(CreditBalanceRow.balance, 0).label("credit_balance"),
+                    UserRow.created_at,
+                )
+                .outerjoin(CreditBalanceRow, UserRow.id == CreditBalanceRow.user_id)
+                .order_by(UserRow.id)
+                .limit(limit)
+                .offset(offset)
+            )
+            rows = session.execute(stmt).all()
+            users = [
+                {
+                    "id": r.id,
+                    "email": r.email,
+                    "display_name": r.display_name,
+                    "is_admin": bool(r.is_admin),
+                    "is_active": bool(r.is_active),
+                    "credit_balance": r.credit_balance,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in rows
+            ]
+            return users, total
+
+    def get_platform_stats(self) -> dict:
+        """Aggregate stats for the admin dashboard.
+
+        Returns: total_users, active_users, admin_users,
+        total_credits_in_circulation (sum of balances),
+        total_credits_granted (sum of positive transactions),
+        total_credits_spent (sum of negative transactions),
+        total_collection_entries (count of collection_entries),
+        total_scans (count of scan_runs).
+        """
+        with Session(self.engine) as session:
+            total_users = session.execute(select(func.count()).select_from(UserRow)).scalar() or 0
+
+            active_users = (
+                session.execute(
+                    select(func.count()).select_from(UserRow).where(UserRow.is_active == 1)
+                ).scalar()
+                or 0
+            )
+
+            admin_users = (
+                session.execute(
+                    select(func.count()).select_from(UserRow).where(UserRow.is_admin == 1)
+                ).scalar()
+                or 0
+            )
+
+            total_credits_in_circulation = (
+                session.execute(
+                    select(func.coalesce(func.sum(CreditBalanceRow.balance), 0))
+                ).scalar()
+                or 0
+            )
+
+            total_credits_granted = (
+                session.execute(
+                    select(func.coalesce(func.sum(CreditTransactionRow.amount), 0)).where(
+                        CreditTransactionRow.amount > 0
+                    )
+                ).scalar()
+                or 0
+            )
+
+            total_credits_spent = (
+                session.execute(
+                    select(func.coalesce(func.sum(func.abs(CreditTransactionRow.amount)), 0)).where(
+                        CreditTransactionRow.amount < 0
+                    )
+                ).scalar()
+                or 0
+            )
+
+            total_collection_entries = (
+                session.execute(select(func.count()).select_from(UserCollectionRow)).scalar() or 0
+            )
+
+            total_scans = (
+                session.execute(select(func.count()).select_from(ScanRunRow)).scalar() or 0
+            )
+
+            return {
+                "total_users": total_users,
+                "active_users": active_users,
+                "admin_users": admin_users,
+                "total_credits_in_circulation": total_credits_in_circulation,
+                "total_credits_granted": total_credits_granted,
+                "total_credits_spent": total_credits_spent,
+                "total_collection_entries": total_collection_entries,
+                "total_scans": total_scans,
+            }

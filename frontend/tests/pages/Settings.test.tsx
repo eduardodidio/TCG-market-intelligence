@@ -14,6 +14,7 @@ const mockUser = {
   auth_provider: "local",
   preferred_language: "en",
   is_active: true,
+  is_admin: false,
 };
 
 const mockAuth = {

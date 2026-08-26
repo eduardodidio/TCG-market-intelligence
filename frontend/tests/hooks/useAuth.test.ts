@@ -22,6 +22,7 @@ describe("useAuth", () => {
         auth_provider: "email",
         preferred_language: null,
         is_active: true,
+        is_admin: false,
       },
       loading: false,
       error: null,

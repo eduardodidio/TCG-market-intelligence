@@ -15,6 +15,7 @@ export interface UserProfile {
   auth_provider: string;
   preferred_language: string | null;
   is_active: boolean;
+  is_admin: boolean;
 }
 
 const TOKEN_KEY = "tcg_access_token";

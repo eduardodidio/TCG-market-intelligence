@@ -11,7 +11,12 @@ import { LanguageSelector } from "./LanguageSelector";
 import { MarketTicker } from "./MarketTicker";
 import { TreasureBalance } from "./TreasureBalance";
 
-const NAV_ITEMS = [
+const NAV_ITEMS: ReadonlyArray<{
+  to: string;
+  labelKey: string;
+  requiresAuth: boolean;
+  requiresAdmin?: boolean;
+}> = [
   { to: "/", labelKey: "nav.dashboard", requiresAuth: false },
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
@@ -24,8 +29,9 @@ const NAV_ITEMS = [
   { to: "/scans", labelKey: "nav.priceScans", requiresAuth: true },
   { to: "/schedules", labelKey: "nav.schedules", requiresAuth: true },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
-  { to: "/admin/liga-status", labelKey: "nav.ligaStatus", requiresAuth: true },
-] as const;
+  { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
+  { to: "/admin/liga-status", labelKey: "nav.ligaStatus", requiresAuth: true, requiresAdmin: true },
+];
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
@@ -53,10 +59,12 @@ export function Layout() {
   const displayName = user?.display_name || user?.email?.split("@")[0] || null;
   const initials = getInitials(displayName);
 
-  // Filter nav items based on auth status
-  const visibleNavItems = NAV_ITEMS.filter(
-    (item) => !item.requiresAuth || isAuthenticated,
-  );
+  // Filter nav items based on auth status and admin role
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (item.requiresAuth && !isAuthenticated) return false;
+    if (item.requiresAdmin && !user?.is_admin) return false;
+    return true;
+  });
 
   // Gaucho easter egg (PILA currency)
   const gaucho = useGauchoEasterEgg(location.pathname);

@@ -88,3 +88,11 @@ from src.auth.dependencies import (  # noqa: E402, F401
     get_optional_user,
     require_auth_or_api_key,
 )
+from src.domain.models import User  # noqa: E402
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Require the current user to be an admin. Raises 403 if not."""
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user

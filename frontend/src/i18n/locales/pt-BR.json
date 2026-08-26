@@ -21,7 +21,10 @@
     "noImage": "Sem Imagem",
     "notOwned": "Nao possui",
     "networkError": "Nao foi possivel conectar ao servidor. Verifique sua conexao.",
-    "back": "Voltar"
+    "back": "Voltar",
+    "of": "de",
+    "prev": "Anterior",
+    "next": "Proximo"
   },
   "nav": {
     "dashboard": "Painel",
@@ -44,6 +47,30 @@
     "ligaStatus": "Status Liga"
   },
   "admin": {
+    "title": "Painel Admin",
+    "usersTab": "Usuarios",
+    "dashboardTab": "Dashboard",
+    "adminBadge": "Admin",
+    "adjustCredits": "Ajustar Creditos",
+    "amountPlaceholder": "Quantidade",
+    "reasonPlaceholder": "Motivo",
+    "apply": "Aplicar",
+    "noUsers": "Nenhum usuario encontrado",
+    "colName": "Nome",
+    "colEmail": "Email",
+    "colRole": "Perfil",
+    "colBalance": "Saldo",
+    "colActions": "Acoes",
+    "kpi": {
+      "totalUsers": "Total de Usuarios",
+      "activeUsers": "Usuarios Ativos",
+      "adminUsers": "Usuarios Admin",
+      "creditsInCirculation": "Creditos em Circulacao",
+      "creditsGranted": "Creditos Concedidos",
+      "creditsSpent": "Creditos Gastos",
+      "collectionEntries": "Entradas na Colecao",
+      "totalScans": "Total de Scans"
+    },
     "ligaStatus": {
       "title": "Cobertura de Precos Liga",
       "totalCards": "Total de Cards",
@@ -145,7 +172,14 @@
     "refreshLigaNotFound": "Carta não encontrada na LigaMagic",
     "refreshLigaError": "Falha ao buscar na LigaMagic",
     "refreshLigaRateLimit": "LigaMagic limitou requisições, tente depois",
-    "ligaErrorHint": "Tente o botao MYP como alternativa."
+    "ligaErrorHint": "Tente o botao MYP como alternativa.",
+    "maxAgeDays": "Ignorar escaneados recentemente",
+    "maxAgeDaysOption1": "Ultimas 24 horas",
+    "maxAgeDaysOption3": "Ultimos 3 dias",
+    "maxAgeDaysOption7": "Ultimos 7 dias",
+    "maxAgeDaysOptionAll": "Escanear todos os cards",
+    "skippedCards": "{{count}} cards ignorados (escaneados recentemente)",
+    "cardsToScan": "{{count}} cards para escanear"
   },
   "market": {
     "title": "Movimentacao de Mercado",

@@ -1,0 +1,40 @@
+graph TD
+    subgraph Frontend
+        AdminRoute[AdminRoute Guard]
+        AdminPanel[AdminPanel Page]
+        AdminAPI[admin.ts API Client]
+    end
+
+    subgraph Backend
+        RequireAdmin[require_admin Dep]
+        AdminRouter[admin.py Router]
+        CreditSvc[CreditService]
+        Repo[Repository]
+    end
+
+    subgraph Database
+        Users[(users)]
+        CreditBal[(credit_balances)]
+        CreditTx[(credit_transactions)]
+        CollEntries[(collection_entries)]
+        ScanRuns[(scan_runs)]
+    end
+
+    AdminRoute -->|is_admin check| AdminPanel
+    AdminPanel -->|apiGet/apiPatch| AdminAPI
+    AdminAPI -->|HTTP| AdminRouter
+
+    AdminRouter -->|Depends| RequireAdmin
+    RequireAdmin -->|chains on| GetCurrentUser[get_current_user]
+
+    AdminRouter -->|GET /users| Repo
+    AdminRouter -->|PATCH /users/id/credits| CreditSvc
+    AdminRouter -->|GET /dashboard| Repo
+
+    CreditSvc -->|grant/deduct| CreditBal
+    CreditSvc -->|log| CreditTx
+
+    Repo -->|LEFT JOIN| Users
+    Repo -->|LEFT JOIN| CreditBal
+    Repo -->|COUNT| CollEntries
+    Repo -->|COUNT| ScanRuns

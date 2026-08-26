@@ -1,0 +1,22 @@
+graph TD
+    Start([Admin logs in]) --> NavCheck{is_admin?}
+    NavCheck -->|No| Hidden[Admin link hidden]
+    NavCheck -->|Yes| ShowNav[Admin link visible in sidebar]
+
+    ShowNav --> ClickAdmin[Click Admin link]
+    ClickAdmin --> AdminRoute{AdminRoute guard}
+    AdminRoute -->|Not admin| Redirect[Redirect to /]
+    AdminRoute -->|Admin| LoadPanel[Load AdminPanel]
+
+    LoadPanel --> UsersTab[Users Tab - default]
+    LoadPanel --> DashTab[Dashboard Tab]
+
+    UsersTab --> ViewTable[View user table with balances]
+    ViewTable --> ClickAdjust[Click Adjust Credits on user]
+    ClickAdjust --> EnterAmount[Enter amount + reason]
+    EnterAmount --> Apply[Click Apply]
+    Apply --> PatchAPI[PATCH /admin/users/id/credits]
+    PatchAPI --> RefreshList[Refresh user list]
+
+    DashTab --> ViewKPIs[View 8 KPI cards]
+    ViewKPIs --> Stats[Total users, credits, scans, etc.]

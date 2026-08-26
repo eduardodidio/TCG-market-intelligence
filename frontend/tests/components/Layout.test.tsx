@@ -35,6 +35,26 @@ const mockAuthAuthenticated: AuthContextValue = {
     auth_provider: "email",
     preferred_language: null,
     is_active: true,
+    is_admin: false,
+  },
+  loading: false,
+  error: null,
+  isAuthenticated: true,
+  login: vi.fn().mockResolvedValue(null),
+  register: vi.fn().mockResolvedValue(null),
+  logout: vi.fn().mockResolvedValue(undefined),
+};
+
+const mockAuthAdmin: AuthContextValue = {
+  user: {
+    id: 1,
+    email: "admin@example.com",
+    display_name: "Admin User",
+    avatar_url: null,
+    auth_provider: "email",
+    preferred_language: null,
+    is_active: true,
+    is_admin: true,
   },
   loading: false,
   error: null,
@@ -62,14 +82,15 @@ function renderLayout(
 }
 
 describe("Layout", () => {
-  it("renders the sidebar with navigation links when authenticated", () => {
+  it("renders the sidebar with navigation links when authenticated (non-admin)", () => {
     renderLayout();
 
     const nav = screen.getByTestId("sidebar-nav");
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    expect(links).toHaveLength(13);
+    // Non-admin sees 12 links (no Admin, no Liga Status)
+    expect(links).toHaveLength(12);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -82,9 +103,10 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Top Decks");
     expect(linkTexts).toContain("Price Scans");
     expect(linkTexts).toContain("Schedules");
-    expect(linkTexts).toContain("Liga Status");
     expect(linkTexts).toContain("Ban List");
     expect(linkTexts).toContain("Settings");
+    expect(linkTexts).not.toContain("Admin");
+    expect(linkTexts).not.toContain("Liga Status");
   });
 
   it("hides protected nav items when unauthenticated", () => {
@@ -280,5 +302,47 @@ describe("Layout", () => {
     otherLinks.forEach((link) => {
       expect(link.className).not.toContain("bg-indigo-500");
     });
+  });
+
+  // --- Admin nav visibility tests ---
+
+  it("shows Admin and Liga Status links for admin users", () => {
+    renderLayout("/", mockAuthAdmin);
+    const nav = screen.getByTestId("sidebar-nav");
+    const links = nav.querySelectorAll("a");
+    // Admin sees all 14 links
+    expect(links).toHaveLength(14);
+
+    const linkTexts = Array.from(links).map((a) => a.textContent);
+    expect(linkTexts).toContain("Admin");
+    expect(linkTexts).toContain("Liga Status");
+  });
+
+  it("hides Admin link for non-admin authenticated users", () => {
+    renderLayout();
+    const nav = screen.getByTestId("sidebar-nav");
+    const linkTexts = Array.from(nav.querySelectorAll("a")).map(
+      (a) => a.textContent,
+    );
+    expect(linkTexts).not.toContain("Admin");
+  });
+
+  it("hides Liga Status link for non-admin authenticated users", () => {
+    renderLayout();
+    const nav = screen.getByTestId("sidebar-nav");
+    const linkTexts = Array.from(nav.querySelectorAll("a")).map(
+      (a) => a.textContent,
+    );
+    expect(linkTexts).not.toContain("Liga Status");
+  });
+
+  it("hides admin links for unauthenticated users", () => {
+    renderLayout("/", mockAuthUnauthenticated);
+    const nav = screen.getByTestId("sidebar-nav");
+    const linkTexts = Array.from(nav.querySelectorAll("a")).map(
+      (a) => a.textContent,
+    );
+    expect(linkTexts).not.toContain("Admin");
+    expect(linkTexts).not.toContain("Liga Status");
   });
 });
