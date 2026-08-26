@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.api.schemas.scans import (
     ScanListResponse,
+    ScanPreviewResponse,
     ScanRequest,
     ScanRunResponse,
     ScanTriggerResponse,
@@ -19,6 +20,11 @@ class TestScanRequestDefaults:
         assert req.rarities is None
         assert req.card_ids is None
         assert req.limit is None
+        assert req.max_age_days is None
+
+    def test_max_age_days_set(self) -> None:
+        req = ScanRequest(max_age_days=7)
+        assert req.max_age_days == 7
 
     def test_provider_defaults_to_liga(self) -> None:
         req = ScanRequest()
@@ -149,6 +155,18 @@ class TestScanListResponse:
         assert resp.total == 1
         assert len(resp.scans) == 1
         assert resp.scans[0].id == 1
+
+
+class TestScanPreviewResponse:
+    def test_preview_response_fields(self) -> None:
+        resp = ScanPreviewResponse(card_count=10, skipped_count=3, credit_cost=10)
+        assert resp.card_count == 10
+        assert resp.skipped_count == 3
+        assert resp.credit_cost == 10
+
+    def test_preview_response_zero_cost(self) -> None:
+        resp = ScanPreviewResponse(card_count=5, skipped_count=0, credit_cost=0)
+        assert resp.credit_cost == 0
 
 
 class TestScanTriggerResponse:

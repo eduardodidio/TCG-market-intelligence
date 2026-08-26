@@ -9,6 +9,9 @@ export interface CreditConfirmModalProps {
   balance: number;
   actionLabel: string;
   isAdmin?: boolean;
+  cardCount?: number;
+  skippedCount?: number;
+  children?: React.ReactNode;
 }
 
 export function CreditConfirmModal({
@@ -19,6 +22,9 @@ export function CreditConfirmModal({
   balance,
   actionLabel,
   isAdmin,
+  cardCount,
+  skippedCount,
+  children,
 }: CreditConfirmModalProps) {
   const { t } = useTranslation();
 
@@ -85,6 +91,27 @@ export function CreditConfirmModal({
             </>
           )}
         </div>
+
+        {/* Card count and skipped info */}
+        {cardCount != null && (
+          <p
+            className="text-sm text-cyan-400 font-medium text-center mb-1"
+            data-testid="card-count-text"
+          >
+            {t("collection.cardsToScan", { count: cardCount })}
+          </p>
+        )}
+        {skippedCount != null && skippedCount > 0 && (
+          <p
+            className="text-xs text-slate-400 text-center mb-2"
+            data-testid="skipped-count-text"
+          >
+            {t("collection.skippedCards", { count: skippedCount })}
+          </p>
+        )}
+
+        {/* Extra controls (e.g. max_age_days selector) */}
+        {children && <div className="mb-4">{children}</div>}
 
         {/* Action label */}
         <p className="text-xs text-slate-500 text-center mb-4">

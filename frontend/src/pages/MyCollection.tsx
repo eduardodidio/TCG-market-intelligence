@@ -29,6 +29,8 @@ import { useCollectionRefresh } from "../hooks/useCollectionRefresh";
 import { useCredits } from "../hooks/useCredits";
 import { useCurrency } from "../hooks/useCurrency";
 import { CreditConfirmModal } from "../components/CreditConfirmModal";
+import { MaxAgeDaysSelect } from "../components/MaxAgeDaysSelect";
+import { fetchScanPreview } from "../api/scans";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
@@ -283,6 +285,11 @@ export function MyCollection() {
   const [lastCollectionAt, setLastCollectionAt] = useState<string | null>(null);
   const [healthStatus, setHealthStatus] = useState<string>("healthy");
   const [bulkCreditModalOpen, setBulkCreditModalOpen] = useState(false);
+  const [previewMaxAgeDays, setPreviewMaxAgeDays] = useState<number | undefined>(1);
+  const [previewCost, setPreviewCost] = useState(5);
+  const [previewCardCount, setPreviewCardCount] = useState(0);
+  const [previewSkipped, setPreviewSkipped] = useState(0);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const { balance: creditBalance, isAdmin: creditIsAdmin } = useCredits();
 
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -303,12 +310,34 @@ export function MyCollection() {
   } = useCollectionRefresh(handleRefreshComplete);
 
   // Wrap startRefresh to reset scan tracking state
-  const startRefresh = useCallback(async () => {
+  const startRefresh = useCallback(async (maxAgeDays?: number) => {
     setPriceFoundCount(0);
     setScanStartTime(Date.now());
     setRecentlyScanned(new Map());
-    await rawStartRefresh();
+    await rawStartRefresh(maxAgeDays);
   }, [rawStartRefresh]);
+
+  // Fetch scan preview for the bulk refresh modal
+  const loadPreview = useCallback(async (maxAgeDays?: number) => {
+    setPreviewLoading(true);
+    const res = await fetchScanPreview(maxAgeDays);
+    if (res.data) {
+      setPreviewCost(res.data.credit_cost);
+      setPreviewCardCount(res.data.card_count);
+      setPreviewSkipped(res.data.skipped_count);
+    }
+    setPreviewLoading(false);
+  }, []);
+
+  const handleRefreshAllClick = useCallback(async () => {
+    setBulkCreditModalOpen(true);
+    await loadPreview(previewMaxAgeDays);
+  }, [loadPreview, previewMaxAgeDays]);
+
+  const handleMaxAgeDaysChange = useCallback(async (newValue: number | undefined) => {
+    setPreviewMaxAgeDays(newValue);
+    await loadPreview(newValue);
+  }, [loadPreview]);
 
   // Live card updates: when lastScannedCard changes, update the local cards state
   useEffect(() => {
@@ -597,7 +626,7 @@ export function MyCollection() {
           {!isRefreshing && !refreshDone && !refreshError && (
             <button
               type="button"
-              onClick={() => setBulkCreditModalOpen(true)}
+              onClick={handleRefreshAllClick}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
                 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg
                 transition-colors duration-200"
@@ -707,13 +736,21 @@ export function MyCollection() {
         onCancel={() => setBulkCreditModalOpen(false)}
         onConfirm={() => {
           setBulkCreditModalOpen(false);
-          startRefresh();
+          startRefresh(previewMaxAgeDays);
         }}
-        cost={5}
+        cost={previewCost}
         balance={creditBalance ?? 0}
         actionLabel={t("credits.scanCost")}
         isAdmin={creditIsAdmin}
-      />
+        cardCount={previewCardCount}
+        skippedCount={previewSkipped}
+      >
+        <MaxAgeDaysSelect
+          value={previewMaxAgeDays}
+          onChange={handleMaxAgeDaysChange}
+          disabled={previewLoading}
+        />
+      </CreditConfirmModal>
     </div>
   );
 }

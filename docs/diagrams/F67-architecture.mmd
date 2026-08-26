@@ -1,0 +1,47 @@
+graph TD
+    subgraph Scheduler
+        APScheduler[APScheduler Cron 6AM]
+        ExecScan[_execute_scheduled_scan]
+    end
+
+    subgraph AdminScan
+        AdminOrch[run_admin_daily_liga_scan]
+        GetAdmins[repo.get_admin_user_ids]
+        GetEntries[repo.get_cards_for_liga_scan]
+        Dedup[Deduplicate card_ids]
+    end
+
+    subgraph ScanEndpoints
+        Preview[GET /scans/preview]
+        Trigger[POST /scans]
+        PerCard[Per-card cost: N × 1 credit]
+    end
+
+    subgraph LigaScan
+        RunLiga[run_liga_scan]
+        Provider[LigaMagicProvider]
+    end
+
+    subgraph Credits
+        CreditSvc[CreditService]
+        Check[check_sufficient]
+        Deduct[deduct upfront]
+    end
+
+    APScheduler -->|admin_daily_liga| ExecScan
+    ExecScan -->|scan_type routing| AdminOrch
+    AdminOrch --> GetAdmins
+    AdminOrch --> GetEntries
+    GetEntries --> Dedup
+    Dedup --> RunLiga
+
+    Preview -->|count eligible cards| GetEntries
+    Preview -->|compute cost| PerCard
+
+    Trigger -->|non-admin| Check
+    Check -->|sufficient| Deduct
+    Deduct --> RunLiga
+    Trigger -->|admin bypass| RunLiga
+
+    RunLiga --> Provider
+    RunLiga -->|on_complete| ScanHooks[ScanHookRegistry]

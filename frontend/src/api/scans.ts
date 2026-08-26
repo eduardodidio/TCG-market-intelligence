@@ -2,6 +2,7 @@ import { apiGet, apiPost } from "./client";
 import type {
   ApiResponse,
   ScanListResponse,
+  ScanPreviewResponse,
   ScanRequest,
   ScanRun,
   ScanTriggerResponse,
@@ -73,8 +74,18 @@ export function triggerScan(body: ScanRequest): Promise<ScanTriggerResponse> {
 
 // Auth-aware variants using apiPost/apiGet (for useCollectionRefresh hook)
 
+export function fetchScanPreview(
+  maxAgeDays?: number,
+): Promise<ApiResponse<ScanPreviewResponse>> {
+  const params: Record<string, string> = {};
+  if (maxAgeDays != null) {
+    params.max_age_days = String(maxAgeDays);
+  }
+  return apiGet<ScanPreviewResponse>("/api/v1/scans/preview", Object.keys(params).length > 0 ? params : undefined);
+}
+
 export function triggerScanAuth(
-  request: { scan_type: string; provider?: string },
+  request: { scan_type: string; provider?: string; max_age_days?: number },
 ): Promise<ApiResponse<ScanTriggerResponse>> {
   return apiPost<ScanTriggerResponse>("/api/v1/scans", {
     ...request,

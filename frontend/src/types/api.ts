@@ -227,6 +227,13 @@ export interface ScanRequest {
   card_ids?: number[];
   limit?: number;
   dry_run?: boolean;
+  max_age_days?: number;
+}
+
+export interface ScanPreviewResponse {
+  card_count: number;
+  skipped_count: number;
+  credit_cost: number;
 }
 
 // Deck types

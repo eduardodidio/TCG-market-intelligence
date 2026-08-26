@@ -12,6 +12,7 @@ class ScanRequest(BaseModel):
     card_ids: list[int] | None = None
     limit: int | None = None
     dry_run: bool = False
+    max_age_days: int | None = None
 
 
 class ScanRunResponse(BaseModel):
@@ -35,6 +36,12 @@ class ScanRunResponse(BaseModel):
 class ScanListResponse(BaseModel):
     scans: list[ScanRunResponse]
     total: int
+
+
+class ScanPreviewResponse(BaseModel):
+    card_count: int
+    skipped_count: int
+    credit_cost: int
 
 
 class ScanTriggerResponse(BaseModel):

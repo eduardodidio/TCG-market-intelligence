@@ -450,3 +450,163 @@ class TestGetScan:
         assert body["started_at"] == "2026-08-20T10:00:00"
         assert body["finished_at"] == "2026-08-20T10:05:00"
         assert body["created_at"] == "2026-08-20T09:55:00"
+
+
+# ---------------------------------------------------------------------------
+# GET /scans/preview — scan preview
+# ---------------------------------------------------------------------------
+
+
+class TestPreviewScan:
+    @patch("src.api.routers.scans.Repository")
+    def test_preview_returns_counts(self, mock_repo_cls: MagicMock) -> None:
+        """Preview returns card_count, skipped_count, credit_cost."""
+        mock_repo = MagicMock()
+        all_cards = [{"card_id": i} for i in range(10)]
+        eligible_cards = [{"card_id": i} for i in range(7)]
+        mock_repo.get_cards_for_liga_scan.side_effect = [all_cards, eligible_cards]
+        mock_repo_cls.return_value = mock_repo
+
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.get("/scans/preview?max_age_days=3")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["card_count"] == 7
+        assert body["skipped_count"] == 3
+        # Admin user -> cost 0
+        assert body["credit_cost"] == 0
+
+    @patch("src.api.routers.scans.Repository")
+    def test_preview_no_max_age_days(self, mock_repo_cls: MagicMock) -> None:
+        """Preview without max_age_days returns all cards, no skipped."""
+        mock_repo = MagicMock()
+        all_cards = [{"card_id": i} for i in range(5)]
+        # Both calls return all cards when max_age_days=None
+        mock_repo.get_cards_for_liga_scan.side_effect = [all_cards, all_cards]
+        mock_repo_cls.return_value = mock_repo
+
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.get("/scans/preview")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["card_count"] == 5
+        assert body["skipped_count"] == 0
+
+    @patch("src.api.routers.scans.Repository")
+    def test_preview_non_admin_has_credit_cost(self, mock_repo_cls: MagicMock) -> None:
+        """Non-admin preview returns per-card credit cost."""
+        non_admin_user = User(
+            id=2,
+            email="user@example.com",
+            display_name="User",
+            is_active=True,
+            is_admin=False,
+        )
+
+        mock_repo = MagicMock()
+        all_cards = [{"card_id": i} for i in range(8)]
+        eligible_cards = [{"card_id": i} for i in range(5)]
+        mock_repo.get_cards_for_liga_scan.side_effect = [all_cards, eligible_cards]
+        mock_repo_cls.return_value = mock_repo
+
+        app = _make_app()
+        app.dependency_overrides[get_current_user] = lambda: non_admin_user
+        client = TestClient(app)
+
+        resp = client.get("/scans/preview?max_age_days=3")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["card_count"] == 5
+        assert body["skipped_count"] == 3
+        assert body["credit_cost"] == 5  # 5 cards * 1 credit
+
+
+# ---------------------------------------------------------------------------
+# POST /scans — max_age_days threading
+# ---------------------------------------------------------------------------
+
+
+class TestTriggerMaxAgeDays:
+    @patch("src.api.routers.scans.threading.Thread")
+    @patch("src.api.routers.scans.Repository")
+    def test_max_age_days_stored_in_filters_json(
+        self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
+    ) -> None:
+        """max_age_days is encoded in filters_json for traceability."""
+        import json
+
+        mock_repo = MagicMock()
+        mock_repo.create_scan_run.return_value = 1
+        mock_repo_cls.return_value = mock_repo
+        mock_thread_cls.return_value = MagicMock()
+
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post(
+            "/scans",
+            json={"scan_type": "collection", "max_age_days": 7},
+        )
+        assert resp.status_code == 200
+
+        filters_json = mock_repo.create_scan_run.call_args[0][1]
+        filters = json.loads(filters_json)
+        assert filters["max_age_days"] == 7
+
+    @patch("src.api.routers.scans.threading.Thread")
+    @patch("src.api.routers.scans.Repository")
+    def test_max_age_days_not_in_filters_when_none(
+        self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
+    ) -> None:
+        """max_age_days omitted from filters_json when not provided."""
+        import json
+
+        mock_repo = MagicMock()
+        mock_repo.create_scan_run.return_value = 1
+        mock_repo_cls.return_value = mock_repo
+        mock_thread_cls.return_value = MagicMock()
+
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post("/scans", json={"scan_type": "collection"})
+        assert resp.status_code == 200
+
+        filters_json = mock_repo.create_scan_run.call_args[0][1]
+        filters = json.loads(filters_json)
+        assert "max_age_days" not in filters
+
+    @patch("src.api.routers.scans.threading.Thread")
+    @patch("src.api.routers.scans.Repository")
+    def test_max_age_days_passed_to_background_thread(
+        self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
+    ) -> None:
+        """max_age_days is forwarded to run_liga_scan via the background thread."""
+        mock_repo = MagicMock()
+        mock_repo.create_scan_run.return_value = 1
+        mock_repo_cls.return_value = mock_repo
+
+        captured_target = {}
+
+        def capture_thread(*args, **kwargs):
+            captured_target.update(kwargs)
+            mock_t = MagicMock()
+            return mock_t
+
+        mock_thread_cls.side_effect = capture_thread
+
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post(
+            "/scans",
+            json={"scan_type": "collection", "max_age_days": 3},
+        )
+        assert resp.status_code == 200
+
+        # The target callable was captured; it should use max_age_days=3
+        assert "target" in captured_target

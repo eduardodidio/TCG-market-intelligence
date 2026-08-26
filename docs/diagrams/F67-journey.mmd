@@ -1,0 +1,27 @@
+graph TD
+    subgraph ManualRefresh["User: Manual Refresh All"]
+        Click[Click Refresh All] --> FetchPreview[GET /scans/preview]
+        FetchPreview --> ShowModal[CreditConfirmModal opens]
+        ShowModal --> SelectAge[Select max_age_days: 1d/3d/7d/All]
+        SelectAge -->|re-fetch| FetchPreview
+        ShowModal --> Confirm[Confirm scan]
+        Confirm --> TriggerScan[POST /scans with max_age_days]
+        TriggerScan --> PollProgress[Poll scan progress]
+    end
+
+    subgraph DailyJob["System: Admin Daily Liga (6AM)"]
+        Cron[APScheduler cron trigger] --> FindAdmins[Query admin users]
+        FindAdmins --> CollectCards[Collect collection entries]
+        CollectCards --> FilterFresh[Filter by max_age_days=1]
+        FilterFresh --> DedupCards[Deduplicate by card_id]
+        DedupCards --> LigaScan[run_liga_scan]
+        LigaScan --> Hooks[Fire scan hooks - cache invalidation]
+    end
+
+    subgraph CreditFlow["Credit Flow (non-admin only)"]
+        PreviewCost[Preview shows: N cards = N credits]
+        InsufficientCheck{Balance >= cost?}
+        InsufficientCheck -->|No| Show402[402: Insufficient credits]
+        InsufficientCheck -->|Yes| DeductUpfront[Deduct N credits upfront]
+        DeductUpfront --> LaunchScan[Launch background scan]
+    end

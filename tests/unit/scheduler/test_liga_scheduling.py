@@ -32,8 +32,7 @@ class TestSchedulerLigaRouting:
             "cron_expression": "0 3 * * *",
             "scan_type": "liga_partial",
             "filters_json": (
-                '{"scan_type": "liga_partial", "limit": 50,'
-                ' "provider": "liga", "max_age_days": 1}'
+                '{"scan_type": "liga_partial", "limit": 50, "provider": "liga", "max_age_days": 1}'
             ),
             "status": "active",
             "last_run_id": None,
@@ -120,8 +119,7 @@ class TestSchedulerLigaPartial:
             "cron_expression": "0 3 * * *",
             "scan_type": "liga_partial",
             "filters_json": (
-                '{"scan_type": "liga_partial", "limit": 50,'
-                ' "provider": "liga", "max_age_days": 1}'
+                '{"scan_type": "liga_partial", "limit": 50, "provider": "liga", "max_age_days": 1}'
             ),
             "status": "active",
             "last_run_id": None,
@@ -183,8 +181,7 @@ class TestSchedulerAutoPauseLiga:
             "cron_expression": "0 3 * * *",
             "scan_type": "liga_partial",
             "filters_json": (
-                '{"scan_type": "liga_partial", "limit": 50,'
-                ' "provider": "liga", "max_age_days": 1}'
+                '{"scan_type": "liga_partial", "limit": 50, "provider": "liga", "max_age_days": 1}'
             ),
             "status": "active",
             "last_run_id": None,
@@ -234,8 +231,8 @@ class TestSchedulerAutoPauseLiga:
 class TestSeedDefaultLigaSchedules:
     """Tests for seed_default_liga_schedules repository method."""
 
-    def test_seeds_two_schedules(self, tmp_path) -> None:
-        """Creates two Liga schedules when none exist."""
+    def test_seeds_three_schedules(self, tmp_path) -> None:
+        """Creates three Liga schedules when none exist (partial, full, admin)."""
         from src.database.models import Base
         from src.database.repository import Repository
 
@@ -248,13 +245,13 @@ class TestSeedDefaultLigaSchedules:
         Base.metadata.create_all(engine)
 
         seeded = repo.seed_default_liga_schedules()
-        assert seeded == 2
+        assert seeded == 3
 
         schedules = repo.list_scheduled_scans()
-        liga_schedules = [s for s in schedules if "Liga" in s["name"]]
-        assert len(liga_schedules) == 2
+        liga_schedules = [s for s in schedules if "Liga" in s["name"] or "Admin" in s["name"]]
+        assert len(liga_schedules) == 3
 
-        # Verify schedule details
+        # Verify partial schedule
         partial = next(s for s in liga_schedules if s["scan_type"] == "liga_partial")
         assert partial["name"] == "Liga Daily Partial"
         assert partial["cron_expression"] == "0 3 * * *"
@@ -264,12 +261,22 @@ class TestSeedDefaultLigaSchedules:
         assert filters["provider"] == "liga"
         assert filters["max_age_days"] == 1
 
+        # Verify full schedule
         full = next(s for s in liga_schedules if s["scan_type"] == "liga_full")
         assert full["name"] == "Liga Weekly Full"
         assert full["cron_expression"] == "0 1 * * 0"
         assert full["status"] == "active"
         full_filters = json.loads(full["filters_json"])
         assert full_filters["provider"] == "liga"
+
+        # Verify admin daily schedule
+        admin = next(s for s in liga_schedules if s["scan_type"] == "admin_daily_liga")
+        assert admin["name"] == "Admin Daily Liga"
+        assert admin["cron_expression"] == "0 6 * * *"
+        assert admin["status"] == "active"
+        admin_filters = json.loads(admin["filters_json"])
+        assert admin_filters["provider"] == "liga"
+        assert admin_filters["max_age_days"] == 1
 
     def test_idempotent_no_duplicates(self, tmp_path) -> None:
         """Calling seed twice does not create duplicate schedules."""
@@ -285,14 +292,55 @@ class TestSeedDefaultLigaSchedules:
         Base.metadata.create_all(engine)
 
         first = repo.seed_default_liga_schedules()
-        assert first == 2
+        assert first == 3
 
         second = repo.seed_default_liga_schedules()
         assert second == 0
 
         schedules = repo.list_scheduled_scans()
-        liga_schedules = [s for s in schedules if "Liga" in s["name"]]
-        assert len(liga_schedules) == 2
+        liga_schedules = [
+            s
+            for s in schedules
+            if s["scan_type"] in ("liga_partial", "liga_full", "admin_daily_liga")
+        ]
+        assert len(liga_schedules) == 3
+
+    def test_seeds_admin_when_liga_exists(self, tmp_path) -> None:
+        """Admin schedule is created even if liga_partial/full already exist."""
+        from src.database.models import Base
+        from src.database.repository import Repository
+
+        db_url = f"sqlite:///{tmp_path / 'test.db'}"
+        repo = Repository(db_url)
+
+        from sqlalchemy import create_engine
+
+        engine = create_engine(db_url)
+        Base.metadata.create_all(engine)
+
+        # Manually create liga_partial and liga_full
+        repo.create_scheduled_scan(
+            user_id="system",
+            name="Liga Daily Partial",
+            cron_expression="0 3 * * *",
+            scan_type="liga_partial",
+            filters_json='{"provider": "liga"}',
+        )
+        repo.create_scheduled_scan(
+            user_id="system",
+            name="Liga Weekly Full",
+            cron_expression="0 1 * * 0",
+            scan_type="liga_full",
+            filters_json='{"provider": "liga"}',
+        )
+
+        # seed should only create admin schedule
+        seeded = repo.seed_default_liga_schedules()
+        assert seeded == 1
+
+        schedules = repo.list_scheduled_scans()
+        admin = [s for s in schedules if s["scan_type"] == "admin_daily_liga"]
+        assert len(admin) == 1
 
     def test_does_not_affect_existing_myp_schedules(self, tmp_path) -> None:
         """Seeding Liga schedules does not modify existing MYP schedules."""
@@ -318,7 +366,7 @@ class TestSeedDefaultLigaSchedules:
 
         # Seed Liga schedules
         seeded = repo.seed_default_liga_schedules()
-        assert seeded == 2
+        assert seeded == 3
 
         # MYP schedule still exists and unchanged
         myp = repo.get_scheduled_scan(myp_id)
@@ -326,9 +374,9 @@ class TestSeedDefaultLigaSchedules:
         assert myp["name"] == "MYP Daily"
         assert myp["scan_type"] == "collection"
 
-        # Total = 3 (1 MYP + 2 Liga)
+        # Total = 4 (1 MYP + 2 Liga + 1 Admin)
         all_schedules = repo.list_scheduled_scans()
-        assert len(all_schedules) == 3
+        assert len(all_schedules) == 4
 
 
 class TestExistingMypUnaffected:
@@ -385,3 +433,86 @@ class TestExistingMypUnaffected:
 
         calls = mock_repo.update_scheduled_scan.call_args_list
         assert any(c[1].get("error_count") == 0 for c in calls)
+
+
+class TestSchedulerAdminDailyLigaRouting:
+    """Scheduler routes admin_daily_liga scan type to run_admin_daily_liga_scan."""
+
+    @patch("src.scheduler.service.Repository")
+    @patch("src.scheduler.service.asyncio.run")
+    def test_admin_daily_liga_routes_to_admin_scan(self, mock_asyncio_run, MockRepo) -> None:
+        """admin_daily_liga scan type calls run_admin_daily_liga_scan."""
+        mock_repo = MockRepo.return_value
+        mock_repo.get_scheduled_scan.return_value = {
+            "id": 5,
+            "name": "Admin Daily Liga",
+            "cron_expression": "0 6 * * *",
+            "scan_type": "admin_daily_liga",
+            "filters_json": '{"provider": "liga", "max_age_days": 1}',
+            "status": "active",
+            "last_run_id": None,
+            "error_count": 0,
+            "max_retries": 3,
+        }
+
+        scheduler = ScanScheduler("sqlite:///:memory:")
+        scheduler._scheduler = MagicMock()
+        scheduler._scheduler.get_job.return_value = None
+
+        scheduler._execute_scheduled_scan(5, scan_id=50)
+
+        mock_asyncio_run.assert_called_once()
+
+    @patch("src.scheduler.service.Repository")
+    @patch("src.scheduler.service.asyncio.run")
+    def test_admin_daily_liga_passes_max_age_days(self, mock_asyncio_run, MockRepo) -> None:
+        """admin_daily_liga passes max_age_days from filters."""
+        mock_repo = MockRepo.return_value
+        mock_repo.get_scheduled_scan.return_value = {
+            "id": 5,
+            "name": "Admin Daily Liga",
+            "cron_expression": "0 6 * * *",
+            "scan_type": "admin_daily_liga",
+            "filters_json": '{"provider": "liga", "max_age_days": 3}',
+            "status": "active",
+            "last_run_id": None,
+            "error_count": 0,
+            "max_retries": 3,
+        }
+
+        scheduler = ScanScheduler("sqlite:///:memory:")
+        scheduler._scheduler = MagicMock()
+        scheduler._scheduler.get_job.return_value = None
+
+        scheduler._execute_scheduled_scan(5, scan_id=50)
+
+        # Verify asyncio.run was called with the admin scan coroutine
+        mock_asyncio_run.assert_called_once()
+        coroutine = mock_asyncio_run.call_args[0][0]
+        assert coroutine is not None
+
+    @patch("src.scheduler.service.Repository")
+    @patch("src.scheduler.service.asyncio.run")
+    def test_admin_daily_liga_does_not_use_liga_scan(self, mock_asyncio_run, MockRepo) -> None:
+        """admin_daily_liga should NOT route to run_liga_scan even though provider=liga."""
+        mock_repo = MockRepo.return_value
+        mock_repo.get_scheduled_scan.return_value = {
+            "id": 5,
+            "name": "Admin Daily Liga",
+            "cron_expression": "0 6 * * *",
+            "scan_type": "admin_daily_liga",
+            "filters_json": '{"provider": "liga", "max_age_days": 1}',
+            "status": "active",
+            "last_run_id": None,
+            "error_count": 0,
+            "max_retries": 3,
+        }
+
+        scheduler = ScanScheduler("sqlite:///:memory:")
+        scheduler._scheduler = MagicMock()
+        scheduler._scheduler.get_job.return_value = None
+
+        with patch("src.collectors.admin_scan.run_admin_daily_liga_scan"):
+            scheduler._execute_scheduled_scan(5, scan_id=50)
+            # asyncio.run is called which wraps run_admin_daily_liga_scan
+            mock_asyncio_run.assert_called_once()

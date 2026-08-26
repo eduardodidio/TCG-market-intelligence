@@ -24,7 +24,7 @@ export interface UseCollectionRefreshReturn {
   error: string | null;
   isDone: boolean;
   lastScannedCard: LastScannedCard | null;
-  startRefresh: () => Promise<void>;
+  startRefresh: (maxAgeDays?: number) => Promise<void>;
   cancelRefresh: () => void;
 }
 
@@ -125,7 +125,7 @@ export function useCollectionRefresh(
     setLastScannedCard(null);
   }, [clearTimers, disconnect]);
 
-  const startRefresh = useCallback(async () => {
+  const startRefresh = useCallback(async (maxAgeDays?: number) => {
     if (isRefreshing) return;
 
     setError(null);
@@ -134,7 +134,11 @@ export function useCollectionRefresh(
     setProgress(null);
     setLastScannedCard(null);
 
-    const res = await triggerScanAuth({ scan_type: "collection", provider: "liga" });
+    const res = await triggerScanAuth({
+      scan_type: "collection",
+      provider: "liga",
+      ...(maxAgeDays != null ? { max_age_days: maxAgeDays } : {}),
+    });
 
     if (res.errors.length > 0 || !res.data) {
       const msg = res.errors[0]?.message || "Failed to start scan";

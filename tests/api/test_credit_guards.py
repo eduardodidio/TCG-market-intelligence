@@ -27,7 +27,7 @@ from src.api.deps import (
 )
 from src.api.routers.collection import router as collection_router
 from src.api.routers.scans import router as scans_router
-from src.credits.constants import BULK_SCAN_COST, CARD_REFRESH_COST
+from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.models import PriceObservationRow, UserCollectionRow
 from src.domain.models import CreditBalance, User
@@ -356,7 +356,7 @@ class TestRefreshLigaCreditGuard:
 
 
 class TestScanCreditGuard:
-    """Credit guards on POST /scans (bulk scan)."""
+    """Credit guards on POST /scans (per-card cost bulk scan)."""
 
     @patch("src.api.routers.scans.threading.Thread")
     @patch("src.api.routers.scans.Repository")
@@ -364,7 +364,11 @@ class TestScanCreditGuard:
         self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
     ) -> None:
         user = _make_user(is_admin=False)
-        credit_svc = _make_credit_svc(balance=3)  # need 5
+        credit_svc = _make_credit_svc(balance=3)  # need 5 (5 cards * 1 credit)
+
+        mock_repo = MagicMock()
+        mock_repo.get_cards_for_liga_scan.return_value = [{"card_id": i} for i in range(5)]
+        mock_repo_cls.return_value = mock_repo
 
         app = _make_scans_app(user, credit_svc)
         client = TestClient(app)
@@ -374,7 +378,7 @@ class TestScanCreditGuard:
         body = resp.json()
         assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
         assert body["detail"]["balance"] == 3
-        assert body["detail"]["cost"] == BULK_SCAN_COST
+        assert body["detail"]["cost"] == 5  # 5 cards * CARD_REFRESH_COST
         mock_thread_cls.assert_not_called()
 
     @patch("src.api.routers.scans.threading.Thread")
@@ -400,13 +404,14 @@ class TestScanCreditGuard:
 
     @patch("src.api.routers.scans.threading.Thread")
     @patch("src.api.routers.scans.Repository")
-    def test_successful_scan_deducts_before_launch(
+    def test_successful_scan_deducts_per_card_before_launch(
         self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
     ) -> None:
         user = _make_user(is_admin=False)
         credit_svc = _make_credit_svc(balance=10)
 
         mock_repo = MagicMock()
+        mock_repo.get_cards_for_liga_scan.return_value = [{"card_id": i} for i in range(7)]
         mock_repo.create_scan_run.return_value = 42
         mock_repo_cls.return_value = mock_repo
         mock_thread_cls.return_value = MagicMock()
@@ -418,20 +423,20 @@ class TestScanCreditGuard:
         assert resp.status_code == 200
         assert resp.json()["scan_id"] == 42
 
-        credit_svc.deduct.assert_called_once_with(
-            user.id, BULK_SCAN_COST, "bulk_scan", reference_id="scan"
-        )
+        # Per-card cost: 7 cards * 1 credit = 7
+        credit_svc.deduct.assert_called_once_with(user.id, 7, "bulk_scan", reference_id="scan")
 
     @patch("src.api.routers.scans.threading.Thread")
     @patch("src.api.routers.scans.Repository")
     def test_scan_exactly_enough_credits(
         self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
     ) -> None:
-        """With exactly 5 credits (cost=5), scan succeeds."""
+        """With exactly 3 credits and 3 eligible cards, scan succeeds."""
         user = _make_user(is_admin=False)
-        credit_svc = _make_credit_svc(balance=5)
+        credit_svc = _make_credit_svc(balance=3)
 
         mock_repo = MagicMock()
+        mock_repo.get_cards_for_liga_scan.return_value = [{"card_id": i} for i in range(3)]
         mock_repo.create_scan_run.return_value = 1
         mock_repo_cls.return_value = mock_repo
         mock_thread_cls.return_value = MagicMock()
@@ -475,6 +480,10 @@ class TestCreditErrorFormat:
         user = _make_user(is_admin=False)
         credit_svc = _make_credit_svc(balance=2)
 
+        mock_repo = MagicMock()
+        mock_repo.get_cards_for_liga_scan.return_value = [{"card_id": i} for i in range(5)]
+        mock_repo_cls.return_value = mock_repo
+
         app = _make_scans_app(user, credit_svc)
         client = TestClient(app)
 
@@ -483,5 +492,5 @@ class TestCreditErrorFormat:
         detail = resp.json()["detail"]
         assert detail["code"] == "INSUFFICIENT_CREDITS"
         assert detail["balance"] == 2
-        assert detail["cost"] == 5
+        assert detail["cost"] == 5  # 5 cards * 1 credit each
         assert "message" in detail

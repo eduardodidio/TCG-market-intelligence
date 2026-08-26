@@ -8,20 +8,21 @@ import threading
 from collections.abc import AsyncGenerator
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from jose import JWTError
 from starlette.responses import StreamingResponse
 
 from src.api.deps import get_credit_service, get_current_user, require_auth_or_api_key
 from src.api.schemas.scans import (
     ScanListResponse,
+    ScanPreviewResponse,
     ScanRequest,
     ScanRunResponse,
     ScanTriggerResponse,
 )
 from src.auth.jwt import decode_token
 from src.config import get_db_url
-from src.credits.constants import BULK_SCAN_COST
+from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import ScanFilter, ScanType, User
@@ -112,6 +113,30 @@ def _validate_stream_auth(
     raise HTTPException(status_code=401, detail="Authentication required")
 
 
+@router.get("/preview", response_model=ScanPreviewResponse)
+async def preview_scan(
+    max_age_days: int | None = Query(None, ge=1),
+    user: User = Depends(get_current_user),
+    credit_svc: CreditService = Depends(get_credit_service),
+):
+    """Preview how many cards a bulk scan would process and the credit cost."""
+    repo = Repository(_get_db_url())
+    scan_filter = ScanFilter()
+    user_id_str = str(user.id)
+    all_entries = repo.get_cards_for_liga_scan(scan_filter, user_id=user_id_str, max_age_days=None)
+    eligible = repo.get_cards_for_liga_scan(
+        scan_filter, user_id=user_id_str, max_age_days=max_age_days
+    )
+    card_count = len(eligible)
+    skipped = len(all_entries) - card_count
+    cost = 0 if user.is_admin else card_count * CARD_REFRESH_COST
+    return ScanPreviewResponse(
+        card_count=card_count,
+        skipped_count=skipped,
+        credit_cost=cost,
+    )
+
+
 @router.post("", response_model=ScanTriggerResponse)
 async def trigger_scan(
     request: ScanRequest,
@@ -122,21 +147,6 @@ async def trigger_scan(
     """Trigger a new collection price scan in a background thread."""
     from src.collectors.liga_scan import run_liga_scan
     from src.collectors.scan import run_scan
-
-    # Credit guard — admin bypass; deduct BEFORE launch (async task)
-    if not user.is_admin:
-        if not credit_svc.check_sufficient(user.id, BULK_SCAN_COST):
-            balance = credit_svc.get_balance(user.id)
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "code": "INSUFFICIENT_CREDITS",
-                    "balance": balance.balance,
-                    "cost": BULK_SCAN_COST,
-                    "message": "Not enough treasure tokens.",
-                },
-            )
-        credit_svc.deduct(user.id, BULK_SCAN_COST, "bulk_scan", reference_id="scan")
 
     db_url = _get_db_url()
     provider_name = request.provider if request.provider in ("liga", "myp") else "liga"
@@ -150,11 +160,33 @@ async def trigger_scan(
         limit=request.limit,
     )
 
-    # Encode provider in filters_json for traceability
+    # Per-card credit guard — admin bypass; deduct BEFORE launch (async task)
+    if not user.is_admin:
+        repo_for_count = Repository(db_url)
+        eligible = repo_for_count.get_cards_for_liga_scan(
+            scan_filter, user_id=str(user.id), max_age_days=request.max_age_days
+        )
+        cost = len(eligible) * CARD_REFRESH_COST
+        if not credit_svc.check_sufficient(user.id, cost):
+            balance = credit_svc.get_balance(user.id)
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "code": "INSUFFICIENT_CREDITS",
+                    "balance": balance.balance,
+                    "cost": cost,
+                    "message": "Not enough treasure tokens.",
+                },
+            )
+        credit_svc.deduct(user.id, cost, "bulk_scan", reference_id="scan")
+
+    # Encode provider and max_age_days in filters_json for traceability
     import json as _json
 
     filters_data = _json.loads(scan_filter.to_json())
     filters_data["provider"] = provider_name
+    if request.max_age_days is not None:
+        filters_data["max_age_days"] = request.max_age_days
     filters_json = _json.dumps(filters_data)
 
     # Create scan run immediately so we can return the ID
@@ -173,6 +205,7 @@ async def trigger_scan(
                     dry_run=request.dry_run,
                     run_id=scan_id,
                     on_complete=default_registry.notify,
+                    max_age_days=request.max_age_days,
                 )
             )
         else:

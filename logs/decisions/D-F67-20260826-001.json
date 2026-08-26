@@ -1,0 +1,135 @@
+{
+  "id": "D-F67-20260826-001",
+  "type": "feature_start",
+  "feature": "F67",
+  "title": "Daily Liga Collection Scan",
+  "requested_at": "2026-08-26T00:00:00Z",
+  "decided_at": "2026-08-26T00:00:00Z",
+  "status": "executed",
+  "decision": "PROCEED",
+  "pipeline": "create-feature",
+
+  "summary": "Approve F67: Daily Liga Collection Scan. Three-part feature: (1) scheduled admin_daily_liga APScheduler cron job at 6AM scanning all admin collections via Liga with zero credit cost, (2) per-card credit cost for non-admin bulk Refresh All replacing flat BULK_SCAN_COST=5, (3) max_age_days filter to skip recently-scanned cards in bulk refresh.",
+
+  "rationale": {
+    "alignment": "High. Daily automated scans keep price data fresh without manual intervention. Per-card credit cost is fairer than flat-rate (a user with 10 cards should pay less than one with 300). max_age_days avoids redundant scraping, reducing Liga load and saving credits.",
+    "feasibility": "High. All building blocks exist: APScheduler (F37), Liga scan orchestrator (F60 liga_scan.py), credit system (F65), max_age_days already accepted by run_scan/run_liga_scan/get_cards_for_liga_scan. The feature is integration work, not greenfield.",
+    "risk": "Low-Medium. Main risk is Liga rate limiting on large collections (mitigated by existing concurrency=1, 5s delay, max_age_days skip). Credit model change (flat→per-card) needs frontend confirmation modal update but is straightforward.",
+    "complexity": "Medium. ~6-8 tasks across backend and frontend. No new dependencies."
+  },
+
+  "architecture_analysis": {
+    "existing_infrastructure": {
+      "scheduler": "ScanScheduler (src/scheduler/service.py) already manages APScheduler lifecycle, cron triggers, auto-pause on failure. seed_default_liga_schedules() in repo already seeds schedules at startup.",
+      "liga_scan": "run_liga_scan (src/collectors/liga_scan.py) wraps run_scan with Liga provider. Already accepts max_age_days parameter.",
+      "credit_system": "CreditService (src/credits/service.py) with check/deduct/grant. Admin bypass at router level. BULK_SCAN_COST=5 flat in constants.py.",
+      "scan_trigger": "POST /scans endpoint (src/api/routers/scans.py) deducts BULK_SCAN_COST before launching async scan. Frontend useCollectionRefresh triggers via triggerScanAuth.",
+      "max_age_days": "Already plumbed through run_scan→get_cards_for_liga_scan but NOT exposed in POST /scans API endpoint or frontend."
+    },
+    "changes_needed": {
+      "backend": [
+        "Add admin_daily_liga job registration in ScanScheduler.start() or via seed_default_liga_schedules — a system-level cron (0 6 * * *) that queries admin users and runs Liga scan for their collections, no credit deduction.",
+        "Change credit model in POST /scans: replace flat BULK_SCAN_COST with per-card cost (1 credit per card). Need to know card count BEFORE deducting — query get_cards_for_liga_scan count first, then deduct.",
+        "Expose max_age_days in ScanRequest schema and POST /scans handler, pass through to run_liga_scan.",
+        "New collector function or scheduler callback: admin_daily_liga_scan that fetches admin user IDs from DB, runs Liga scan for each admin's collection with max_age_days=1 (skip cards scanned today)."
+      ],
+      "frontend": [
+        "Update CreditConfirmModal to show per-card cost (fetch card count first via new endpoint or include in scan preview).",
+        "Add max_age_days option to Refresh All (default 1 day — skip cards refreshed today).",
+        "Update useCollectionRefresh to pass max_age_days parameter."
+      ]
+    }
+  },
+
+  "task_sketch": {
+    "wave_0": [
+      {
+        "id": "T01",
+        "title": "Per-card credit cost for bulk scan",
+        "description": "Replace BULK_SCAN_COST=5 flat with per-card cost (1 credit/card). Add GET /scans/preview endpoint returning {card_count, credit_cost} for the authenticated user's collection (respects max_age_days). Update POST /scans to compute cost from card count, deduct per-card. Add PER_CARD_SCAN_COST=1 constant.",
+        "scope": "backend"
+      },
+      {
+        "id": "T02",
+        "title": "Expose max_age_days in scan API",
+        "description": "Add max_age_days field to ScanRequest schema (optional int, default None). Pass through POST /scans handler to run_liga_scan. Include in scan preview endpoint.",
+        "scope": "backend"
+      }
+    ],
+    "wave_1": [
+      {
+        "id": "T03",
+        "title": "Admin daily Liga scan job",
+        "description": "Create admin_daily_liga_scan function in src/collectors/ that: queries all admin users, gets their collection entries, runs run_liga_scan with max_age_days=1 and no credit deduction. Register as system cron job (0 6 * * *) in ScanScheduler.start() — NOT a user schedule, a hardcoded system job. Log results.",
+        "scope": "backend"
+      },
+      {
+        "id": "T04",
+        "title": "Frontend per-card cost confirmation",
+        "description": "Before Refresh All, call GET /scans/preview to get card_count and credit_cost. Update CreditConfirmModal to show 'Refreshing N cards will cost N treasure tokens'. If max_age_days reduces count, show that too. Admin sees 'Free (admin bypass)'.",
+        "scope": "frontend"
+      }
+    ],
+    "wave_2": [
+      {
+        "id": "T05",
+        "title": "Frontend max_age_days option",
+        "description": "Add 'Skip recently scanned' toggle or dropdown (1d/3d/7d/none) to Refresh All UI. Default 1 day. Pass to triggerScanAuth and scan preview. i18n keys.",
+        "scope": "frontend"
+      },
+      {
+        "id": "T06",
+        "title": "Tests and integration validation",
+        "description": "Backend: unit tests for per-card cost logic, preview endpoint, admin daily scan function, max_age_days passthrough. Frontend: tests for updated CreditConfirmModal, preview fetch, max_age_days selector.",
+        "scope": "both"
+      }
+    ]
+  },
+
+  "key_decisions": [
+    {
+      "decision": "Per-card cost = 1 credit (same as single refresh)",
+      "rationale": "Consistent pricing: refreshing 1 card costs 1 credit whether done individually or in bulk. No bulk discount — keeps the economy simple."
+    },
+    {
+      "decision": "Admin daily scan is a system job, not a user-created schedule",
+      "rationale": "Avoids cluttering the user's schedule list. System jobs are managed by the platform, not deletable by users. Hardcoded in scheduler startup."
+    },
+    {
+      "decision": "Default max_age_days=1 for daily scan, configurable for manual Refresh All",
+      "rationale": "Daily scan should skip cards already scanned today. Manual refresh gives user control (1d/3d/7d/none)."
+    },
+    {
+      "decision": "Scan preview endpoint (GET /scans/preview) before deduction",
+      "rationale": "Per-card cost requires knowing the count BEFORE charging. Preview endpoint also enables better UX — user sees exactly how many cards and how many credits before confirming."
+    }
+  ],
+
+  "risks_and_mitigations": [
+    {
+      "risk": "Large admin collections overwhelm Liga at 6AM",
+      "mitigation": "max_age_days=1 skips recently scanned. Liga concurrency=1, 5s delay already enforced. If collection is 300+ cards, scan takes ~25 minutes — acceptable for background job."
+    },
+    {
+      "risk": "Multiple admin users cause overlapping scans",
+      "mitigation": "Run admin scans sequentially (one after another), not in parallel. ScanScheduler already has concurrency guard (skip if previous running)."
+    },
+    {
+      "risk": "Per-card cost breaks existing frontend flow",
+      "mitigation": "Preview endpoint provides the cost; CreditConfirmModal already exists. Just update the displayed amount."
+    }
+  ],
+
+  "dependencies": {
+    "required": ["F37 (APScheduler)", "F60 (Liga primary)", "F65 (Credit system)", "F66 (Admin)"],
+    "optional": [],
+    "new_packages": []
+  },
+
+  "estimated_effort": {
+    "tasks": 6,
+    "waves": 3,
+    "backend_files_changed": "~8 (constants, scans router, scan schemas, scheduler service, new collector fn, repository, tests)",
+    "frontend_files_changed": "~6 (scans API, useCollectionRefresh, CreditConfirmModal, MyCollection, i18n, tests)"
+  }
+}

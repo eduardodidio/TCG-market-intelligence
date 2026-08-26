@@ -16,6 +16,8 @@ vi.mock("react-i18next", () => ({
         "credits.cancel": "Cancel",
         "credits.adminBypass": "Admin — no cost",
         "credits.balance": "Treasure Tokens",
+        "collection.cardsToScan": `${opts?.count ?? ""} cards to scan`,
+        "collection.skippedCards": `${opts?.count ?? ""} cards skipped (recently scanned)`,
       };
       return map[key] ?? key;
     },
@@ -146,5 +148,50 @@ describe("CreditConfirmModal", () => {
     expect(screen.getByTestId("modal-title").textContent).toBe(
       "Spend Treasure Tokens?",
     );
+  });
+
+  it("displays card count when provided", () => {
+    render(<CreditConfirmModal {...defaultProps} cardCount={42} />);
+    const el = screen.getByTestId("card-count-text");
+    expect(el.textContent).toContain("42");
+    expect(el.textContent).toContain("cards to scan");
+  });
+
+  it("does not display card count when not provided", () => {
+    render(<CreditConfirmModal {...defaultProps} />);
+    expect(screen.queryByTestId("card-count-text")).toBeNull();
+  });
+
+  it("displays skipped count when greater than 0", () => {
+    render(<CreditConfirmModal {...defaultProps} skippedCount={15} />);
+    const el = screen.getByTestId("skipped-count-text");
+    expect(el.textContent).toContain("15");
+    expect(el.textContent).toContain("skipped");
+  });
+
+  it("does not display skipped count when 0", () => {
+    render(<CreditConfirmModal {...defaultProps} skippedCount={0} />);
+    expect(screen.queryByTestId("skipped-count-text")).toBeNull();
+  });
+
+  it("does not display skipped count when not provided", () => {
+    render(<CreditConfirmModal {...defaultProps} />);
+    expect(screen.queryByTestId("skipped-count-text")).toBeNull();
+  });
+
+  it("renders children (e.g. MaxAgeDaysSelect) inside modal", () => {
+    render(
+      <CreditConfirmModal {...defaultProps}>
+        <div data-testid="child-slot">Hello</div>
+      </CreditConfirmModal>,
+    );
+    expect(screen.getByTestId("child-slot")).toBeTruthy();
+  });
+
+  it("shows dynamic cost from props, not hardcoded", () => {
+    render(<CreditConfirmModal {...defaultProps} cost={12} balance={50} />);
+    expect(screen.getByTestId("cost-text").textContent).toContain("12");
+    const confirmBtn = screen.getByTestId("modal-confirm-btn");
+    expect(confirmBtn.textContent).toContain("12");
   });
 });

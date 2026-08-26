@@ -39,13 +39,12 @@ def validate_cron(expression: str) -> None:
             interval = int(match.group(1))
             if interval < 60:
                 raise ValueError(
-                    f"Sub-hour cron intervals are not allowed (minimum 1 hour). "
-                    f"Got: {expression}"
+                    f"Sub-hour cron intervals are not allowed (minimum 1 hour). Got: {expression}"
                 )
         # Reject bare * in minute field (runs every minute)
         if minute_field == "*":
             raise ValueError(
-                f"Sub-hour cron intervals are not allowed (minimum 1 hour). " f"Got: {expression}"
+                f"Sub-hour cron intervals are not allowed (minimum 1 hour). Got: {expression}"
             )
 
 
@@ -188,7 +187,20 @@ class ScanScheduler:
                 filters_data = {}
             provider_name = filters_data.get("provider", "myp")
 
-            if provider_name == "liga":
+            if schedule["scan_type"] == "admin_daily_liga":
+                from src.collectors.admin_scan import run_admin_daily_liga_scan
+                from src.services.scan_hooks import default_registry
+
+                max_age_days = filters_data.get("max_age_days", 1)
+                asyncio.run(
+                    run_admin_daily_liga_scan(
+                        db_url=self._db_url,
+                        run_id=scan_id,
+                        max_age_days=max_age_days,
+                        on_complete=default_registry.notify,
+                    )
+                )
+            elif provider_name == "liga":
                 from src.collectors.liga_scan import run_liga_scan
 
                 max_age_days = filters_data.get("max_age_days")
