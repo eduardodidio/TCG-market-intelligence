@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Project: **TCG Market Intelligence**
+Project: **TEDHC Market** (Trading Elder Dragon Highlander Cards)
 Stack: **Blank / custom**
 Framework: [claude-didio-config](https://github.com/eduardodidio/claude-didio-config)
 

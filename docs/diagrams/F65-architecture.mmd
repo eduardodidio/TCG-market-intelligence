@@ -1,0 +1,42 @@
+flowchart TB
+    subgraph Frontend
+        TB[TreasureBalance]
+        CM[CreditConfirmModal]
+        UC[useCredits Hook]
+        AC[API Client credits.ts]
+    end
+
+    subgraph API Layer
+        CR[credits router<br/>GET /balance<br/>GET /history<br/>POST /claim-bonus]
+        CG[Credit Guards<br/>collection.py refresh<br/>scans.py trigger]
+    end
+
+    subgraph Service Layer
+        CS[CreditService<br/>check_sufficient<br/>deduct / grant<br/>claim_bonus]
+        IE[InsufficientCreditsError]
+    end
+
+    subgraph Data Layer
+        REPO[Repository<br/>ensure_credit_balance<br/>update_credit_balance<br/>get_credit_transactions]
+    end
+
+    subgraph Database
+        CB[(credit_balances<br/>user_id, balance,<br/>last_bonus_at)]
+        CT[(credit_transactions<br/>user_id, amount,<br/>reason, reference_id)]
+        UR[(users<br/>is_admin)]
+    end
+
+    TB --> UC
+    CM --> UC
+    UC --> AC
+    AC -->|HTTP| CR
+    AC -->|HTTP| CG
+
+    CR --> CS
+    CG -->|admin bypass| CS
+    CG -->|402| IE
+
+    CS --> REPO
+    REPO --> CB
+    REPO --> CT
+    CG -.->|check is_admin| UR

@@ -54,7 +54,7 @@ export function Login() {
       </div>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">TCG Market</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">TEDHC Market</h1>
           <p className="text-slate-400 mt-2">
             {isRegister ? t("auth.createAccount") : t("auth.signInAccount")}
           </p>

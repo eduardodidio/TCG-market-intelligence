@@ -66,6 +66,15 @@ function renderDetail(id = "1") {
   );
 }
 
+/** Default credit balance response for tests (enough credits, non-admin). */
+function makeCreditBalanceResponse() {
+  return {
+    data: { balance: 50, bonus_eligible: false, next_bonus_at: null, is_admin: false },
+    meta: { cursor: null, total: null, request_id: "credit-test" },
+    errors: [],
+  };
+}
+
 function createMockFetch(
   response: unknown,
   postHandler?: (url: string, options?: RequestInit) => Promise<{ ok: boolean; json: () => Promise<unknown> }>,
@@ -76,6 +85,14 @@ function createMockFetch(
     // POST handlers (refresh-liga, canonize, refresh)
     if (options?.method === "POST" && postHandler) {
       return postHandler(urlStr, options);
+    }
+
+    // Credit balance endpoint (needed for CreditConfirmModal)
+    if (urlStr.includes("/credits/balance")) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(makeCreditBalanceResponse()),
+      });
     }
 
     // Price chart history call
@@ -135,6 +152,17 @@ function createMockFetch(
         }),
     });
   });
+}
+
+/** Helper: click a refresh button and confirm through the credit modal. */
+async function clickAndConfirmRefresh(testId: string) {
+  screen.getByTestId(testId).click();
+
+  // Wait for credit confirmation modal and click confirm
+  await waitFor(() => {
+    expect(screen.getByTestId("credit-confirm-modal")).toBeDefined();
+  });
+  screen.getByTestId("modal-confirm-btn").click();
 }
 
 describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
@@ -242,7 +270,7 @@ describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
       expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
     });
 
-    screen.getByTestId("refresh-liga-btn").click();
+    await clickAndConfirmRefresh("refresh-liga-btn");
 
     await waitFor(() => {
       expect(postHandler).toHaveBeenCalled();
@@ -275,7 +303,7 @@ describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
       expect(screen.getByTestId("refresh-price-btn")).toBeDefined();
     });
 
-    screen.getByTestId("refresh-price-btn").click();
+    await clickAndConfirmRefresh("refresh-price-btn");
 
     await waitFor(() => {
       expect(postHandler).toHaveBeenCalled();
@@ -320,7 +348,7 @@ describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
 
     expect(screen.getByTestId("refresh-liga-btn").hasAttribute("disabled")).toBe(false);
 
-    screen.getByTestId("refresh-liga-btn").click();
+    await clickAndConfirmRefresh("refresh-liga-btn");
 
     await waitFor(() => {
       expect(screen.getByTestId("refresh-liga-btn").hasAttribute("disabled")).toBe(true);
@@ -363,7 +391,7 @@ describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
       expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
     });
 
-    screen.getByTestId("refresh-liga-btn").click();
+    await clickAndConfirmRefresh("refresh-liga-btn");
 
     await waitFor(() => {
       const msg = screen.getByTestId("refresh-message");
@@ -398,7 +426,7 @@ describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
       expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
     });
 
-    screen.getByTestId("refresh-liga-btn").click();
+    await clickAndConfirmRefresh("refresh-liga-btn");
 
     await waitFor(() => {
       const msg = screen.getByTestId("refresh-message");
@@ -459,7 +487,7 @@ describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
       expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
     });
 
-    screen.getByTestId("refresh-liga-btn").click();
+    await clickAndConfirmRefresh("refresh-liga-btn");
 
     await waitFor(() => {
       const msg = screen.getByTestId("refresh-message");
@@ -507,7 +535,7 @@ describe("CollectionCardDetail — Liga/MYP button hierarchy", () => {
       expect(screen.getByTestId("refresh-liga-btn")).toBeDefined();
     });
 
-    screen.getByTestId("refresh-liga-btn").click();
+    await clickAndConfirmRefresh("refresh-liga-btn");
 
     await waitFor(() => {
       const msg = screen.getByTestId("refresh-message");

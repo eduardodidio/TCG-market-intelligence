@@ -12,7 +12,7 @@ from src.database.repository import Repository
 
 
 class TestSeedUsers:
-    def test_creates_both_users_with_env_password(self, tmp_path, monkeypatch):
+    def test_creates_seed_user_with_env_password(self, tmp_path, monkeypatch):
         db_path = tmp_path / "test_seed.db"
         db_url = f"sqlite:///{db_path}"
 
@@ -21,22 +21,16 @@ class TestSeedUsers:
         result = runner.invoke(cli, ["seed-users", "--db", db_url])
         assert result.exit_code == 0
         assert "Created: eduardorutkoskididio@gmail.com" in result.output
-        assert "Created: anderson.serafim" in result.output
         assert "Seed users done." in result.output
 
-        # Verify users exist and passwords work
+        # Verify user exists and password works
         repo = Repository(db_url=db_url)
         user1 = repo.get_user_by_email("eduardorutkoskididio@gmail.com")
         assert user1 is not None
         assert user1.display_name == "Eduardo Didio"
 
-        user2 = repo.get_user_by_email("anderson.serafim")
-        assert user2 is not None
-        assert user2.display_name == "Anderson Serafim"
-
-        # Verify passwords match the env var
+        # Verify password matches the env var
         assert verify_password("test-password-123", user1.password_hash)
-        assert verify_password("test-password-123", user2.password_hash)
 
     def test_uses_default_password_when_no_env(self, tmp_path, monkeypatch):
         db_path = tmp_path / "test_seed_default.db"
@@ -51,7 +45,7 @@ class TestSeedUsers:
         repo = Repository(db_url=db_url)
         user = repo.get_user_by_email("eduardorutkoskididio@gmail.com")
         assert user is not None
-        assert verify_password("mudar@123", user.password_hash)
+        assert verify_password("mudar12345", user.password_hash)
 
     def test_idempotent_second_run(self, tmp_path):
         db_path = tmp_path / "test_seed2.db"
@@ -67,7 +61,6 @@ class TestSeedUsers:
         result2 = runner.invoke(cli, ["seed-users", "--db", db_url])
         assert result2.exit_code == 0
         assert "Skipped (exists): eduardorutkoskididio@gmail.com" in result2.output
-        assert "Skipped (exists): anderson.serafim" in result2.output
         assert "Created" not in result2.output
 
     def test_reassigns_orphaned_collection_entries(self, tmp_path):

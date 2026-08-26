@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from jose import JWTError
 from starlette.responses import StreamingResponse
 
-from src.api.deps import require_auth_or_api_key
+from src.api.deps import get_credit_service, get_current_user, require_auth_or_api_key
 from src.api.schemas.scans import (
     ScanListResponse,
     ScanRequest,
@@ -21,8 +21,10 @@ from src.api.schemas.scans import (
 )
 from src.auth.jwt import decode_token
 from src.config import get_db_url
+from src.credits.constants import BULK_SCAN_COST
+from src.credits.service import CreditService
 from src.database.repository import Repository
-from src.domain.models import ScanFilter, ScanType
+from src.domain.models import ScanFilter, ScanType, User
 from src.events import scan_bus
 
 router = APIRouter(prefix="/scans", tags=["scans"])
@@ -114,10 +116,27 @@ def _validate_stream_auth(
 async def trigger_scan(
     request: ScanRequest,
     _user_id: str = Depends(require_auth_or_api_key),
+    user: User = Depends(get_current_user),
+    credit_svc: CreditService = Depends(get_credit_service),
 ):
     """Trigger a new collection price scan in a background thread."""
     from src.collectors.liga_scan import run_liga_scan
     from src.collectors.scan import run_scan
+
+    # Credit guard — admin bypass; deduct BEFORE launch (async task)
+    if not user.is_admin:
+        if not credit_svc.check_sufficient(user.id, BULK_SCAN_COST):
+            balance = credit_svc.get_balance(user.id)
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "code": "INSUFFICIENT_CREDITS",
+                    "balance": balance.balance,
+                    "cost": BULK_SCAN_COST,
+                    "message": "Not enough treasure tokens.",
+                },
+            )
+        credit_svc.deduct(user.id, BULK_SCAN_COST, "bulk_scan", reference_id="scan")
 
     db_url = _get_db_url()
     provider_name = request.provider if request.provider in ("liga", "myp") else "liga"

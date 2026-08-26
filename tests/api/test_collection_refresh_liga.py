@@ -9,9 +9,17 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
+from src.api.deps import (
+    get_credit_service,
+    get_currency_converter_dep,
+    get_current_user,
+    get_db,
+    require_auth_or_api_key,
+)
 from src.api.routers.collection import router
+from src.credits.service import CreditService
 from src.database.models import PriceObservationRow, UserCollectionRow
+from src.domain.models import User
 from src.providers.liga.exceptions import (
     LigaError,
     LigaNotFoundError,
@@ -22,6 +30,15 @@ from src.providers.registry import ProviderRegistry
 from src.services.currency import CurrencyConverter
 
 _TEST_USER_ID = "eduardo"
+
+# Admin user so existing tests bypass credit guards
+_TEST_USER = User(
+    id=1,
+    email="test@example.com",
+    display_name="Test",
+    is_active=True,
+    is_admin=True,
+)
 
 
 def _make_collection_row(**overrides) -> MagicMock:
@@ -79,6 +96,12 @@ def _make_mock_provider(**overrides) -> MagicMock:
     return provider
 
 
+def _make_credit_svc() -> MagicMock:
+    svc = MagicMock(spec=CreditService)
+    svc.check_sufficient.return_value = True
+    return svc
+
+
 def _make_app(
     mock_repo: MagicMock,
     mock_provider: MagicMock | None = None,
@@ -90,6 +113,8 @@ def _make_app(
     app.include_router(router)
     app.dependency_overrides[get_db] = lambda: mock_repo
     app.dependency_overrides[require_auth_or_api_key] = lambda: user_id
+    app.dependency_overrides[get_current_user] = lambda: _TEST_USER
+    app.dependency_overrides[get_credit_service] = _make_credit_svc
     if mock_converter is not None:
         app.dependency_overrides[get_currency_converter_dep] = lambda: mock_converter
     else:

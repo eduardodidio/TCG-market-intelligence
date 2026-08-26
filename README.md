@@ -1,7 +1,8 @@
-# TCG Market Intelligence
+# TEDHC Market
 
-Historical price data collector for trading card games, starting with
-**Magic: The Gathering** on the Brazilian market (MYP Cards).
+**TEDHC Market** (Trading Elder Dragon Highlander Cards) is a price data
+collector for trading card games, starting with **Magic: The Gathering**
+on the Brazilian market (MYP Cards).
 
 ## Clone to Run
 

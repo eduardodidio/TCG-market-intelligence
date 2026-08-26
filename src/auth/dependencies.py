@@ -59,6 +59,7 @@ def get_current_user(
         preferred_currency=user_row.preferred_currency,
         preferred_language=getattr(user_row, "preferred_language", "en"),
         is_active=bool(user_row.is_active),
+        is_admin=bool(getattr(user_row, "is_admin", 0)),
     )
 
 
@@ -93,6 +94,7 @@ def get_optional_user(
         preferred_currency=user_row.preferred_currency,
         preferred_language=getattr(user_row, "preferred_language", "en"),
         is_active=bool(user_row.is_active),
+        is_admin=bool(getattr(user_row, "is_admin", 0)),
     )
 
 

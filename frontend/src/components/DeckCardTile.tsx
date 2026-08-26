@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { DeckCard } from "../types/api";
 import { useCardName } from "../hooks/useCardName";
+import { useCredits } from "../hooks/useCredits";
 import { formatBRL } from "../utils/format";
+import { CreditConfirmModal } from "./CreditConfirmModal";
 
 interface DeckCardTileProps {
   card: DeckCard;
@@ -14,6 +16,8 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const [refreshing, setRefreshing] = useState(false);
+  const [creditModalOpen, setCreditModalOpen] = useState(false);
+  const { balance, isAdmin, refetch: refetchCredits } = useCredits();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const linkTo = card.in_collection && card.collection_entry_id
     ? `/collection/${card.collection_entry_id}`
@@ -81,15 +85,10 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
         {card.in_collection && card.collection_entry_id != null && card.card_id != null && onRefresh && (
           <button
             data-testid={`refresh-deck-card-${card.id}`}
-            onClick={async (e) => {
+            onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setRefreshing(true);
-              try {
-                await onRefresh(card.collection_entry_id!);
-              } finally {
-                setRefreshing(false);
-              }
+              setCreditModalOpen(true);
             }}
             disabled={refreshing}
             title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
@@ -147,13 +146,40 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
     </div>
   );
 
+  const modal = (
+    <CreditConfirmModal
+      isOpen={creditModalOpen}
+      onCancel={() => setCreditModalOpen(false)}
+      onConfirm={async () => {
+        setCreditModalOpen(false);
+        if (!onRefresh || card.collection_entry_id == null) return;
+        setRefreshing(true);
+        try {
+          await onRefresh(card.collection_entry_id);
+        } catch (err: unknown) {
+          const status = (err as { status?: number })?.status;
+          if (status === 402) refetchCredits();
+        } finally {
+          setRefreshing(false);
+        }
+      }}
+      cost={1}
+      balance={balance ?? 0}
+      actionLabel={t("credits.refreshCost")}
+      isAdmin={isAdmin}
+    />
+  );
+
   if (linkTo) {
     return (
-      <Link to={linkTo} data-testid={`deck-card-link-${card.id}`}>
-        {content}
-      </Link>
+      <>
+        <Link to={linkTo} data-testid={`deck-card-link-${card.id}`}>
+          {content}
+        </Link>
+        {modal}
+      </>
     );
   }
 
-  return content;
+  return <>{content}{modal}</>;
 }

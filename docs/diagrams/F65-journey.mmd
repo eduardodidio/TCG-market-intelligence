@@ -1,0 +1,41 @@
+flowchart LR
+    subgraph User Actions
+        A[Open App] --> B{Authenticated?}
+        B -->|No| L[Login Page]
+        B -->|Yes| C[See TreasureBalance<br/>in sidebar]
+    end
+
+    subgraph Claim Bonus
+        C --> D{Bonus eligible?}
+        D -->|Yes| E[Click Claim Bonus]
+        E --> F[POST /credits/claim-bonus]
+        F --> G{12h since last?}
+        G -->|Yes| H[+5 credits<br/>Balance updates]
+        G -->|No| I[429 BONUS_NOT_READY<br/>Show next time]
+        D -->|No| J[Show next bonus time]
+    end
+
+    subgraph Card Refresh
+        C --> K[Click Refresh on card]
+        K --> M[CreditConfirmModal opens]
+        M --> N{Admin user?}
+        N -->|Yes| O[Show 'Admin - no cost'<br/>Confirm enabled]
+        N -->|No| P{Balance >= cost?}
+        P -->|Yes| Q[Show cost + balance after]
+        P -->|No| R[Confirm disabled<br/>Insufficient tokens!]
+        O --> S[Click Confirm]
+        Q --> S
+        S --> T[POST /collection/id/refresh]
+        T --> U{Provider success?}
+        U -->|Yes| V[Price saved<br/>-1 credit deducted]
+        U -->|No| W[Error shown<br/>No credit deducted]
+        T --> X{402 response?}
+        X -->|Yes| Y[Refetch balance<br/>Show insufficient]
+    end
+
+    subgraph Bulk Scan
+        C --> BS[Click Refresh All]
+        BS --> BM[CreditConfirmModal<br/>cost=5]
+        BM --> BC[Confirm]
+        BC --> BD[POST /scans<br/>-5 credits upfront]
+    end

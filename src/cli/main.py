@@ -19,7 +19,7 @@ structlog.configure(
 
 @click.group()
 def cli():
-    """TCG Market Intelligence — Data Collector"""
+    """TEDHC Market — Data Collector"""
     pass
 
 
@@ -630,19 +630,33 @@ def seed_users(db):
     for user_data in SEED_USERS:
         existing = repo.get_user_by_email(user_data["email"])
         if existing:
+            # Ensure existing seed user has is_admin=1
+            if not getattr(existing, "is_admin", 0):
+                repo.update_user(existing.id, is_admin=1)
+                click.echo(f"  Updated is_admin=1: {user_data['email']}")
             log.info("user_exists_skipped", email=user_data["email"])
             click.echo(f"  Skipped (exists): {user_data['email']}")
             continue
 
         pw_hash = hash_password(password)
-        repo.create_user(
+        user_row = repo.create_user(
             email=user_data["email"],
             display_name=user_data["display_name"],
             auth_provider="email",
             password_hash=pw_hash,
         )
-        log.info("user_created", email=user_data["email"])
-        click.echo(f"  Created: {user_data['email']}")
+        # Set admin flag
+        repo.update_user(user_row.id, is_admin=1)
+
+        # Grant initial 50 credits
+        repo.update_credit_balance(
+            user_id=user_row.id,
+            delta=50,
+            reason="initial_credits",
+        )
+
+        log.info("user_created", email=user_data["email"], is_admin=True, credits=50)
+        click.echo(f"  Created: {user_data['email']} (admin, 50 credits)")
 
     # Associate all collection entries with the primary (first) seed user
     primary = repo.get_user_by_email(SEED_USERS[0]["email"])

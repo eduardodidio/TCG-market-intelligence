@@ -1,0 +1,10 @@
+{
+  "id": "D-F65-20260826T130000Z",
+  "feature": "F65",
+  "type": "feature_start",
+  "description": "Credit Token System (Treasure Tokens)",
+  "status": "executed",
+  "rationale": "F65 is the foundational credit/metering layer referenced by ADR-0007 (subscriptions) and ADR-0009 (auto-claim). It introduces credit_balances + credit_transactions tables, CreditService, API endpoints, and frontend widgets. Risk: low — new tables, new router, existing auth system supports credit fields. No external payment integration. ADR-0007 and ADR-0009 are PROPOSED/DEFERRED and depend on this. Proceed with create-feature pipeline.",
+  "actions": ["create-feature"],
+  "created_at": "2026-08-26T13:00:00Z"
+}

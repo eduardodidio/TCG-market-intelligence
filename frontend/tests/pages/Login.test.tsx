@@ -74,7 +74,7 @@ describe("Login page", () => {
 
   it("renders page title", () => {
     renderLogin();
-    expect(screen.getByText("TCG Market")).toBeDefined();
+    expect(screen.getByText("TEDHC Market")).toBeDefined();
   });
 
   it("contains a language selector", () => {

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 
-from fastapi import Header, HTTPException
+from fastapi import Depends, Header, HTTPException
 
 from src.config import get_db_url
 from src.database.repository import Repository
@@ -72,6 +72,13 @@ def get_provider_registry():
 
         get_provider_registry._instance = create_registry_from_env()
     return get_provider_registry._instance
+
+
+def get_credit_service(repo: Repository = Depends(get_db)):
+    """FastAPI dependency that yields a CreditService."""
+    from src.credits.service import CreditService
+
+    return CreditService(repo)
 
 
 # Re-export auth dependencies for convenience

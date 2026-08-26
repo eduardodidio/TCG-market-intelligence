@@ -15,7 +15,13 @@ from src.analytics.aggregation import (
     compute_price_change_summary,
 )
 from src.analytics.indicators import compute_card_analytics
-from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
+from src.api.deps import (
+    get_credit_service,
+    get_currency_converter_dep,
+    get_current_user,
+    get_db,
+    require_auth_or_api_key,
+)
 from src.api.jobs import job_tracker
 from src.api.schemas.ban_engine import BannedCollectionCard, CardLegalityWithChange
 from src.api.schemas.cards import PriceObservation, SourceCardSchema
@@ -43,8 +49,10 @@ from src.api.schemas.metrics import (
     VolatilitySchema,
 )
 from src.config import get_db_url
+from src.credits.constants import CARD_REFRESH_COST
+from src.credits.service import CreditService
 from src.database.repository import Repository
-from src.domain.models import CardAnalytics, HistoricalPrice
+from src.domain.models import CardAnalytics, HistoricalPrice, User
 from src.services import ban_analyzer
 from src.services.currency import CurrencyConverter
 from src.utils.set_code_map import map_to_scryfall_set_code
@@ -758,10 +766,26 @@ async def refresh_card_price(
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
+    user: User = Depends(get_current_user),
+    credit_svc: CreditService = Depends(get_credit_service),
 ):
     """Refresh a single card's price from MYP in real-time."""
     from src.domain.models import HistoricalPrice
     from src.providers.myp.provider import MypCardsProvider
+
+    # Credit guard — admin bypass
+    if not user.is_admin:
+        if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
+            balance = credit_svc.get_balance(user.id)
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "code": "INSUFFICIENT_CREDITS",
+                    "balance": balance.balance,
+                    "cost": CARD_REFRESH_COST,
+                    "message": "Not enough treasure tokens.",
+                },
+            )
 
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
@@ -848,6 +872,7 @@ async def refresh_card_price(
     finally:
         await provider.close()
 
+    price_saved = False
     if jsonld and jsonld.price and jsonld.price > 0:
         obs = HistoricalPrice(
             source="jsonld_snapshot",
@@ -856,12 +881,17 @@ async def refresh_card_price(
             median_price=jsonld.price,
         )
         repo.insert_price_observations([obs])
+        price_saved = True
         log.info(
             "card_price_refreshed",
             entry_id=entry_id,
             external_id=external_id,
             price=str(jsonld.price),
         )
+
+    # Deduct credit only when price data was actually saved (non-admin only)
+    if price_saved and not user.is_admin:
+        credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
 
     # Return updated card detail (reuse same logic as get_collection_entry)
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
@@ -875,6 +905,8 @@ async def refresh_card_price_liga(
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
+    user: User = Depends(get_current_user),
+    credit_svc: CreditService = Depends(get_credit_service),
 ):
     """Refresh a single card's price from LigaMagic in real-time."""
     import traceback as _tb
@@ -886,6 +918,20 @@ async def refresh_card_price_liga(
         LigaRateLimitError,
     )
     from src.providers.liga.provider import LigaMagicProvider
+
+    # Credit guard — admin bypass
+    if not user.is_admin:
+        if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
+            balance = credit_svc.get_balance(user.id)
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "code": "INSUFFICIENT_CREDITS",
+                    "balance": balance.balance,
+                    "cost": CARD_REFRESH_COST,
+                    "message": "Not enough treasure tokens.",
+                },
+            )
 
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
@@ -990,6 +1036,10 @@ async def refresh_card_price_liga(
         card_name=card_name,
         price=str(price),
     )
+
+    # Deduct credit after successful refresh (non-admin only)
+    if not user.is_admin:
+        credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
 
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
 

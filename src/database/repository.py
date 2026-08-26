@@ -12,6 +12,8 @@ from src.database.models import (
     CardLegalityRow,
     CardRow,
     CollectionErrorRow,
+    CreditBalanceRow,
+    CreditTransactionRow,
     DeckCardRow,
     DeckRow,
     ExchangeRateRow,
@@ -48,6 +50,10 @@ class Repository:
             if "preferred_language" not in columns:
                 with self.engine.begin() as conn:
                     sql = "ALTER TABLE users ADD COLUMN preferred_language VARCHAR(10) DEFAULT 'en'"
+                    conn.execute(text(sql))
+            if "is_admin" not in columns:
+                with self.engine.begin() as conn:
+                    sql = "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0"
                     conn.execute(text(sql))
 
     def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
@@ -2455,3 +2461,103 @@ class Repository:
             )
             rows = session.execute(stmt).all()
             return {r[0] for r in rows}
+
+    # --- Credit system methods ---
+
+    def get_credit_balance(self, user_id: int) -> CreditBalanceRow | None:
+        """Get the credit balance row for a user, or None if not yet created."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(CreditBalanceRow).where(CreditBalanceRow.user_id == user_id)
+            ).scalar_one_or_none()
+            if row:
+                session.expunge(row)
+            return row
+
+    def ensure_credit_balance(self, user_id: int) -> CreditBalanceRow:
+        """Get or create a credit balance row for a user (default balance=0)."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(CreditBalanceRow).where(CreditBalanceRow.user_id == user_id)
+            ).scalar_one_or_none()
+            if row is None:
+                row = CreditBalanceRow(user_id=user_id, balance=0)
+                session.add(row)
+                session.commit()
+                session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def update_credit_balance(
+        self,
+        user_id: int,
+        delta: int,
+        reason: str,
+        reference_id: str | None = None,
+    ) -> CreditBalanceRow:
+        """Update a user's credit balance by delta and log a transaction.
+
+        Args:
+            user_id: The user whose balance to update.
+            delta: Amount to add (positive) or subtract (negative).
+            reason: Transaction reason (e.g. "card_refresh", "bonus_claim").
+            reference_id: Optional reference (e.g. card ID, scan ID).
+
+        Returns:
+            The updated CreditBalanceRow.
+
+        Raises:
+            ValueError: If the resulting balance would be negative.
+        """
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(CreditBalanceRow).where(CreditBalanceRow.user_id == user_id)
+            ).scalar_one_or_none()
+            if row is None:
+                row = CreditBalanceRow(user_id=user_id, balance=0)
+                session.add(row)
+                session.flush()
+
+            new_balance = row.balance + delta
+            if new_balance < 0:
+                raise ValueError(f"Insufficient credits: balance={row.balance}, delta={delta}")
+
+            row.balance = new_balance
+            tx = CreditTransactionRow(
+                user_id=user_id,
+                amount=delta,
+                reason=reason,
+                reference_id=reference_id,
+            )
+            session.add(tx)
+            session.commit()
+            session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def get_credit_transactions(
+        self, user_id: int, limit: int = 50, offset: int = 0
+    ) -> list[CreditTransactionRow]:
+        """Get credit transactions for a user, newest first."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(CreditTransactionRow)
+                .where(CreditTransactionRow.user_id == user_id)
+                .order_by(CreditTransactionRow.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            rows = session.execute(stmt).scalars().all()
+            for r in rows:
+                session.expunge(r)
+            return list(rows)
+
+    def update_last_bonus_at(self, user_id: int, timestamp: datetime) -> None:
+        """Update last_bonus_at on a user's credit balance row."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(CreditBalanceRow).where(CreditBalanceRow.user_id == user_id)
+            ).scalar_one_or_none()
+            if row is not None:
+                row.last_bonus_at = timestamp
+                session.commit()

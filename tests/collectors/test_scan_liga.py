@@ -352,7 +352,7 @@ class TestRunScanLiga:
         )
 
         assert result.cards_failed == 1
-        assert result.cards_processed == 0
+        assert result.cards_processed == 1  # failed cards count as processed
 
     @patch("src.collectors.scan.Repository")
     async def test_liga_rate_limit_requeued(self, MockRepo):
@@ -402,7 +402,7 @@ class TestRunScanLiga:
         )
 
         assert result.cards_failed == 1
-        assert result.cards_processed == 0
+        assert result.cards_processed == 1  # failed cards count as processed
 
     @patch("src.collectors.scan.Repository")
     async def test_liga_generic_error_fails_card(self, MockRepo):
@@ -425,7 +425,7 @@ class TestRunScanLiga:
         )
 
         assert result.cards_failed == 1
-        assert result.cards_processed == 0
+        assert result.cards_processed == 1  # failed cards count as processed
 
     @patch("src.collectors.scan.Repository")
     async def test_liga_no_price_counted_as_processed(self, MockRepo):
@@ -605,7 +605,7 @@ class TestMypBackwardCompat:
         result = await run_scan(db_url="sqlite:///:memory:", concurrency=1)
 
         assert result.cards_failed == 1
-        assert result.cards_processed == 0
+        assert result.cards_processed == 1  # failed cards count as processed
 
     @patch("src.collectors.scan.MypCardsProvider")
     @patch("src.collectors.scan.Repository")

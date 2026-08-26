@@ -66,3 +66,8 @@ Each entry is a lesson that generalizes beyond a single bug.)
 ## F54 -- Trending List Layout + Gaucho Orthography + Ticker Animation (2026-08-23)
 
 - **Bundling independent frontend-only tasks into a single parallel wave is the right granularity for small improvements.** F54 had three tasks with zero dependencies between them (component layout, i18n string fixes, CSS animation tuning). All three shipped in one wave with no coordination overhead. When multiple small improvements touch different files with no overlap, bundle them into a single feature with parallel tasks rather than creating three separate features with their own overhead.
+
+## F65 -- Credit Token System (2026-08-26)
+
+- **When a feature wraps existing user actions in a new UX step (modal, confirmation, auth), explicitly list all affected test files in the task manifest.** F65's CreditConfirmModal wrapped refresh buttons that had 12 existing tests in a separate test file. The task manifest did not identify these as affected, so the developer did not update them. Architect should include a "Test Impact" section listing test files that exercise the wrapped actions.
+- **Deduct-after-success is the correct pattern for synchronous operations; deduct-before-launch is correct for async.** F65 correctly identified that single card refreshes should deduct only after price data is returned (synchronous), while bulk scans must deduct upfront because the background task cannot communicate back to the HTTP response. Document this distinction in the feature README so developers apply the right pattern to each endpoint type.

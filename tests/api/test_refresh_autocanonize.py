@@ -8,11 +8,27 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
+from src.api.deps import (
+    get_credit_service,
+    get_currency_converter_dep,
+    get_current_user,
+    get_db,
+    require_auth_or_api_key,
+)
 from src.api.routers.collection import router
+from src.credits.service import CreditService
 from src.database.models import UserCollectionRow
+from src.domain.models import User
 
 _TEST_USER_ID = "eduardo"
+
+_TEST_USER = User(
+    id=1,
+    email="test@example.com",
+    display_name="Test",
+    is_active=True,
+    is_admin=True,  # admin to bypass credit checks in existing tests
+)
 
 # Patch targets — refresh uses inline imports from these modules
 _PATCH_PROVIDER = "src.providers.myp.provider.MypCardsProvider"
@@ -52,11 +68,19 @@ def _make_converter():
     return converter
 
 
+def _make_credit_svc():
+    svc = MagicMock(spec=CreditService)
+    svc.check_sufficient.return_value = True
+    return svc
+
+
 def _make_app(mock_repo: MagicMock, user_id: str = _TEST_USER_ID) -> FastAPI:
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_db] = lambda: mock_repo
     app.dependency_overrides[require_auth_or_api_key] = lambda: user_id
+    app.dependency_overrides[get_current_user] = lambda: _TEST_USER
+    app.dependency_overrides[get_credit_service] = _make_credit_svc
     app.dependency_overrides[get_currency_converter_dep] = _make_converter
     return app
 

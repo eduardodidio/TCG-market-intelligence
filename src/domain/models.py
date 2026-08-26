@@ -450,6 +450,7 @@ class User:
     preferred_currency: str = "BRL"
     preferred_language: str = "en"
     is_active: bool = True
+    is_admin: bool = False
 
 
 # --- Scheduled scan domain models ---
@@ -581,3 +582,27 @@ class DeckCardDetail:
     collection_entry_id: int | None = None
     image_url: str | None = None
     latest_price: float | None = None
+
+
+# --- Credit system domain models ---
+
+
+@dataclass
+class CreditBalance:
+    """Current credit balance for a user."""
+
+    user_id: int
+    balance: int
+    last_bonus_at: datetime | None
+
+
+@dataclass
+class CreditTransaction:
+    """A single credit transaction log entry."""
+
+    id: int
+    user_id: int
+    amount: int
+    reason: str
+    reference_id: str | None
+    created_at: datetime

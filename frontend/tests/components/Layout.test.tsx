@@ -128,7 +128,7 @@ describe("Layout", () => {
   it("renders the app title", () => {
     renderLayout();
     // Title appears in both sidebar and mobile header
-    const titles = screen.getAllByText("TCG Market");
+    const titles = screen.getAllByText("TEDHC Market");
     expect(titles.length).toBeGreaterThanOrEqual(1);
   });
 

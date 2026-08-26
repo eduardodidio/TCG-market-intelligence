@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
+import { useCredits } from "../hooks/useCredits";
 import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, refreshCardPrice, refreshCardPriceLiga } from "../api/collection";
 import { fetchCardBanHistory } from "../api/banlist";
 import { useCardName } from "../hooks/useCardName";
@@ -10,6 +11,7 @@ import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { BanEventCard } from "../components/BanEventCard";
+import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { LegalityPanel } from "../components/LegalityPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -60,6 +62,9 @@ export function CollectionCardDetail() {
   const [refreshingLiga, setRefreshingLiga] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
   const [canonizing, setCanonizing] = useState(false);
+  const [creditModalOpen, setCreditModalOpen] = useState(false);
+  const [creditModalTarget, setCreditModalTarget] = useState<"liga" | "myp">("liga");
+  const { balance, isAdmin, refetch: refetchCredits } = useCredits();
 
   const handleRefresh = useCallback(async () => {
     if (refreshing || !entry || entry.card_id == null) return;
@@ -76,13 +81,19 @@ export function CollectionCardDetail() {
         const msg = res.errors?.[0]?.message || t("collection.refreshError");
         setRefreshMsg({ type: "error", text: `${msg}. ${t("collection.refreshFallbackHint")}` });
       }
-    } catch {
-      setRefreshMsg({ type: "error", text: `${t("collection.refreshError")}. ${t("collection.refreshFallbackHint")}` });
+    } catch (err: unknown) {
+      const status = (err as { status?: number })?.status;
+      if (status === 402) {
+        refetchCredits();
+        setRefreshMsg({ type: "error", text: t("credits.insufficient") });
+      } else {
+        setRefreshMsg({ type: "error", text: `${t("collection.refreshError")}. ${t("collection.refreshFallbackHint")}` });
+      }
     } finally {
       setRefreshing(false);
       setTimeout(() => setRefreshMsg(null), 3000);
     }
-  }, [refreshing, entry, entryId, currency, t, setEntry]);
+  }, [refreshing, entry, entryId, currency, t, setEntry, refetchCredits]);
 
   const handleRefreshLiga = useCallback(async () => {
     if (refreshingLiga || !entry) return;
@@ -107,13 +118,19 @@ export function CollectionCardDetail() {
         const msg = res.errors?.[0]?.message || t("collection.refreshLigaError");
         setRefreshMsg({ type: "error", text: msg });
       }
-    } catch {
-      setRefreshMsg({ type: "error", text: t("collection.refreshLigaError") });
+    } catch (err: unknown) {
+      const status = (err as { status?: number })?.status;
+      if (status === 402) {
+        refetchCredits();
+        setRefreshMsg({ type: "error", text: t("credits.insufficient") });
+      } else {
+        setRefreshMsg({ type: "error", text: t("collection.refreshLigaError") });
+      }
     } finally {
       setRefreshingLiga(false);
       setTimeout(() => setRefreshMsg(null), 5000);
     }
-  }, [refreshingLiga, entry, entryId, currency, t, setEntry]);
+  }, [refreshingLiga, entry, entryId, currency, t, setEntry, refetchCredits]);
 
   const handleCanonize = useCallback(async () => {
     if (canonizing || !entry || entry.card_id != null) return;
@@ -309,7 +326,7 @@ export function CollectionCardDetail() {
               {!!(entry.name_en || entry.name_pt) && (
                 <button
                   data-testid="refresh-liga-btn"
-                  onClick={handleRefreshLiga}
+                  onClick={() => { setCreditModalTarget("liga"); setCreditModalOpen(true); }}
                   disabled={refreshingLiga}
                   title={t("collection.refreshLigaTooltip")}
                   className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
@@ -334,7 +351,7 @@ export function CollectionCardDetail() {
               {entry.card_id != null && (
                 <button
                   data-testid="refresh-price-btn"
-                  onClick={handleRefresh}
+                  onClick={() => { setCreditModalTarget("myp"); setCreditModalOpen(true); }}
                   disabled={refreshing}
                   title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
                   className="inline-flex items-center gap-1.5 rounded-md border border-slate-500 bg-transparent hover:bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
@@ -512,6 +529,23 @@ export function CollectionCardDetail() {
       {entry.card_id != null && (
         <BanHistorySection cardId={entry.card_id} />
       )}
+
+      <CreditConfirmModal
+        isOpen={creditModalOpen}
+        onCancel={() => setCreditModalOpen(false)}
+        onConfirm={() => {
+          setCreditModalOpen(false);
+          if (creditModalTarget === "liga") {
+            handleRefreshLiga();
+          } else {
+            handleRefresh();
+          }
+        }}
+        cost={1}
+        balance={balance ?? 0}
+        actionLabel={t("credits.refreshCost")}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

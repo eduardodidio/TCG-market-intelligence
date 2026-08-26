@@ -9,6 +9,7 @@ import { ExchangeRateBanner } from "./ExchangeRateBanner";
 import { GauchoDialog } from "./GauchoDialog";
 import { LanguageSelector } from "./LanguageSelector";
 import { MarketTicker } from "./MarketTicker";
+import { TreasureBalance } from "./TreasureBalance";
 
 const NAV_ITEMS = [
   { to: "/", labelKey: "nav.dashboard", requiresAuth: false },
@@ -82,7 +83,9 @@ export function Layout() {
         data-testid="sidebar"
       >
         <div className="flex items-center h-16 px-6 border-b border-slate-600">
-          <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">TCG Market</h1>
+          <Link to="/" className="no-underline">
+            <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent cursor-pointer">TEDHC Market</h1>
+          </Link>
         </div>
         {/* User avatar / sign-in */}
         <div
@@ -123,6 +126,12 @@ export function Layout() {
             </Link>
           )}
         </div>
+        {/* Treasure token balance */}
+        {isAuthenticated && (
+          <div className="border-b border-slate-600 py-1" data-testid="treasure-balance-section">
+            <TreasureBalance />
+          </div>
+        )}
         {/* Currency toggle */}
         <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-600">
           <CurrencyToggle />
@@ -180,7 +189,9 @@ export function Layout() {
               />
             </svg>
           </button>
-          <span className="ml-3 text-lg font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">TCG Market</span>
+          <Link to="/" className="ml-3 no-underline">
+            <span className="text-lg font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">TEDHC Market</span>
+          </Link>
         </header>
 
         {/* Exchange rate banner */}

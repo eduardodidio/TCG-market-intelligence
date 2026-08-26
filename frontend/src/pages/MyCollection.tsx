@@ -26,7 +26,9 @@ import { DEFAULT_PAGE_LIMIT, GRID_SIZE_CONFIG } from "../utils/constants";
 import { fetchCollectionHealth } from "../api/collect";
 import { useCardName } from "../hooks/useCardName";
 import { useCollectionRefresh } from "../hooks/useCollectionRefresh";
+import { useCredits } from "../hooks/useCredits";
 import { useCurrency } from "../hooks/useCurrency";
+import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
@@ -53,6 +55,8 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [creditModalOpen, setCreditModalOpen] = useState(false);
+  const { balance, isAdmin, refetch: refetchCredits } = useCredits();
 
   // Primary image: backend-provided URL (Scryfall by set/number)
   // Fallback: Scryfall by exact card name
@@ -126,15 +130,10 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
         {card.card_id != null && onRefresh && (
           <button
             data-testid={`refresh-card-${card.id}`}
-            onClick={async (e) => {
+            onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setRefreshing(true);
-              try {
-                await onRefresh(card.id, currencyOverride);
-              } finally {
-                setRefreshing(false);
-              }
+              setCreditModalOpen(true);
             }}
             disabled={refreshing}
             title={t("collection.refresh")}
@@ -224,7 +223,32 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   );
 
   // All collection cards link to the collection detail page
-  return <Link to={`/collection/${card.id}`}>{inner}</Link>;
+  return (
+    <>
+      <Link to={`/collection/${card.id}`}>{inner}</Link>
+      <CreditConfirmModal
+        isOpen={creditModalOpen}
+        onCancel={() => setCreditModalOpen(false)}
+        onConfirm={async () => {
+          setCreditModalOpen(false);
+          if (!onRefresh) return;
+          setRefreshing(true);
+          try {
+            await onRefresh(card.id, currencyOverride);
+          } catch (err: unknown) {
+            const status = (err as { status?: number })?.status;
+            if (status === 402) refetchCredits();
+          } finally {
+            setRefreshing(false);
+          }
+        }}
+        cost={1}
+        balance={balance ?? 0}
+        actionLabel={t("credits.refreshCost")}
+        isAdmin={isAdmin}
+      />
+    </>
+  );
 }
 
 export function MyCollection() {
@@ -258,6 +282,8 @@ export function MyCollection() {
   const [scanStartTime, setScanStartTime] = useState(0);
   const [lastCollectionAt, setLastCollectionAt] = useState<string | null>(null);
   const [healthStatus, setHealthStatus] = useState<string>("healthy");
+  const [bulkCreditModalOpen, setBulkCreditModalOpen] = useState(false);
+  const { balance: creditBalance, isAdmin: creditIsAdmin } = useCredits();
 
   const debouncedSearch = useDebounce(searchTerm, 300);
   const fetchIdRef = useRef(0);
@@ -571,7 +597,7 @@ export function MyCollection() {
           {!isRefreshing && !refreshDone && !refreshError && (
             <button
               type="button"
-              onClick={startRefresh}
+              onClick={() => setBulkCreditModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
                 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg
                 transition-colors duration-200"
@@ -675,6 +701,19 @@ export function MyCollection() {
           )}
         </>
       )}
+
+      <CreditConfirmModal
+        isOpen={bulkCreditModalOpen}
+        onCancel={() => setBulkCreditModalOpen(false)}
+        onConfirm={() => {
+          setBulkCreditModalOpen(false);
+          startRefresh();
+        }}
+        cost={5}
+        balance={creditBalance ?? 0}
+        actionLabel={t("credits.scanCost")}
+        isAdmin={creditIsAdmin}
+      />
     </div>
   );
 }

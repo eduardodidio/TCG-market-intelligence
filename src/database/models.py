@@ -204,6 +204,7 @@ class UserRow(Base):
     preferred_currency: Mapped[str] = mapped_column(String(10), default="BRL")
     preferred_language: Mapped[str] = mapped_column(String(10), default="en")
     is_active: Mapped[int] = mapped_column(Integer, default=1)
+    is_admin: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now
@@ -277,4 +278,34 @@ class DeckCardRow(Base):
     __table_args__ = (
         Index("ix_deck_cards_deck", "deck_id"),
         Index("ix_deck_cards_card", "card_id"),
+    )
+
+
+class CreditBalanceRow(Base):
+    __tablename__ = "credit_balances"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    balance: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_bonus_at: Mapped[datetime | None] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    __table_args__ = (Index("ix_credit_balance_user", "user_id"),)
+
+
+class CreditTransactionRow(Base):
+    __tablename__ = "credit_transactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(String(50), nullable=False)
+    reference_id: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        Index("ix_credit_tx_user", "user_id"),
+        Index("ix_credit_tx_user_date", "user_id", "created_at"),
     )

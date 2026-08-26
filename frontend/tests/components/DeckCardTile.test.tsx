@@ -1,8 +1,20 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { DeckCardTile } from "../../src/components/DeckCardTile";
 import type { DeckCard } from "../../src/types/api";
+
+vi.mock("../../src/hooks/useCredits", () => ({
+  useCredits: () => ({
+    balance: 10,
+    bonusEligible: false,
+    nextBonusAt: null,
+    isAdmin: false,
+    loading: false,
+    refetch: vi.fn(),
+    claimBonus: vi.fn(),
+  }),
+}));
 
 function renderTile(card: DeckCard, onRefresh?: (entryId: number) => Promise<void>) {
   return render(
@@ -119,13 +131,21 @@ describe("DeckCardTile", () => {
     expect(screen.queryByTestId(`refresh-deck-card-${OWNED_CARD.id}`)).toBeNull();
   });
 
-  it("calls onRefresh with collection_entry_id when refresh button clicked", async () => {
+  it("opens credit modal on refresh click and calls onRefresh on confirm", async () => {
     const onRefresh = vi.fn().mockResolvedValue(undefined);
     renderTile(OWNED_CARD, onRefresh);
 
     const refreshBtn = screen.getByTestId(`refresh-deck-card-${OWNED_CARD.id}`);
-    refreshBtn.click();
+    fireEvent.click(refreshBtn);
 
-    expect(onRefresh).toHaveBeenCalledWith(OWNED_CARD.collection_entry_id);
+    // Modal should be open
+    expect(screen.getByTestId("credit-confirm-modal")).toBeTruthy();
+
+    // Click confirm
+    fireEvent.click(screen.getByTestId("modal-confirm-btn"));
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledWith(OWNED_CARD.collection_entry_id);
+    });
   });
 });

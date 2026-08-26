@@ -219,7 +219,7 @@ class TestRunScan:
         result = await run_scan(db_url="sqlite:///:memory:", concurrency=1)
 
         assert result.cards_total == 3
-        assert result.cards_processed == 2
+        assert result.cards_processed == 3  # includes failed cards
         assert result.cards_failed == 1
         assert result.observations_saved == 2
         assert result.status == "completed"  # 1/3 failed <= 50%
@@ -250,7 +250,7 @@ class TestRunScan:
 
         assert result.cards_total == 3
         assert result.cards_failed == 2
-        assert result.cards_processed == 1
+        assert result.cards_processed == 3  # includes failed cards
         assert result.status == "failed"  # 2/3 > 50%
 
     @patch("src.collectors.scan.MypCardsProvider")
@@ -360,7 +360,7 @@ class TestScanRequeue:
         result = await run_scan(db_url="sqlite:///:memory:", concurrency=1)
 
         assert result.cards_failed == 1
-        assert result.cards_processed == 0
+        assert result.cards_processed == 1  # failed cards count as processed
 
     @patch("src.collectors.scan.MypCardsProvider")
     @patch("src.collectors.scan.Repository")
@@ -403,7 +403,7 @@ class TestScanRequeue:
         result = await run_scan(db_url="sqlite:///:memory:", concurrency=1, delay=0)
 
         assert result.cards_failed == 1
-        assert result.cards_processed == 0
+        assert result.cards_processed == 1  # failed cards count as processed
 
     @patch("src.collectors.scan.MypCardsProvider")
     @patch("src.collectors.scan.Repository")
@@ -432,7 +432,7 @@ class TestScanRequeue:
         result = await run_scan(db_url="sqlite:///:memory:", concurrency=1, delay=0)
 
         assert result.cards_failed == 1  # only the 404
-        assert result.cards_processed == 2  # ok-card + retried card
+        assert result.cards_processed == 3  # 404 + ok-card + retried card (all count)
         assert result.observations_saved == 2
 
     @patch("src.collectors.scan.MypCardsProvider")
@@ -450,4 +450,4 @@ class TestScanRequeue:
         result = await run_scan(db_url="sqlite:///:memory:", concurrency=1)
 
         assert result.cards_failed == 1
-        assert result.cards_processed == 0
+        assert result.cards_processed == 1  # failed cards count as processed

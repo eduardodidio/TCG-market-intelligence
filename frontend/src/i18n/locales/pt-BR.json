@@ -91,7 +91,7 @@
     "setsLoadError": "Falha ao carregar filtro de edicoes"
   },
   "cardDetail": {
-    "pageTitle": "Detalhe da Carta | TCG Market",
+    "pageTitle": "Detalhe da Carta | TEDHC Market",
     "notFoundTitle": "Carta nao encontrada",
     "notFoundMessage": "Carta nao encontrada. Ela pode ainda nao ter sido sincronizada.",
     "backToCards": "Voltar para Cartas",
@@ -203,7 +203,7 @@
     "summaryUnlinkedHint": "{{count}} carta(s) nao puderam ser vinculadas a sua colecao."
   },
   "auth": {
-    "appTitle": "TCG Market",
+    "appTitle": "TEDHC Market",
     "createAccount": "Crie sua conta",
     "signInAccount": "Entre na sua conta",
     "displayName": "Nome de Exibicao",
@@ -496,7 +496,7 @@
     "insufficientData": "Dados insuficientes"
   },
   "landing": {
-    "heroTitle": "TCG Market Intelligence",
+    "heroTitle": "TEDHC Market",
     "heroSubtitle": "Acompanhe precos, identifique tendencias, gerencie sua colecao",
     "cardsTracked": "Cards rastreados",
     "observations": "Observacoes de preco",
@@ -608,5 +608,22 @@
       "opt2": "não",
       "reply2": "tá te michando p importar o ouro aqui!?"
     }
+  },
+  "credits": {
+    "balance": "Fichas de Tesouro",
+    "claimBonus": "Resgatar Bonus",
+    "bonusAvailable": "Bonus disponivel!",
+    "nextBonus": "Proximo bonus as {{time}}",
+    "admin": "Admin",
+    "confirmTitle": "Gastar Fichas de Tesouro?",
+    "confirmCost": "Esta acao custa {{cost}} ficha(s)",
+    "confirmBalance": "Seu saldo: {{balance}}",
+    "balanceAfter": "Saldo apos: {{balance}}",
+    "insufficient": "Fichas insuficientes!",
+    "spend": "Gastar {{cost}} Ficha",
+    "cancel": "Cancelar",
+    "adminBypass": "Admin — sem custo",
+    "refreshCost": "Atualizar preco",
+    "scanCost": "Executar scan de precos"
   }
 }

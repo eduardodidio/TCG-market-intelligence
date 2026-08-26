@@ -136,7 +136,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """FastAPI application factory."""
     app = FastAPI(
-        title="TCG Market Intelligence API",
+        title="TEDHC Market API",
         version="0.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
@@ -168,6 +168,7 @@ def create_app() -> FastAPI:
     from src.api.routers.cards import router as cards_router
     from src.api.routers.collect import router as collect_router
     from src.api.routers.collection import router as collection_router
+    from src.api.routers.credits import router as credits_router
     from src.api.routers.decks import router as decks_router
     from src.api.routers.exchange_rates import router as exchange_rates_router
     from src.api.routers.market import router as market_router
@@ -177,6 +178,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(cards_router, prefix="/api/v1")
+    app.include_router(credits_router, prefix="/api/v1")
     app.include_router(sets_router, prefix="/api/v1")
     app.include_router(market_router, prefix="/api/v1")
     app.include_router(collect_router, prefix="/api/v1")

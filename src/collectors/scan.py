@@ -185,6 +185,15 @@ async def run_scan(
         sem = asyncio.Semaphore(concurrency)
         lock = asyncio.Lock()
 
+        def _persist_progress() -> None:
+            """Persist current scan counters to the database so polling clients see updates."""
+            repo.update_scan_run(
+                run_id,
+                cards_processed=cards_processed,
+                cards_failed=cards_failed,
+                observations_saved=observations_saved,
+            )
+
         async def process_entry(entry: dict, index: int, attempt: int = 1) -> None:
             nonlocal cards_processed, cards_failed, observations_saved
 
@@ -216,6 +225,7 @@ async def run_scan(
                             )
                 except (NotFoundError, LigaNotFoundError) as e:
                     async with lock:
+                        cards_processed += 1
                         cards_failed += 1
                         error_messages.append(f"{entry_ident}: NotFoundError: {e}")
                         scan_bus.publish(
@@ -233,6 +243,7 @@ async def run_scan(
                                 observations_saved=observations_saved,
                             )
                         )
+                        _persist_progress()
                     log.warning(
                         "scan_not_found",
                         run_id=run_id,
@@ -253,6 +264,7 @@ async def run_scan(
                         )
                         return
                     async with lock:
+                        cards_processed += 1
                         cards_failed += 1
                         error_messages.append(f"{entry_ident}: RateLimitError: {e}")
                         scan_bus.publish(
@@ -270,6 +282,7 @@ async def run_scan(
                                 observations_saved=observations_saved,
                             )
                         )
+                        _persist_progress()
                     log.warning(
                         "scan_rate_limited_exhausted",
                         run_id=run_id,
@@ -279,6 +292,7 @@ async def run_scan(
                     return
                 except (LigaError, Exception) as e:
                     async with lock:
+                        cards_processed += 1
                         cards_failed += 1
                         error_messages.append(f"{entry_ident}: {type(e).__name__}: {e}")
                         scan_bus.publish(
@@ -296,6 +310,7 @@ async def run_scan(
                                 observations_saved=observations_saved,
                             )
                         )
+                        _persist_progress()
                     log.warning(
                         "scan_fetch_error",
                         run_id=run_id,
@@ -322,6 +337,7 @@ async def run_scan(
                                 observations_saved=observations_saved,
                             )
                         )
+                        _persist_progress()
                     log.debug(
                         "scan_skip_no_price",
                         external_id=entry_ident,
@@ -351,6 +367,7 @@ async def run_scan(
                             observations_saved=observations_saved,
                         )
                     )
+                    _persist_progress()
 
                 log.info(
                     "scan_stored",

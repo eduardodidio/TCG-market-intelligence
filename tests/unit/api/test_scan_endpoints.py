@@ -8,17 +8,40 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from src.api.deps import get_credit_service, get_current_user, require_auth_or_api_key
 from src.api.routers.scans import router
+from src.domain.models import User
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+_TEST_USER = User(
+    id=1,
+    email="test@example.com",
+    display_name="Test",
+    is_active=True,
+    is_admin=True,  # admin so existing tests bypass credit checks
+)
+
+
+def _make_credit_svc() -> MagicMock:
+    """Return a mock CreditService that always allows."""
+    from src.credits.service import CreditService
+
+    svc = MagicMock(spec=CreditService)
+    svc.check_sufficient.return_value = True
+    return svc
 
 
 def _make_app() -> FastAPI:
     """Create a fresh FastAPI app with the scans router."""
     test_app = FastAPI()
     test_app.include_router(router)
+    # Override auth + credit deps so tests don't need real JWT/DB
+    test_app.dependency_overrides[require_auth_or_api_key] = lambda: str(_TEST_USER.id)
+    test_app.dependency_overrides[get_current_user] = lambda: _TEST_USER
+    test_app.dependency_overrides[get_credit_service] = _make_credit_svc
     return test_app
 
 
@@ -113,7 +136,9 @@ class TestTriggerScan:
         """POST /scans returns 401 without a valid X-API-Key."""
         monkeypatch.setenv("TCG_API_KEY", "secret-key-99")
 
-        app = _make_app()
+        # Use raw app without dependency overrides to test real auth
+        app = FastAPI()
+        app.include_router(router)
         client = TestClient(app)
 
         # No header -> 401
@@ -143,7 +168,11 @@ class TestTriggerScan:
         mock_repo_cls.return_value = mock_repo
         mock_thread_cls.return_value = MagicMock()
 
-        app = _make_app()
+        # Use raw app but override credit deps (API key auth skips get_current_user)
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_current_user] = lambda: _TEST_USER
+        app.dependency_overrides[get_credit_service] = _make_credit_svc
         client = TestClient(app)
 
         resp = client.post(

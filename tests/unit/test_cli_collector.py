@@ -268,7 +268,7 @@ class TestCLIGroup:
         result = runner.invoke(cli, ["--help"])
 
         assert result.exit_code == 0
-        assert "TCG Market Intelligence" in result.output
+        assert "TEDHC Market" in result.output
 
     def test_backfill_help(self):
         """backfill --help shows all options."""

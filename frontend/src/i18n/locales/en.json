@@ -91,7 +91,7 @@
     "setsLoadError": "Failed to load sets filter"
   },
   "cardDetail": {
-    "pageTitle": "Card Detail | TCG Market",
+    "pageTitle": "Card Detail | TEDHC Market",
     "notFoundTitle": "Card not found",
     "notFoundMessage": "Card not found. It may not have been synced yet.",
     "backToCards": "Back to Cards",
@@ -203,7 +203,7 @@
     "summaryUnlinkedHint": "{{count}} card(s) could not be matched to your collection."
   },
   "auth": {
-    "appTitle": "TCG Market",
+    "appTitle": "TEDHC Market",
     "createAccount": "Create your account",
     "signInAccount": "Sign in to your account",
     "displayName": "Display Name",
@@ -496,7 +496,7 @@
     "insufficientData": "Not enough data"
   },
   "landing": {
-    "heroTitle": "TCG Market Intelligence",
+    "heroTitle": "TEDHC Market",
     "heroSubtitle": "Track prices, spot trends, manage your collection",
     "cardsTracked": "Cards tracked",
     "observations": "Price observations",
@@ -608,5 +608,22 @@
       "opt2": "não",
       "reply2": "tá te michando p importar o ouro aqui!?"
     }
+  },
+  "credits": {
+    "balance": "Treasure Tokens",
+    "claimBonus": "Claim Bonus",
+    "bonusAvailable": "Bonus available!",
+    "nextBonus": "Next bonus at {{time}}",
+    "admin": "Admin",
+    "confirmTitle": "Spend Treasure Tokens?",
+    "confirmCost": "This action costs {{cost}} token(s)",
+    "confirmBalance": "Your balance: {{balance}}",
+    "balanceAfter": "Balance after: {{balance}}",
+    "insufficient": "Insufficient tokens!",
+    "spend": "Spend {{cost}} Token",
+    "cancel": "Cancel",
+    "adminBypass": "Admin — no cost",
+    "refreshCost": "Refresh price",
+    "scanCost": "Run price scan"
   }
 }

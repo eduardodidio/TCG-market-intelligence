@@ -35,6 +35,7 @@ class UserProfile(BaseModel):
     preferred_currency: str = "BRL"
     preferred_language: str = "en"
     is_active: bool
+    is_admin: bool = False
 
 
 class PreferencesUpdate(BaseModel):

@@ -127,7 +127,7 @@ describe("Dashboard", () => {
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText("TCG Market Intelligence")).toBeDefined();
+      expect(screen.getByText("TEDHC Market")).toBeDefined();
     });
 
     expect(
@@ -247,7 +247,7 @@ describe("Dashboard", () => {
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText("TCG Market Intelligence")).toBeDefined();
+      expect(screen.getByText("TEDHC Market")).toBeDefined();
     });
 
     // The old "My Collection" title in the hero section is replaced
