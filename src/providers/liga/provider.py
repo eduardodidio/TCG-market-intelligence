@@ -67,6 +67,7 @@ class LigaMagicProvider(CardSourceProvider):
         self._context = None
         self._page = None
         self._request_count = 0
+        self._lock = asyncio.Lock()
 
     @property
     def source_name(self) -> str:
@@ -125,19 +126,32 @@ class LigaMagicProvider(CardSourceProvider):
             await self.open()
         return self._page
 
+    async def _reset_browser(self) -> None:
+        """Best-effort browser cleanup for recovery after crashes."""
+        try:
+            if self._browser:
+                await self._browser.close()
+        except Exception:
+            pass
+        try:
+            if self._playwright:
+                await self._playwright.stop()
+        except Exception:
+            pass
+        self._browser = None
+        self._context = None
+        self._page = None
+        self._playwright = None
+        # Brief pause to let Playwright subprocess fully exit before re-open
+        await asyncio.sleep(0.5)
+        log.info("liga_browser_reset")
+
     async def _fetch_page(self, url: str) -> str:
         """Navigate to URL and return rendered HTML.
 
         Applies rate limiting, retries on failure, and raises typed
         exceptions based on HTTP status.
         """
-        # Import Playwright error lazily (playwright may not be installed)
-        try:
-            from playwright.async_api import Error as PlaywrightError
-        except ImportError:
-            PlaywrightError = type(None)  # type: ignore[misc,assignment]
-
-        page = await self._ensure_page()
         last_status = 0
         timeout_ms = int(self.config.timeout_seconds * 1000)
 
@@ -148,6 +162,7 @@ class LigaMagicProvider(CardSourceProvider):
             self._request_count += 1
 
             try:
+                page = await self._ensure_page()
                 response = await page.goto(
                     url,
                     wait_until="networkidle",
@@ -220,14 +235,19 @@ class LigaMagicProvider(CardSourceProvider):
 
                 return await page.content()
 
-            except (TimeoutError, OSError, PlaywrightError) as e:
+            except LigaError:
+                raise
+            except Exception as e:
                 log.warning(
                     "liga_request_error",
                     url=url,
                     attempt=attempt,
-                    error=str(e),
+                    error=str(e) or "(no message)",
                     exc_type=type(e).__name__,
                 )
+                # Reset browser on non-timeout errors (likely dead browser/page)
+                if not isinstance(e, TimeoutError):
+                    await self._reset_browser()
                 if attempt == self.config.max_retries:
                     etype = type(e).__name__
                     msg = (
@@ -280,6 +300,10 @@ class LigaMagicProvider(CardSourceProvider):
         Navigates to the card page, extracts prices using the parser,
         and returns a PriceSnapshot domain object.
         """
+        async with self._lock:
+            return await self._get_current_price_unlocked(card)
+
+    async def _get_current_price_unlocked(self, card: SourceCard) -> PriceSnapshot | None:
         card_name = ""
         if card.identity and card.identity.name_en:
             card_name = card.identity.name_en
@@ -342,6 +366,10 @@ class LigaMagicProvider(CardSourceProvider):
         if not card_name or not card_name.strip():
             return parse_card_prices("", card_name)
 
+        async with self._lock:
+            return await self._search_card_unlocked(card_name)
+
+    async def _search_card_unlocked(self, card_name: str) -> dict:
         url = _build_card_url(card_name)
 
         try:

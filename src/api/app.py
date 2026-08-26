@@ -56,6 +56,19 @@ async def lifespan(app: FastAPI):
 
         registry = get_provider_registry()
         app.state.provider_registry = registry
+
+        # Open Liga browser at startup (avoids lazy-init edge cases)
+        try:
+            from src.providers.liga.provider import LigaMagicProvider
+
+            for provider in registry.providers:
+                if isinstance(provider, LigaMagicProvider):
+                    await provider.open()
+        except Exception:
+            import structlog
+
+            log = structlog.get_logger()
+            log.warning("liga_browser_startup_failed", exc_info=True)
     except Exception:
         import structlog
 
@@ -97,6 +110,18 @@ async def lifespan(app: FastAPI):
 
     if hasattr(app.state, "scheduler"):
         app.state.scheduler.shutdown()
+
+    # Close Liga browser on shutdown
+    try:
+        registry = getattr(app.state, "provider_registry", None)
+        if registry:
+            from src.providers.liga.provider import LigaMagicProvider
+
+            for provider in registry.providers:
+                if isinstance(provider, LigaMagicProvider):
+                    await provider.close()
+    except Exception:
+        pass
 
     # Clear cache on shutdown
     try:
