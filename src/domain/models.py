@@ -606,3 +606,44 @@ class CreditTransaction:
     reason: str
     reference_id: str | None
     created_at: datetime
+
+
+# --- Marketplace / trading domain models ---
+
+
+@dataclass
+class SharedCollection:
+    """Tracks whether a user's collection is publicly shared."""
+
+    user_id: int
+    is_shared: bool
+    share_code: str
+    shared_at: datetime | None
+
+
+@dataclass
+class TradeInterest:
+    """Expression of interest from a buyer for a seller's card."""
+
+    id: int
+    buyer_user_id: int
+    seller_user_id: int
+    collection_entry_id: int
+    status: str
+    message: str | None
+    estimated_fee: int
+    card_price_at_interest: Decimal | None
+    created_at: datetime
+
+
+@dataclass
+class TradeAgreement:
+    """Finalized trade agreement between buyer and seller."""
+
+    id: int
+    trade_interest_id: int
+    buyer_confirmed: bool
+    seller_confirmed: bool
+    buyer_fee_charged: int
+    seller_fee_charged: int
+    completed_at: datetime | None

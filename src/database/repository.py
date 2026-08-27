@@ -21,7 +21,10 @@ from src.database.models import (
     PriceObservationRow,
     ScanRunRow,
     ScheduledScanRow,
+    SharedCollectionRow,
     SourceCardRow,
+    TradeAgreementRow,
+    TradeInterestRow,
     UserCollectionRow,
     UserRow,
 )
@@ -2703,3 +2706,300 @@ class Repository:
                 "total_collection_entries": total_collection_entries,
                 "total_scans": total_scans,
             }
+
+    # ── Marketplace / Trading ────────────────────────────────────────────
+
+    def get_shared_collection(self, user_id: int) -> SharedCollectionRow | None:
+        """Get the shared collection row for a user, or None."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(SharedCollectionRow).where(SharedCollectionRow.user_id == user_id)
+            ).scalar_one_or_none()
+            if row:
+                session.expunge(row)
+            return row
+
+    def set_sharing(self, user_id: int, is_shared: bool) -> SharedCollectionRow:
+        """Enable or disable sharing for a user's collection.
+
+        Creates the row on first call, auto-generating a unique share_code.
+        Returns the updated SharedCollectionRow.
+        """
+        import secrets
+
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(SharedCollectionRow).where(SharedCollectionRow.user_id == user_id)
+            ).scalar_one_or_none()
+
+            now = datetime.now()
+
+            if row is None:
+                share_code = secrets.token_urlsafe(12)[:16]
+                row = SharedCollectionRow(
+                    user_id=user_id,
+                    is_shared=1 if is_shared else 0,
+                    share_code=share_code,
+                    shared_at=now if is_shared else None,
+                )
+                session.add(row)
+            else:
+                row.is_shared = 1 if is_shared else 0
+                if is_shared and row.shared_at is None:
+                    row.shared_at = now
+
+            session.commit()
+            session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def list_shared_collections(self, limit: int = 50, offset: int = 0) -> list[dict]:
+        """List publicly shared collections (anonymized — no user_id or email).
+
+        Returns dicts with: id, share_code, shared_at, updated_at.
+        Only rows with is_shared=1 are returned.
+        """
+        with Session(self.engine) as session:
+            stmt = (
+                select(SharedCollectionRow)
+                .where(SharedCollectionRow.is_shared == 1)
+                .order_by(SharedCollectionRow.shared_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            rows = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "id": r.id,
+                    "share_code": r.share_code,
+                    "shared_at": r.shared_at.isoformat() if r.shared_at else None,
+                    "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                }
+                for r in rows
+            ]
+
+    def get_shared_collection_by_code(self, share_code: str) -> SharedCollectionRow | None:
+        """Look up a shared collection by its share_code."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(SharedCollectionRow).where(
+                    SharedCollectionRow.share_code == share_code,
+                    SharedCollectionRow.is_shared == 1,
+                )
+            ).scalar_one_or_none()
+            if row:
+                session.expunge(row)
+            return row
+
+    def create_trade_interest(
+        self,
+        buyer_user_id: int,
+        seller_user_id: int,
+        collection_entry_id: int,
+        message: str | None = None,
+        estimated_fee: int = 2,
+        card_price_at_interest: Decimal | None = None,
+    ) -> TradeInterestRow:
+        """Create a new trade interest. Returns the created row."""
+        with Session(self.engine) as session:
+            row = TradeInterestRow(
+                buyer_user_id=buyer_user_id,
+                seller_user_id=seller_user_id,
+                collection_entry_id=collection_entry_id,
+                message=message,
+                estimated_fee=estimated_fee,
+                card_price_at_interest=card_price_at_interest,
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def get_trade_interest(self, trade_interest_id: int) -> TradeInterestRow | None:
+        """Get a trade interest by ID."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(TradeInterestRow).where(TradeInterestRow.id == trade_interest_id)
+            ).scalar_one_or_none()
+            if row:
+                session.expunge(row)
+            return row
+
+    def update_trade_interest_status(
+        self, trade_interest_id: int, status: str
+    ) -> TradeInterestRow | None:
+        """Update the status of a trade interest. Returns updated row or None."""
+        valid_statuses = {"pending", "accepted", "rejected", "completed", "cancelled"}
+        if status not in valid_statuses:
+            raise ValueError(f"Invalid trade interest status: {status}")
+
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(TradeInterestRow).where(TradeInterestRow.id == trade_interest_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            row.status = status
+            session.commit()
+            session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def get_user_trades(
+        self, user_id: int, limit: int = 50, offset: int = 0
+    ) -> list[TradeInterestRow]:
+        """Get trade interests where the user is buyer or seller, newest first."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(TradeInterestRow)
+                .where(
+                    (TradeInterestRow.buyer_user_id == user_id)
+                    | (TradeInterestRow.seller_user_id == user_id)
+                )
+                .order_by(TradeInterestRow.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            rows = session.execute(stmt).scalars().all()
+            for r in rows:
+                session.expunge(r)
+            return list(rows)
+
+    def create_trade_agreement(self, trade_interest_id: int) -> TradeAgreementRow:
+        """Create a trade agreement for an accepted trade interest."""
+        with Session(self.engine) as session:
+            row = TradeAgreementRow(trade_interest_id=trade_interest_id)
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def get_trade_agreement(self, agreement_id: int) -> TradeAgreementRow | None:
+        """Get a trade agreement by ID."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(TradeAgreementRow).where(TradeAgreementRow.id == agreement_id)
+            ).scalar_one_or_none()
+            if row:
+                session.expunge(row)
+            return row
+
+    def get_trade_agreement_by_interest(self, trade_interest_id: int) -> TradeAgreementRow | None:
+        """Get a trade agreement by trade interest ID."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(TradeAgreementRow).where(
+                    TradeAgreementRow.trade_interest_id == trade_interest_id
+                )
+            ).scalar_one_or_none()
+            if row:
+                session.expunge(row)
+            return row
+
+    def update_trade_agreement(self, agreement_id: int, **kwargs) -> TradeAgreementRow | None:
+        """Update a trade agreement with the given fields. Returns updated row or None."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(TradeAgreementRow).where(TradeAgreementRow.id == agreement_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            for key, value in kwargs.items():
+                if hasattr(row, key):
+                    setattr(row, key, value)
+            session.commit()
+            session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def list_marketplace_entries(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        set_code: str | None = None,
+        search: str | None = None,
+        exclude_user_id: int | None = None,
+        share_code: str | None = None,
+    ) -> list[dict]:
+        """List cards from shared collections for the marketplace.
+
+        Returns anonymized card data with share_code (no user_id/email).
+        Joins shared_collections -> user_collection to get card details.
+        """
+        from sqlalchemy import String as SAString
+        from sqlalchemy import cast as sa_cast
+
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    SharedCollectionRow.share_code,
+                    UserCollectionRow.id.label("entry_id"),
+                    UserCollectionRow.name_en,
+                    UserCollectionRow.name_pt,
+                    UserCollectionRow.set_code,
+                    UserCollectionRow.collector_number,
+                    UserCollectionRow.rarity,
+                    UserCollectionRow.quantity,
+                    UserCollectionRow.card_id,
+                )
+                .join(
+                    UserCollectionRow,
+                    sa_cast(SharedCollectionRow.user_id, SAString) == UserCollectionRow.user_id,
+                )
+                .where(SharedCollectionRow.is_shared == 1)
+            )
+
+            if share_code is not None:
+                stmt = stmt.where(SharedCollectionRow.share_code == share_code)
+
+            if exclude_user_id is not None:
+                stmt = stmt.where(SharedCollectionRow.user_id != exclude_user_id)
+
+            if set_code:
+                stmt = stmt.where(UserCollectionRow.set_code == set_code)
+
+            if search:
+                pattern = f"%{search}%"
+                stmt = stmt.where(
+                    UserCollectionRow.name_en.ilike(pattern)
+                    | UserCollectionRow.name_pt.ilike(pattern)
+                )
+
+            stmt = stmt.order_by(UserCollectionRow.name_en.asc())
+            stmt = stmt.limit(limit).offset(offset)
+
+            rows = session.execute(stmt).all()
+
+            # Batch-fetch latest prices for cards that have card_id
+            card_ids = [r.card_id for r in rows if r.card_id is not None]
+            prices: dict = {}
+            if card_ids:
+                prices = self.get_latest_prices_batch(card_ids)
+
+            from src.marketplace.fees import calculate_trade_fee
+
+            result = []
+            for r in rows:
+                price = None
+                if r.card_id is not None:
+                    obs = prices.get(r.card_id)
+                    if obs is not None:
+                        price = obs.median_price
+
+                result.append(
+                    {
+                        "share_code": r.share_code,
+                        "entry_id": r.entry_id,
+                        "card_name_en": r.name_en or "",
+                        "card_name_pt": r.name_pt,
+                        "set_code": r.set_code,
+                        "collector_number": r.collector_number,
+                        "rarity": r.rarity,
+                        "quantity": r.quantity,
+                        "latest_price": price,
+                        "estimated_fee": calculate_trade_fee(price),
+                    }
+                )
+            return result

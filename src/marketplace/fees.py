@@ -1,0 +1,27 @@
+from decimal import Decimal
+
+# Fibonacci-inspired fee tiers: (max_price_brl, fee_credits)
+FEE_TIERS = [
+    (Decimal("10.00"), 2),
+    (Decimal("50.00"), 3),
+    (Decimal("100.00"), 5),
+    (Decimal("150.00"), 8),
+    (Decimal("200.00"), 13),
+    (Decimal("500.00"), 21),
+]
+DEFAULT_FEE = 50  # > R$500
+
+
+def calculate_trade_fee(card_price_brl: Decimal | None) -> int:
+    """Calculate credit fee for a trade based on card price in BRL.
+
+    Returns fee in credits. If no price available, returns minimum fee (2).
+    Fee is charged to BOTH buyer and seller.
+    """
+    if card_price_brl is None or card_price_brl <= 0:
+        return 2  # minimum fee
+
+    for max_price, fee in FEE_TIERS:
+        if card_price_brl <= max_price:
+            return fee
+    return DEFAULT_FEE

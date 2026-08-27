@@ -309,3 +309,60 @@ class CreditTransactionRow(Base):
         Index("ix_credit_tx_user", "user_id"),
         Index("ix_credit_tx_user_date", "user_id", "created_at"),
     )
+
+
+class SharedCollectionRow(Base):
+    __tablename__ = "shared_collections"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    is_shared: Mapped[int] = mapped_column(Integer, default=0)  # 0=private, 1=shared
+    share_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    shared_at: Mapped[datetime | None] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    __table_args__ = (
+        Index("ix_shared_collection_user", "user_id"),
+        Index("ix_shared_collection_code", "share_code"),
+    )
+
+
+class TradeInterestRow(Base):
+    __tablename__ = "trade_interests"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    buyer_user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    seller_user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    collection_entry_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    # status: pending, accepted, rejected, completed, cancelled
+    message: Mapped[str | None] = mapped_column(Text)
+    estimated_fee: Mapped[int] = mapped_column(Integer, default=2)  # credits
+    card_price_at_interest: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    __table_args__ = (
+        Index("ix_trade_interest_buyer", "buyer_user_id"),
+        Index("ix_trade_interest_seller", "seller_user_id"),
+        Index("ix_trade_interest_status", "status"),
+    )
+
+
+class TradeAgreementRow(Base):
+    __tablename__ = "trade_agreements"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    trade_interest_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    buyer_confirmed: Mapped[int] = mapped_column(Integer, default=0)
+    seller_confirmed: Mapped[int] = mapped_column(Integer, default=0)
+    buyer_fee_charged: Mapped[int] = mapped_column(Integer, default=0)  # credits charged
+    seller_fee_charged: Mapped[int] = mapped_column(Integer, default=0)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (Index("ix_trade_agreement_interest", "trade_interest_id"),)
