@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TreasureBalance } from "../../src/components/TreasureBalance";
 import { Layout } from "../../src/components/Layout";
@@ -185,6 +185,55 @@ describe("TreasureBalance", () => {
 
     const value = screen.getByTestId("treasure-balance-value");
     expect(value.textContent).toBe("0");
+  });
+
+  it("treasure image is rectangular (not circular)", () => {
+    renderTreasureBalance();
+
+    const icon = screen.getByTestId("treasure-icon");
+    const classes = icon.className;
+    expect(classes).not.toContain("rounded-full");
+    expect(classes).toContain("rounded");
+  });
+
+  it("opens modal when treasure image is clicked", () => {
+    renderTreasureBalance();
+
+    expect(screen.queryByTestId("treasure-modal-backdrop")).toBeNull();
+
+    const icon = screen.getByTestId("treasure-icon");
+    fireEvent.click(icon);
+
+    expect(screen.getByTestId("treasure-modal-backdrop")).toBeDefined();
+  });
+
+  it("modal receives correct count from balance", () => {
+    mockCreditsState.balance = 42;
+    renderTreasureBalance();
+
+    const icon = screen.getByTestId("treasure-icon");
+    fireEvent.click(icon);
+
+    const count = screen.getByTestId("treasure-modal-count");
+    expect(count.textContent).toBe("42");
+  });
+
+  it("modal closes when backdrop is clicked (after exit animation)", () => {
+    vi.useFakeTimers();
+    renderTreasureBalance();
+
+    const icon = screen.getByTestId("treasure-icon");
+    fireEvent.click(icon);
+    expect(screen.getByTestId("treasure-modal-backdrop")).toBeDefined();
+
+    const backdrop = screen.getByTestId("treasure-modal-backdrop");
+    fireEvent.click(backdrop);
+
+    // Modal still present during exit animation
+    expect(screen.queryByTestId("treasure-modal-backdrop")).not.toBeNull();
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(screen.queryByTestId("treasure-modal-backdrop")).toBeNull();
+    vi.useRealTimers();
   });
 });
 

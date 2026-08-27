@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCredits } from "../hooks/useCredits";
 import { useTreasureImage } from "../hooks/useTreasureImage";
+import { TreasureModal } from "./TreasureModal";
 
 export function TreasureBalance() {
   const { t } = useTranslation();
@@ -9,6 +10,9 @@ export function TreasureBalance() {
     useCredits();
   const treasureImage = useTreasureImage();
   const [claimed, setClaimed] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [originRect, setOriginRect] = useState<DOMRect | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   const handleClaim = async () => {
     await claimBonus();
@@ -37,7 +41,14 @@ export function TreasureBalance() {
       <img
         src={treasureImage}
         alt={t("credits.balance")}
-        className="w-8 h-8 rounded-full object-cover border-2 border-yellow-300 shadow-lg flex-shrink-0"
+        ref={imgRef}
+        className="w-12 h-16 rounded object-cover border border-amber-500/50 shadow-lg flex-shrink-0 cursor-pointer hover:border-amber-400 transition-colors"
+        onClick={() => {
+          if (imgRef.current) {
+            setOriginRect(imgRef.current.getBoundingClientRect());
+          }
+          setModalOpen(true);
+        }}
         data-testid="treasure-icon"
       />
       <div className="flex flex-col min-w-0">
@@ -72,6 +83,13 @@ export function TreasureBalance() {
           </button>
         )}
       </div>
+      {modalOpen && (
+        <TreasureModal
+          count={balance ?? 0}
+          onClose={() => setModalOpen(false)}
+          originRect={originRect}
+        />
+      )}
     </div>
   );
 }
