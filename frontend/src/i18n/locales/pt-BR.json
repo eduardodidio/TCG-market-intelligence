@@ -659,7 +659,9 @@
     "cancel": "Cancelar",
     "adminBypass": "Admin — sem custo",
     "refreshCost": "Atualizar preco",
-    "scanCost": "Executar scan de precos"
+    "scanCost": "Executar scan de precos",
+    "tokenTypeLine": "Token Artefato — Tesouro",
+    "tokenRulesText": "Tap, sacrifique este artefato: Adicione um mana de qualquer cor."
   },
   "marketplace": {
     "title": "Marketplace de Cards",

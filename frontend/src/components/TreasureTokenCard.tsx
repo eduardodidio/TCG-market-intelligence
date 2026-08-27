@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useTreasureImage } from "../hooks/useTreasureImage";
 
 interface TreasureTokenCardProps {
   count: number;
@@ -6,6 +7,7 @@ interface TreasureTokenCardProps {
 
 export function TreasureTokenCard({ count }: TreasureTokenCardProps) {
   const { t } = useTranslation();
+  const treasureImage = useTreasureImage();
 
   return (
     <div
@@ -18,13 +20,13 @@ export function TreasureTokenCard({ count }: TreasureTokenCardProps) {
           {t("credits.balance")}
         </div>
         {/* Art box */}
-        <div
-          className="bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600
-                      h-28 flex items-center justify-center relative mx-0.5 my-0.5"
-        >
-          <div className="text-5xl select-none" data-testid="treasure-icon">
-            &#x1FA99;
-          </div>
+        <div className="h-28 relative mx-0.5 my-0.5">
+          <img
+            src={treasureImage}
+            alt={t("credits.balance")}
+            className="w-full h-28 object-cover"
+            data-testid="treasure-image"
+          />
           <div
             className="absolute bottom-1 right-1 bg-black/70 text-amber-400
                         rounded-full w-8 h-8 flex items-center justify-center
@@ -36,11 +38,11 @@ export function TreasureTokenCard({ count }: TreasureTokenCardProps) {
         </div>
         {/* Type line */}
         <div className="bg-amber-100 text-amber-900 px-2 py-0.5 text-[10px] font-serif mx-0.5">
-          Token Artifact — Treasure
+          {t("credits.tokenTypeLine")}
         </div>
         {/* Text box */}
         <div className="bg-amber-50 text-amber-900 px-2 py-1 text-[9px] italic mx-0.5 mb-0.5 rounded-b">
-          &quot;Tap, Sacrifice this artifact: Add one mana of any color.&quot;
+          {t("credits.tokenRulesText")}
         </div>
       </div>
     </div>

@@ -659,7 +659,9 @@
     "cancel": "Cancel",
     "adminBypass": "Admin — no cost",
     "refreshCost": "Refresh price",
-    "scanCost": "Run price scan"
+    "scanCost": "Run price scan",
+    "tokenTypeLine": "Token Artifact — Treasure",
+    "tokenRulesText": "Tap, Sacrifice this artifact: Add one mana of any color."
   },
   "marketplace": {
     "title": "Card Marketplace",

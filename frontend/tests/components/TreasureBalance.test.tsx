@@ -103,7 +103,7 @@ describe("TreasureBalance", () => {
 
     const icon = screen.getByTestId("treasure-icon");
     expect(icon).toBeDefined();
-    expect(icon.textContent).toBe("T");
+    expect(icon.tagName).toBe("IMG");
 
     const value = screen.getByTestId("treasure-balance-value");
     expect(value.textContent).toBe("25");

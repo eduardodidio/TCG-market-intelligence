@@ -1,0 +1,27 @@
+{
+  "decision_id": "D-F71-20260827-001",
+  "timestamp": "2026-08-27T21:50:00Z",
+  "type": "feature_start",
+  "context_summary": "F71 Treasure Token Card Images — frontend-only feature replacing CSS placeholder art with real MTG Treasure Token card images. 5 tasks across 2 waves, all frontend/TypeScript.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with create-feature pipeline. Small, self-contained frontend feature with no backend changes.",
+      "pros": ["Low risk — no backend/DB changes", "Clear plan with 2 waves", "Improves visual quality of credit system", "All dependencies already exist (LanguageContext, i18n, components)"],
+      "cons": ["Image file size adds to bundle", "Minor — needs Vite asset type declarations"]
+    },
+    {
+      "option": "B",
+      "description": "Defer feature — focus on higher-priority work.",
+      "pros": ["Saves tokens for more impactful features"],
+      "cons": ["Feature is trivial and low-cost", "Images already exist in images/ directory", "No reason to delay"]
+    }
+  ],
+  "decision": "A",
+  "rationale": "F71 is a small, low-risk frontend feature that improves the visual quality of the credit system. No backend changes, clear plan, all dependencies exist. Proceed immediately.",
+  "actions": [
+    { "action": "create-feature", "feature": "F71" }
+  ],
+  "status": "executed",
+  "governance": null
+}

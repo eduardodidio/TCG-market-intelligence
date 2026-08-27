@@ -16,12 +16,16 @@ vi.mock("react-i18next", () => ({
         "credits.cancel": "Cancel",
         "credits.adminBypass": "Admin — no cost",
         "credits.balance": "Treasure Tokens",
+        "credits.tokenTypeLine": "Token Artifact — Treasure",
+        "credits.tokenRulesText":
+          "Tap, Sacrifice this artifact: Add one mana of any color.",
         "collection.cardsToScan": `${opts?.count ?? ""} cards to scan`,
         "collection.skippedCards": `${opts?.count ?? ""} cards skipped (recently scanned)`,
       };
       return map[key] ?? key;
     },
   }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 
 const defaultProps = {
