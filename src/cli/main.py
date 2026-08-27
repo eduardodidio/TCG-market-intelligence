@@ -926,6 +926,21 @@ def _print_liga_sweep_summary(result):
     click.echo("=" * 60)
 
 
+@cli.command("db-reset-scans")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option("--confirm", is_flag=True, help="Confirm deletion of all scan runs")
+def db_reset_scans(db, confirm):
+    """Delete all scan run records."""
+    if not confirm:
+        click.echo("Pass --confirm to delete all scan runs.")
+        return
+    from src.database.repository import Repository
+
+    repo = Repository(db)
+    count = repo.delete_all_scan_runs()
+    click.echo(f"Deleted {count} scan runs.")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")

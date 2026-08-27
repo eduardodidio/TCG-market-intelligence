@@ -7,6 +7,7 @@ requires JavaScript rendering and blocks direct HTTP requests with 403.
 from __future__ import annotations
 
 import asyncio
+import sys
 from datetime import datetime
 from urllib.parse import quote_plus
 
@@ -68,6 +69,7 @@ class LigaMagicProvider(CardSourceProvider):
         self._page = None
         self._request_count = 0
         self._lock = asyncio.Lock()
+        self._unavailable = False
 
     @property
     def source_name(self) -> str:
@@ -81,9 +83,23 @@ class LigaMagicProvider(CardSourceProvider):
         Imports playwright lazily so the module can be imported
         even when playwright is not installed (useful for tests
         that mock the browser layer).
+
+        On Windows, Playwright's async API requires
+        ``asyncio.create_subprocess_exec`` which is not supported
+        by the default ``SelectorEventLoop``.  Rather than changing
+        the global event-loop policy (which could break uvicorn),
+        the provider marks itself as unavailable and returns early.
         """
         if self._page is not None:
             return  # Already open
+
+        if sys.platform == "win32":
+            self._unavailable = True
+            log.info(
+                "liga_provider_skipped",
+                reason="Windows does not support async subprocesses for Playwright",
+            )
+            return
 
         from playwright.async_api import async_playwright
 
@@ -101,6 +117,8 @@ class LigaMagicProvider(CardSourceProvider):
 
     async def close(self) -> None:
         """Shut down the browser and release resources."""
+        if self._unavailable:
+            return
         if self._browser:
             await self._browser.close()
             self._browser = None
@@ -122,6 +140,13 @@ class LigaMagicProvider(CardSourceProvider):
 
     async def _ensure_page(self):
         """Ensure the browser page is available, opening if needed."""
+        if self._unavailable:
+            raise LigaError(
+                "Liga provider is unavailable on this platform",
+                url="",
+                status_code=0,
+                attempts=0,
+            )
         if self._page is None:
             await self.open()
         return self._page

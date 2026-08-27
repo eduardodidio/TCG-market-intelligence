@@ -32,6 +32,20 @@ async def lifespan(app: FastAPI):
         if not os.environ.get("TCG_API_KEY"):
             _log.warning("tcg_api_key_not_set", env=env)
 
+    # Mark stale running scans as error (e.g. from a crash)
+    try:
+        from datetime import datetime
+
+        from src.database.repository import Repository
+
+        repo = Repository(get_db_url())
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        marked = repo.mark_stale_scans_as_error(before=today_start)
+        if marked > 0:
+            _log.info("stale_scans_marked_as_error", count=marked)
+    except Exception:
+        _log.warning("stale_scan_cleanup_failed", exc_info=True)
+
     scheduler_disabled = os.environ.get("TCG_SCHEDULER_DISABLED", "0") == "1"
     if not scheduler_disabled:
         try:

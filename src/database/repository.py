@@ -3024,3 +3024,38 @@ class Repository:
                     }
                 )
             return result
+
+    # ------------------------------------------------------------------
+    # Scan hygiene
+    # ------------------------------------------------------------------
+
+    def delete_all_scan_runs(self) -> int:
+        """Delete all scan run records. Returns the number of rows deleted."""
+        from sqlalchemy import delete
+
+        with Session(self.engine) as session:
+            result = session.execute(delete(ScanRunRow))
+            session.commit()
+            return result.rowcount  # type: ignore[return-value]
+
+    def mark_stale_scans_as_error(self, before: datetime) -> int:
+        """Mark running scans started before *before* as error (stale).
+
+        Returns the number of rows updated.
+        """
+        from sqlalchemy import update
+
+        with Session(self.engine) as session:
+            stmt = (
+                update(ScanRunRow)
+                .where(ScanRunRow.status == "running")
+                .where(ScanRunRow.started_at < before)
+                .values(
+                    status="error",
+                    error_summary="Auto-marked: scan was running at startup (stale)",
+                    finished_at=datetime.now(),
+                )
+            )
+            result = session.execute(stmt)
+            session.commit()
+            return result.rowcount  # type: ignore[return-value]

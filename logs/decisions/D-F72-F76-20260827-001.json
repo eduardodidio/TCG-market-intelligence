@@ -1,0 +1,31 @@
+{
+  "decision_id": "D-F72-F76-20260827-001",
+  "timestamp": "2026-08-27T22:00:00Z",
+  "type": "feature_start",
+  "context_summary": "Batch plan for 5 features: F72 (Treasure Token Full Art — frontend modal), F73 (Scan Hygiene — reset + stale detection, backend), F74 (Admin User CRUD — create/delete + first-access password, full-stack), F75 (Admin Accordion — consolidate admin pages into collapsible sections, frontend), F76 (Playwright Windows Fix — suppress NotImplementedError traceback, backend). 3 waves: Wave 0 parallel (F72, F73, F76), Wave 1 (F74), Wave 2 (F75 depends on F74).",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with plan-feature for all 5 features in the proposed wave structure.",
+      "pros": ["Well-organized parallelism — 3 independent features in Wave 0", "F73 fixes operational pain (stuck scan)", "F74+F75 address real admin gaps", "F76 eliminates noisy console errors", "All features are well-scoped and low-to-medium complexity"],
+      "cons": ["F75 is a larger refactor (moving 3 pages into accordion)", "5 features in one batch is ambitious"]
+    },
+    {
+      "option": "B",
+      "description": "Split into smaller batches — plan Wave 0 first, defer F74+F75.",
+      "pros": ["Lower risk per batch", "Can validate Wave 0 before committing to admin refactor"],
+      "cons": ["Delays admin improvements the user explicitly requested", "No technical reason to defer — all requirements are clear"]
+    }
+  ],
+  "decision": "A",
+  "rationale": "All 5 features have clear requirements, the user confirmed admin scope (Liga Status, Schedules, Scans are admin; BanList is not). Wave structure maximizes parallelism. No blockers or unknowns.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F72" },
+    { "action": "plan-feature", "feature": "F73" },
+    { "action": "plan-feature", "feature": "F74" },
+    { "action": "plan-feature", "feature": "F75" },
+    { "action": "plan-feature", "feature": "F76" }
+  ],
+  "status": "executed",
+  "governance": null
+}
