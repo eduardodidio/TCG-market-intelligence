@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -13,10 +13,17 @@ export function Login() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const { login, register, error: authError } = useAuth();
+  const { login, register, mustChangePassword, error: authError } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/collection";
+
+  // Redirect to change-password when login detects expired password
+  useEffect(() => {
+    if (mustChangePassword) {
+      navigate("/change-password", { replace: true });
+    }
+  }, [mustChangePassword, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +39,12 @@ export function Login() {
       }
 
       if (!err) {
-        navigate(returnTo, { replace: true });
+        // mustChangePassword redirect is handled by the useEffect above.
+        // For normal login/register, navigate to returnTo.
+        // The effect will fire before this if password is expired.
+        if (!mustChangePassword) {
+          navigate(returnTo, { replace: true });
+        }
       } else {
         setFormError(err);
       }

@@ -17,6 +17,18 @@ class AdminUserRow(BaseModel):
     created_at: datetime
 
 
+class CreateUserRequest(BaseModel):
+    email: str = Field(..., max_length=320)
+    display_name: str | None = Field(None, max_length=200)
+
+
+class CreateUserResponse(BaseModel):
+    user_id: int
+    email: str
+    display_name: str | None
+    temporary_password: str
+
+
 class CreditAdjustRequest(BaseModel):
     amount: int = Field(..., description="Positive to grant, negative to revoke")
     reason: str | None = Field(None, max_length=200)

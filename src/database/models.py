@@ -201,6 +201,7 @@ class UserRow(Base):
     auth_provider: Mapped[str] = mapped_column(String(20), nullable=False)
     provider_id: Mapped[str | None] = mapped_column(String(200))
     password_hash: Mapped[str | None] = mapped_column(String(200))
+    password_expires_at: Mapped[datetime | None] = mapped_column(DateTime)
     preferred_currency: Mapped[str] = mapped_column(String(10), default="BRL")
     preferred_language: Mapped[str] = mapped_column(String(10), default="en")
     is_active: Mapped[int] = mapped_column(Integer, default=1)

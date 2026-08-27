@@ -450,6 +450,7 @@ class User:
     preferred_language: str = "en"
     is_active: bool = True
     is_admin: bool = False
+    password_expires_at: datetime | None = None
 
 
 # --- Scheduled scan domain models ---

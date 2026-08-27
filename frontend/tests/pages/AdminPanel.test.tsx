@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AdminPanel } from "../../src/pages/AdminPanel";
+import { AuthContext } from "../../src/contexts/AuthContext";
+import type { AuthContextValue } from "../../src/contexts/AuthContext";
 import type { ApiResponse } from "../../src/types/api";
 import type { AdminUser, AdminDashboard } from "../../src/api/admin";
 
@@ -66,8 +68,33 @@ function createMockFetch(overrides?: {
   usersResponse?: ApiResponse<unknown>;
   dashboardResponse?: ApiResponse<unknown>;
   adjustResponse?: ApiResponse<unknown>;
+  createResponse?: ApiResponse<unknown>;
+  deleteResponse?: ApiResponse<unknown>;
 }) {
   return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+    if (typeof url === "string" && url.includes("/admin/users") && init?.method === "POST") {
+      const resp = overrides?.createResponse ?? envelope({
+        user_id: 3,
+        email: "new@test.com",
+        display_name: "New User",
+        temporary_password: "abc123xyz456",
+      });
+      return Promise.resolve({
+        ok: resp.errors.length === 0,
+        status: resp.errors.length > 0 ? 409 : 200,
+        statusText: "OK",
+        json: () => Promise.resolve(resp),
+      });
+    }
+    if (typeof url === "string" && url.includes("/admin/users") && init?.method === "DELETE") {
+      const resp = overrides?.deleteResponse ?? envelope({ user_id: 2, deleted: true });
+      return Promise.resolve({
+        ok: resp.errors.length === 0,
+        status: resp.errors.length > 0 ? 400 : 200,
+        statusText: "OK",
+        json: () => Promise.resolve(resp),
+      });
+    }
     if (typeof url === "string" && url.includes("/admin/users") && init?.method === "PATCH") {
       const resp = overrides?.adjustResponse ?? envelope({
         user_id: 1,
@@ -106,11 +133,34 @@ function createMockFetch(overrides?: {
   });
 }
 
+const mockAuthValue: AuthContextValue = {
+  user: {
+    id: 1,
+    email: "admin@test.com",
+    display_name: "Admin User",
+    avatar_url: null,
+    auth_provider: "email",
+    preferred_language: "en",
+    is_active: true,
+    is_admin: true,
+  },
+  loading: false,
+  error: null,
+  isAuthenticated: true,
+  mustChangePassword: false,
+  login: vi.fn().mockResolvedValue(null),
+  register: vi.fn().mockResolvedValue(null),
+  logout: vi.fn(),
+  changePassword: vi.fn().mockResolvedValue(null),
+};
+
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <AdminPanel />
-    </MemoryRouter>,
+    <AuthContext.Provider value={mockAuthValue}>
+      <MemoryRouter>
+        <AdminPanel />
+      </MemoryRouter>
+    </AuthContext.Provider>,
   );
 }
 
@@ -325,5 +375,94 @@ describe("AdminPanel", () => {
     renderPage();
     expect(screen.getByTestId("tab-users")).toBeInTheDocument();
     expect(screen.getByTestId("tab-dashboard")).toBeInTheDocument();
+  });
+
+  it("renders create user toggle button", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("create-user-toggle")).toBeInTheDocument();
+    });
+  });
+
+  it("opens create user form when clicking toggle", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("create-user-toggle")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("create-user-toggle"));
+    expect(screen.getByTestId("create-user-form")).toBeInTheDocument();
+    expect(screen.getByTestId("create-email-input")).toBeInTheDocument();
+    expect(screen.getByTestId("create-displayname-input")).toBeInTheDocument();
+  });
+
+  it("shows temp password after creating user", async () => {
+    const fetchSpy = createMockFetch();
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("create-user-toggle")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("create-user-toggle"));
+
+    fireEvent.change(screen.getByTestId("create-email-input"), {
+      target: { value: "new@test.com" },
+    });
+    fireEvent.change(screen.getByTestId("create-displayname-input"), {
+      target: { value: "New User" },
+    });
+    fireEvent.click(screen.getByTestId("create-user-submit"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("create-user-result")).toBeInTheDocument();
+      expect(screen.getByTestId("temp-password")).toBeInTheDocument();
+      expect(screen.getByTestId("temp-password").textContent).toBe("abc123xyz456");
+    });
+  });
+
+  it("shows delete button for other users but not self", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("users-table")).toBeInTheDocument();
+    });
+
+    // User 1 is the admin (self) — should NOT have delete button
+    expect(screen.queryByTestId("delete-btn-1")).not.toBeInTheDocument();
+    // User 2 is another user — should have delete button
+    expect(screen.getByTestId("delete-btn-2")).toBeInTheDocument();
+  });
+
+  it("shows confirmation dialog when clicking delete", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("delete-btn-2")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("delete-btn-2"));
+    expect(screen.getByTestId("delete-confirm-2")).toBeInTheDocument();
+    expect(screen.getByTestId("delete-yes-2")).toBeInTheDocument();
+    expect(screen.getByTestId("delete-no-2")).toBeInTheDocument();
+  });
+
+  it("calls delete API and refreshes list on confirm", async () => {
+    const fetchSpy = createMockFetch();
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("delete-btn-2")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("delete-btn-2"));
+    fireEvent.click(screen.getByTestId("delete-yes-2"));
+
+    await waitFor(() => {
+      const deleteCalls = fetchSpy.mock.calls.filter(
+        ([, init]: [string, RequestInit | undefined]) => init?.method === "DELETE",
+      );
+      expect(deleteCalls.length).toBeGreaterThan(0);
+    });
   });
 });

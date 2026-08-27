@@ -78,6 +78,11 @@ const AdminLigaStatus = lazy(() =>
     default: m.AdminLigaStatus,
   })),
 );
+const ChangePassword = lazy(() =>
+  import("./pages/ChangePassword").then((m) => ({
+    default: m.ChangePassword,
+  })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -123,6 +128,18 @@ export default function App() {
                   fallback={<LoadingSpinner message="Loading page..." />}
                 >
                   <Login />
+                </Suspense>
+              }
+            />
+
+            {/* Change password — no layout (first-access flow) */}
+            <Route
+              path="/change-password"
+              element={
+                <Suspense
+                  fallback={<LoadingSpinner message="Loading page..." />}
+                >
+                  <ChangePassword />
                 </Suspense>
               }
             />

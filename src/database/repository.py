@@ -58,6 +58,10 @@ class Repository:
                 with self.engine.begin() as conn:
                     sql = "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0"
                     conn.execute(text(sql))
+            if "password_expires_at" not in columns:
+                with self.engine.begin() as conn:
+                    sql = "ALTER TABLE users ADD COLUMN password_expires_at DATETIME"
+                    conn.execute(text(sql))
 
     def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
         """Insert or update a source card. Returns the source_card id."""

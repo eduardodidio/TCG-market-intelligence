@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 from src.api.deps import get_current_user, get_db
 from src.api.schemas.auth import (
     AuthTokens,
+    ChangePasswordRequest,
     LoginRequest,
     PreferencesUpdate,
     RefreshRequest,
@@ -47,7 +50,7 @@ def register(
     return success_response(data=tokens)
 
 
-@router.post("/login", response_model=ApiResponse[AuthTokens])
+@router.post("/login")
 def login(
     body: LoginRequest,
     response: Response,
@@ -63,6 +66,22 @@ def login(
 
     if not user.is_active:
         raise HTTPException(status_code=401, detail="Account is inactive")
+
+    # Check password expiration (admin-created users with temporary passwords)
+    password_expires_at = getattr(user, "password_expires_at", None)
+    if (
+        password_expires_at is not None
+        and isinstance(password_expires_at, datetime)
+        and password_expires_at <= datetime.now()
+    ):
+        temp_token = create_access_token(user.id, user.email, expires_minutes=5)
+        return success_response(
+            data={
+                "access_token": temp_token,
+                "refresh_token": None,
+                "password_expired": True,
+            }
+        )
 
     access_token = create_access_token(user.id, user.email)
     refresh_token = create_refresh_token(user.id)
@@ -86,6 +105,8 @@ def login(
 @router.get("/me", response_model=ApiResponse[UserProfile])
 def get_me(user: User = Depends(get_current_user)):
     """Return the current authenticated user's profile."""
+    pw_exp = getattr(user, "password_expires_at", None)
+    must_change = pw_exp is not None and isinstance(pw_exp, datetime) and pw_exp <= datetime.now()
     profile = UserProfile(
         id=user.id,
         email=user.email,
@@ -96,6 +117,7 @@ def get_me(user: User = Depends(get_current_user)):
         preferred_language=user.preferred_language,
         is_active=user.is_active,
         is_admin=user.is_admin,
+        must_change_password=must_change,
     )
     return success_response(data=profile)
 
@@ -132,6 +154,30 @@ def update_preferences(
         is_admin=bool(updated.is_admin),
     )
     return success_response(data=profile)
+
+
+@router.post("/change-password")
+def change_password(
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    repo: Repository = Depends(get_db),
+):
+    """Change the current user's password. Clears password expiration."""
+    db_user = repo.get_user_by_id(user.id)
+    if not db_user or not db_user.password_hash:
+        raise HTTPException(status_code=400, detail="Password change not available")
+
+    if not verify_password(body.current_password, db_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    new_hash = hash_password(body.new_password)
+    repo.update_user(user.id, password_hash=new_hash, password_expires_at=None)
+
+    tokens = AuthTokens(
+        access_token=create_access_token(user.id, user.email),
+        refresh_token=create_refresh_token(user.id),
+    )
+    return success_response(data=tokens)
 
 
 @router.get("/{provider}")

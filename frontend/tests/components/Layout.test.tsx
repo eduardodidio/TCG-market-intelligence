@@ -24,6 +24,8 @@ const mockAuthUnauthenticated: AuthContextValue = {
   login: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(null),
   logout: vi.fn().mockResolvedValue(undefined),
+  mustChangePassword: false,
+  changePassword: vi.fn().mockResolvedValue(null),
 };
 
 const mockAuthAuthenticated: AuthContextValue = {
@@ -43,6 +45,8 @@ const mockAuthAuthenticated: AuthContextValue = {
   login: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(null),
   logout: vi.fn().mockResolvedValue(undefined),
+  mustChangePassword: false,
+  changePassword: vi.fn().mockResolvedValue(null),
 };
 
 const mockAuthAdmin: AuthContextValue = {
@@ -62,6 +66,8 @@ const mockAuthAdmin: AuthContextValue = {
   login: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(null),
   logout: vi.fn().mockResolvedValue(undefined),
+  mustChangePassword: false,
+  changePassword: vi.fn().mockResolvedValue(null),
 };
 
 function renderLayout(

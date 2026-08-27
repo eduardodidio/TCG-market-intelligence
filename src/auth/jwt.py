@@ -22,14 +22,15 @@ def _get_secret() -> str:
     return secret
 
 
-def create_access_token(user_id: int, email: str) -> str:
-    """Create a JWT access token (24 hours)."""
+def create_access_token(user_id: int, email: str, *, expires_minutes: int | None = None) -> str:
+    """Create a JWT access token (default 24 hours, overridable)."""
     now = datetime.now(timezone.utc)
+    minutes = expires_minutes if expires_minutes is not None else _ACCESS_TOKEN_EXPIRE_MINUTES
     payload = {
         "sub": str(user_id),
         "email": email,
         "type": "access",
-        "exp": now + timedelta(minutes=_ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": now + timedelta(minutes=minutes),
         "iat": now,
     }
     return jwt.encode(payload, _get_secret(), algorithm=_ALGORITHM)

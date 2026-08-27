@@ -16,6 +16,7 @@ import {
   login as apiLogin,
   logout as apiLogout,
   register as apiRegister,
+  changePassword as apiChangePassword,
 } from "../api/auth";
 
 export interface AuthContextValue {
@@ -23,6 +24,7 @@ export interface AuthContextValue {
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  mustChangePassword: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   register: (
     email: string,
@@ -30,6 +32,7 @@ export interface AuthContextValue {
     displayName?: string,
   ) => Promise<string | null>;
   logout: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string | null>;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
@@ -37,15 +40,18 @@ export const AuthContext = createContext<AuthContextValue>({
   loading: true,
   error: null,
   isAuthenticated: false,
+  mustChangePassword: false,
   login: async () => null,
   register: async () => null,
   logout: async () => {},
+  changePassword: async () => null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   // Try to restore session on mount
   useEffect(() => {
@@ -90,11 +96,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
+    setMustChangePassword(false);
     const resp = await apiLogin(email, password);
     if (resp.errors.length > 0) {
       const msg = resp.errors[0].message;
       setError(msg);
       return msg;
+    }
+    // Check if password expired (admin-created user with temp password)
+    const data = resp.data as Record<string, unknown> | null;
+    if (data && data.password_expired) {
+      // Store the temp token manually (apiLogin already stored it)
+      setMustChangePassword(true);
+      return null;
     }
     // Fetch user profile after login
     const meResp = await fetchMe();
@@ -122,10 +136,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      setError(null);
+      const resp = await apiChangePassword(currentPassword, newPassword);
+      if (resp.errors.length > 0) {
+        const msg = resp.errors[0].message;
+        setError(msg);
+        return msg;
+      }
+      setMustChangePassword(false);
+      // Fetch user profile with new tokens
+      const meResp = await fetchMe();
+      if (meResp.data) {
+        setUser(meResp.data);
+      }
+      return null;
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     await apiLogout();
     setUser(null);
     setError(null);
+    setMustChangePassword(false);
   }, []);
 
   const value = useMemo(
@@ -134,11 +169,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       isAuthenticated: user !== null,
+      mustChangePassword,
       login,
       register,
       logout,
+      changePassword,
     }),
-    [user, loading, error, login, register, logout],
+    [user, loading, error, mustChangePassword, login, register, logout, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

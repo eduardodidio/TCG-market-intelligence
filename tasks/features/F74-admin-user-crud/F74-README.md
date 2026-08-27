@@ -1,6 +1,6 @@
 # F74 — Admin User CRUD (Create/Delete + First-Access Password)
 
-**Status:** planned
+**Status:** done
 **Wave structure:** Wave 1 (after F72, F73, F76)
 **Dependencies:** None (but F75 depends on this)
 

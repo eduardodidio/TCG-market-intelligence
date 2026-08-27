@@ -36,8 +36,14 @@ class UserProfile(BaseModel):
     preferred_language: str = "en"
     is_active: bool
     is_admin: bool = False
+    must_change_password: bool = False
 
 
 class PreferencesUpdate(BaseModel):
     preferred_currency: str | None = Field(None, pattern="^(BRL|USD|PILA)$")
     preferred_language: str | None = Field(None, pattern="^(en|pt-BR)$")
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=72)

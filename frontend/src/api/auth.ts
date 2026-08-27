@@ -16,6 +16,7 @@ export interface UserProfile {
   preferred_language: string | null;
   is_active: boolean;
   is_admin: boolean;
+  must_change_password?: boolean;
 }
 
 const TOKEN_KEY = "tcg_access_token";
@@ -135,6 +136,23 @@ export async function refreshTokens(): Promise<ApiResponse<AuthTokens>> {
 
 export async function fetchMe(): Promise<ApiResponse<UserProfile>> {
   return authFetch<UserProfile>("/api/v1/auth/me");
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<ApiResponse<AuthTokens>> {
+  const resp = await authFetch<AuthTokens>("/api/v1/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+  if (resp.data) {
+    storeTokens(resp.data);
+  }
+  return resp;
 }
 
 export async function logout(): Promise<void> {
