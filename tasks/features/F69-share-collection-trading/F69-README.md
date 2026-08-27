@@ -1,6 +1,6 @@
 # F69 — Share Collection & Trading System
 
-**Status:** planned
+**Status:** done
 **Created:** 2026-08-26
 **Priority:** P2 (marketplace feature)
 **Wave Group:** 3 (depends on F65 credit system + F66 admin panel)

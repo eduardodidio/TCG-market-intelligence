@@ -67,6 +67,9 @@ const Settings = lazy(() =>
 const Marketplace = lazy(() =>
   import("./pages/Marketplace").then((m) => ({ default: m.Marketplace })),
 );
+const MyTrades = lazy(() =>
+  import("./pages/MyTrades").then((m) => ({ default: m.MyTrades })),
+);
 const AdminPanel = lazy(() =>
   import("./pages/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
@@ -305,6 +308,18 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <Schedules />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/marketplace/my-trades"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <MyTrades />
                     </ProtectedRoute>
                   </Suspense>
                 }

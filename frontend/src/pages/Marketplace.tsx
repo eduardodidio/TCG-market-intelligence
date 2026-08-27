@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchListings, type MarketplaceListing } from "../api/marketplace";
+import { expressInterest, fetchListings, type MarketplaceListing } from "../api/marketplace";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { TradeInterestModal } from "../components/TradeInterestModal";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
 import { useCardName } from "../hooks/useCardName";
@@ -138,13 +139,28 @@ export function Marketplace() {
     }
   }, [debouncedSearch, loadListings, setSearchParams]);
 
+  const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
+  const [interestSuccess, setInterestSuccess] = useState(false);
+
   const handleInterest = useCallback((listing: MarketplaceListing) => {
-    // T05 will add the interest modal — for now, store in state
-    // to be consumed by TradeInterestModal
-    window.dispatchEvent(
-      new CustomEvent("marketplace:interest", { detail: listing }),
-    );
+    setSelectedListing(listing);
+    setInterestSuccess(false);
   }, []);
+
+  const handleInterestSubmit = useCallback(
+    async (message: string | undefined) => {
+      if (!selectedListing) return;
+      await expressInterest(
+        selectedListing.share_code,
+        selectedListing.entry_id,
+        message,
+      );
+      setSelectedListing(null);
+      setInterestSuccess(true);
+      setTimeout(() => setInterestSuccess(false), 3000);
+    },
+    [selectedListing],
+  );
 
   return (
     <div data-testid="page-marketplace">
@@ -186,6 +202,23 @@ export function Marketplace() {
             />
           ))}
         </div>
+      )}
+
+      {interestSuccess && (
+        <div
+          className="fixed bottom-6 right-6 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm z-40"
+          data-testid="interest-success-toast"
+        >
+          {t("marketplace.expressInterest")} ✓
+        </div>
+      )}
+
+      {selectedListing && (
+        <TradeInterestModal
+          listing={selectedListing}
+          onSubmit={handleInterestSubmit}
+          onCancel={() => setSelectedListing(null)}
+        />
       )}
     </div>
   );
