@@ -20,11 +20,11 @@ export function TreasureTokenCard({ count }: TreasureTokenCardProps) {
           {t("credits.balance")}
         </div>
         {/* Art box */}
-        <div className="h-28 relative mx-0.5 my-0.5">
+        <div className="relative mx-0.5 my-0.5 bg-amber-950">
           <img
             src={treasureImage}
             alt={t("credits.balance")}
-            className="w-full h-28 object-cover"
+            className="w-full object-contain"
             data-testid="treasure-image"
           />
           <div
