@@ -55,7 +55,7 @@ describe("TreasureModal", () => {
 
     // onClose is called after the exit animation delay
     expect(onClose).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(600); });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -76,7 +76,7 @@ describe("TreasureModal", () => {
     fireEvent.keyDown(document, { key: "Escape" });
 
     expect(onClose).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(600); });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

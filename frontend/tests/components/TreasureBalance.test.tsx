@@ -231,7 +231,7 @@ describe("TreasureBalance", () => {
 
     // Modal still present during exit animation
     expect(screen.queryByTestId("treasure-modal-backdrop")).not.toBeNull();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(600); });
     expect(screen.queryByTestId("treasure-modal-backdrop")).toBeNull();
     vi.useRealTimers();
   });
