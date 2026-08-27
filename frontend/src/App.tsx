@@ -64,6 +64,9 @@ const Login = lazy(() =>
 const Settings = lazy(() =>
   import("./pages/Settings").then((m) => ({ default: m.Settings })),
 );
+const Marketplace = lazy(() =>
+  import("./pages/Marketplace").then((m) => ({ default: m.Marketplace })),
+);
 const AdminPanel = lazy(() =>
   import("./pages/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
@@ -302,6 +305,18 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <Schedules />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/marketplace"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <Marketplace />
                     </ProtectedRoute>
                   </Suspense>
                 }

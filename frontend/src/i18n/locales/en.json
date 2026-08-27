@@ -44,7 +44,8 @@
     "signOut": "Sign out",
     "settings": "Settings",
     "admin": "Admin",
-    "ligaStatus": "Liga Status"
+    "ligaStatus": "Liga Status",
+    "marketplace": "Marketplace"
   },
   "admin": {
     "title": "Admin Panel",
@@ -659,5 +660,28 @@
     "adminBypass": "Admin — no cost",
     "refreshCost": "Refresh price",
     "scanCost": "Run price scan"
+  },
+  "marketplace": {
+    "title": "Card Marketplace",
+    "shareCollection": "Share My Collection",
+    "sharingEnabled": "Your collection is visible to traders",
+    "sharingDisabled": "Your collection is private",
+    "interested": "I'm Interested",
+    "estimatedFee": "Fee: {{fee}} tokens",
+    "tokens": "tokens",
+    "noListings": "No cards available for trade",
+    "myTrades": "My Trades",
+    "asBuyer": "As Buyer",
+    "asSeller": "As Seller",
+    "expressInterest": "Express Interest",
+    "addMessage": "Add a message (optional)",
+    "accept": "Accept",
+    "reject": "Reject",
+    "confirmTrade": "Confirm Trade",
+    "tradeCompleted": "Trade Completed!",
+    "contactEmail": "Contact: {{email}}",
+    "feeCharged": "Fee: {{fee}} tokens charged",
+    "pendingConfirmation": "Waiting for other party",
+    "insufficientForTrade": "Not enough tokens for this trade"
   }
 }

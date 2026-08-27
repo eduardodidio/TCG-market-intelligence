@@ -31,6 +31,7 @@ import { useCurrency } from "../hooks/useCurrency";
 import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { MaxAgeDaysSelect } from "../components/MaxAgeDaysSelect";
 import { fetchScanPreview } from "../api/scans";
+import { fetchSharingStatus, toggleSharing as apiToggleSharing } from "../api/marketplace";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
@@ -291,6 +292,28 @@ export function MyCollection() {
   const [previewSkipped, setPreviewSkipped] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
   const { balance: creditBalance, isAdmin: creditIsAdmin } = useCredits();
+
+  // Sharing state
+  const [isShared, setIsShared] = useState(false);
+  const [shareToggling, setShareToggling] = useState(false);
+
+  useEffect(() => {
+    fetchSharingStatus()
+      .then((s) => setIsShared(s.is_shared))
+      .catch(() => {});
+  }, []);
+
+  const handleShareToggle = useCallback(async () => {
+    setShareToggling(true);
+    try {
+      const result = await apiToggleSharing(!isShared);
+      setIsShared(result.is_shared);
+    } catch {
+      // silently fail
+    } finally {
+      setShareToggling(false);
+    }
+  }, [isShared]);
 
   const debouncedSearch = useDebounce(searchTerm, 300);
   const fetchIdRef = useRef(0);
@@ -567,9 +590,24 @@ export function MyCollection() {
 
   return (
     <div data-testid="page-collection">
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-4 mb-6 flex-wrap">
         <h2 className="text-2xl font-bold text-white">{t("collection.title")}</h2>
         <FreshnessIndicator lastCollectionAt={lastCollectionAt} status={healthStatus} />
+        <label
+          className="flex items-center gap-2 ml-auto cursor-pointer select-none"
+          data-testid="share-toggle"
+        >
+          <input
+            type="checkbox"
+            checked={isShared}
+            onChange={handleShareToggle}
+            disabled={shareToggling}
+            className="h-4 w-4 rounded border-slate-500 bg-slate-700 text-cyan-500 focus:ring-cyan-500/50"
+          />
+          <span className={`text-sm ${isShared ? "text-cyan-400" : "text-slate-400"}`}>
+            {t("marketplace.shareCollection")}
+          </span>
+        </label>
       </div>
 
       {/* Summary KPIs */}

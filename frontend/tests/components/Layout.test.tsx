@@ -89,8 +89,8 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    // Non-admin sees 12 links (no Admin, no Liga Status)
-    expect(links).toHaveLength(12);
+    // Non-admin sees 13 links (no Admin, no Liga Status)
+    expect(links).toHaveLength(13);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -103,6 +103,7 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Top Decks");
     expect(linkTexts).toContain("Price Scans");
     expect(linkTexts).toContain("Schedules");
+    expect(linkTexts).toContain("Marketplace");
     expect(linkTexts).toContain("Ban List");
     expect(linkTexts).toContain("Settings");
     expect(linkTexts).not.toContain("Admin");
@@ -310,8 +311,8 @@ describe("Layout", () => {
     renderLayout("/", mockAuthAdmin);
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Admin sees all 14 links
-    expect(links).toHaveLength(14);
+    // Admin sees all 15 links
+    expect(links).toHaveLength(15);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Admin");

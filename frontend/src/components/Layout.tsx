@@ -28,6 +28,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true },
   { to: "/scans", labelKey: "nav.priceScans", requiresAuth: true },
   { to: "/schedules", labelKey: "nav.schedules", requiresAuth: true },
+  { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
   { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
   { to: "/admin/liga-status", labelKey: "nav.ligaStatus", requiresAuth: true, requiresAdmin: true },

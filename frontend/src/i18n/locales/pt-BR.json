@@ -44,7 +44,8 @@
     "signOut": "Sair",
     "settings": "Configuracoes",
     "admin": "Administracao",
-    "ligaStatus": "Status Liga"
+    "ligaStatus": "Status Liga",
+    "marketplace": "Marketplace"
   },
   "admin": {
     "title": "Painel Admin",
@@ -659,5 +660,28 @@
     "adminBypass": "Admin — sem custo",
     "refreshCost": "Atualizar preco",
     "scanCost": "Executar scan de precos"
+  },
+  "marketplace": {
+    "title": "Marketplace de Cards",
+    "shareCollection": "Compartilhar Colecao",
+    "sharingEnabled": "Sua colecao esta visivel para traders",
+    "sharingDisabled": "Sua colecao esta privada",
+    "interested": "Tenho Interesse",
+    "estimatedFee": "Taxa: {{fee}} tokens",
+    "tokens": "tokens",
+    "noListings": "Nenhum card disponivel para troca",
+    "myTrades": "Minhas Trocas",
+    "asBuyer": "Como Comprador",
+    "asSeller": "Como Vendedor",
+    "expressInterest": "Expressar Interesse",
+    "addMessage": "Adicionar mensagem (opcional)",
+    "accept": "Aceitar",
+    "reject": "Rejeitar",
+    "confirmTrade": "Confirmar Troca",
+    "tradeCompleted": "Troca Concluida!",
+    "contactEmail": "Contato: {{email}}",
+    "feeCharged": "Taxa: {{fee}} tokens cobrados",
+    "pendingConfirmation": "Aguardando outra parte",
+    "insufficientForTrade": "Tokens insuficientes para esta troca"
   }
 }
