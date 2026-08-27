@@ -2898,6 +2898,27 @@ class Repository:
                 session.expunge(row)
             return row
 
+    def atomic_confirm_agreement(self, agreement_id: int, field: str) -> bool:
+        """Atomically set buyer_confirmed or seller_confirmed to 1.
+
+        Uses UPDATE ... WHERE field=0 to prevent double-confirm race.
+        Returns True if the row was updated (i.e. not already confirmed).
+        """
+        if field not in ("buyer_confirmed", "seller_confirmed"):
+            raise ValueError(f"Invalid confirmation field: {field}")
+
+        from sqlalchemy import update
+
+        col = getattr(TradeAgreementRow, field)
+        with Session(self.engine) as session:
+            result = session.execute(
+                update(TradeAgreementRow)
+                .where(TradeAgreementRow.id == agreement_id, col == 0)
+                .values({field: 1})
+            )
+            session.commit()
+            return result.rowcount > 0
+
     def update_trade_agreement(self, agreement_id: int, **kwargs) -> TradeAgreementRow | None:
         """Update a trade agreement with the given fields. Returns updated row or None."""
         with Session(self.engine) as session:

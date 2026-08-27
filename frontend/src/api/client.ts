@@ -4,6 +4,18 @@ import { API_BASE_URL } from "../utils/constants";
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 /**
+ * Handle 401 Unauthorized — clear tokens and redirect to login.
+ * Skips redirect if already on the login page to avoid loops.
+ */
+function handleUnauthorized(): void {
+  localStorage.removeItem("tcg_access_token");
+  localStorage.removeItem("tcg_refresh_token");
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
+}
+
+/**
  * Typed fetch wrapper that returns the standard API envelope.
  * Handles HTTP errors, network errors, and request timeouts.
  */
@@ -48,6 +60,9 @@ export async function apiGet<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        handleUnauthorized();
+      }
       const errorBody = await response.json().catch(() => null);
       // If the backend returned a proper envelope with errors, use it
       if (errorBody && Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
@@ -126,6 +141,9 @@ export async function apiPost<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        handleUnauthorized();
+      }
       const errorBody = await response.json().catch(() => null);
       if (errorBody && Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
         return errorBody as ApiResponse<T>;
@@ -201,6 +219,9 @@ export async function apiPatch<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        handleUnauthorized();
+      }
       const errorBody = await response.json().catch(() => null);
       if (errorBody && Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
         return errorBody as ApiResponse<T>;
@@ -273,6 +294,9 @@ export async function apiDelete(
     clearTimeout(timeoutId);
 
     if (!response.ok && response.status !== 204) {
+      if (response.status === 401) {
+        handleUnauthorized();
+      }
       const errorBody = await response.json().catch(() => null);
       throw new Error(errorBody?.detail || response.statusText);
     }

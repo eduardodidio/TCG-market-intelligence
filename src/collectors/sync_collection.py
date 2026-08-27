@@ -287,26 +287,6 @@ async def _process_single_entry(
         )
         return
 
-    if match_result.status == "ambiguous":
-        async with lock:
-            summary.ambiguous += 1
-            result = SyncResult(
-                entry_id=row.id,
-                name_en=entry.name_en,
-                set_code=entry.set_code,
-                collector_number=entry.collector_number,
-                status="ambiguous",
-                match_confidence=match_result.confidence,
-            )
-            summary.results.append(result)
-        log.info(
-            "card_ambiguous",
-            name_en=entry.name_en,
-            set_code=entry.set_code,
-            candidates=len(match_result.candidates),
-        )
-        return
-
     # Step 3: Matched — build a SourceCard from the search result
     myp_result = match_result.myp_result
     source_card = SourceCard(
@@ -385,7 +365,6 @@ def _log_summary(summary: SyncSummary) -> None:
         skipped_already_linked=summary.skipped_already_linked,
         searched=summary.searched,
         matched=summary.matched,
-        ambiguous=summary.ambiguous,
         unmatched=summary.unmatched,
         cards_created=summary.cards_created,
         observations_saved=summary.observations_saved,

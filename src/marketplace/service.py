@@ -5,10 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
+import structlog
+
 from src.credits.exceptions import InsufficientCreditsError
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.marketplace.fees import calculate_trade_fee
+
+log = structlog.get_logger()
 
 
 class MarketplaceService:
@@ -175,15 +179,11 @@ class MarketplaceService:
         if agreement is None:
             raise ValueError("Trade agreement not found")
 
-        # Update confirmation
-        if is_buyer:
-            if agreement.buyer_confirmed:
-                raise ValueError("You have already confirmed")
-            self.repo.update_trade_agreement(agreement.id, buyer_confirmed=1)
-        else:
-            if agreement.seller_confirmed:
-                raise ValueError("You have already confirmed")
-            self.repo.update_trade_agreement(agreement.id, seller_confirmed=1)
+        # Atomic confirm — UPDATE WHERE field=0 prevents double-confirm race
+        field = "buyer_confirmed" if is_buyer else "seller_confirmed"
+        updated = self.repo.atomic_confirm_agreement(agreement.id, field)
+        if not updated:
+            raise ValueError("You have already confirmed")
 
         # Refresh agreement to check if both confirmed
         agreement = self.repo.get_trade_agreement(agreement.id)
@@ -199,7 +199,25 @@ class MarketplaceService:
         }
 
     def _complete_trade(self, interest, agreement) -> dict:
-        """Finalize trade: charge credits, reveal emails, mark completed."""
+        """Finalize trade: charge credits, reveal emails, mark completed.
+
+        Idempotency: if completed_at is already set, returns the completed
+        state without re-charging. This prevents double-spend if two
+        concurrent confirm_agreement calls both reach this method.
+        """
+        # Idempotency guard — already completed
+        if agreement.completed_at is not None:
+            log.warning("trade_already_completed", agreement_id=agreement.id)
+            return {
+                "id": interest.id,
+                "status": "completed",
+                "my_confirmed": True,
+                "both_confirmed": True,
+                "fee_charged": agreement.buyer_fee_charged,
+                "buyer_email": self._get_user_email(interest.buyer_user_id),
+                "seller_email": self._get_user_email(interest.seller_user_id),
+            }
+
         fee = interest.estimated_fee
 
         # Check both have sufficient credits
@@ -219,9 +237,29 @@ class MarketplaceService:
 
         ref = str(interest.id)
 
-        # Deduct from both
+        # Deduct from buyer first
         self.credit_svc.deduct(interest.buyer_user_id, fee, "trade_fee", reference_id=ref)
-        self.credit_svc.deduct(interest.seller_user_id, fee, "trade_fee", reference_id=ref)
+
+        # Deduct from seller — compensate buyer if this fails
+        try:
+            self.credit_svc.deduct(interest.seller_user_id, fee, "trade_fee", reference_id=ref)
+        except (InsufficientCreditsError, ValueError):
+            # Compensate buyer deduction
+            self.credit_svc.grant(
+                interest.buyer_user_id,
+                fee,
+                "trade_fee_refund",
+                reference_id=ref,
+            )
+            log.warning(
+                "trade_seller_deduct_failed_buyer_refunded",
+                interest_id=interest.id,
+                fee=fee,
+            )
+            raise InsufficientCreditsError(
+                balance=self.credit_svc.get_balance(interest.seller_user_id).balance,
+                cost=fee,
+            )
 
         # Mark agreement as completed
         now = datetime.now()

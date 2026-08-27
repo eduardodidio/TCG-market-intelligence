@@ -42,6 +42,8 @@ export function useCollectionRefresh(
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const isRefreshingRef = useRef(isRefreshing);
+  isRefreshingRef.current = isRefreshing;
 
   // Get JWT token from localStorage
   const token = typeof localStorage !== "undefined"
@@ -161,7 +163,7 @@ export function useCollectionRefresh(
     if (stored) {
       try {
         const { scanId: storedScanId } = JSON.parse(stored);
-        if (storedScanId && !isRefreshing) {
+        if (storedScanId && !isRefreshingRef.current) {
           setIsRefreshing(true);
           setScanId(storedScanId);
         }
@@ -169,7 +171,7 @@ export function useCollectionRefresh(
         localStorage.removeItem("tcg_active_scan");
       }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {

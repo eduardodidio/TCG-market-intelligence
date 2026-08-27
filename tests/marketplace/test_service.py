@@ -297,6 +297,45 @@ class TestConfirmAgreement:
         with pytest.raises(ValueError, match="Cannot confirm"):
             svc.confirm_agreement(interest["id"], user_id=2)
 
+    def test_complete_trade_idempotent(self, svc, repo, credit_svc):
+        """Calling _complete_trade twice should not double-charge (completed_at guard)."""
+        interest_id = self._setup_accepted(svc, repo)
+        buyer_before = credit_svc.get_balance(2).balance
+
+        svc.confirm_agreement(interest_id, user_id=2)
+        result = svc.confirm_agreement(interest_id, user_id=1)
+        assert result["status"] == "completed"
+
+        # Manually call _complete_trade again — should be idempotent
+        interest = repo.get_trade_interest(interest_id)
+        agreement = repo.get_trade_agreement_by_interest(interest_id)
+        result2 = svc._complete_trade(interest, agreement)
+        assert result2["status"] == "completed"
+
+        # Balance should only be deducted once
+        buyer_after = credit_svc.get_balance(2).balance
+        assert buyer_after == buyer_before - 2
+
+    def test_seller_insufficient_credits_refunds_buyer(self, svc, repo, credit_svc):
+        """If seller deduction fails, buyer gets refunded."""
+        interest_id = self._setup_accepted(svc, repo)
+        buyer_before = credit_svc.get_balance(2).balance
+
+        # Drain seller credits AFTER buyer confirms (so check_sufficient passes
+        # but deduct will fail due to race window)
+        svc.confirm_agreement(interest_id, user_id=2)
+
+        # Drain seller to 0
+        seller_bal = credit_svc.get_balance(1).balance
+        repo.update_credit_balance(1, delta=-seller_bal, reason="drain")
+
+        with pytest.raises(InsufficientCreditsError):
+            svc.confirm_agreement(interest_id, user_id=1)
+
+        # Buyer should be refunded
+        buyer_after = credit_svc.get_balance(2).balance
+        assert buyer_after == buyer_before
+
 
 class TestGetMyTrades:
     def test_empty_trades(self, svc, repo):

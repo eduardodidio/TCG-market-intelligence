@@ -155,8 +155,7 @@ class TestFormatReport:
             total=10,
             matched_sku=5,
             matched_name_set=2,
-            matched_name_only=1,
-            ambiguous=1,
+            matched_name_only=2,
             unmatched=1,
         )
         report = format_report(summary)
@@ -165,7 +164,6 @@ class TestFormatReport:
         assert "Total collection cards: 10" in report
         assert "Matched (SKU exact)" in report
         assert "Matched (name+set)" in report
-        assert "Ambiguous" in report
         assert "Unmatched" in report
 
     def test_report_shows_skipped_when_nonzero(self):
@@ -253,7 +251,7 @@ class TestRunMatchReport:
         assert summary.total == 2
         assert summary.matched_sku == 2
         assert summary.unmatched == 0
-        assert summary.ambiguous == 0
+        assert summary.matched_name_only == 0
 
     @patch("src.collectors.match_report.MypCardsProvider")
     @patch("src.collectors.match_report.Repository")
@@ -274,8 +272,8 @@ class TestRunMatchReport:
 
     @patch("src.collectors.match_report.MypCardsProvider")
     @patch("src.collectors.match_report.Repository")
-    async def test_ambiguous_counted(self, MockRepo, MockProvider):
-        """Multiple name matches with no SKU → ambiguous."""
+    async def test_best_effort_counted_as_name_only(self, MockRepo, MockProvider):
+        """Multiple name matches with no SKU → best_effort → name_only."""
         rows = [_fake_row(id=1, set_code="m21", collector_number="152", name_en="Lightning Bolt")]
         MockRepo.return_value.get_all_collection_entries.return_value = rows
 
@@ -304,7 +302,7 @@ class TestRunMatchReport:
         summary = await run_match_report(db_url="sqlite:///:memory:")
 
         assert summary.total == 1
-        assert summary.ambiguous == 1
+        assert summary.matched_name_only == 1
         assert summary.matched_sku == 0
 
     @patch("src.collectors.match_report.MypCardsProvider")
@@ -429,7 +427,7 @@ class TestRunMatchReport:
     @patch("src.collectors.match_report.MypCardsProvider")
     @patch("src.collectors.match_report.Repository")
     async def test_mixed_results(self, MockRepo, MockProvider):
-        """Mixed match results: sku_exact, name_set, unmatched, ambiguous."""
+        """Mixed match results: sku_exact, name_set, unmatched, best_effort."""
         rows = [
             _fake_row(id=1, set_code="dmr", collector_number="123", name_en="Lightning Bolt"),
             _fake_row(id=2, set_code="ltr", collector_number="42", name_en="Gandalf"),
@@ -456,7 +454,7 @@ class TestRunMatchReport:
                 ],
                 # Card 3: unmatched (no results)
                 [],
-                # Card 4: ambiguous (multiple name matches, no SKU)
+                # Card 4: best_effort (multiple name matches, no SKU)
                 [
                     _search_result(
                         external_id="4000",
@@ -485,7 +483,7 @@ class TestRunMatchReport:
         assert summary.matched_sku == 1
         assert summary.matched_name_set == 1
         assert summary.unmatched == 1
-        assert summary.ambiguous == 1
+        assert summary.matched_name_only == 1  # best_effort counted as name_only
 
     @patch("src.collectors.match_report.MypCardsProvider")
     @patch("src.collectors.match_report.Repository")

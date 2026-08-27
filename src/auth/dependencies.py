@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import structlog
 from fastapi import Depends, HTTPException, Request
 from jose import JWTError
 
@@ -9,6 +10,8 @@ from src.api.deps import get_db
 from src.auth.jwt import decode_token
 from src.database.repository import Repository
 from src.domain.models import User
+
+_log = structlog.get_logger()
 
 
 def _extract_token(request: Request) -> str | None:
@@ -140,6 +143,7 @@ def require_auth_or_api_key(
 
     # Dev mode: no TCG_API_KEY set and no JWT → allow through for backwards compat
     if expected is None and not token:
+        _log.warning("dev_mode_auth_bypass", path=str(request.url.path))
         return "api_key_user"
 
     raise HTTPException(status_code=401, detail="Authentication required")

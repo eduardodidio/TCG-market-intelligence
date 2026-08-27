@@ -147,7 +147,6 @@ class TestSyncSummary:
         assert s.skipped_already_linked == 0
         assert s.searched == 0
         assert s.matched == 0
-        assert s.ambiguous == 0
         assert s.unmatched == 0
         assert s.cards_created == 0
         assert s.observations_saved == 0
@@ -506,7 +505,6 @@ class TestRunSyncCollection:
         assert summary.searched == 4  # 5 minus the no-name, which is not searched
         assert summary.matched == 3  # card 4 now matched via best_effort
         assert summary.unmatched == 1
-        assert summary.ambiguous == 0  # best_effort no longer returns ambiguous
         assert summary.cards_created == 3
         assert summary.observations_saved == 15  # 5 * 3 matched cards
         assert len(summary.errors) == 0
@@ -605,7 +603,6 @@ class TestRunSyncCollection:
 
         summary = await run_sync_collection(db_url="sqlite:///:memory:", concurrency=1)
 
-        assert summary.ambiguous == 0
         assert summary.matched == 1
 
         # Best-effort matches are stored (first candidate picked)

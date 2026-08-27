@@ -17,6 +17,21 @@ from src.config import get_db_url
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan: start/stop the scan scheduler + register scan hooks."""
+    import structlog
+
+    _log = structlog.get_logger()
+
+    # Auth env var validation — fail hard in non-dev environments
+    env = os.environ.get("TCG_ENV", "development")
+    if env != "development":
+        if not os.environ.get("TCG_JWT_SECRET"):
+            raise RuntimeError(
+                "TCG_JWT_SECRET is required in non-development environments "
+                f"(TCG_ENV={env}). Set it or use TCG_ENV=development."
+            )
+        if not os.environ.get("TCG_API_KEY"):
+            _log.warning("tcg_api_key_not_set", env=env)
+
     scheduler_disabled = os.environ.get("TCG_SCHEDULER_DISABLED", "0") == "1"
     if not scheduler_disabled:
         try:
@@ -149,8 +164,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[o.strip() for o in cors_origins],
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key", "Accept"],
     )
 
     # Request ID middleware

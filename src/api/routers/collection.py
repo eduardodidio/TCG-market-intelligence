@@ -69,7 +69,7 @@ def _encode_cursor(row_id: int) -> str:
 def _decode_cursor(cursor: str) -> int | None:
     try:
         return int(base64.urlsafe_b64decode(cursor).decode())
-    except (ValueError, Exception):
+    except Exception:
         return None
 
 
@@ -872,7 +872,6 @@ async def refresh_card_price(
     finally:
         await provider.close()
 
-    price_saved = False
     if jsonld and jsonld.price and jsonld.price > 0:
         obs = HistoricalPrice(
             source="jsonld_snapshot",
@@ -881,7 +880,6 @@ async def refresh_card_price(
             median_price=jsonld.price,
         )
         repo.insert_price_observations([obs])
-        price_saved = True
         log.info(
             "card_price_refreshed",
             entry_id=entry_id,
@@ -889,8 +887,8 @@ async def refresh_card_price(
             price=str(jsonld.price),
         )
 
-    # Deduct credit only when price data was actually saved (non-admin only)
-    if price_saved and not user.is_admin:
+    # Deduct credit unconditionally (non-admin only) — aligned with Liga refresh behavior
+    if not user.is_admin:
         credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
 
     # Return updated card detail (reuse same logic as get_collection_entry)

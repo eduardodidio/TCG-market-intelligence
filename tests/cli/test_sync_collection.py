@@ -21,8 +21,7 @@ def _make_sync_summary(
     skipped_already_linked: int = 320,
     searched: int = 228,
     matched: int = 180,
-    ambiguous: int = 20,
-    unmatched: int = 28,
+    unmatched: int = 48,
     cards_created: int = 180,
     observations_saved: int = 65700,
     with_errors: bool = False,
@@ -64,7 +63,6 @@ def _make_sync_summary(
         skipped_already_linked=skipped_already_linked,
         searched=searched,
         matched=matched,
-        ambiguous=ambiguous,
         unmatched=unmatched,
         cards_created=cards_created,
         observations_saved=observations_saved,
@@ -196,7 +194,6 @@ class TestPrintSyncSummary:
         assert "Skipped (already linked): 320" in result.output
         assert "Searched:                 228" in result.output
         assert "Matched:                  180" in result.output
-        assert "Ambiguous:" in result.output
         assert "Unmatched:" in result.output
         assert "Cards created:            180" in result.output
         assert "Observations saved:     65,700" in result.output

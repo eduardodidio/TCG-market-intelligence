@@ -370,7 +370,6 @@ def _print_sync_summary(summary, dry_run):
     click.echo(f"  Skipped (already linked): {summary.skipped_already_linked}")
     click.echo(f"  Searched:                 {summary.searched}")
     click.echo(f"  Matched:                  {summary.matched}")
-    click.echo(f"  Ambiguous:                {summary.ambiguous:>3}")
     click.echo(f"  Unmatched:                {summary.unmatched:>3}")
     click.echo(f"  Cards created:            {summary.cards_created}")
     click.echo(f"  Observations saved:     {summary.observations_saved:,}")

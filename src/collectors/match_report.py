@@ -27,7 +27,6 @@ class MatchReportSummary:
     matched_sku: int = 0
     matched_name_set: int = 0
     matched_name_only: int = 0
-    ambiguous: int = 0
     unmatched: int = 0
     skipped_no_name: int = 0
     errors: int = 0
@@ -64,7 +63,7 @@ async def run_match_report(
     """Run the dry-run match report.
 
     Reads all ``user_collection`` entries from the DB, searches MYP for
-    each card, and returns a summary of match/ambiguous/unmatched counts.
+    each card, and returns a summary of match/unmatched counts.
 
     This is a **read-only** operation: no database writes occur.
 
@@ -138,9 +137,8 @@ async def run_match_report(
                             summary.matched_sku += 1
                         elif result.confidence == "name_set":
                             summary.matched_name_set += 1
-                        elif result.confidence == "best_effort":
-                            summary.ambiguous += 1
                         else:
+                            # name_only and best_effort
                             summary.matched_name_only += 1
                     else:
                         summary.unmatched += 1
@@ -163,7 +161,6 @@ def format_report(summary: MatchReportSummary) -> str:
     sku_pct = _pct(summary.matched_sku, total)
     ns_pct = _pct(summary.matched_name_set, total)
     no_pct = _pct(summary.matched_name_only, total)
-    amb_pct = _pct(summary.ambiguous, total)
     unm_pct = _pct(summary.unmatched, total)
 
     lines = [
@@ -173,7 +170,6 @@ def format_report(summary: MatchReportSummary) -> str:
         f"  Matched (SKU exact):  {summary.matched_sku:>3} ({sku_pct})",
         f"  Matched (name+set):   {summary.matched_name_set:>3} ({ns_pct})",
         f"  Matched (name only):  {summary.matched_name_only:>3} ({no_pct})",
-        f"  Ambiguous:            {summary.ambiguous:>3} ({amb_pct})",
         f"  Unmatched:            {summary.unmatched:>3} ({unm_pct})",
     ]
     if summary.skipped_no_name > 0:
@@ -202,7 +198,6 @@ def _write_json_report(summary: MatchReportSummary, path: str) -> None:
         "matched_sku": summary.matched_sku,
         "matched_name_set": summary.matched_name_set,
         "matched_name_only": summary.matched_name_only,
-        "ambiguous": summary.ambiguous,
         "unmatched": summary.unmatched,
         "skipped_no_name": summary.skipped_no_name,
         "errors": summary.errors,

@@ -238,7 +238,7 @@ class SyncResult:
     name_en: str | None
     set_code: str
     collector_number: str
-    status: str  # "synced" | "unmatched" | "ambiguous" | "skipped" | "error" | "no_name"
+    status: str  # "synced" | "unmatched" | "skipped" | "error" | "no_name"
     card_id: int | None = None
     observations_count: int = 0
     match_confidence: str | None = None
@@ -253,7 +253,6 @@ class SyncSummary:
     skipped_already_linked: int = 0
     searched: int = 0
     matched: int = 0
-    ambiguous: int = 0
     unmatched: int = 0
     cards_created: int = 0
     observations_saved: int = 0

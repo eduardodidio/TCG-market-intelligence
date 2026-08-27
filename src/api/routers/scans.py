@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from jose import JWTError
 from starlette.responses import StreamingResponse
 
-from src.api.deps import get_credit_service, get_current_user, require_auth_or_api_key
+from src.api.deps import get_credit_service, get_current_user
 from src.api.schemas.scans import (
     ScanListResponse,
     ScanPreviewResponse,
@@ -140,7 +140,6 @@ async def preview_scan(
 @router.post("", response_model=ScanTriggerResponse)
 async def trigger_scan(
     request: ScanRequest,
-    _user_id: str = Depends(require_auth_or_api_key),
     user: User = Depends(get_current_user),
     credit_svc: CreditService = Depends(get_credit_service),
 ):
