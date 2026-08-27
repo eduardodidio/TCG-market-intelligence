@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_current_user, get_db
+from src.api.schemas.envelope import success_response
 from src.credits.constants import BONUS_AMOUNT
 from src.credits.service import CreditService
 from src.database.repository import Repository
@@ -22,14 +23,16 @@ def get_balance(
     svc = CreditService(repo)
     balance = svc.get_balance(user.id)
     eligibility = svc.get_bonus_eligibility(user.id)
-    return {
-        "balance": balance.balance,
-        "last_bonus_at": balance.last_bonus_at,
-        "bonus_eligible": eligibility["eligible"],
-        "next_bonus_at": eligibility["next_eligible_at"],
-        "bonus_amount": eligibility["amount"],
-        "is_admin": user.is_admin,
-    }
+    return success_response(
+        data={
+            "balance": balance.balance,
+            "last_bonus_at": balance.last_bonus_at,
+            "bonus_eligible": eligibility["eligible"],
+            "next_bonus_at": eligibility["next_eligible_at"],
+            "bonus_amount": eligibility["amount"],
+            "is_admin": user.is_admin,
+        }
+    )
 
 
 @router.get("/history")
@@ -42,18 +45,20 @@ def get_history(
     """Paginated credit transaction history."""
     svc = CreditService(repo)
     transactions = svc.get_transactions(user.id, limit=limit, offset=offset)
-    return {
-        "transactions": [
-            {
-                "id": t.id,
-                "amount": t.amount,
-                "reason": t.reason,
-                "reference_id": t.reference_id,
-                "created_at": t.created_at,
-            }
-            for t in transactions
-        ]
-    }
+    return success_response(
+        data={
+            "transactions": [
+                {
+                    "id": t.id,
+                    "amount": t.amount,
+                    "reason": t.reason,
+                    "reference_id": t.reference_id,
+                    "created_at": t.created_at,
+                }
+                for t in transactions
+            ]
+        }
+    )
 
 
 @router.post("/claim-bonus")
@@ -73,4 +78,4 @@ def claim_bonus(
                 "next_eligible_at": str(eligibility["next_eligible_at"]),
             },
         )
-    return {"balance": balance.balance, "credited": BONUS_AMOUNT}
+    return success_response(data={"balance": balance.balance, "credited": BONUS_AMOUNT})

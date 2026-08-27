@@ -66,9 +66,9 @@
       "totalUsers": "Total de Usuarios",
       "activeUsers": "Usuarios Ativos",
       "adminUsers": "Usuarios Admin",
-      "creditsInCirculation": "Creditos em Circulacao",
-      "creditsGranted": "Creditos Concedidos",
-      "creditsSpent": "Creditos Gastos",
+      "creditsInCirculation": "Tokens em Circulacao",
+      "creditsGranted": "Tokens Concedidos",
+      "creditsSpent": "Tokens Gastos",
       "collectionEntries": "Entradas na Colecao",
       "totalScans": "Total de Scans"
     },

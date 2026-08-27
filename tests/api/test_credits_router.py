@@ -93,20 +93,20 @@ class TestGetBalance:
     def test_returns_zero_for_new_user(self, client):
         resp = client.get("/api/v1/credits/balance")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert data["balance"] == 0
         assert data["is_admin"] is False
 
     def test_returns_is_admin_true_for_admin(self, admin_client):
         resp = admin_client.get("/api/v1/credits/balance")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert data["is_admin"] is True
 
     def test_includes_bonus_eligibility_fields(self, client):
         resp = client.get("/api/v1/credits/balance")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert "bonus_eligible" in data
         assert "next_bonus_at" in data
         assert "bonus_amount" in data
@@ -127,7 +127,7 @@ class TestGetHistory:
     def test_returns_empty_for_new_user(self, client):
         resp = client.get("/api/v1/credits/history")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert data["transactions"] == []
 
     def test_returns_transactions_after_bonus(self, client, repo):
@@ -135,7 +135,7 @@ class TestGetHistory:
         client.post("/api/v1/credits/claim-bonus")
         resp = client.get("/api/v1/credits/history")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert len(data["transactions"]) > 0
         tx = data["transactions"][0]
         assert tx["amount"] == BONUS_AMOUNT
@@ -153,7 +153,7 @@ class TestGetHistory:
 
         resp = client.get("/api/v1/credits/history?limit=2")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert len(data["transactions"]) == 2
 
     def test_respects_offset_param(self, client, repo):
@@ -165,11 +165,11 @@ class TestGetHistory:
 
         # Get all
         resp_all = client.get("/api/v1/credits/history?limit=100")
-        all_txs = resp_all.json()["transactions"]
+        all_txs = resp_all.json()["data"]["transactions"]
 
         # Get with offset
         resp_offset = client.get("/api/v1/credits/history?limit=100&offset=2")
-        offset_txs = resp_offset.json()["transactions"]
+        offset_txs = resp_offset.json()["data"]["transactions"]
 
         assert len(offset_txs) == len(all_txs) - 2
         assert offset_txs[0]["id"] == all_txs[2]["id"]
@@ -186,7 +186,7 @@ class TestClaimBonus:
     def test_grants_bonus_credits(self, client):
         resp = client.post("/api/v1/credits/claim-bonus")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert data["balance"] == BONUS_AMOUNT
         assert data["credited"] == BONUS_AMOUNT
 
