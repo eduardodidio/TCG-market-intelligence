@@ -2,38 +2,45 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { createElement } from "react";
 import {
-  LanguageContext,
-  type LanguageContextValue,
-} from "../../src/contexts/LanguageContext";
+  CurrencyContext,
+  type CurrencyContextValue,
+} from "../../src/contexts/CurrencyContext";
+import type { CurrencyCode } from "../../src/types/currency";
 import { useTreasureImage } from "../../src/hooks/useTreasureImage";
 
-// Vitest handles image imports as the file path string
-function renderWithLanguage(language: "en" | "pt-BR") {
-  const value: LanguageContextValue = {
-    language,
-    setLanguage: vi.fn(),
+function renderWithCurrency(currency: CurrencyCode) {
+  const value: CurrencyContextValue = {
+    currency,
+    setCurrency: vi.fn(),
+    toggle: vi.fn(),
   };
   return renderHook(() => useTreasureImage(), {
     wrapper: ({ children }) =>
-      createElement(LanguageContext.Provider, { value }, children),
+      createElement(CurrencyContext.Provider, { value }, children),
   });
 }
 
 describe("useTreasureImage", () => {
-  it("returns EN image when language is en", () => {
-    const { result } = renderWithLanguage("en");
+  it("returns tesouro image when currency is PILA", () => {
+    const { result } = renderWithCurrency("PILA");
+    expect(result.current).toContain("tesouro");
+  });
+
+  it("returns default treasure image when currency is BRL", () => {
+    const { result } = renderWithCurrency("BRL");
     expect(result.current).toContain("treasure");
     expect(result.current).not.toContain("tesouro");
   });
 
-  it("returns PT image when language is pt-BR", () => {
-    const { result } = renderWithLanguage("pt-BR");
-    expect(result.current).toContain("tesouro");
+  it("returns default treasure image when currency is USD", () => {
+    const { result } = renderWithCurrency("USD");
+    expect(result.current).toContain("treasure");
+    expect(result.current).not.toContain("tesouro");
   });
 
-  it("defaults to EN image when context is null", () => {
+  it("defaults to treasure image when no context provided", () => {
     const { result } = renderHook(() => useTreasureImage());
-    // No LanguageContext provider — ctx is null, defaults to 'en'
+    // CurrencyContext defaults to BRL
     expect(result.current).toContain("treasure");
   });
 });
