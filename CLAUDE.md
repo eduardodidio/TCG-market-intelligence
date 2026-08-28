@@ -41,6 +41,15 @@ Logs: `logs/agents/*.jsonl`. Dashboard: `didio dashboard` (phase 2).
 See `agents/orchestrator.md` for the full pipeline and
 `agents/workflows/feature-workflow.md` for the quality gates.
 
+## Gitflow
+
+- **`homol`** — development/homologation branch. All feature work happens
+  here and is tested locally before promotion.
+- **`main`** — production branch. Render auto-deploys from `main`.
+- **Promotion flow:** user validates changes on `homol`, then merges to
+  `main` when ready. Never push directly to `main` without explicit user
+  confirmation.
+
 ## Project Layout
 
 ```
@@ -103,6 +112,8 @@ confirmacao explicita do usuario.
 - NUNCA commitar arquivos com segredos (`.env`, `credentials.*`, chaves
   privadas, tokens, `*.pem`, `*.key`)
 - NUNCA amendar commits ja pushados a uma branch compartilhada
+- NUNCA fazer push direto para `main` — todo trabalho na branch `homol`,
+  promover para `main` somente com aval do usuario
 
 **Codigo**
 - NUNCA desabilitar validacao, auth ou testes "so pra fazer funcionar"

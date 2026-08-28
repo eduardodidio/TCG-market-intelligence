@@ -5,7 +5,7 @@ from collections.abc import Generator
 
 from fastapi import Depends, Header, HTTPException, Request
 
-from src.config import get_db_url
+from src.config import get_db_url, is_liga_disabled
 from src.database.repository import Repository
 
 
@@ -73,6 +73,11 @@ def get_provider_registry():
     available (e.g. Playwright not installed), it is silently skipped.
     """
     if not hasattr(get_provider_registry, "_instance"):
+        import structlog
+
+        if is_liga_disabled():
+            structlog.get_logger().warning("liga_provider_disabled")
+
         from src.providers.registry import create_registry_from_env
 
         get_provider_registry._instance = create_registry_from_env()

@@ -96,6 +96,11 @@ def create_registry_from_env() -> ProviderRegistry:
     for name in order:
         name = name.strip()
         if name == "liga":
+            from src.config import is_liga_disabled
+
+            if is_liga_disabled():
+                log.warning("liga_provider_disabled", reason="TCG_LIGA_DISABLED=1")
+                continue
             try:
                 from src.providers.liga.provider import LigaMagicProvider
 

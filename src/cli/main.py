@@ -1182,11 +1182,17 @@ def error_cleanup(db, max_age_days, max_entries, dry_run):
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")
-def serve(host, port):
+@click.option(
+    "--production",
+    is_flag=True,
+    default=False,
+    help="Run in production mode (no reload, respect $PORT)",
+)
+def serve(host, port, production):
     """Start the REST API server."""
     from src.api.app import run_server
 
-    run_server(host=host, port=port)
+    run_server(host=host, port=port, production=production)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -87,17 +88,20 @@ async def lifespan(app: FastAPI):
         app.state.provider_registry = registry
 
         # Open Liga browser at startup (avoids lazy-init edge cases)
-        try:
-            from src.providers.liga.provider import LigaMagicProvider
+        from src.config import is_liga_disabled
 
-            for provider in registry.providers:
-                if isinstance(provider, LigaMagicProvider):
-                    await provider.open()
-        except Exception:
-            import structlog
+        if not is_liga_disabled():
+            try:
+                from src.providers.liga.provider import LigaMagicProvider
 
-            log = structlog.get_logger()
-            log.warning("liga_browser_startup_failed", exc_info=True)
+                for provider in registry.providers:
+                    if isinstance(provider, LigaMagicProvider):
+                        await provider.open()
+            except Exception:
+                import structlog
+
+                log = structlog.get_logger()
+                log.warning("liga_browser_startup_failed", exc_info=True)
     except Exception:
         import structlog
 
@@ -173,16 +177,19 @@ async def lifespan(app: FastAPI):
         app.state.scheduler.shutdown()
 
     # Close Liga browser on shutdown
-    try:
-        registry = getattr(app.state, "provider_registry", None)
-        if registry:
-            from src.providers.liga.provider import LigaMagicProvider
+    from src.config import is_liga_disabled
 
-            for provider in registry.providers:
-                if isinstance(provider, LigaMagicProvider):
-                    await provider.close()
-    except Exception:
-        pass
+    if not is_liga_disabled():
+        try:
+            registry = getattr(app.state, "provider_registry", None)
+            if registry:
+                from src.providers.liga.provider import LigaMagicProvider
+
+                for provider in registry.providers:
+                    if isinstance(provider, LigaMagicProvider):
+                        await provider.close()
+        except Exception:
+            pass
 
     # Clear cache on shutdown
     try:
@@ -258,6 +265,31 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health_check():
         return {"status": "ok"}
+
+    # Serve frontend SPA (production: built files in frontend/dist/)
+    _frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+    if _frontend_dist.is_dir():
+        from fastapi.responses import FileResponse
+        from fastapi.staticfiles import StaticFiles
+
+        _assets_dir = _frontend_dist / "assets"
+        if _assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="static-assets")
+
+        _API_PREFIXES = ("api/", "docs", "redoc", "openapi.json", "health")
+
+        @app.get("/{path:path}")
+        async def serve_spa(path: str):
+            """Serve frontend SPA — fallback to index.html for client-side routing."""
+            # Never intercept API/docs paths — let FastAPI return 404/405
+            if path.startswith(_API_PREFIXES):
+                from fastapi import HTTPException
+
+                raise HTTPException(status_code=404, detail="Not found")
+            file_path = _frontend_dist / path
+            if path and file_path.is_file() and ".." not in path:
+                return FileResponse(str(file_path))
+            return FileResponse(str(_frontend_dist / "index.html"))
 
     # Exception handlers
     @app.exception_handler(RequestValidationError)
@@ -356,14 +388,19 @@ def create_app() -> FastAPI:
     return app
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000):
+def run_server(host: str = "0.0.0.0", port: int = 8000, production: bool = False):
     """Start the API server with Uvicorn."""
     import uvicorn
+
+    if production:
+        effective_port = int(os.environ.get("PORT", port))
+    else:
+        effective_port = port
 
     uvicorn.run(
         "src.api.app:create_app",
         factory=True,
         host=host,
-        port=port,
-        reload=True,
+        port=effective_port,
+        reload=not production,
     )

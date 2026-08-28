@@ -852,6 +852,21 @@ Centralized error capture and admin visibility for all application errors:
   errors via global logger, so background task failures are visible in the
   admin panel alongside request-triggered errors.
 
+## Deployment
+
+TEDHC Market deploys as a single web service on [Render](https://render.com).
+
+**Quick deploy:**
+1. Fork/connect this repo on Render
+2. Create a new Web Service → select Docker runtime
+3. Use the `render.yaml` Blueprint for auto-configuration
+4. Add a 1GB Persistent Disk mounted at `/data`
+5. Set `TCG_CORS_ORIGINS` to your Render URL after first deploy
+
+**Environment variables:** see `.env.example` for the full reference.
+
+**Gitflow:** development on `homol` branch, production deploys from `main`.
+
 ## Future
 
 Prepared for but not yet implemented:

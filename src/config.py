@@ -23,3 +23,8 @@ def get_error_max_age_days() -> int:
 def get_error_max_entries() -> int:
     """Return max number of error log entries to keep."""
     return int(os.environ.get("TCG_ERROR_MAX_ENTRIES", "10000"))
+
+
+def is_liga_disabled() -> bool:
+    """Return True if Liga provider is disabled via TCG_LIGA_DISABLED env var."""
+    return os.environ.get("TCG_LIGA_DISABLED", "0") == "1"
