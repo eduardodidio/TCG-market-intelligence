@@ -190,30 +190,40 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
         )}
 
         <div className="flex items-center justify-between mt-2">
-          <p
-            className={`text-sm font-bold flex items-center gap-1 ${card.latest_price != null ? "text-cyan-400" : "text-slate-500"}`}
-            data-testid="card-price"
-          >
-            {formatCurrency(card.latest_price, currencyOverride || "BRL")}
-            {card.price_source === "manual" && (
-              <svg
-                data-testid="manual-price-indicator"
-                className="h-3 w-3 text-amber-400 inline-block"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                title={t("price.manualTooltip")}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                />
-              </svg>
+          <div>
+            <p
+              className={`text-sm font-bold flex items-center gap-1 ${card.latest_price != null ? "text-cyan-400" : "text-slate-500"}`}
+              data-testid="card-price"
+            >
+              {formatCurrency(card.latest_price, currencyOverride || "BRL")}
+              {card.price_source === "manual" && (
+                <svg
+                  data-testid="manual-price-indicator"
+                  className="h-3 w-3 text-amber-400 inline-block"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  title={t("price.manualTooltip")}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
+                </svg>
+              )}
+            </p>
+            {card.quantity > 1 && card.latest_price != null && (
+              <p className="text-xs text-slate-400 mt-0.5" data-testid="line-total">
+                {t("collection.lineTotal", {
+                  qty: card.quantity,
+                  total: formatCurrency(card.latest_price * card.quantity, currencyOverride || "BRL"),
+                })}
+              </p>
             )}
-          </p>
+          </div>
           {!compact && (
             <div className="flex items-center gap-1 text-xs text-slate-400">
               {card.quality && <span>{card.quality}</span>}

@@ -14,7 +14,6 @@ vi.mock("react-i18next", () => ({
         "credits.insufficient": "Insufficient tokens!",
         "credits.spend": `Spend ${opts?.cost ?? ""} Token`,
         "credits.cancel": "Cancel",
-        "credits.adminBypass": "Admin — no cost",
         "credits.balance": "Treasure Tokens",
         "credits.tokenTypeLine": "Token Artifact — Treasure",
         "credits.tokenRulesText":
@@ -86,25 +85,22 @@ describe("CreditConfirmModal", () => {
     expect(screen.queryByTestId("balance-after-text")).toBeNull();
   });
 
-  it("enables confirm button for admin regardless of balance", () => {
+  it("disables confirm button for admin with insufficient balance (F81 — admins pay)", () => {
     render(
       <CreditConfirmModal {...defaultProps} cost={5} balance={0} isAdmin />,
     );
     const confirmBtn = screen.getByTestId("modal-confirm-btn");
-    expect(confirmBtn).toHaveProperty("disabled", false);
+    expect(confirmBtn).toHaveProperty("disabled", true);
   });
 
-  it('shows "Admin — no cost" text for admin users', () => {
+  it("shows cost/balance text for admin users (F81 — admins pay)", () => {
     render(
-      <CreditConfirmModal {...defaultProps} cost={1} balance={0} isAdmin />,
+      <CreditConfirmModal {...defaultProps} cost={1} balance={10} isAdmin />,
     );
-    expect(screen.getByTestId("admin-bypass-text").textContent).toBe(
-      "Admin — no cost",
-    );
-    // Should not show cost/balance/insufficient for admin
-    expect(screen.queryByTestId("cost-text")).toBeNull();
-    expect(screen.queryByTestId("balance-text")).toBeNull();
-    expect(screen.queryByTestId("insufficient-text")).toBeNull();
+    // Admin no longer shows bypass text — shows regular cost info
+    expect(screen.queryByTestId("admin-bypass-text")).toBeNull();
+    expect(screen.getByTestId("cost-text")).toBeTruthy();
+    expect(screen.getByTestId("balance-text")).toBeTruthy();
   });
 
   it("calls onConfirm when confirm button clicked", () => {

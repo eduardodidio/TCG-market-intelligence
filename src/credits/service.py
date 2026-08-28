@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from src.credits.constants import BONUS_AMOUNT, BONUS_INTERVAL_HOURS
+from src.credits.constants import ADMIN_MONTHLY_GRANT, BONUS_AMOUNT, BONUS_INTERVAL_HOURS
 from src.credits.exceptions import InsufficientCreditsError
 from src.database.repository import Repository
 from src.domain.models import CreditBalance, CreditTransaction
@@ -34,8 +34,8 @@ def _row_to_transaction(row) -> CreditTransaction:
 class CreditService:
     """Encapsulates all credit business logic.
 
-    Admin exemption is NOT handled here — it is checked at the router
-    level. The service always charges regardless of admin status.
+    All users (including admins) are charged for actions. Admins receive
+    a monthly grant of 10k tokens auto-claimed on balance check.
     """
 
     def __init__(self, repo: Repository) -> None:
@@ -112,6 +112,37 @@ class CreditService:
         )
         # Update last_bonus_at on the balance row
         self.repo.update_last_bonus_at(user_id, now)
+        updated = self.get_balance(user_id)
+        return updated, True
+
+    def claim_monthly_admin_grant(self, user_id: int, is_admin: bool) -> tuple[CreditBalance, bool]:
+        """Auto-claim monthly 10k admin grant if eligible.
+
+        Returns (balance, was_granted). Non-admins always get (balance, False).
+        Admins get the grant if last_monthly_grant_at is None or in a
+        different month/year from the current UTC date.
+        """
+        balance = self.get_balance(user_id)
+        if not is_admin:
+            return balance, False
+
+        now = datetime.now(timezone.utc)
+        row = self.repo.ensure_credit_balance(user_id)
+        last = row.last_monthly_grant_at
+
+        if last is not None:
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            if last.year == now.year and last.month == now.month:
+                return balance, False
+
+        # Grant monthly tokens
+        self.repo.update_credit_balance(
+            user_id=user_id,
+            delta=ADMIN_MONTHLY_GRANT,
+            reason="admin_monthly_grant",
+        )
+        self.repo.update_last_monthly_grant_at(user_id, now)
         updated = self.get_balance(user_id)
         return updated, True
 

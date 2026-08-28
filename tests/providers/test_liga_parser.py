@@ -140,6 +140,120 @@ class TestParseCardPricesFoilOnly:
 # ---------------------------------------------------------------------------
 
 
+class TestParseCardPricesNbsp:
+    """Ensure parser handles R$ with &nbsp; (non-breaking space) correctly."""
+
+    @pytest.fixture
+    def prices(self):
+        html = _load_html("liga_card_nbsp_prices.html")
+        return parse_card_prices(html, "Demonic Tutor")
+
+    def test_card_name(self, prices):
+        assert prices["card_name"] == "Demonic Tutor"
+
+    def test_normal_low(self, prices):
+        assert prices["normal"]["low"] == Decimal("55.90")
+
+    def test_normal_high(self, prices):
+        assert prices["normal"]["high"] == Decimal("350.00")
+
+    def test_normal_mid_is_between(self, prices):
+        mid = prices["normal"]["mid"]
+        assert mid is not None
+        assert Decimal("55.90") <= mid <= Decimal("350.00")
+
+
+class TestParseBrlNbsp:
+    """_parse_brl handles &nbsp; and \\xa0 between R$ and digits."""
+
+    def test_nbsp_entity(self):
+        assert _parse_brl("R$&nbsp;75,00") == Decimal("75.00")
+
+    def test_unicode_nbsp(self):
+        assert _parse_brl("R$\xa075,00") == Decimal("75.00")
+
+    def test_no_space(self):
+        assert _parse_brl("R$75,00") == Decimal("75.00")
+
+
+# ---------------------------------------------------------------------------
+# Parametrized regression tests across all fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "fixture_file, card_name, expect_normal, expect_foil",
+    [
+        pytest.param(
+            "liga_card_bolt.html",
+            "Lightning Bolt",
+            True,
+            True,
+            id="bolt-normal-and-foil",
+        ),
+        pytest.param(
+            "liga_card_no_prices.html",
+            "Nonexistent Card",
+            False,
+            False,
+            id="no-prices",
+        ),
+        pytest.param(
+            "liga_card_single_price.html",
+            "Sol Ring",
+            True,
+            False,
+            id="single-price",
+        ),
+        pytest.param(
+            "liga_card_foil_only.html",
+            "Promo Card",
+            True,  # foil prices also appear in the full-page regex scan
+            True,
+            id="foil-only",
+        ),
+        pytest.param(
+            "liga_card_nbsp_prices.html",
+            "Demonic Tutor",
+            True,
+            False,
+            id="nbsp-prices",
+        ),
+    ],
+)
+class TestParseCardPricesParametrized:
+    def test_has_expected_normal_prices(self, fixture_file, card_name, expect_normal, expect_foil):
+        html = _load_html(fixture_file)
+        result = parse_card_prices(html, card_name)
+        normal = result["normal"]
+        has_normal = any(v is not None for v in normal.values())
+        assert has_normal == expect_normal
+
+    def test_has_expected_foil_prices(self, fixture_file, card_name, expect_normal, expect_foil):
+        html = _load_html(fixture_file)
+        result = parse_card_prices(html, card_name)
+        foil = result["foil"]
+        has_foil = any(v is not None for v in foil.values())
+        assert has_foil == expect_foil
+
+    def test_card_name_preserved(self, fixture_file, card_name, expect_normal, expect_foil):
+        html = _load_html(fixture_file)
+        result = parse_card_prices(html, card_name)
+        assert result["card_name"] == card_name
+
+    def test_prices_are_positive_decimals(
+        self, fixture_file, card_name, expect_normal, expect_foil
+    ):
+        html = _load_html(fixture_file)
+        result = parse_card_prices(html, card_name)
+        for section in ("normal", "foil"):
+            for key in ("low", "mid", "high"):
+                val = result[section][key]
+                if val is not None:
+                    assert isinstance(val, Decimal)
+                    assert val > 0
+
+
 class TestParseCardNameFromPage:
     def test_extracts_name_from_title(self):
         html = _load_html("liga_card_bolt.html")

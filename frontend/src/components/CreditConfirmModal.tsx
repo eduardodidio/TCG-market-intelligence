@@ -30,7 +30,7 @@ export function CreditConfirmModal({
 
   if (!isOpen) return null;
 
-  const insufficient = !isAdmin && balance < cost;
+  const insufficient = balance < cost;
   const balanceAfter = balance - cost;
 
   return (
@@ -57,38 +57,27 @@ export function CreditConfirmModal({
 
         {/* Cost info */}
         <div className="space-y-2 mb-6 text-center">
-          {isAdmin ? (
+          <p className="text-sm text-slate-300" data-testid="cost-text">
+            {t("credits.confirmCost", { cost })}
+          </p>
+          <p className="text-sm text-slate-400" data-testid="balance-text">
+            {t("credits.confirmBalance", { balance })}
+          </p>
+          {!insufficient && (
             <p
-              className="text-sm text-emerald-400 font-medium"
-              data-testid="admin-bypass-text"
+              className="text-sm text-slate-400"
+              data-testid="balance-after-text"
             >
-              {t("credits.adminBypass")}
+              {t("credits.balanceAfter", { balance: balanceAfter })}
             </p>
-          ) : (
-            <>
-              <p className="text-sm text-slate-300" data-testid="cost-text">
-                {t("credits.confirmCost", { cost })}
-              </p>
-              <p className="text-sm text-slate-400" data-testid="balance-text">
-                {t("credits.confirmBalance", { balance })}
-              </p>
-              {!insufficient && (
-                <p
-                  className="text-sm text-slate-400"
-                  data-testid="balance-after-text"
-                >
-                  {t("credits.balanceAfter", { balance: balanceAfter })}
-                </p>
-              )}
-              {insufficient && (
-                <p
-                  className="text-sm text-red-400 font-medium"
-                  data-testid="insufficient-text"
-                >
-                  {t("credits.insufficient")}
-                </p>
-              )}
-            </>
+          )}
+          {insufficient && (
+            <p
+              className="text-sm text-red-400 font-medium"
+              data-testid="insufficient-text"
+            >
+              {t("credits.insufficient")}
+            </p>
           )}
         </div>
 
@@ -140,9 +129,7 @@ export function CreditConfirmModal({
               disabled:opacity-50 disabled:cursor-not-allowed
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
-            {isAdmin
-              ? t("credits.spend", { cost: 0 })
-              : t("credits.spend", { cost })}
+            {t("credits.spend", { cost })}
           </button>
         </div>
       </div>

@@ -294,16 +294,16 @@ class TestSearchCard:
         assert result["normal"]["low"] is not None
 
     @pytest.mark.asyncio
-    async def test_error_returns_empty_prices(self, provider):
+    async def test_liga_error_is_reraised(self, provider):
+        """LigaError from _fetch_page is re-raised (not swallowed)."""
         with patch.object(
             provider,
             "_fetch_page",
             new_callable=AsyncMock,
             side_effect=LigaError("fail"),
         ):
-            result = await provider.search_card("Lightning Bolt")
-
-        assert result["normal"]["low"] is None
+            with pytest.raises(LigaError, match="fail"):
+                await provider.search_card("Lightning Bolt")
 
     @pytest.mark.asyncio
     async def test_unexpected_error_wraps_to_liga_error(self, provider):

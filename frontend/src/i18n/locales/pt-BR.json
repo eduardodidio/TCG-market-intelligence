@@ -202,7 +202,8 @@
     "maxAgeDaysOption7": "Ultimos 7 dias",
     "maxAgeDaysOptionAll": "Escanear todos os cards",
     "skippedCards": "{{count}} cards ignorados (escaneados recentemente)",
-    "cardsToScan": "{{count}} cards para escanear"
+    "cardsToScan": "{{count}} cards para escanear",
+    "lineTotal": "x {{qty}} = {{total}}"
   },
   "market": {
     "title": "Movimentacao de Mercado",
@@ -687,7 +688,8 @@
     "insufficient": "Fichas insuficientes!",
     "spend": "Gastar {{cost}} Ficha",
     "cancel": "Cancelar",
-    "adminBypass": "Admin — sem custo",
+    "monthlyGrant": "{{amount}}/mes de bonus",
+    "monthlyGrantClaimed": "Bonus mensal resgatado!",
     "refreshCost": "Atualizar preco",
     "scanCost": "Executar scan de precos",
     "tokenTypeLine": "Token Artefato — Tesouro",

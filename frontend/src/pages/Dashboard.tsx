@@ -217,24 +217,26 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Em Alta */}
-      <div className="mb-8" data-testid="landing-trending-up">
-        <TrendingSection
-          direction="gainers"
-          period="30d"
-          currency={currency}
-          limit={10}
-        />
-      </div>
-
-      {/* Em Baixa */}
-      <div className="mb-8" data-testid="landing-trending-down">
-        <TrendingSection
-          direction="losers"
-          period="30d"
-          currency={currency}
-          limit={10}
-        />
+      {/* Trending: gainers + losers side by side */}
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6" data-testid="trending-grid">
+        <div data-testid="landing-trending-up">
+          <TrendingSection
+            direction="gainers"
+            period="30d"
+            currency={currency}
+            limit={10}
+            variant="list"
+          />
+        </div>
+        <div data-testid="landing-trending-down">
+          <TrendingSection
+            direction="losers"
+            period="30d"
+            currency={currency}
+            limit={10}
+            variant="list"
+          />
+        </div>
       </div>
 
       {/* View All link */}

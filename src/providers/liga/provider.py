@@ -255,8 +255,22 @@ class LigaMagicProvider(CardSourceProvider):
                         attempts=attempt,
                     )
 
-                # Wait extra for JS rendering (LigaMagic is JS-heavy)
-                await page.wait_for_timeout(2000)
+                # Wait for JS-rendered price elements before capturing HTML.
+                # LigaMagic renders prices dynamically after networkidle.
+                try:
+                    await page.wait_for_selector(
+                        '[class*="preco"], :text("R$")',
+                        timeout=8000,
+                    )
+                except Exception:
+                    # Fallback: page may not have prices (e.g. card not found).
+                    # Wait a fixed period so any remaining JS can settle.
+                    log.debug(
+                        "liga_price_selector_timeout",
+                        url=url,
+                        msg="Price selector not found within 8s, proceeding with current HTML",
+                    )
+                    await page.wait_for_timeout(2000)
 
                 return await page.content()
 
@@ -396,6 +410,7 @@ class LigaMagicProvider(CardSourceProvider):
 
     async def _search_card_unlocked(self, card_name: str) -> dict:
         url = _build_card_url(card_name)
+        log.debug("liga_search_start", card=card_name, url=url)
 
         try:
             html = await self._fetch_page(url)
@@ -406,7 +421,7 @@ class LigaMagicProvider(CardSourceProvider):
                 error=str(e),
                 exc_type=type(e).__name__,
             )
-            return parse_card_prices("", card_name)
+            raise
         except Exception as e:
             msg = (
                 f"Unexpected {type(e).__name__}: {e}"
@@ -421,4 +436,29 @@ class LigaMagicProvider(CardSourceProvider):
             )
             raise LigaError(msg, url=url) from e
 
-        return parse_card_prices(html, card_name)
+        log.debug("liga_search_html_received", card=card_name, html_length=len(html))
+        prices = parse_card_prices(html, card_name)
+
+        normal = prices.get("normal", {})
+        foil = prices.get("foil", {})
+        has_normal = any(v is not None for v in normal.values())
+        has_foil = any(v is not None for v in foil.values())
+
+        if not has_normal and not has_foil:
+            log.warning(
+                "liga_search_no_prices",
+                card=card_name,
+                html_length=len(html),
+            )
+        else:
+            log.debug(
+                "liga_search_prices_parsed",
+                card=card_name,
+                has_normal=has_normal,
+                has_foil=has_foil,
+                normal_low=str(normal.get("low")),
+                normal_mid=str(normal.get("mid")),
+                normal_high=str(normal.get("high")),
+            )
+
+        return prices

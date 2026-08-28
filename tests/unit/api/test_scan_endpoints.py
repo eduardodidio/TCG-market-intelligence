@@ -475,8 +475,8 @@ class TestPreviewScan:
         body = resp.json()
         assert body["card_count"] == 7
         assert body["skipped_count"] == 3
-        # Admin user -> cost 0
-        assert body["credit_cost"] == 0
+        # All users pay — admins no longer bypass
+        assert body["credit_cost"] == 7
 
     @patch("src.api.routers.scans.Repository")
     def test_preview_no_max_age_days(self, mock_repo_cls: MagicMock) -> None:

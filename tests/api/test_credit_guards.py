@@ -1,8 +1,8 @@
-"""Tests for credit guards on refresh and scan endpoints (F65-T04).
+"""Tests for credit guards on refresh and scan endpoints (F65-T04, updated F81).
 
 Verifies:
-- 402 when non-admin user has insufficient credits
-- Admin bypass (no credit check, no deduction)
+- 402 when ANY user has insufficient credits (admin bypass removed in F81)
+- Admin with 0 balance gets 402 (no longer bypassed)
 - Credits deducted after successful refresh (MYP + Liga)
 - Credits deducted before scan launch
 - Provider failure does NOT deduct credits
@@ -193,23 +193,21 @@ class TestRefreshMypCreditGuard:
         assert body["detail"]["balance"] == 0
         assert body["detail"]["cost"] == CARD_REFRESH_COST
 
-    def test_admin_bypasses_credit_check(self) -> None:
-        """Admin user with 0 balance does NOT get 402 (credit guard skipped)."""
+    def test_admin_with_zero_balance_gets_402(self) -> None:
+        """Admin user with 0 balance gets 402 (admin bypass removed in F81)."""
         admin = _make_user(is_admin=True)
         credit_svc = _make_credit_svc(balance=0)
-        # Entry not found triggers 404 AFTER the credit guard — if we get 404,
-        # it proves the guard was bypassed.
+        entry = _make_collection_row()
         mock_repo = MagicMock()
-        mock_repo.get_collection_entry.return_value = None
+        mock_repo.get_collection_entry.return_value = entry
 
         app = _make_collection_app(mock_repo, admin, credit_svc)
         client = TestClient(app)
 
         resp = client.post("/collection/1/refresh")
-        # 404 = credit guard passed, endpoint continued to entry lookup
-        assert resp.status_code == 404
-        credit_svc.check_sufficient.assert_not_called()
-        credit_svc.deduct.assert_not_called()
+        assert resp.status_code == 402
+        body = resp.json()
+        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
 
     def test_non_admin_with_credits_passes_guard(self) -> None:
         """Non-admin with sufficient credits passes the guard (gets 404 for missing entry)."""
@@ -255,23 +253,23 @@ class TestRefreshLigaCreditGuard:
         assert body["detail"]["cost"] == CARD_REFRESH_COST
         provider.search_card.assert_not_called()
 
-    def test_admin_bypasses_credit_check(self) -> None:
+    def test_admin_with_zero_balance_gets_402(self) -> None:
+        """Admin user with 0 balance gets 402 (admin bypass removed in F81)."""
         admin = _make_user(is_admin=True)
         credit_svc = _make_credit_svc(balance=0)
         entry = _make_collection_row()
         mock_repo = MagicMock()
-        _mock_repo_for_detail(mock_repo, entry)
+        mock_repo.get_collection_entry.return_value = entry
 
         provider = _make_liga_provider()
-        provider.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
-
         app = _make_collection_app(mock_repo, admin, credit_svc, mock_provider=provider)
         client = TestClient(app)
 
         resp = client.post("/collection/1/refresh-liga")
-        assert resp.status_code == 200
-        credit_svc.deduct.assert_not_called()
-        credit_svc.check_sufficient.assert_not_called()
+        assert resp.status_code == 402
+        body = resp.json()
+        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
+        provider.search_card.assert_not_called()
 
     def test_successful_refresh_deducts_credit(self) -> None:
         user = _make_user(is_admin=False)
@@ -383,24 +381,25 @@ class TestScanCreditGuard:
 
     @patch("src.api.routers.scans.threading.Thread")
     @patch("src.api.routers.scans.Repository")
-    def test_admin_bypasses_credit_check(
+    def test_admin_with_zero_balance_gets_402(
         self, mock_repo_cls: MagicMock, mock_thread_cls: MagicMock
     ) -> None:
+        """Admin user with 0 balance gets 402 (admin bypass removed in F81)."""
         admin = _make_user(is_admin=True)
         credit_svc = _make_credit_svc(balance=0)
 
         mock_repo = MagicMock()
-        mock_repo.create_scan_run.return_value = 1
+        mock_repo.get_cards_for_liga_scan.return_value = [{"card_id": i} for i in range(5)]
         mock_repo_cls.return_value = mock_repo
-        mock_thread_cls.return_value = MagicMock()
 
         app = _make_scans_app(admin, credit_svc)
         client = TestClient(app)
 
         resp = client.post("/scans", json={"scan_type": "collection"})
-        assert resp.status_code == 200
-        credit_svc.deduct.assert_not_called()
-        credit_svc.check_sufficient.assert_not_called()
+        assert resp.status_code == 402
+        body = resp.json()
+        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
+        mock_thread_cls.assert_not_called()
 
     @patch("src.api.routers.scans.threading.Thread")
     @patch("src.api.routers.scans.Repository")

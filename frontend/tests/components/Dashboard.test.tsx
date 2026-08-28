@@ -12,17 +12,19 @@ import {
 
 // Mock TrendingSection — it fetches its own data internally and has its own tests
 vi.mock("../../src/components/TrendingSection", () => ({
-  TrendingSection: ({ direction, period, currency, limit }: {
+  TrendingSection: ({ direction, period, currency, limit, variant }: {
     direction: string;
     period: string;
     currency: string;
     limit?: number;
+    variant?: string;
   }) => (
     <div
       data-testid={`trending-section-${direction}`}
       data-period={period}
       data-currency={currency}
       data-limit={limit}
+      data-variant={variant}
     >
       TrendingSection-{direction}
     </div>
@@ -583,5 +585,37 @@ describe("Dashboard", () => {
     expect(screen.getByTestId("landing-trending-down")).toBeDefined();
     expect(screen.getByText("TrendingSection-gainers")).toBeDefined();
     expect(screen.getByText("TrendingSection-losers")).toBeDefined();
+  });
+
+  it("renders trending sections with variant='list' for compact display", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("trending-section-gainers")).toBeDefined();
+    });
+
+    const gainersSection = screen.getByTestId("trending-section-gainers");
+    expect(gainersSection.getAttribute("data-variant")).toBe("list");
+
+    const losersSection = screen.getByTestId("trending-section-losers");
+    expect(losersSection.getAttribute("data-variant")).toBe("list");
+  });
+
+  it("renders trending sections in a side-by-side grid", async () => {
+    mockFetchSuccess();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("trending-grid")).toBeDefined();
+    });
+
+    const grid = screen.getByTestId("trending-grid");
+    expect(grid.className).toContain("md:grid-cols-2");
+    expect(grid.className).toContain("gap-6");
+
+    // Both sections are inside the grid
+    expect(grid.querySelector('[data-testid="landing-trending-up"]')).toBeTruthy();
+    expect(grid.querySelector('[data-testid="landing-trending-down"]')).toBeTruthy();
   });
 });

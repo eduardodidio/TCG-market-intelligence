@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from src.credits.constants import BONUS_AMOUNT, BONUS_INTERVAL_HOURS
+from src.credits.constants import ADMIN_MONTHLY_GRANT, BONUS_AMOUNT, BONUS_INTERVAL_HOURS
 from src.credits.exceptions import InsufficientCreditsError
 from src.credits.service import CreditService
 from src.database.repository import Repository
@@ -180,6 +180,47 @@ class TestGetBonusEligibility:
         result = service.get_bonus_eligibility(USER_ID)
         expected = known_time + timedelta(hours=BONUS_INTERVAL_HOURS)
         assert result["next_eligible_at"] == expected
+
+
+class TestClaimMonthlyAdminGrant:
+    def test_non_admin_gets_no_grant(self, service):
+        balance, granted = service.claim_monthly_admin_grant(USER_ID, is_admin=False)
+        assert granted is False
+        assert balance.balance == 0
+
+    def test_admin_first_call_grants_10k(self, service):
+        balance, granted = service.claim_monthly_admin_grant(USER_ID, is_admin=True)
+        assert granted is True
+        assert balance.balance == ADMIN_MONTHLY_GRANT
+
+    def test_admin_second_call_same_month_denied(self, service):
+        service.claim_monthly_admin_grant(USER_ID, is_admin=True)
+        balance, granted = service.claim_monthly_admin_grant(USER_ID, is_admin=True)
+        assert granted is False
+        assert balance.balance == ADMIN_MONTHLY_GRANT  # unchanged
+
+    def test_admin_different_month_grants_again(self, service, repo):
+        service.claim_monthly_admin_grant(USER_ID, is_admin=True)
+        # Move last_monthly_grant_at to a previous month
+        past = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        repo.update_last_monthly_grant_at(USER_ID, past)
+
+        balance, granted = service.claim_monthly_admin_grant(USER_ID, is_admin=True)
+        assert granted is True
+        assert balance.balance == ADMIN_MONTHLY_GRANT * 2
+
+    def test_grant_logs_transaction(self, service):
+        service.claim_monthly_admin_grant(USER_ID, is_admin=True)
+        txs = service.get_transactions(USER_ID)
+        grant_txs = [t for t in txs if t.reason == "admin_monthly_grant"]
+        assert len(grant_txs) == 1
+        assert grant_txs[0].amount == ADMIN_MONTHLY_GRANT
+
+    def test_non_admin_balance_unchanged(self, service):
+        service.grant(USER_ID, 50, "seed")
+        balance, granted = service.claim_monthly_admin_grant(USER_ID, is_admin=False)
+        assert granted is False
+        assert balance.balance == 50
 
 
 class TestGetTransactions:

@@ -647,15 +647,15 @@ def seed_users(db):
         # Set admin flag
         repo.update_user(user_row.id, is_admin=1)
 
-        # Grant initial 50 credits
+        # Grant initial 10k credits for admin users
         repo.update_credit_balance(
             user_id=user_row.id,
-            delta=50,
+            delta=10_000,
             reason="initial_credits",
         )
 
-        log.info("user_created", email=user_data["email"], is_admin=True, credits=50)
-        click.echo(f"  Created: {user_data['email']} (admin, 50 credits)")
+        log.info("user_created", email=user_data["email"], is_admin=True, credits=10_000)
+        click.echo(f"  Created: {user_data['email']} (admin, 10000 credits)")
 
     # Associate all collection entries with the primary (first) seed user
     primary = repo.get_user_by_email(SEED_USERS[0]["email"])

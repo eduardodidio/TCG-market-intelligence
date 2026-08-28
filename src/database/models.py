@@ -289,6 +289,7 @@ class CreditBalanceRow(Base):
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
     balance: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_bonus_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_monthly_grant_at: Mapped[datetime | None] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now
     )

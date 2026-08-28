@@ -23,8 +23,8 @@ def _parse_brl(text: str) -> Decimal | None:
     if not text:
         return None
 
-    # Remove R$ prefix and whitespace
-    cleaned = re.sub(r"R\$\s*", "", text.strip())
+    # Remove R$ prefix, whitespace, and &nbsp;
+    cleaned = re.sub(r"R\$(?:\s|&nbsp;|\xa0)*", "", text.strip())
     if not cleaned:
         return None
 
@@ -62,7 +62,8 @@ def parse_card_prices(html: str, card_name: str = "") -> dict:
         return result
 
     # --- Strategy 1: Find all R$ price values on the page ---
-    price_matches = re.findall(r"R\$\s*[\d.,]+", html)
+    # Handle R$ with normal space, &nbsp;, no space, or \xa0 (non-breaking space)
+    price_matches = re.findall(r"R\$(?:\s|&nbsp;|\xa0)*[\d.,]+", html)
     parsed_prices = []
     for match in price_matches:
         val = _parse_brl(match)
@@ -102,7 +103,7 @@ def parse_card_prices(html: str, card_name: str = "") -> dict:
     # Look for "foil" keyword near R$ values
     foil_section = _extract_foil_section(html)
     if foil_section:
-        foil_matches = re.findall(r"R\$\s*[\d.,]+", foil_section)
+        foil_matches = re.findall(r"R\$(?:\s|&nbsp;|\xa0)*[\d.,]+", foil_section)
         foil_prices = []
         for match in foil_matches:
             val = _parse_brl(match)

@@ -62,6 +62,12 @@ class Repository:
                 with self.engine.begin() as conn:
                     sql = "ALTER TABLE users ADD COLUMN password_expires_at DATETIME"
                     conn.execute(text(sql))
+        if "credit_balances" in insp.get_table_names():
+            columns = {col["name"] for col in insp.get_columns("credit_balances")}
+            if "last_monthly_grant_at" not in columns:
+                with self.engine.begin() as conn:
+                    sql = "ALTER TABLE credit_balances ADD COLUMN last_monthly_grant_at DATETIME"
+                    conn.execute(text(sql))
 
     def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
         """Insert or update a source card. Returns the source_card id."""
@@ -2594,6 +2600,16 @@ class Repository:
             ).scalar_one_or_none()
             if row is not None:
                 row.last_bonus_at = timestamp
+                session.commit()
+
+    def update_last_monthly_grant_at(self, user_id: int, timestamp: datetime) -> None:
+        """Update last_monthly_grant_at on a user's credit balance row."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(CreditBalanceRow).where(CreditBalanceRow.user_id == user_id)
+            ).scalar_one_or_none()
+            if row is not None:
+                row.last_monthly_grant_at = timestamp
                 session.commit()
 
     # --- Admin methods ---

@@ -378,6 +378,17 @@ export function CollectionCardDetail() {
               <CurrencyIndicator currency={currency} size={24} />
               {formatCurrency(entry.latest_price, currency)}
             </p>
+            {entry.quantity > 1 && entry.latest_price != null && (
+              <p className="text-sm text-slate-400 mt-1 flex items-center gap-1" data-testid="line-total">
+                <CurrencyIndicator currency={currency} size={14} />
+                {formatCurrency(entry.latest_price, currency)}
+                {" "}
+                {t("collection.lineTotal", {
+                  qty: entry.quantity,
+                  total: formatCurrency(entry.latest_price * entry.quantity, currency),
+                })}
+              </p>
+            )}
             {refreshMsg && (
               <p
                 data-testid="refresh-message"

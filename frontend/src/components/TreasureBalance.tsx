@@ -6,7 +6,7 @@ import { TreasureModal } from "./TreasureModal";
 
 export function TreasureBalance() {
   const { t } = useTranslation();
-  const { balance, bonusEligible, isAdmin, loading, claimBonus } =
+  const { balance, bonusEligible, isAdmin, monthlyGrantAmount, loading, claimBonus } =
     useCredits();
   const treasureImage = useTreasureImage();
   const [claimed, setClaimed] = useState(false);
@@ -73,6 +73,14 @@ export function TreasureBalance() {
         <span className="text-xs text-slate-500 truncate">
           {t("credits.balance")}
         </span>
+        {isAdmin && monthlyGrantAmount > 0 && (
+          <span
+            className="text-xs text-cyan-400/70 truncate"
+            data-testid="monthly-grant-info"
+          >
+            {t("credits.monthlyGrant", { amount: monthlyGrantAmount.toLocaleString() })}
+          </span>
+        )}
         {bonusEligible && (
           <button
             onClick={handleClaim}

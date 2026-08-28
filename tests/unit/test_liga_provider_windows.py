@@ -58,12 +58,10 @@ class TestWindowsPlatformGuard:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_search_card_returns_empty_when_unavailable(self, provider):
+    async def test_search_card_raises_when_unavailable(self, provider):
         provider._unavailable = True
-        result = await provider.search_card("Lightning Bolt")
-        # search_card catches LigaError internally and returns empty parse
-        assert result["normal"]["low"] is None
-        assert result["normal"]["mid"] is None
+        with pytest.raises(LigaError, match="unavailable"):
+            await provider.search_card("Lightning Bolt")
 
     @pytest.mark.asyncio
     async def test_context_manager_works_when_unavailable(self):

@@ -129,7 +129,7 @@ async def preview_scan(
     )
     card_count = len(eligible)
     skipped = len(all_entries) - card_count
-    cost = 0 if user.is_admin else card_count * CARD_REFRESH_COST
+    cost = card_count * CARD_REFRESH_COST
     return ScanPreviewResponse(
         card_count=card_count,
         skipped_count=skipped,
@@ -159,25 +159,24 @@ async def trigger_scan(
         limit=request.limit,
     )
 
-    # Per-card credit guard — admin bypass; deduct BEFORE launch (async task)
-    if not user.is_admin:
-        repo_for_count = Repository(db_url)
-        eligible = repo_for_count.get_cards_for_liga_scan(
-            scan_filter, user_id=str(user.id), max_age_days=request.max_age_days
+    # Per-card credit guard — all users pay; deduct BEFORE launch (async task)
+    repo_for_count = Repository(db_url)
+    eligible = repo_for_count.get_cards_for_liga_scan(
+        scan_filter, user_id=str(user.id), max_age_days=request.max_age_days
+    )
+    cost = len(eligible) * CARD_REFRESH_COST
+    if not credit_svc.check_sufficient(user.id, cost):
+        balance = credit_svc.get_balance(user.id)
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "INSUFFICIENT_CREDITS",
+                "balance": balance.balance,
+                "cost": cost,
+                "message": "Not enough treasure tokens.",
+            },
         )
-        cost = len(eligible) * CARD_REFRESH_COST
-        if not credit_svc.check_sufficient(user.id, cost):
-            balance = credit_svc.get_balance(user.id)
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "code": "INSUFFICIENT_CREDITS",
-                    "balance": balance.balance,
-                    "cost": cost,
-                    "message": "Not enough treasure tokens.",
-                },
-            )
-        credit_svc.deduct(user.id, cost, "bulk_scan", reference_id="scan")
+    credit_svc.deduct(user.id, cost, "bulk_scan", reference_id="scan")
 
     # Encode provider and max_age_days in filters_json for traceability
     import json as _json

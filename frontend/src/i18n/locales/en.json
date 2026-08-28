@@ -202,7 +202,8 @@
     "maxAgeDaysOption7": "Last 7 days",
     "maxAgeDaysOptionAll": "Scan all cards",
     "skippedCards": "{{count}} cards skipped (recently scanned)",
-    "cardsToScan": "{{count}} cards to scan"
+    "cardsToScan": "{{count}} cards to scan",
+    "lineTotal": "x {{qty}} = {{total}}"
   },
   "market": {
     "title": "Market Movers",
@@ -687,7 +688,8 @@
     "insufficient": "Insufficient tokens!",
     "spend": "Spend {{cost}} Token",
     "cancel": "Cancel",
-    "adminBypass": "Admin — no cost",
+    "monthlyGrant": "{{amount}}/mo grant",
+    "monthlyGrantClaimed": "Monthly grant claimed!",
     "refreshCost": "Refresh price",
     "scanCost": "Run price scan",
     "tokenTypeLine": "Token Artifact — Treasure",

@@ -773,19 +773,18 @@ async def refresh_card_price(
     from src.domain.models import HistoricalPrice
     from src.providers.myp.provider import MypCardsProvider
 
-    # Credit guard — admin bypass
-    if not user.is_admin:
-        if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
-            balance = credit_svc.get_balance(user.id)
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "code": "INSUFFICIENT_CREDITS",
-                    "balance": balance.balance,
-                    "cost": CARD_REFRESH_COST,
-                    "message": "Not enough treasure tokens.",
-                },
-            )
+    # Credit guard — all users pay
+    if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
+        balance = credit_svc.get_balance(user.id)
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "INSUFFICIENT_CREDITS",
+                "balance": balance.balance,
+                "cost": CARD_REFRESH_COST,
+                "message": "Not enough treasure tokens.",
+            },
+        )
 
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
@@ -887,9 +886,8 @@ async def refresh_card_price(
             price=str(jsonld.price),
         )
 
-    # Deduct credit unconditionally (non-admin only) — aligned with Liga refresh behavior
-    if not user.is_admin:
-        credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
+    # Deduct credit after successful refresh — all users pay
+    credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
 
     # Return updated card detail (reuse same logic as get_collection_entry)
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
@@ -917,19 +915,18 @@ async def refresh_card_price_liga(
     )
     from src.providers.liga.provider import LigaMagicProvider
 
-    # Credit guard — admin bypass
-    if not user.is_admin:
-        if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
-            balance = credit_svc.get_balance(user.id)
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "code": "INSUFFICIENT_CREDITS",
-                    "balance": balance.balance,
-                    "cost": CARD_REFRESH_COST,
-                    "message": "Not enough treasure tokens.",
-                },
-            )
+    # Credit guard — all users pay
+    if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
+        balance = credit_svc.get_balance(user.id)
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "INSUFFICIENT_CREDITS",
+                "balance": balance.balance,
+                "cost": CARD_REFRESH_COST,
+                "message": "Not enough treasure tokens.",
+            },
+        )
 
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
@@ -952,6 +949,8 @@ async def refresh_card_price_liga(
         )
     if provider is None:
         raise HTTPException(status_code=503, detail="Liga provider not available")
+
+    log.debug("liga_refresh_start", entry_id=entry_id, card_name=card_name)
 
     try:
         prices = await provider.search_card(card_name)
@@ -992,6 +991,14 @@ async def refresh_card_price_liga(
         response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
         response.errors.append(ErrorDetail(code="liga_warning", message=f"LigaMagic error: {msg}"))
         return response
+
+    log.debug(
+        "liga_refresh_prices_received",
+        entry_id=entry_id,
+        card_name=card_name,
+        normal=prices.get("normal"),
+        foil=prices.get("foil"),
+    )
 
     # Extract price: prefer normal.mid, fallback normal.low, then normal.high
     normal = prices.get("normal", {})
@@ -1035,9 +1042,8 @@ async def refresh_card_price_liga(
         price=str(price),
     )
 
-    # Deduct credit after successful refresh (non-admin only)
-    if not user.is_admin:
-        credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
+    # Deduct credit after successful refresh — all users pay
+    credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
 
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
 
