@@ -32,5 +32,7 @@ USER appuser
 
 EXPOSE 8000
 
+# Copy start script
+COPY render-start.sh ./
 # Render sets $PORT dynamically; default to 8000
-CMD ["sh", "-c", "uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "render-start.sh"]
