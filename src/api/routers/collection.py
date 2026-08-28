@@ -37,6 +37,8 @@ from src.api.schemas.collection import (
     ManualPriceRequest,
     SnapshotRequest,
     SyncRequest,
+    ValuationResponse,
+    ValuationSnapshot,
 )
 from src.api.schemas.envelope import ApiResponse, ErrorDetail, paginated_response, success_response
 from src.api.schemas.metrics import (
@@ -188,6 +190,58 @@ def collection_summary(
         currency=currency,
         banned_count=banned_count,
         recently_changed_count=recently_changed_count,
+    )
+    return success_response(data=data)
+
+
+@router.get("/valuation", response_model=ApiResponse[ValuationResponse])
+def collection_valuation(
+    days: int = Query(default=30, ge=1, le=365),
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Return portfolio valuation history and % change."""
+    snapshots = repo.get_portfolio_snapshots(user_id, days=days)
+
+    if not snapshots:
+        return success_response(data=ValuationResponse(currency=currency))
+
+    def _convert(val: float | None) -> float | None:
+        if val is None:
+            return None
+        if currency == "BRL":
+            return val
+        converted = converter.convert(val, date.today(), currency)
+        return float(converted) if converted is not None else val
+
+    snapshot_items = [
+        ValuationSnapshot(
+            date=str(s.snapshot_date),
+            value=_convert(float(s.total_value_brl)),
+            priced_count=s.priced_card_count,
+            total_count=s.total_card_count,
+        )
+        for s in snapshots
+    ]
+
+    current_value = _convert(float(snapshots[0].total_value_brl))
+    previous_value = _convert(float(snapshots[1].total_value_brl)) if len(snapshots) > 1 else None
+
+    change_pct = None
+    change_abs = None
+    if current_value is not None and previous_value is not None and previous_value > 0:
+        change_abs = round(current_value - previous_value, 2)
+        change_pct = round(((current_value - previous_value) / previous_value) * 100, 2)
+
+    data = ValuationResponse(
+        current_value=current_value,
+        previous_value=previous_value,
+        change_pct=change_pct,
+        change_abs=change_abs,
+        currency=currency,
+        snapshots=snapshot_items,
     )
     return success_response(data=data)
 

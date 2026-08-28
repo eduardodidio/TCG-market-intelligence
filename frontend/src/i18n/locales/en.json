@@ -695,6 +695,13 @@
     "tokenTypeLine": "Token Artifact — Treasure",
     "tokenRulesText": "Tap, Sacrifice this artifact: Add one mana of any color."
   },
+  "valuation": {
+    "change": "{{value}}% change",
+    "noHistory": "No historical data available yet. Run a portfolio snapshot first.",
+    "since": "Since {{date}}",
+    "up": "Up",
+    "down": "Down"
+  },
   "marketplace": {
     "title": "Card Marketplace",
     "shareCollection": "Share My Collection",

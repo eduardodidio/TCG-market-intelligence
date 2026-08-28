@@ -117,6 +117,26 @@ class BulkCanonizeResult(BaseModel):
     rate_limited: int
 
 
+class ValuationSnapshot(BaseModel):
+    """A single portfolio snapshot data point."""
+
+    date: str
+    value: float | None = None
+    priced_count: int = 0
+    total_count: int = 0
+
+
+class ValuationResponse(BaseModel):
+    """Portfolio valuation with change calculation."""
+
+    current_value: float | None = None
+    previous_value: float | None = None
+    change_pct: float | None = None
+    change_abs: float | None = None
+    currency: str = "BRL"
+    snapshots: list[ValuationSnapshot] = []
+
+
 class LigaStatusResponse(BaseModel):
     """Liga price coverage stats for a user's collection."""
 

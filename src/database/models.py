@@ -355,6 +355,23 @@ class TradeInterestRow(Base):
     )
 
 
+class PortfolioSnapshotRow(Base):
+    __tablename__ = "portfolio_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False)
+    total_value_brl: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    priced_card_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_card_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "snapshot_date", name="uq_portfolio_snapshot"),
+        Index("ix_portfolio_snapshots_user_date", "user_id", "snapshot_date"),
+    )
+
+
 class TradeAgreementRow(Base):
     __tablename__ = "trade_agreements"
 

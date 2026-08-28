@@ -5,9 +5,10 @@ interface KpiCardProps {
   value: ReactNode;
   subtitle?: ReactNode;
   icon?: ReactNode;
+  extra?: ReactNode;
 }
 
-export function KpiCard({ title, value, subtitle, icon }: KpiCardProps) {
+export function KpiCard({ title, value, subtitle, icon, extra }: KpiCardProps) {
   return (
     <div
       data-testid="kpi-card"
@@ -18,7 +19,10 @@ export function KpiCard({ title, value, subtitle, icon }: KpiCardProps) {
         <p className="text-sm text-slate-400">{title}</p>
         {icon && <span className="text-cyan-400">{icon}</span>}
       </div>
-      <p className="mt-2 text-2xl font-bold text-white">{value}</p>
+      <div className="mt-2 flex items-baseline gap-2">
+        <p className="text-2xl font-bold text-white">{value}</p>
+        {extra}
+      </div>
       {subtitle && (
         <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
       )}

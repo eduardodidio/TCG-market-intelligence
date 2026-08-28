@@ -14,6 +14,7 @@ import { EmptyState } from "../components/EmptyState";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SkeletonKpi } from "../components/Skeleton";
+import { ValuationBadge } from "../components/ValuationBadge";
 import type {
   CollectionHealth,
   CollectionSummary,
@@ -164,6 +165,7 @@ export function Dashboard() {
             value={formatCurrency(summaryData.total_value, currency)}
             subtitle={t("dashboard.basedOnLatestPrices")}
             icon={<CurrencyIndicator currency={currency} size={20} />}
+            extra={<ValuationBadge days={7} currency={currency} />}
           />
           <div data-testid="coverage-breakdown">
             <KpiCard

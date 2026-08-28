@@ -92,6 +92,29 @@ export function setManualPrice(
   );
 }
 
+export interface ValuationData {
+  current_value: number | null;
+  previous_value: number | null;
+  change_pct: number | null;
+  change_abs: number | null;
+  currency: string;
+  snapshots: {
+    date: string;
+    value: number | null;
+    priced_count: number;
+    total_count: number;
+  }[];
+}
+
+export function fetchValuation(
+  days: number = 7,
+  currency: string = "BRL",
+): Promise<ApiResponse<ValuationData>> {
+  const params: Record<string, string> = { days: String(days) };
+  if (currency !== "BRL") params.currency = currency;
+  return apiGet<ValuationData>("/api/v1/collection/valuation", params);
+}
+
 export function fetchCollectionSets(): Promise<
   ApiResponse<{ set_code: string; set_name: string | null; count: number }[]>
 > {

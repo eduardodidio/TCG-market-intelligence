@@ -18,6 +18,7 @@ from src.database.models import (
     DeckRow,
     ExchangeRateRow,
     LegalityHistoryRow,
+    PortfolioSnapshotRow,
     PriceObservationRow,
     ScanRunRow,
     ScheduledScanRow,
@@ -3079,3 +3080,59 @@ class Repository:
             result = session.execute(stmt)
             session.commit()
             return result.rowcount  # type: ignore[return-value]
+
+    # ── Portfolio Snapshots ──────────────────────────────────────
+
+    def upsert_portfolio_snapshot(
+        self,
+        user_id: str,
+        snapshot_date: date,
+        total_value_brl: Decimal,
+        priced_card_count: int,
+        total_card_count: int,
+    ) -> int:
+        """Insert or update a daily portfolio snapshot for a user.
+
+        Returns the row id.
+        """
+        with Session(self.engine) as session:
+            stmt = sqlite_insert(PortfolioSnapshotRow).values(
+                user_id=user_id,
+                snapshot_date=snapshot_date,
+                total_value_brl=total_value_brl,
+                priced_card_count=priced_card_count,
+                total_card_count=total_card_count,
+            )
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["user_id", "snapshot_date"],
+                set_={
+                    "total_value_brl": stmt.excluded.total_value_brl,
+                    "priced_card_count": stmt.excluded.priced_card_count,
+                    "total_card_count": stmt.excluded.total_card_count,
+                },
+            )
+            result = session.execute(stmt)
+            session.commit()
+            return result.lastrowid or 0  # type: ignore[return-value]
+
+    def get_portfolio_snapshots(self, user_id: str, days: int = 30) -> list[PortfolioSnapshotRow]:
+        """Return portfolio snapshots for a user, ordered by date descending.
+
+        Args:
+            user_id: The user ID to query.
+            days: Number of days of history to return (default 30).
+
+        Returns:
+            List of PortfolioSnapshotRow ordered by snapshot_date DESC.
+        """
+        cutoff = date.today() - timedelta(days=days)
+        with Session(self.engine) as session:
+            stmt = (
+                select(PortfolioSnapshotRow)
+                .where(
+                    PortfolioSnapshotRow.user_id == user_id,
+                    PortfolioSnapshotRow.snapshot_date >= cutoff,
+                )
+                .order_by(PortfolioSnapshotRow.snapshot_date.desc())
+            )
+            return list(session.execute(stmt).scalars().all())

@@ -32,6 +32,7 @@ import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { MaxAgeDaysSelect } from "../components/MaxAgeDaysSelect";
 import { fetchScanPreview } from "../api/scans";
 import { fetchSharingStatus, toggleSharing as apiToggleSharing } from "../api/marketplace";
+import { ValuationBadge } from "../components/ValuationBadge";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
@@ -630,6 +631,7 @@ export function MyCollection() {
             title={t("collection.estValue")}
             value={summary.total_value ? formatCurrency(summary.total_value, currency) : t("common.noData")}
             icon={<CurrencyIndicator currency={currency} size={20} />}
+            extra={<ValuationBadge days={7} currency={currency} />}
           />
         </div>
       )}

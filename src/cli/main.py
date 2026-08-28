@@ -926,6 +926,52 @@ def _print_liga_sweep_summary(result):
     click.echo("=" * 60)
 
 
+@cli.command("snapshot-portfolio")
+@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--user-id", default=None, help="Snapshot a specific user (default: all active users)"
+)
+def snapshot_portfolio(db, user_id):
+    """Take a daily portfolio value snapshot for all (or one) user(s)."""
+    from src.collectors.portfolio_snapshot import take_snapshot
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+
+    if user_id:
+        result = take_snapshot(user_id, repo)
+        click.echo(f"  Snapshot: user={result['user_id']}, value=R$ {result['value']:.2f}")
+    else:
+        from sqlalchemy.orm import Session as SaSession
+
+        from src.database.models import UserRow
+
+        with SaSession(repo.engine) as session:
+            users = (
+                session.execute(
+                    __import__("sqlalchemy").select(UserRow).where(UserRow.is_active == 1)
+                )
+                .scalars()
+                .all()
+            )
+            user_ids = [str(u.id) for u in users]
+
+        if not user_ids:
+            click.echo("No active users found.")
+            return
+
+        total_value = 0
+        for uid in user_ids:
+            result = take_snapshot(uid, repo)
+            val = float(result["value"])
+            total_value += val
+            click.echo(f"  Snapshot: user={uid}, value=R$ {val:.2f}")
+
+        click.echo(
+            f"\nSnapshotted {len(user_ids)} users, total portfolio value: R$ {total_value:.2f}"
+        )
+
+
 @cli.command("db-reset-scans")
 @click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
 @click.option("--confirm", is_flag=True, help="Confirm deletion of all scan runs")

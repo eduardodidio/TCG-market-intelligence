@@ -695,6 +695,13 @@
     "tokenTypeLine": "Token Artefato — Tesouro",
     "tokenRulesText": "Tap, sacrifique este artefato: Adicione um mana de qualquer cor."
   },
+  "valuation": {
+    "change": "{{value}}% de variacao",
+    "noHistory": "Sem dados historicos ainda. Execute um snapshot de portfolio primeiro.",
+    "since": "Desde {{date}}",
+    "up": "Alta",
+    "down": "Baixa"
+  },
   "marketplace": {
     "title": "Marketplace de Cards",
     "shareCollection": "Compartilhar Colecao",
