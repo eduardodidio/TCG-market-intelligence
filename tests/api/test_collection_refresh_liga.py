@@ -179,7 +179,7 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].external_id == "liga_42"
         assert obs_list[0].median_price == Decimal("5.50")
 
-    def test_prefers_mid_price(self) -> None:
+    def test_prefers_low_price(self) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
@@ -195,7 +195,41 @@ class TestRefreshLigaHappyPath:
 
         assert resp.status_code == 200
         obs_list = mock_repo.insert_price_observations.call_args[0][0]
+        assert obs_list[0].median_price == Decimal("8.00")
+
+    def test_fallback_mid_when_no_low(self) -> None:
+        entry = _make_collection_row()
+        mock_repo = MagicMock()
+        _mock_repo_for_detail(mock_repo, entry)
+
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(
+            mid=Decimal("10.00"), low=None, high=Decimal("12.00")
+        )
+
+        app = _make_app(mock_repo, mock_provider=provider)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 200
+        obs_list = mock_repo.insert_price_observations.call_args[0][0]
         assert obs_list[0].median_price == Decimal("10.00")
+
+    def test_fallback_high_when_no_low_no_mid(self) -> None:
+        entry = _make_collection_row()
+        mock_repo = MagicMock()
+        _mock_repo_for_detail(mock_repo, entry)
+
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(mid=None, low=None, high=Decimal("12.00"))
+
+        app = _make_app(mock_repo, mock_provider=provider)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 200
+        obs_list = mock_repo.insert_price_observations.call_args[0][0]
+        assert obs_list[0].median_price == Decimal("12.00")
 
     def test_falls_back_to_low_price(self) -> None:
         entry = _make_collection_row()

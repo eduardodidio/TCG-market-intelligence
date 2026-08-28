@@ -51,7 +51,7 @@ async def _fetch_price_liga(provider, entry: dict, card_id: int) -> HistoricalPr
 
     prices = await provider.search_card(card_name)
     normal = prices.get("normal", {})
-    price: Decimal | None = normal.get("mid") or normal.get("low") or normal.get("high")
+    price: Decimal | None = normal.get("low") or normal.get("mid") or normal.get("high")
     if price is None:
         return None
 

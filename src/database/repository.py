@@ -3136,3 +3136,27 @@ class Repository:
                 .order_by(PortfolioSnapshotRow.snapshot_date.desc())
             )
             return list(session.execute(stmt).scalars().all())
+
+    def delete_all_price_observations(self, source: str | None = None) -> int:
+        """Delete price observations, optionally filtered by source.
+
+        Unlike ``clear_prices_by_source`` in ``cleanup.py``, this method has
+        **no** PROTECTED_SOURCES check — the caller is responsible for safety
+        gates (e.g. a CLI ``--confirm`` flag).
+
+        Args:
+            source: If provided, only delete rows with this source value.
+                    If None, delete ALL price observations.
+
+        Returns:
+            Number of rows deleted.
+        """
+        from sqlalchemy import delete
+
+        with Session(self.engine) as session:
+            stmt = delete(PriceObservationRow)
+            if source is not None:
+                stmt = stmt.where(PriceObservationRow.source == source)
+            result = session.execute(stmt)
+            session.commit()
+            return result.rowcount

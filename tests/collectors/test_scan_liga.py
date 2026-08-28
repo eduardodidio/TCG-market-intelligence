@@ -217,6 +217,44 @@ class TestFetchPriceLiga:
 
         assert result is None
 
+    async def test_prefers_low_over_mid(self):
+        provider = MagicMock()
+        provider.search_card = AsyncMock(
+            return_value=_liga_price_result(
+                low=Decimal("10.00"), mid=Decimal("15.00"), high=Decimal("20.00")
+            )
+        )
+
+        entry = _card_entry(card_id=50, name_en="Dual Land")
+        result = await _fetch_price_liga(provider, entry, card_id=50)
+
+        assert result is not None
+        assert result.median_price == Decimal("10.00")
+
+    async def test_fallback_mid_when_no_low(self):
+        provider = MagicMock()
+        provider.search_card = AsyncMock(
+            return_value=_liga_price_result(low=None, mid=Decimal("15.00"), high=Decimal("20.00"))
+        )
+
+        entry = _card_entry(card_id=51, name_en="Shock")
+        result = await _fetch_price_liga(provider, entry, card_id=51)
+
+        assert result is not None
+        assert result.median_price == Decimal("15.00")
+
+    async def test_fallback_high_when_no_low_no_mid(self):
+        provider = MagicMock()
+        provider.search_card = AsyncMock(
+            return_value=_liga_price_result(low=None, mid=None, high=Decimal("20.00"))
+        )
+
+        entry = _card_entry(card_id=52, name_en="Mountain")
+        result = await _fetch_price_liga(provider, entry, card_id=52)
+
+        assert result is not None
+        assert result.median_price == Decimal("20.00")
+
     async def test_returns_none_for_empty_name(self):
         provider = MagicMock()
         provider.search_card = AsyncMock()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -245,6 +246,86 @@ class TestGetCurrentPrice:
             await provider.get_current_price(card)
 
         mock_fetch.assert_awaited_once_with("http://ligamagic/custom-url")
+
+    @pytest.mark.asyncio
+    async def test_prefers_low_price_for_avg(self, provider):
+        """When low, mid, and high are all present, avg_price should be low."""
+        with patch.object(provider, "_fetch_page", new_callable=AsyncMock) as mock_fetch:
+            # Return HTML that produces low=5, mid=10, high=15
+            with patch(
+                "src.providers.liga.provider.parse_card_prices",
+                return_value={
+                    "card_name": "Test Card",
+                    "normal": {
+                        "low": Decimal("5.00"),
+                        "mid": Decimal("10.00"),
+                        "high": Decimal("15.00"),
+                    },
+                    "foil": {"low": None, "mid": None, "high": None},
+                },
+            ):
+                mock_fetch.return_value = "<html></html>"
+                card = SourceCard(
+                    source="liga",
+                    external_id="99",
+                    url="http://ligamagic/test",
+                    identity=CardIdentity(game="magic", name_en="Test Card"),
+                )
+                result = await provider.get_current_price(card)
+
+        assert result is not None
+        assert result.avg_price == Decimal("5.00")
+        assert result.min_price == Decimal("5.00")
+
+    @pytest.mark.asyncio
+    async def test_avg_price_falls_back_to_mid(self, provider):
+        """When low is None, avg_price should fall back to mid."""
+        with patch.object(provider, "_fetch_page", new_callable=AsyncMock) as mock_fetch:
+            with patch(
+                "src.providers.liga.provider.parse_card_prices",
+                return_value={
+                    "card_name": "Test Card",
+                    "normal": {"low": None, "mid": Decimal("10.00"), "high": Decimal("15.00")},
+                    "foil": {"low": None, "mid": None, "high": None},
+                },
+            ):
+                mock_fetch.return_value = "<html></html>"
+                card = SourceCard(
+                    source="liga",
+                    external_id="99",
+                    url="http://ligamagic/test",
+                    identity=CardIdentity(game="magic", name_en="Test Card"),
+                )
+                result = await provider.get_current_price(card)
+
+        assert result is not None
+        assert result.avg_price == Decimal("10.00")
+        assert result.min_price is None
+
+    @pytest.mark.asyncio
+    async def test_avg_price_falls_back_to_high(self, provider):
+        """When low and mid are None, avg_price should fall back to high."""
+        with patch.object(provider, "_fetch_page", new_callable=AsyncMock) as mock_fetch:
+            with patch(
+                "src.providers.liga.provider.parse_card_prices",
+                return_value={
+                    "card_name": "Test Card",
+                    "normal": {"low": None, "mid": None, "high": Decimal("15.00")},
+                    "foil": {"low": None, "mid": None, "high": None},
+                },
+            ):
+                mock_fetch.return_value = "<html></html>"
+                card = SourceCard(
+                    source="liga",
+                    external_id="99",
+                    url="http://ligamagic/test",
+                    identity=CardIdentity(game="magic", name_en="Test Card"),
+                )
+                result = await provider.get_current_price(card)
+
+        assert result is not None
+        assert result.avg_price == Decimal("15.00")
+        assert result.min_price is None
 
     @pytest.mark.asyncio
     async def test_builds_url_from_name_when_no_url(self, provider):

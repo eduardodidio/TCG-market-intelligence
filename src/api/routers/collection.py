@@ -1054,9 +1054,9 @@ async def refresh_card_price_liga(
         foil=prices.get("foil"),
     )
 
-    # Extract price: prefer normal.mid, fallback normal.low, then normal.high
+    # Extract price: prefer normal.low (lowest), fallback normal.mid, then normal.high
     normal = prices.get("normal", {})
-    price = normal.get("mid") or normal.get("low") or normal.get("high")
+    price = normal.get("low") or normal.get("mid") or normal.get("high")
 
     if price is None:
         response = _build_collection_detail(entry_id, currency, repo, converter, user_id)

@@ -365,17 +365,17 @@ class LigaMagicProvider(CardSourceProvider):
             return None
 
         prices = parse_card_prices(html, card_name)
-        min_price = prices["normal"]["low"]
-        avg_price = prices["normal"]["mid"]
+        low = prices["normal"]["low"]
+        mid = prices["normal"]["mid"]
+        high = prices["normal"]["high"]
 
-        # If we have no prices at all, return None
-        if min_price is None and avg_price is None:
-            # Check if there's a high price we can use
-            high = prices["normal"]["high"]
-            if high is None:
-                log.info("liga_no_prices_found", card=card_name, url=url)
-                return None
-            avg_price = high
+        # Primary price = lowest available
+        avg_price = low or mid or high
+        min_price = low  # keep separate min_price for PriceSnapshot
+
+        if avg_price is None:
+            log.info("liga_no_prices_found", card=card_name, url=url)
+            return None
 
         return PriceSnapshot(
             source="liga",

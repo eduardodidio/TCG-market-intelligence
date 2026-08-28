@@ -97,7 +97,7 @@ async def test_fetch_liga_price_uses_name_pt_fallback():
 
 
 @pytest.mark.asyncio
-async def test_fetch_liga_price_prefers_mid_over_low():
+async def test_fetch_liga_price_prefers_low_over_mid():
     provider = AsyncMock()
 
     async def _search(name):
@@ -107,7 +107,35 @@ async def test_fetch_liga_price_prefers_mid_over_low():
     card = _make_card(1, "Card")
     result = await _fetch_liga_price(provider, card)
 
+    assert result.median_price == Decimal("1.00")
+
+
+@pytest.mark.asyncio
+async def test_fetch_liga_price_fallback_mid_when_no_low():
+    provider = AsyncMock()
+
+    async def _search(name):
+        return {"normal": {"low": None, "mid": Decimal("2.00"), "high": Decimal("3.00")}}
+
+    provider.search_card = AsyncMock(side_effect=_search)
+    card = _make_card(1, "Card")
+    result = await _fetch_liga_price(provider, card)
+
     assert result.median_price == Decimal("2.00")
+
+
+@pytest.mark.asyncio
+async def test_fetch_liga_price_fallback_high_when_no_low_no_mid():
+    provider = AsyncMock()
+
+    async def _search(name):
+        return {"normal": {"low": None, "mid": None, "high": Decimal("3.00")}}
+
+    provider.search_card = AsyncMock(side_effect=_search)
+    card = _make_card(1, "Card")
+    result = await _fetch_liga_price(provider, card)
+
+    assert result.median_price == Decimal("3.00")
 
 
 @pytest.mark.asyncio

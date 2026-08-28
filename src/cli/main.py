@@ -987,6 +987,71 @@ def db_reset_scans(db, confirm):
     click.echo(f"Deleted {count} scan runs.")
 
 
+@cli.command("reset-prices")
+@click.option(
+    "--db",
+    default=None,
+    help="Database URL (default from TCG_DATABASE_URL or sqlite:///tcg_market.db)",
+)
+@click.option(
+    "--source",
+    default=None,
+    help="Only delete observations from this source (e.g. liga, myp, manual, jsonld_snapshot)",
+)
+@click.option("--confirm", is_flag=True, help="Required to actually delete (without it, dry-run)")
+def reset_prices(db, source, confirm):
+    """Reset (delete) all price observations, optionally filtered by source.
+
+    Unlike db-clear-prices, this command has NO protected-source restrictions
+    and can delete liga/manual observations. Use with care.
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import Session
+
+    from src.config import get_db_url
+    from src.database.backup import backup_database, extract_db_path
+    from src.database.models import PriceObservationRow
+    from src.database.repository import Repository
+
+    db_url = db or get_db_url()
+    repo = Repository(db_url=db_url)
+
+    # Count rows that would be deleted
+    with Session(repo.engine) as session:
+        stmt = select(func.count()).select_from(PriceObservationRow)
+        if source is not None:
+            stmt = stmt.where(PriceObservationRow.source == source)
+        count = session.execute(stmt).scalar() or 0
+
+    source_label = f"source='{source}'" if source else "ALL sources"
+    click.echo(f"\n  Price observations matching {source_label}: {count}")
+
+    if not confirm:
+        click.echo("  [DRY RUN] No rows deleted. Pass --confirm to actually delete.\n")
+        return
+
+    if count == 0:
+        click.echo("  Nothing to delete.\n")
+        return
+
+    # Backup before deleting
+    db_path = extract_db_path(db_url)
+    backup_path = backup_database(db_path)
+
+    # Delete
+    deleted = repo.delete_all_price_observations(source=source)
+
+    # VACUUM to reclaim space
+    from sqlalchemy import text
+
+    with repo.engine.connect() as conn:
+        conn.execute(text("VACUUM"))
+        conn.commit()
+
+    click.echo(f"  Deleted {deleted} price observations.")
+    click.echo(f"  Backup saved to: {backup_path}\n")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")
