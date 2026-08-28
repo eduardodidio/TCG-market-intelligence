@@ -3,11 +3,21 @@ from __future__ import annotations
 import os
 
 _DEFAULT_DB_URL = "sqlite:///tcg_market.db"
+_RENDER_DB_URL = "sqlite:////data/tcg_market.db"
 
 
 def get_db_url() -> str:
-    """Return the database URL from TCG_DATABASE_URL env var or the default."""
-    return os.environ.get("TCG_DATABASE_URL", _DEFAULT_DB_URL)
+    """Return the database URL from TCG_DATABASE_URL env var or a smart default.
+
+    On Render (persistent disk at /data), auto-uses /data/tcg_market.db.
+    """
+    explicit = os.environ.get("TCG_DATABASE_URL")
+    if explicit:
+        return explicit
+    # Auto-detect Render persistent disk
+    if os.path.isdir("/data"):
+        return _RENDER_DB_URL
+    return _DEFAULT_DB_URL
 
 
 def get_error_log_dir() -> str:

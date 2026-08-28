@@ -12,8 +12,6 @@ services:
         value: production
       - key: TCG_JWT_SECRET
         generateValue: true
-      - key: TCG_DATABASE_URL
-        value: sqlite:////data/tcg_market.db
       - key: TCG_LIGA_DISABLED
         value: "1"
       - key: TCG_CORS_ORIGINS
