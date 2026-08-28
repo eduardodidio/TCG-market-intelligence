@@ -29,25 +29,41 @@ class LigaSweepResult:
     dry_run: bool
 
 
+from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
+
+
 async def _fetch_liga_price(provider, card: dict) -> HistoricalPrice | None:
     """Fetch price for a single card via the Liga provider.
 
     Returns a HistoricalPrice observation or None if no price found.
+    Detects foil cards from the extras field and stores foil prices
+    with a '_foil' suffix on external_id.
     """
     card_name = card.get("name_en") or card.get("name_pt", "")
     card_id = card.get("card_id", 0)
     if not card_name:
         return None
 
+    is_foil_card = _is_foil(card.get("extras"))
     prices = await provider.search_card(card_name)
-    normal = prices.get("normal", {})
-    price: Decimal | None = normal.get("low") or normal.get("mid") or normal.get("high")
-    if price is None:
-        return None
+
+    if is_foil_card:
+        foil = prices.get("foil", {})
+        price: Decimal | None = foil.get("low") or foil.get("mid") or foil.get("high")
+        if price is None:
+            log.warning("liga_sweep_no_foil_prices", card=card_name, card_id=card_id)
+            return None
+        external_id = f"liga_{card_id}_foil"
+    else:
+        normal = prices.get("normal", {})
+        price = normal.get("low") or normal.get("mid") or normal.get("high")
+        if price is None:
+            return None
+        external_id = f"liga_{card_id}"
 
     return HistoricalPrice(
         source="liga",
-        external_id=f"liga_{card_id}",
+        external_id=external_id,
         observed_at=date.today(),
         median_price=price,
         currency="BRL",

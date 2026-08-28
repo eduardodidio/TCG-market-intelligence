@@ -39,25 +39,43 @@ LIGA_DEFAULT_DELAY = 5.0
 LIGA_REQUEUE_DELAY_MULTIPLIER = 6  # 5s * 6 = 30s cooldown
 
 
-async def _fetch_price_liga(provider, entry: dict, card_id: int) -> HistoricalPrice | None:
+from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
+
+
+async def _fetch_price_liga(
+    provider, entry: dict, card_id: int, *, is_foil: bool = False
+) -> HistoricalPrice | None:
     """Fetch price for a single card via the Liga provider.
 
     Uses provider.search_card(name) which returns a parsed price dict
     with structure: {"normal": {"low": Decimal|None, "mid": ..., "high": ...}, ...}
+
+    When is_foil=True, extracts foil prices and uses a '_foil' suffix
+    on the external_id to store them separately.
     """
     card_name = entry.get("name_en") or entry.get("name_pt", "")
     if not card_name:
         return None
 
     prices = await provider.search_card(card_name)
-    normal = prices.get("normal", {})
-    price: Decimal | None = normal.get("low") or normal.get("mid") or normal.get("high")
-    if price is None:
-        return None
+
+    if is_foil:
+        foil = prices.get("foil", {})
+        price: Decimal | None = foil.get("low") or foil.get("mid") or foil.get("high")
+        if price is None:
+            log.warning("liga_no_foil_prices", card=card_name, card_id=card_id)
+            return None
+        external_id = f"liga_{card_id}_foil"
+    else:
+        normal = prices.get("normal", {})
+        price = normal.get("low") or normal.get("mid") or normal.get("high")
+        if price is None:
+            return None
+        external_id = f"liga_{card_id}"
 
     return HistoricalPrice(
         source="liga",
-        external_id=f"liga_{card_id}",
+        external_id=external_id,
         observed_at=date.today(),
         median_price=price,
         currency="BRL",
@@ -207,7 +225,10 @@ async def run_scan(
 
                 try:
                     if is_liga:
-                        observation = await _fetch_price_liga(provider, entry, card_id)
+                        foil = _is_foil(entry.get("extras"))
+                        observation = await _fetch_price_liga(
+                            provider, entry, card_id, is_foil=foil
+                        )
                     else:
                         slug = entry.get("slug", "")
                         jsonld_price = await provider.fetch_current_price(external_id, slug)

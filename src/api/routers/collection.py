@@ -50,6 +50,7 @@ from src.api.schemas.metrics import (
     PriceExtremesSchema,
     VolatilitySchema,
 )
+from src.collection.converter import is_foil_entry
 from src.config import get_db_url
 from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
@@ -110,13 +111,35 @@ def list_collection(
     if has_next:
         rows = rows[:limit]
 
-    # Batch-fetch latest prices for linked cards
+    # Batch-fetch latest prices for linked cards (foil-aware)
     linked_card_ids = [r.card_id for r in rows if r.card_id is not None]
-    latest_prices = repo.get_latest_prices_batch(linked_card_ids) if linked_card_ids else {}
+    foil_card_ids = {r.card_id for r in rows if r.card_id is not None and is_foil_entry(r.extras)}
+    non_foil_card_ids = {
+        r.card_id for r in rows if r.card_id is not None and not is_foil_entry(r.extras)
+    }
+    # Card IDs that appear as both foil and non-foil need separate lookups
+    overlap_card_ids = foil_card_ids & non_foil_card_ids
+
+    latest_prices = (
+        repo.get_latest_prices_batch(linked_card_ids, foil_card_ids=foil_card_ids)
+        if linked_card_ids
+        else {}
+    )
+    # For overlapping card_ids, also fetch non-foil prices
+    non_foil_prices: dict = {}
+    if overlap_card_ids:
+        non_foil_prices = repo.get_latest_prices_batch(list(overlap_card_ids))
 
     data = []
     for r in rows:
-        obs = latest_prices.get(r.card_id) if r.card_id else None
+        if r.card_id and r.card_id in overlap_card_ids:
+            # Same card_id appears as both foil and non-foil — pick correct dict
+            if is_foil_entry(r.extras):
+                obs = latest_prices.get(r.card_id)
+            else:
+                obs = non_foil_prices.get(r.card_id)
+        else:
+            obs = latest_prices.get(r.card_id) if r.card_id else None
         raw_price = obs.median_price if obs else None
         price = converter.convert(raw_price, date.today(), currency) if raw_price else None
         price_source = obs.source if obs else None
@@ -135,6 +158,7 @@ def list_collection(
                 rarity=r.rarity,
                 color=r.color,
                 extras=r.extras,
+                is_foil=is_foil_entry(r.extras),
                 latest_price=price,
                 price_source=price_source,
                 currency=currency,
@@ -1054,16 +1078,24 @@ async def refresh_card_price_liga(
         foil=prices.get("foil"),
     )
 
-    # Extract price: prefer normal.low (lowest), fallback normal.mid, then normal.high
-    normal = prices.get("normal", {})
-    price = normal.get("low") or normal.get("mid") or normal.get("high")
+    # Detect foil from collection entry extras field
+    is_foil = is_foil_entry(entry.extras)
+
+    # Extract price based on finish type
+    if is_foil:
+        foil_prices = prices.get("foil", {})
+        price = foil_prices.get("low") or foil_prices.get("mid") or foil_prices.get("high")
+    else:
+        normal = prices.get("normal", {})
+        price = normal.get("low") or normal.get("mid") or normal.get("high")
 
     if price is None:
+        finish_label = "foil" if is_foil else "normal"
         response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
         response.errors.append(
             ErrorDetail(
                 code="liga_warning",
-                message="No price found on LigaMagic for this card",
+                message=f"No {finish_label} price found on LigaMagic for this card",
             )
         )
         return response
@@ -1082,9 +1114,10 @@ async def refresh_card_price_liga(
         # Reload entry to get card_id
         entry = repo.get_collection_entry(entry_id)
 
+    ext_id = f"liga_{entry.card_id}_foil" if is_foil else f"liga_{entry.card_id}"
     obs = HistoricalPrice(
         source="liga",
-        external_id=f"liga_{entry.card_id}",
+        external_id=ext_id,
         observed_at=date.today(),
         median_price=price,
     )
@@ -1094,6 +1127,7 @@ async def refresh_card_price_liga(
         entry_id=entry_id,
         card_name=card_name,
         price=str(price),
+        is_foil=is_foil,
     )
 
     # Deduct credit after successful refresh — all users pay
@@ -1120,7 +1154,8 @@ def _build_collection_detail(
     source_cards_data: list[SourceCardSchema] = []
 
     if entry.card_id is not None:
-        prices = repo.get_latest_prices_batch([entry.card_id])
+        entry_foil_ids = {entry.card_id} if is_foil_entry(entry.extras) else None
+        prices = repo.get_latest_prices_batch([entry.card_id], foil_card_ids=entry_foil_ids)
         obs = prices.get(entry.card_id)
         if obs and obs.median_price:
             latest_price = converter.convert(obs.median_price, date.today(), currency)
@@ -1154,6 +1189,7 @@ def _build_collection_detail(
         rarity=entry.rarity,
         color=entry.color,
         extras=entry.extras,
+        is_foil=is_foil_entry(entry.extras),
         latest_price=latest_price,
         price_source=price_source,
         currency=currency,

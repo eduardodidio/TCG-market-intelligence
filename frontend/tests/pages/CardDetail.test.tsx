@@ -416,6 +416,7 @@ describe("CardDetail page", () => {
               rarity: null,
               color: null,
               extras: null,
+              is_foil: false,
               latest_price: 12.50,
               currency: "BRL",
               image_url: null,

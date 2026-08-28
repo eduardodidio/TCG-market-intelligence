@@ -449,7 +449,11 @@ class Repository:
         "myp": 3,
     }
 
-    def get_latest_prices_batch(self, card_ids: list[int]) -> dict[int, PriceObservationRow | None]:
+    def get_latest_prices_batch(
+        self,
+        card_ids: list[int],
+        foil_card_ids: set[int] | None = None,
+    ) -> dict[int, PriceObservationRow | None]:
         """Get the latest price observation for each card_id.
 
         Priority logic:
@@ -457,9 +461,13 @@ class Repository:
         - When multiple sources share the same date, SOURCE_PRIORITY decides:
           manual > liga > jsonld_snapshot > myp
         - Checks source_cards (MYP/jsonld_snapshot), manual, and liga observations
+        - For card_ids in *foil_card_ids*, also checks ``liga_{card_id}_foil``
+          observations and prefers them over normal Liga observations.
+          Manual prices still win regardless of foil status.
         """
         if not card_ids:
             return {}
+        _foil_ids = foil_card_ids or set()
         with Session(self.engine) as session:
             result: dict[int, PriceObservationRow | None] = {}
             for card_id in card_ids:
@@ -512,6 +520,27 @@ class Repository:
                 ).scalar_one_or_none()
                 if liga_match:
                     candidates.append(liga_match)
+
+                # For foil cards, also check for foil-specific Liga observations.
+                # Foil Liga external_ids follow pattern "liga_{card_id}_foil".
+                # When a foil observation exists, it replaces the normal Liga
+                # observation for this card so the foil price takes priority.
+                if card_id in _foil_ids:
+                    liga_foil_ext_id = f"liga_{card_id}_foil"
+                    liga_foil_match = session.execute(
+                        select(PriceObservationRow)
+                        .where(
+                            PriceObservationRow.source == "liga",
+                            PriceObservationRow.external_id == liga_foil_ext_id,
+                        )
+                        .order_by(PriceObservationRow.observed_at.desc())
+                        .limit(1)
+                    ).scalar_one_or_none()
+                    if liga_foil_match:
+                        # Remove normal liga match — foil-specific takes priority
+                        if liga_match and liga_match in candidates:
+                            candidates.remove(liga_match)
+                        candidates.append(liga_foil_match)
 
                 # Pick winner: latest date first, then source priority (lower = better)
                 if candidates:
@@ -1069,7 +1098,11 @@ class Repository:
 
         Sums (median_price * quantity) for each linked card. Returns None
         if there are no linked cards or none of them have prices.
+
+        Foil entries get foil-specific Liga prices when available.
         """
+        from src.collection.converter import is_foil_entry
+
         with Session(self.engine) as session:
             linked_rows = (
                 session.execute(
@@ -1083,11 +1116,28 @@ class Repository:
             )
             if not linked_rows:
                 return None
+
+            foil_card_ids = {r.card_id for r in linked_rows if is_foil_entry(r.extras)}
+            non_foil_card_ids = {r.card_id for r in linked_rows if not is_foil_entry(r.extras)}
+            overlap_card_ids = foil_card_ids & non_foil_card_ids
+
             card_ids = list({r.card_id for r in linked_rows})
-            prices = self.get_latest_prices_batch(card_ids)
+            prices = self.get_latest_prices_batch(card_ids, foil_card_ids=foil_card_ids)
+
+            # For overlapping card_ids, also fetch non-foil prices
+            non_foil_prices: dict = {}
+            if overlap_card_ids:
+                non_foil_prices = self.get_latest_prices_batch(list(overlap_card_ids))
+
             total = Decimal("0")
             for r in linked_rows:
-                obs = prices.get(r.card_id)
+                if r.card_id in overlap_card_ids:
+                    if is_foil_entry(r.extras):
+                        obs = prices.get(r.card_id)
+                    else:
+                        obs = non_foil_prices.get(r.card_id)
+                else:
+                    obs = prices.get(r.card_id)
                 if obs and obs.median_price:
                     total += obs.median_price * r.quantity
             return total if total > 0 else None
@@ -1300,6 +1350,7 @@ class Repository:
                 UserCollectionRow.name_pt,
                 UserCollectionRow.set_code,
                 UserCollectionRow.collector_number,
+                UserCollectionRow.extras,
             ).where(UserCollectionRow.card_id.isnot(None))
 
             if user_id is not None:
@@ -1330,7 +1381,14 @@ class Repository:
                 from sqlalchemy import cast as sa_cast
 
                 liga_ext_id = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
-                stmt = stmt.where(liga_ext_id.notin_(select(recent_liga.c.external_id)))
+                liga_ext_id_foil = func.concat(
+                    "liga_", sa_cast(UserCollectionRow.card_id, SAString), "_foil"
+                )
+                # Exclude entries that have a recent observation for EITHER normal or foil variant
+                stmt = stmt.where(
+                    liga_ext_id.notin_(select(recent_liga.c.external_id)),
+                    liga_ext_id_foil.notin_(select(recent_liga.c.external_id)),
+                )
 
             stmt = stmt.order_by(UserCollectionRow.id.asc())
 
@@ -1346,6 +1404,7 @@ class Repository:
                     "name_pt": r.name_pt,
                     "set_code": r.set_code,
                     "collector_number": r.collector_number,
+                    "extras": r.extras,
                 }
                 for r in rows
             ]

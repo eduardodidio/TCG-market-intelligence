@@ -121,6 +121,7 @@ export interface CollectionCard {
   rarity: string | null;
   color: string | null;
   extras: string | null;
+  is_foil: boolean;
   latest_price: number | null;
   price_source?: string | null;
   currency?: string;

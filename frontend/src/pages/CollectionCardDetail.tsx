@@ -18,6 +18,7 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { ManualPriceInput } from "../components/ManualPriceInput";
 import { MetricsPanel } from "../components/MetricsPanel";
 import { PriceChart } from "../components/PriceChart";
+import { FoilBadge } from "../components/FoilBadge";
 import { PriceSourceBadge } from "../components/PriceSourceBadge";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
 import type { CardBanHistoryEntry } from "../types/banlist";
@@ -261,7 +262,10 @@ export function CollectionCardDetail() {
           </div>
 
           {/* Card name */}
-          <h1 className="text-2xl font-bold text-white mb-1">{displayName}</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold text-white">{displayName}</h1>
+            {entry.is_foil && <FoilBadge variant="full" />}
+          </div>
           {(() => {
             const subtitle = getSubtitleName(entry.name_en, entry.name_pt, t("common.unknownCard"));
             return subtitle ? (
@@ -318,7 +322,7 @@ export function CollectionCardDetail() {
           {/* Latest price */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-sm text-slate-400">{t("cardDetail.latestPrice")}</p>
+              <p className="text-sm text-slate-400">{entry.is_foil ? t("card.foilPrice") : t("cardDetail.latestPrice")}</p>
               <PriceSourceBadge priceSource={entry.price_source} />
             </div>
             {/* Refresh button hierarchy: Liga primary, MYP secondary */}

@@ -1,0 +1,27 @@
+{
+  "decision_id": "D-F87-20260828-001",
+  "timestamp": "2026-08-28T12:00:00Z",
+  "type": "feature_start",
+  "context_summary": "F87 Liga Foil Price Differentiation — Foil cards are getting the same price as non-foil. The Liga provider parser has basic foil section detection (_extract_foil_section) but the prices are not stored or displayed separately. Need to: (1) research Liga HTML structure for foil vs non-foil separation, (2) enhance parser to reliably capture lowest foil price, (3) store foil prices as distinct observations (is_foil flag on PriceObservationRow or separate external_id), (4) display foil vs non-foil prices in frontend. Single feature, clear scope.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with plan-feature for F87 — full foil differentiation pipeline.",
+      "pros": ["Clear user need — foil prices are wrong", "Liga parser already has foil detection skeleton", "PriceObservationRow supports source+external_id differentiation", "Well-scoped: parser → storage → display"],
+      "cons": ["Requires Liga HTML research (may discover unexpected structure)", "Schema change (is_foil flag) needs migration"]
+    },
+    {
+      "option": "B",
+      "description": "Research-only first, then plan implementation.",
+      "pros": ["De-risks parser changes"],
+      "cons": ["Delays fix for a known problem", "Parser already has foil detection — just needs refinement"]
+    }
+  ],
+  "decision": "A",
+  "rationale": "The Liga parser already has _extract_foil_section infrastructure. The research phase can be Wave 0 (T01) with implementation in Wave 1. No reason to split into separate features.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F87" }
+  ],
+  "status": "executed",
+  "governance": null
+}

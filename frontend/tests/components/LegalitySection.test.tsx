@@ -31,6 +31,7 @@ const MOCK_ENTRY = {
     rarity: "C",
     color: null,
     extras: null,
+    is_foil: false,
     latest_price: 10.5,
     image_url: null,
     price_history: [],

@@ -19,6 +19,7 @@ class CollectionCard(BaseModel):
     rarity: str | None = None
     color: str | None = None
     extras: str | None = None
+    is_foil: bool = False
     latest_price: float | None = None
     price_source: str | None = None
     currency: str = "BRL"

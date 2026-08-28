@@ -142,20 +142,28 @@ def _mock_repo_for_detail(mock_repo: MagicMock, entry: MagicMock) -> None:
     mock_repo.get_source_cards_for_card.return_value = []
 
 
-def _liga_prices(mid=None, low=None, high=None) -> dict:
+def _liga_prices(
+    mid=None,
+    low=None,
+    high=None,
+    foil_mid=None,
+    foil_low=None,
+    foil_high=None,
+) -> dict:
     """Build a LigaMagic price dict matching parse_card_prices structure."""
     return {
         "card_name": "Lightning Bolt",
         "normal": {"low": low, "mid": mid, "high": high},
-        "foil": {"low": None, "mid": None, "high": None},
+        "foil": {"low": foil_low, "mid": foil_mid, "high": foil_high},
     }
 
 
 class TestRefreshLigaHappyPath:
     """Happy path: provider returns prices, price is stored."""
 
-    def test_returns_detail_with_price(self) -> None:
-        entry = _make_collection_row()
+    def test_returns_detail_with_price_normal(self) -> None:
+        """Non-foil entry stores normal price with standard external_id."""
+        entry = _make_collection_row(extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -179,8 +187,54 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].external_id == "liga_42"
         assert obs_list[0].median_price == Decimal("5.50")
 
+    def test_returns_detail_with_foil_price(self) -> None:
+        """Foil entry stores foil price with _foil suffix on external_id."""
+        entry = _make_collection_row(extras="Foil")
+        mock_repo = MagicMock()
+        _mock_repo_for_detail(mock_repo, entry)
+
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(
+            mid=Decimal("3.00"),
+            foil_mid=Decimal("8.00"),
+        )
+
+        app = _make_app(mock_repo, mock_provider=provider)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["id"] == 1
+        assert body["errors"] == []
+
+        obs_list = mock_repo.insert_price_observations.call_args[0][0]
+        assert len(obs_list) == 1
+        assert obs_list[0].source == "liga"
+        assert obs_list[0].external_id == "liga_42_foil"
+        assert obs_list[0].median_price == Decimal("8.00")
+
+    def test_foil_no_price_returns_warning(self) -> None:
+        """Foil entry with no foil prices returns warning, no fallback to normal."""
+        entry = _make_collection_row(extras="Foil")
+        mock_repo = MagicMock()
+        _mock_repo_for_detail(mock_repo, entry)
+
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
+
+        app = _make_app(mock_repo, mock_provider=provider)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["errors"]) == 1
+        assert "foil" in body["errors"][0]["message"].lower()
+        mock_repo.insert_price_observations.assert_not_called()
+
     def test_prefers_low_price(self) -> None:
-        entry = _make_collection_row()
+        entry = _make_collection_row(extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -198,7 +252,7 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].median_price == Decimal("8.00")
 
     def test_fallback_mid_when_no_low(self) -> None:
-        entry = _make_collection_row()
+        entry = _make_collection_row(extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -216,7 +270,7 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].median_price == Decimal("10.00")
 
     def test_fallback_high_when_no_low_no_mid(self) -> None:
-        entry = _make_collection_row()
+        entry = _make_collection_row(extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -232,7 +286,7 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].median_price == Decimal("12.00")
 
     def test_falls_back_to_low_price(self) -> None:
-        entry = _make_collection_row()
+        entry = _make_collection_row(extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -248,7 +302,7 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].median_price == Decimal("3.00")
 
     def test_falls_back_to_high_price(self) -> None:
-        entry = _make_collection_row()
+        entry = _make_collection_row(extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -263,9 +317,31 @@ class TestRefreshLigaHappyPath:
         obs_list = mock_repo.insert_price_observations.call_args[0][0]
         assert obs_list[0].median_price == Decimal("15.00")
 
+    def test_foil_prefers_low(self) -> None:
+        """Foil entry: prefers foil.low over foil.mid and foil.high."""
+        entry = _make_collection_row(extras="Foil")
+        mock_repo = MagicMock()
+        _mock_repo_for_detail(mock_repo, entry)
+
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(
+            foil_low=Decimal("10.00"),
+            foil_mid=Decimal("15.00"),
+            foil_high=Decimal("20.00"),
+        )
+
+        app = _make_app(mock_repo, mock_provider=provider)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 200
+        obs_list = mock_repo.insert_price_observations.call_args[0][0]
+        assert obs_list[0].median_price == Decimal("10.00")
+        assert obs_list[0].external_id == "liga_42_foil"
+
     def test_uses_name_pt_fallback(self) -> None:
         """When name_en is None, should use name_pt for search."""
-        entry = _make_collection_row(name_en=None, name_pt="Raio")
+        entry = _make_collection_row(name_en=None, name_pt="Raio", extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -281,7 +357,7 @@ class TestRefreshLigaHappyPath:
 
     def test_no_provider_close_per_request(self) -> None:
         """Singleton provider should NOT be closed per request."""
-        entry = _make_collection_row()
+        entry = _make_collection_row(extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -298,8 +374,8 @@ class TestRefreshLigaHappyPath:
 class TestRefreshLigaNoPrice:
     """Provider returns empty prices — 200 with warning."""
 
-    def test_no_price_returns_warning(self) -> None:
-        entry = _make_collection_row()
+    def test_no_normal_price_returns_warning(self) -> None:
+        entry = _make_collection_row(extras=None)
         mock_repo = MagicMock()
         _mock_repo_for_detail(mock_repo, entry)
 
@@ -314,7 +390,26 @@ class TestRefreshLigaNoPrice:
         body = resp.json()
         assert len(body["errors"]) == 1
         assert body["errors"][0]["code"] == "liga_warning"
-        assert "No price found" in body["errors"][0]["message"]
+        assert "normal" in body["errors"][0]["message"].lower()
+        mock_repo.insert_price_observations.assert_not_called()
+
+    def test_no_foil_price_returns_warning(self) -> None:
+        entry = _make_collection_row(extras="Foil")
+        mock_repo = MagicMock()
+        _mock_repo_for_detail(mock_repo, entry)
+
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices()  # all None
+
+        app = _make_app(mock_repo, mock_provider=provider)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["errors"]) == 1
+        assert body["errors"][0]["code"] == "liga_warning"
+        assert "foil" in body["errors"][0]["message"].lower()
         mock_repo.insert_price_observations.assert_not_called()
 
 
@@ -514,8 +609,8 @@ class TestRefreshLigaAutoCreateCard:
     """Entry has no card_id — auto-create canonical card."""
 
     def test_auto_creates_card_id(self) -> None:
-        entry_no_card = _make_collection_row(card_id=None)
-        entry_with_card = _make_collection_row(card_id=99)
+        entry_no_card = _make_collection_row(card_id=None, extras=None)
+        entry_with_card = _make_collection_row(card_id=99, extras=None)
 
         mock_repo = MagicMock()
         # First call returns entry without card_id, second returns with card_id

@@ -263,6 +263,66 @@ class TestGetCollectionEntry:
         # bldmr should be mapped to dmr
         assert "/cards/dmr/437?" in data["image_url"]
 
+    def test_is_foil_true_when_extras_contains_foil(self) -> None:
+        """Entry with extras='Foil' should have is_foil=True."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row(extras="Foil")
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+        mock_repo.get_price_series.return_value = []
+
+        app = _make_app(mock_repo)
+        client = TestClient(app)
+
+        resp = client.get("/collection/1")
+        data = resp.json()["data"]
+        assert data["is_foil"] is True
+
+    def test_is_foil_true_when_extras_foil_signed(self) -> None:
+        """Entry with extras='Foil, Signed' should have is_foil=True."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row(extras="Foil, Signed")
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+        mock_repo.get_price_series.return_value = []
+
+        app = _make_app(mock_repo)
+        client = TestClient(app)
+
+        resp = client.get("/collection/1")
+        data = resp.json()["data"]
+        assert data["is_foil"] is True
+
+    def test_is_foil_false_when_extras_no_foil(self) -> None:
+        """Entry with extras='Signed' (no foil) should have is_foil=False."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row(extras="Signed")
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+        mock_repo.get_price_series.return_value = []
+
+        app = _make_app(mock_repo)
+        client = TestClient(app)
+
+        resp = client.get("/collection/1")
+        data = resp.json()["data"]
+        assert data["is_foil"] is False
+
+    def test_is_foil_false_when_extras_none(self) -> None:
+        """Entry with extras=None should have is_foil=False."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row(extras=None)
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+        mock_repo.get_price_series.return_value = []
+
+        app = _make_app(mock_repo)
+        client = TestClient(app)
+
+        resp = client.get("/collection/1")
+        data = resp.json()["data"]
+        assert data["is_foil"] is False
+
     def test_returns_404_when_entry_belongs_to_different_user(self) -> None:
         """Entry exists but belongs to another user — should return 404."""
         mock_repo = MagicMock()

@@ -6,6 +6,16 @@ from src.collection.matcher import CollectionEntry
 from src.database.models import UserCollectionRow
 
 
+def is_foil_entry(extras: str | None) -> bool:
+    """Check if a collection entry's extras field indicates foil.
+
+    Matches "Foil", "foil", "Foil, Signed", etc.
+    """
+    if not extras:
+        return False
+    return "foil" in extras.lower()
+
+
 def row_to_collection_entry(row: UserCollectionRow) -> CollectionEntry:
     """Convert a DB row to a CollectionEntry for the matcher.
 

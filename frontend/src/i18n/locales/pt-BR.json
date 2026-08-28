@@ -395,6 +395,8 @@
     "priceLowHigh": "Preco (Menor-Maior)"
   },
   "card": {
+    "foil": "Foil",
+    "foilPrice": "Preco Foil",
     "refreshLiga": "Atualizar Liga",
     "refreshMyp": "Atualizar MYP (alternativo)",
     "priceSource": {

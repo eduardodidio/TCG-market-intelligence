@@ -395,6 +395,8 @@
     "priceLowHigh": "Price (Low-High)"
   },
   "card": {
+    "foil": "Foil",
+    "foilPrice": "Foil price",
     "refreshLiga": "Refresh Liga",
     "refreshMyp": "Refresh MYP (fallback)",
     "priceSource": {

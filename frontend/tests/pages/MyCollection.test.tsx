@@ -33,6 +33,7 @@ function makeCollectionCard(overrides: Partial<CollectionCard> = {}): Collection
     rarity: "C",
     color: null,
     extras: null,
+    is_foil: false,
     latest_price: 5.0,
     image_url: null,
     ...overrides,

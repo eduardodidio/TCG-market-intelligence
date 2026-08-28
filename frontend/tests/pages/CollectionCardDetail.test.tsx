@@ -35,6 +35,7 @@ function makeLinkedEntry(
       rarity: "R",
       color: "R",
       extras: "Foil",
+      is_foil: true,
       latest_price: 8.5,
       image_url: "https://api.scryfall.com/cards/dmr/123?format=image&version=normal",
       price_history: [],

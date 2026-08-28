@@ -556,16 +556,25 @@ class LigaMagicProvider(CardSourceProvider):
         """
         return []
 
-    async def get_current_price(self, card: SourceCard) -> PriceSnapshot | None:
+    async def get_current_price(
+        self, card: SourceCard, *, is_foil: bool = False
+    ) -> PriceSnapshot | None:
         """Fetch current price for a card from LigaMagic.
 
         Navigates to the card page, extracts prices using the parser,
         and returns a PriceSnapshot domain object.
+
+        Args:
+            card: Source card to look up.
+            is_foil: When True, extract foil prices instead of normal.
+                     Returns None if no foil prices found (no fallback).
         """
         async with self._lock:
-            return await self._get_current_price_unlocked(card)
+            return await self._get_current_price_unlocked(card, is_foil=is_foil)
 
-    async def _get_current_price_unlocked(self, card: SourceCard) -> PriceSnapshot | None:
+    async def _get_current_price_unlocked(
+        self, card: SourceCard, *, is_foil: bool = False
+    ) -> PriceSnapshot | None:
         card_name = ""
         if card.identity and card.identity.name_en:
             card_name = card.identity.name_en
@@ -588,13 +597,29 @@ class LigaMagicProvider(CardSourceProvider):
             return None
 
         prices = parse_card_prices(html, card_name)
-        low = prices["normal"]["low"]
-        mid = prices["normal"]["mid"]
-        high = prices["normal"]["high"]
 
-        # Primary price = lowest available
-        avg_price = low or mid or high
-        min_price = low  # keep separate min_price for PriceSnapshot
+        if is_foil:
+            foil = prices.get("foil", {})
+            low = foil.get("low")
+            mid = foil.get("mid")
+            high = foil.get("high")
+            avg_price = low or mid or high
+            if avg_price is None:
+                log.warning(
+                    "liga_no_foil_prices_found",
+                    card=card_name,
+                    url=url,
+                )
+                return None
+            min_price = low
+            external_id = f"{card.external_id}_foil"
+        else:
+            low = prices["normal"]["low"]
+            mid = prices["normal"]["mid"]
+            high = prices["normal"]["high"]
+            avg_price = low or mid or high
+            min_price = low
+            external_id = card.external_id
 
         if avg_price is None:
             log.info("liga_no_prices_found", card=card_name, url=url)
@@ -602,7 +627,7 @@ class LigaMagicProvider(CardSourceProvider):
 
         return PriceSnapshot(
             source="liga",
-            external_id=card.external_id,
+            external_id=external_id,
             observed_at=datetime.now(),
             min_price=min_price,
             avg_price=avg_price,
