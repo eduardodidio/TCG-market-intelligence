@@ -2,12 +2,16 @@
 
 Uses Playwright async API for browser automation since LigaMagic
 requires JavaScript rendering and blocks direct HTTP requests with 403.
+
+On Windows, falls back to Playwright's sync API running inside
+``asyncio.to_thread()`` to avoid event-loop compatibility issues.
 """
 
 from __future__ import annotations
 
 import asyncio
 import sys
+import time
 from datetime import datetime
 from urllib.parse import quote_plus
 
@@ -63,10 +67,18 @@ class LigaMagicProvider(CardSourceProvider):
 
     def __init__(self, config: LigaConfig | None = None) -> None:
         self.config = config or LigaConfig()
+        # Async Playwright resources (Linux/macOS)
         self._playwright = None
         self._browser = None
         self._context = None
         self._page = None
+        # Sync Playwright resources (Windows)
+        self._sync_pw = None
+        self._sync_browser = None
+        self._sync_context = None
+        self._sync_page = None
+        self._use_sync = False
+        # Shared state
         self._request_count = 0
         self._lock = asyncio.Lock()
         self._unavailable = False
@@ -84,39 +96,53 @@ class LigaMagicProvider(CardSourceProvider):
         even when playwright is not installed (useful for tests
         that mock the browser layer).
 
-        On Windows, Playwright's async API requires
-        ``asyncio.create_subprocess_exec`` which is not supported
-        by the default ``SelectorEventLoop``.  Rather than changing
-        the global event-loop policy (which could break uvicorn),
-        the provider marks itself as unavailable and returns early.
+        On Windows, uses Playwright's sync API via ``asyncio.to_thread()``
+        to avoid event-loop compatibility issues with async subprocesses.
         """
-        if self._page is not None:
+        if self._page is not None or self._sync_page is not None:
             return  # Already open
 
         if sys.platform == "win32":
-            self._unavailable = True
-            log.info(
-                "liga_provider_skipped",
-                reason="Windows does not support async subprocesses for Playwright",
+            self._use_sync = True
+            await asyncio.to_thread(self._open_sync)
+        else:
+            from playwright.async_api import async_playwright
+
+            self._playwright = await async_playwright().start()
+            self._browser = await self._playwright.chromium.launch(
+                headless=self.config.headless,
             )
-            return
+            self._context = await self._browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                user_agent=_USER_AGENT,
+                locale="pt-BR",
+            )
+            self._page = await self._context.new_page()
 
-        from playwright.async_api import async_playwright
+        log.info("liga_browser_opened", headless=self.config.headless, sync=self._use_sync)
 
-        self._playwright = await async_playwright().start()
-        self._browser = await self._playwright.chromium.launch(
+    def _open_sync(self) -> None:
+        """Start Playwright sync resources (runs in a thread)."""
+        from playwright.sync_api import sync_playwright
+
+        self._sync_pw = sync_playwright().start()
+        self._sync_browser = self._sync_pw.chromium.launch(
             headless=self.config.headless,
         )
-        self._context = await self._browser.new_context(
+        self._sync_context = self._sync_browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=_USER_AGENT,
             locale="pt-BR",
         )
-        self._page = await self._context.new_page()
-        log.info("liga_browser_opened", headless=self.config.headless)
+        self._sync_page = self._sync_context.new_page()
 
     async def close(self) -> None:
         """Shut down the browser and release resources."""
+        if self._use_sync:
+            await asyncio.to_thread(self._close_sync)
+            log.info("liga_browser_closed", requests=self._request_count, sync=True)
+            return
+
         if self._unavailable:
             return
         if self._browser:
@@ -128,6 +154,23 @@ class LigaMagicProvider(CardSourceProvider):
         self._context = None
         self._page = None
         log.info("liga_browser_closed", requests=self._request_count)
+
+    def _close_sync(self) -> None:
+        """Stop Playwright sync resources (runs in a thread)."""
+        try:
+            if self._sync_browser:
+                self._sync_browser.close()
+        except Exception:
+            pass
+        try:
+            if self._sync_pw:
+                self._sync_pw.stop()
+        except Exception:
+            pass
+        self._sync_browser = None
+        self._sync_context = None
+        self._sync_page = None
+        self._sync_pw = None
 
     async def __aenter__(self) -> LigaMagicProvider:
         await self.open()
@@ -147,12 +190,22 @@ class LigaMagicProvider(CardSourceProvider):
                 status_code=0,
                 attempts=0,
             )
+        if self._use_sync:
+            if self._sync_page is None:
+                await self.open()
+            return self._sync_page
         if self._page is None:
             await self.open()
         return self._page
 
     async def _reset_browser(self) -> None:
         """Best-effort browser cleanup for recovery after crashes."""
+        if self._use_sync:
+            await asyncio.to_thread(self._reset_browser_sync)
+            await asyncio.sleep(0.5)
+            log.info("liga_browser_reset", sync=True)
+            return
+
         try:
             if self._browser:
                 await self._browser.close()
@@ -171,12 +224,32 @@ class LigaMagicProvider(CardSourceProvider):
         await asyncio.sleep(0.5)
         log.info("liga_browser_reset")
 
+    def _reset_browser_sync(self) -> None:
+        """Best-effort sync browser cleanup (runs in a thread)."""
+        try:
+            if self._sync_browser:
+                self._sync_browser.close()
+        except Exception:
+            pass
+        try:
+            if self._sync_pw:
+                self._sync_pw.stop()
+        except Exception:
+            pass
+        self._sync_browser = None
+        self._sync_context = None
+        self._sync_page = None
+        self._sync_pw = None
+
     async def _fetch_page(self, url: str) -> str:
         """Navigate to URL and return rendered HTML.
 
         Applies rate limiting, retries on failure, and raises typed
         exceptions based on HTTP status.
         """
+        if self._use_sync:
+            return await asyncio.to_thread(self._fetch_page_sync, url)
+
         last_status = 0
         timeout_ms = int(self.config.timeout_seconds * 1000)
 
@@ -301,6 +374,156 @@ class LigaMagicProvider(CardSourceProvider):
                         attempts=attempt,
                     ) from e
                 await asyncio.sleep(2**attempt)
+
+        # Retries exhausted
+        if last_status == 429:
+            raise LigaRateLimitError(
+                f"Rate limited after {self.config.max_retries} attempts: {url}",
+                url=url,
+                status_code=429,
+                attempts=self.config.max_retries,
+            )
+        raise LigaError(
+            f"Failed after {self.config.max_retries} attempts: {url}",
+            url=url,
+            status_code=last_status,
+            attempts=self.config.max_retries,
+        )
+
+    def _fetch_page_sync(self, url: str) -> str:
+        """Navigate to URL and return rendered HTML using sync Playwright.
+
+        Mirrors the async ``_fetch_page`` logic but uses blocking calls
+        and ``time.sleep()`` for delays.  Runs inside ``asyncio.to_thread()``.
+        """
+        last_status = 0
+        timeout_ms = int(self.config.timeout_seconds * 1000)
+
+        for attempt in range(1, self.config.max_retries + 1):
+            # Rate limit between requests (skip on first ever request)
+            if self._request_count > 0:
+                time.sleep(self.config.delay_seconds)
+            self._request_count += 1
+
+            try:
+                if self._sync_page is None:
+                    raise LigaError(
+                        "Sync page not available",
+                        url=url,
+                        status_code=0,
+                        attempts=attempt,
+                    )
+                page = self._sync_page
+                response = page.goto(
+                    url,
+                    wait_until="networkidle",
+                    timeout=timeout_ms,
+                )
+                last_status = response.status if response else 0
+
+                # 404: permanent — raise immediately
+                if last_status == 404:
+                    raise LigaNotFoundError(
+                        f"HTTP 404 for {url}",
+                        url=url,
+                        status_code=404,
+                        attempts=attempt,
+                    )
+
+                # 429: rate limited — retry with backoff
+                if last_status == 429:
+                    wait = min(2**attempt * 5, 60)
+                    log.warning(
+                        "liga_rate_limited",
+                        url=url,
+                        attempt=attempt,
+                        wait_seconds=wait,
+                    )
+                    time.sleep(wait)
+                    continue
+
+                # 403: blocked — retry with longer backoff
+                if last_status == 403:
+                    wait = min(2**attempt * 10, 120)
+                    log.warning(
+                        "liga_forbidden",
+                        url=url,
+                        attempt=attempt,
+                        wait_seconds=wait,
+                    )
+                    time.sleep(wait)
+                    continue
+
+                # 5xx: server error — retry
+                if last_status >= 500:
+                    log.warning(
+                        "liga_server_error",
+                        url=url,
+                        status=last_status,
+                        attempt=attempt,
+                    )
+                    if attempt == self.config.max_retries:
+                        raise LigaServerError(
+                            f"HTTP {last_status} for {url}",
+                            url=url,
+                            status_code=last_status,
+                            attempts=attempt,
+                        )
+                    time.sleep(2**attempt)
+                    continue
+
+                # Other 4xx: raise immediately
+                if last_status >= 400:
+                    raise LigaError(
+                        f"HTTP {last_status} for {url}",
+                        url=url,
+                        status_code=last_status,
+                        attempts=attempt,
+                    )
+
+                # Wait for JS-rendered price elements before capturing HTML.
+                try:
+                    page.wait_for_selector(
+                        '[class*="preco"], :text("R$")',
+                        timeout=8000,
+                    )
+                except Exception:
+                    log.debug(
+                        "liga_price_selector_timeout",
+                        url=url,
+                        msg="Price selector not found within 8s, proceeding with current HTML",
+                    )
+                    page.wait_for_timeout(2000)
+
+                return page.content()
+
+            except LigaError:
+                raise
+            except Exception as e:
+                log.warning(
+                    "liga_request_error",
+                    url=url,
+                    attempt=attempt,
+                    error=str(e) or "(no message)",
+                    exc_type=type(e).__name__,
+                )
+                # Reset browser on non-timeout errors (likely dead browser/page)
+                if not isinstance(e, TimeoutError):
+                    self._reset_browser_sync()
+                if attempt == self.config.max_retries:
+                    etype = type(e).__name__
+                    msg = (
+                        f"Request failed ({etype}): {e}"
+                        if str(e)
+                        else f"Request failed ({etype}, no details) after {attempt} attempts: {url}"
+                    )
+                    raise LigaError(
+                        msg,
+                        url=url,
+                        status_code=0,
+                        attempts=attempt,
+                    ) from e
+                time.sleep(2**attempt)
 
         # Retries exhausted
         if last_status == 429:

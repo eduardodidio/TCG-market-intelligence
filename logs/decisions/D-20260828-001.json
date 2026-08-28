@@ -1,0 +1,11 @@
+{
+  "id": "D-20260828-001",
+  "type": "feature_start",
+  "feature": "F83-F84",
+  "description": "F83 Treasury Art Crop (remove card header/footer from TreasureTokenCard) + F84 Liga Provider Windows Fix (sync Playwright in thread executor)",
+  "requested_at": "2026-08-28T10:00:00Z",
+  "pipeline": "plan-feature",
+  "status": "executed",
+  "actions": ["plan-feature"],
+  "rationale": "Two independent fixes: F83 is a frontend-only CSS/image crop change (low risk), F84 is a backend provider fix to enable Liga on Windows via sync Playwright in thread executor (medium risk, isolated to provider module). No architectural concerns. Single parallel Wave."
+}

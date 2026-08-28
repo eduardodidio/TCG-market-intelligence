@@ -24,7 +24,7 @@ export function TreasureTokenCard({ count }: TreasureTokenCardProps) {
           <img
             src={treasureImage}
             alt={t("credits.balance")}
-            className="w-full object-contain"
+            className="w-full h-36 object-cover object-center"
             data-testid="treasure-image"
           />
           <div
