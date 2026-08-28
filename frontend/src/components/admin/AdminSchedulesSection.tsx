@@ -6,16 +6,16 @@ import {
   fetchSchedules,
   triggerSchedule,
   updateSchedule,
-} from "../api/schedules";
-import { ScheduleForm } from "../components/ScheduleForm";
-import { ScheduleTable } from "../components/ScheduleTable";
+} from "../../api/schedules";
+import { ScheduleForm } from "../ScheduleForm";
+import { ScheduleTable } from "../ScheduleTable";
 import type {
   ScheduleCreateRequest,
   ScheduleResponse,
   ScheduleUpdateRequest,
-} from "../types/api";
+} from "../../types/api";
 
-export function Schedules() {
+export function AdminSchedulesSection({ isOpen }: { isOpen: boolean }) {
   const { t } = useTranslation();
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,7 @@ export function Schedules() {
     useState<ScheduleResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
   const loadSchedules = useCallback(async () => {
     setLoading(true);
@@ -43,9 +44,13 @@ export function Schedules() {
     }
   }, [t]);
 
+  // Lazy load when section opens for the first time
   useEffect(() => {
-    loadSchedules();
-  }, [loadSchedules]);
+    if (isOpen && !loaded) {
+      setLoaded(true);
+      loadSchedules();
+    }
+  }, [isOpen, loaded, loadSchedules]);
 
   async function handleCreate(data: ScheduleCreateRequest) {
     setSubmitting(true);
@@ -138,13 +143,15 @@ export function Schedules() {
     setEditingSchedule(null);
   }
 
+  if (!loaded) return null;
+
   return (
-    <div data-testid="page-schedules">
+    <div data-testid="schedules-section">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">
+        <h2 className="text-lg font-semibold text-white">
           {t("schedules.title")}
-        </h1>
+        </h2>
         <button
           onClick={() => {
             setEditingSchedule(null);

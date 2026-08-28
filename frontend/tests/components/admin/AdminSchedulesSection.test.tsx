@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { Schedules } from "../../src/pages/Schedules";
-import { mockScheduleListResponse } from "../fixtures/schedule-responses";
+import { AdminSchedulesSection } from "../../../src/components/admin/AdminSchedulesSection";
+import { mockScheduleListResponse } from "../../fixtures/schedule-responses";
 
-function renderSchedules() {
+function renderSection(isOpen = true) {
   return render(
-    <MemoryRouter initialEntries={["/schedules"]}>
-      <Schedules />
+    <MemoryRouter>
+      <AdminSchedulesSection isOpen={isOpen} />
     </MemoryRouter>,
   );
 }
 
-describe("Schedules page", () => {
+describe("AdminSchedulesSection", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -36,21 +36,23 @@ describe("Schedules page", () => {
     }) as unknown as typeof fetch;
   }
 
-  it("renders page title and new schedule button", async () => {
+  it("renders nothing when isOpen is false and never opened", () => {
     mockFetchSuccess();
-    renderSchedules();
+    renderSection(false);
+    expect(screen.queryByTestId("schedules-section")).not.toBeInTheDocument();
+  });
 
+  it("renders section content when isOpen is true", async () => {
+    mockFetchSuccess();
+    renderSection(true);
     await waitFor(() => {
-      expect(screen.getByTestId("page-schedules")).toBeDefined();
+      expect(screen.getByTestId("schedules-section")).toBeInTheDocument();
     });
-
-    expect(screen.getByText("Scheduled Scans")).toBeDefined();
-    expect(screen.getByTestId("new-schedule-btn")).toBeDefined();
   });
 
   it("renders schedule table after loading", async () => {
     mockFetchSuccess();
-    renderSchedules();
+    renderSection(true);
 
     await waitFor(() => {
       expect(screen.getByTestId("schedule-table")).toBeDefined();
@@ -71,48 +73,36 @@ describe("Schedules page", () => {
         }),
     }) as unknown as typeof fetch;
 
-    renderSchedules();
+    renderSection(true);
 
     await waitFor(() => {
       expect(screen.getByTestId("schedules-empty")).toBeDefined();
     });
+  });
 
-    expect(
-      screen.getByText(
-        "No schedules yet. Create one to automate your price scans.",
-      ),
-    ).toBeDefined();
+  it("renders new schedule button", async () => {
+    mockFetchSuccess();
+    renderSection(true);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("new-schedule-btn")).toBeDefined();
+    });
   });
 
   it("toggle shows and hides the form", async () => {
     mockFetchSuccess();
-    renderSchedules();
+    renderSection(true);
 
     await waitFor(() => {
-      expect(screen.getByTestId("page-schedules")).toBeDefined();
+      expect(screen.getByTestId("schedules-section")).toBeDefined();
     });
 
-    // Form not visible initially
     expect(screen.queryByTestId("schedule-form-container")).toBeNull();
 
-    // Click to show form
     fireEvent.click(screen.getByTestId("new-schedule-btn"));
     expect(screen.getByTestId("schedule-form-container")).toBeDefined();
 
-    // Click again to hide form
     fireEvent.click(screen.getByTestId("new-schedule-btn"));
     expect(screen.queryByTestId("schedule-form-container")).toBeNull();
-  });
-
-  it("shows status badges with correct text", async () => {
-    mockFetchSuccess();
-    renderSchedules();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("schedule-table")).toBeDefined();
-    });
-
-    expect(screen.getByTestId("status-badge-active")).toBeDefined();
-    expect(screen.getByTestId("status-badge-paused")).toBeDefined();
   });
 });

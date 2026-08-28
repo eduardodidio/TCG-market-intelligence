@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { AdminRoute } from "./components/AdminRoute";
@@ -31,9 +31,6 @@ const CollectionCardDetail = lazy(() =>
     default: m.CollectionCardDetail,
   })),
 );
-const Scans = lazy(() =>
-  import("./pages/Scans").then((m) => ({ default: m.Scans })),
-);
 const DeckList = lazy(() =>
   import("./pages/DeckList").then((m) => ({ default: m.DeckList })),
 );
@@ -48,9 +45,6 @@ const BanList = lazy(() =>
 );
 const BanHistory = lazy(() =>
   import("./pages/BanHistory").then((m) => ({ default: m.BanHistory })),
-);
-const Schedules = lazy(() =>
-  import("./pages/Schedules").then((m) => ({ default: m.Schedules })),
 );
 const Trending = lazy(() =>
   import("./pages/Trending").then((m) => ({ default: m.Trending })),
@@ -72,11 +66,6 @@ const MyTrades = lazy(() =>
 );
 const AdminPanel = lazy(() =>
   import("./pages/AdminPanel").then((m) => ({ default: m.AdminPanel })),
-);
-const AdminLigaStatus = lazy(() =>
-  import("./pages/AdminLigaStatus").then((m) => ({
-    default: m.AdminLigaStatus,
-  })),
 );
 const ChangePassword = lazy(() =>
   import("./pages/ChangePassword").then((m) => ({
@@ -295,15 +284,7 @@ export default function App() {
               />
               <Route
                 path="/scans"
-                element={
-                  <Suspense
-                    fallback={<LoadingSpinner message="Loading page..." />}
-                  >
-                    <ProtectedRoute>
-                      <Scans />
-                    </ProtectedRoute>
-                  </Suspense>
-                }
+                element={<Navigate to="/admin" replace />}
               />
               <Route
                 path="/settings"
@@ -319,15 +300,7 @@ export default function App() {
               />
               <Route
                 path="/schedules"
-                element={
-                  <Suspense
-                    fallback={<LoadingSpinner message="Loading page..." />}
-                  >
-                    <ProtectedRoute>
-                      <Schedules />
-                    </ProtectedRoute>
-                  </Suspense>
-                }
+                element={<Navigate to="/admin" replace />}
               />
               <Route
                 path="/marketplace/my-trades"
@@ -367,15 +340,7 @@ export default function App() {
               />
               <Route
                 path="/admin/liga-status"
-                element={
-                  <Suspense
-                    fallback={<LoadingSpinner message="Loading page..." />}
-                  >
-                    <AdminRoute>
-                      <AdminLigaStatus />
-                    </AdminRoute>
-                  </Suspense>
-                }
+                element={<Navigate to="/admin" replace />}
               />
             </Route>
 

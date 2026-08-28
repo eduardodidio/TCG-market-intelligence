@@ -95,8 +95,8 @@ describe("Layout", () => {
     expect(nav).toBeDefined();
 
     const links = nav.querySelectorAll("a");
-    // Non-admin sees 13 links (no Admin, no Liga Status)
-    expect(links).toHaveLength(13);
+    // Non-admin sees 11 links (no Admin; scans/schedules/liga-status consolidated into Admin)
+    expect(links).toHaveLength(11);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -107,12 +107,12 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Ban History");
     expect(linkTexts).toContain("My Decks");
     expect(linkTexts).toContain("Top Decks");
-    expect(linkTexts).toContain("Price Scans");
-    expect(linkTexts).toContain("Schedules");
     expect(linkTexts).toContain("Marketplace");
     expect(linkTexts).toContain("Ban List");
     expect(linkTexts).toContain("Settings");
     expect(linkTexts).not.toContain("Admin");
+    expect(linkTexts).not.toContain("Price Scans");
+    expect(linkTexts).not.toContain("Schedules");
     expect(linkTexts).not.toContain("Liga Status");
   });
 
@@ -171,7 +171,7 @@ describe("Layout", () => {
     expect(hrefs).toContain("/collection");
     expect(hrefs).toContain("/cards");
     expect(hrefs).toContain("/market");
-    expect(hrefs).toContain("/scans");
+    expect(hrefs).toContain("/decks");
   });
 
   // --- F07-T07: Responsive toggle tests ---
@@ -313,16 +313,15 @@ describe("Layout", () => {
 
   // --- Admin nav visibility tests ---
 
-  it("shows Admin and Liga Status links for admin users", () => {
+  it("shows Admin link for admin users", () => {
     renderLayout("/", mockAuthAdmin);
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Admin sees all 15 links
-    expect(links).toHaveLength(15);
+    // Admin sees 12 links (11 non-admin + Admin)
+    expect(links).toHaveLength(12);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Admin");
-    expect(linkTexts).toContain("Liga Status");
   });
 
   it("hides Admin link for non-admin authenticated users", () => {

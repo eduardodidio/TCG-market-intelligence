@@ -10,6 +10,10 @@ import {
 import type { AdminUser, AdminDashboard, CreateUserResult } from "../api/admin";
 import type { ApiResponse } from "../types/api";
 import { useAuth } from "../hooks/useAuth";
+import { AccordionSection } from "../components/AccordionSection";
+import { AdminLigaSection } from "../components/admin/AdminLigaSection";
+import { AdminSchedulesSection } from "../components/admin/AdminSchedulesSection";
+import { AdminScansSection } from "../components/admin/AdminScansSection";
 
 const LIMIT = 50;
 
@@ -340,19 +344,25 @@ function AdjustCreditsRow({
 export function AdminPanel() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<"users" | "dashboard">("users");
+  const [openSection, setOpenSection] = useState<string | null>("users");
+
+  const toggleSection = (section: string) => {
+    setOpenSection((prev) => (prev === section ? null : section));
+  };
 
   // Users state
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [usersTotal, setUsersTotal] = useState(0);
   const [usersOffset, setUsersOffset] = useState(0);
+  const [usersLoaded, setUsersLoaded] = useState(false);
 
   // Dashboard state
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [dashboardLoaded, setDashboardLoaded] = useState(false);
 
   useEffect(() => {
     document.title = `${t("admin.title")} | TCG Market`;
@@ -370,6 +380,7 @@ export function AdminPanel() {
       setUsersTotal(resp.meta.total ?? resp.data.length);
     }
     setUsersLoading(false);
+    setUsersLoaded(true);
   }, []);
 
   const loadDashboard = useCallback(async () => {
@@ -383,25 +394,25 @@ export function AdminPanel() {
       setDashboard(resp.data);
     }
     setDashboardLoading(false);
+    setDashboardLoaded(true);
   }, []);
 
+  // Load users when section is opened (or offset changes)
   useEffect(() => {
-    if (activeTab === "users") {
+    if (openSection === "users") {
       loadUsers(usersOffset);
-    } else {
+    }
+  }, [openSection, usersOffset, loadUsers]);
+
+  // Load dashboard when section is opened (lazy)
+  useEffect(() => {
+    if (openSection === "dashboard" && !dashboardLoaded) {
       loadDashboard();
     }
-  }, [activeTab, usersOffset, loadUsers, loadDashboard]);
+  }, [openSection, dashboardLoaded, loadDashboard]);
 
   const hasNextPage = usersOffset + LIMIT < usersTotal;
   const hasPrevPage = usersOffset > 0;
-
-  const tabClass = (tab: string) =>
-    `px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-      activeTab === tab
-        ? "bg-slate-800 text-cyan-400 border-b-2 border-cyan-400"
-        : "bg-slate-900 text-slate-400 hover:text-white"
-    }`;
 
   return (
     <div data-testid="page-admin-panel">
@@ -409,106 +420,96 @@ export function AdminPanel() {
         {t("admin.title")}
       </h1>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6" data-testid="admin-tabs">
-        <button
-          onClick={() => setActiveTab("users")}
-          className={tabClass("users")}
-          data-testid="tab-users"
-        >
-          {t("admin.usersTab")}
-        </button>
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={tabClass("dashboard")}
-          data-testid="tab-dashboard"
-        >
-          {t("admin.dashboardTab")}
-        </button>
-      </div>
-
-      {/* Users Tab */}
-      {activeTab === "users" && (
+      {/* Users Section */}
+      <AccordionSection
+        title={t("admin.section.users")}
+        isOpen={openSection === "users"}
+        onToggle={() => toggleSection("users")}
+      >
         <div data-testid="users-section">
           <CreateUserForm onCreated={() => loadUsers(usersOffset)} />
-        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-          {usersLoading ? (
-            <p className="p-4 text-slate-400" data-testid="users-loading">
-              {t("common.loading")}
-            </p>
-          ) : usersError ? (
-            <p className="p-4 text-red-400" data-testid="users-error">
-              {usersError}
-            </p>
-          ) : users.length === 0 ? (
-            <p className="p-4 text-slate-400" data-testid="users-empty">
-              {t("admin.noUsers")}
-            </p>
-          ) : (
-            <>
-              <table
-                className="w-full text-sm text-left"
-                data-testid="users-table"
-              >
-                <thead className="text-xs text-slate-400 uppercase bg-slate-900/50">
-                  <tr>
-                    <th className="px-4 py-2">{t("admin.colName")}</th>
-                    <th className="px-4 py-2">{t("admin.colEmail")}</th>
-                    <th className="px-4 py-2">{t("admin.colRole")}</th>
-                    <th className="px-4 py-2">{t("admin.colBalance")}</th>
-                    <th className="px-4 py-2">{t("admin.colActions")}</th>
-                    <th className="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <AdjustCreditsRow
-                      key={user.id}
-                      user={user}
-                      currentUserId={currentUser?.id ?? 0}
-                      onApplied={() => loadUsers(usersOffset)}
-                      onDeleted={() => loadUsers(usersOffset)}
-                    />
-                  ))}
-                </tbody>
-              </table>
+          <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+            {usersLoading ? (
+              <p className="p-4 text-slate-400" data-testid="users-loading">
+                {t("common.loading")}
+              </p>
+            ) : usersError ? (
+              <p className="p-4 text-red-400" data-testid="users-error">
+                {usersError}
+              </p>
+            ) : users.length === 0 ? (
+              <p className="p-4 text-slate-400" data-testid="users-empty">
+                {t("admin.noUsers")}
+              </p>
+            ) : (
+              <>
+                <table
+                  className="w-full text-sm text-left"
+                  data-testid="users-table"
+                >
+                  <thead className="text-xs text-slate-400 uppercase bg-slate-900/50">
+                    <tr>
+                      <th className="px-4 py-2">{t("admin.colName")}</th>
+                      <th className="px-4 py-2">{t("admin.colEmail")}</th>
+                      <th className="px-4 py-2">{t("admin.colRole")}</th>
+                      <th className="px-4 py-2">{t("admin.colBalance")}</th>
+                      <th className="px-4 py-2">{t("admin.colActions")}</th>
+                      <th className="px-4 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user) => (
+                      <AdjustCreditsRow
+                        key={user.id}
+                        user={user}
+                        currentUserId={currentUser?.id ?? 0}
+                        onApplied={() => loadUsers(usersOffset)}
+                        onDeleted={() => loadUsers(usersOffset)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-700">
-                <span className="text-xs text-slate-400" data-testid="users-pagination-info">
-                  {usersOffset + 1}--
-                  {Math.min(usersOffset + LIMIT, usersTotal)} {t("common.of")}{" "}
-                  {usersTotal}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    disabled={!hasPrevPage}
-                    onClick={() =>
-                      setUsersOffset(Math.max(0, usersOffset - LIMIT))
-                    }
-                    className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
-                    data-testid="users-prev"
-                  >
-                    {t("common.prev")}
-                  </button>
-                  <button
-                    disabled={!hasNextPage}
-                    onClick={() => setUsersOffset(usersOffset + LIMIT)}
-                    className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
-                    data-testid="users-next"
-                  >
-                    {t("common.next")}
-                  </button>
+                {/* Pagination */}
+                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-700">
+                  <span className="text-xs text-slate-400" data-testid="users-pagination-info">
+                    {usersOffset + 1}--
+                    {Math.min(usersOffset + LIMIT, usersTotal)} {t("common.of")}{" "}
+                    {usersTotal}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      disabled={!hasPrevPage}
+                      onClick={() =>
+                        setUsersOffset(Math.max(0, usersOffset - LIMIT))
+                      }
+                      className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
+                      data-testid="users-prev"
+                    >
+                      {t("common.prev")}
+                    </button>
+                    <button
+                      disabled={!hasNextPage}
+                      onClick={() => setUsersOffset(usersOffset + LIMIT)}
+                      className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
+                      data-testid="users-next"
+                    >
+                      {t("common.next")}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
-        </div>
-      )}
+      </AccordionSection>
 
-      {/* Dashboard Tab */}
-      {activeTab === "dashboard" && (
+      {/* Dashboard Section */}
+      <AccordionSection
+        title={t("admin.section.dashboard")}
+        isOpen={openSection === "dashboard"}
+        onToggle={() => toggleSection("dashboard")}
+      >
         <div data-testid="dashboard-section">
           {dashboardLoading ? (
             <p className="text-slate-400" data-testid="dashboard-loading">
@@ -563,7 +564,34 @@ export function AdminPanel() {
             </div>
           ) : null}
         </div>
-      )}
+      </AccordionSection>
+
+      {/* Liga Status Section */}
+      <AccordionSection
+        title={t("admin.section.ligaStatus")}
+        isOpen={openSection === "liga-status"}
+        onToggle={() => toggleSection("liga-status")}
+      >
+        <AdminLigaSection isOpen={openSection === "liga-status"} />
+      </AccordionSection>
+
+      {/* Schedules Section */}
+      <AccordionSection
+        title={t("admin.section.schedules")}
+        isOpen={openSection === "schedules"}
+        onToggle={() => toggleSection("schedules")}
+      >
+        <AdminSchedulesSection isOpen={openSection === "schedules"} />
+      </AccordionSection>
+
+      {/* Scans Section */}
+      <AccordionSection
+        title={t("admin.section.scans")}
+        isOpen={openSection === "scans"}
+        onToggle={() => toggleSection("scans")}
+      >
+        <AdminScansSection isOpen={openSection === "scans"} />
+      </AccordionSection>
     </div>
   );
 }

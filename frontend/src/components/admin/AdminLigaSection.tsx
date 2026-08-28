@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { apiGet } from "../api/client";
-import { triggerScanAuth, getScanStatusAuth } from "../api/scans";
-import { useApi } from "../hooks/useApi";
+import { apiGet } from "../../api/client";
+import { triggerScanAuth, getScanStatusAuth } from "../../api/scans";
+import { useApi } from "../../hooks/useApi";
 import type {
   ApiResponse,
   CollectionCard,
   LigaStatusResponse,
   ScanTriggerResponse,
   ScanRun,
-} from "../types/api";
+} from "../../types/api";
 
 function KpiCard({
   label,
@@ -68,15 +68,12 @@ function CoverageBar({ pct }: { pct: number }) {
   );
 }
 
-export function AdminLigaStatus() {
+export function AdminLigaSection({ isOpen }: { isOpen: boolean }) {
   const { t } = useTranslation();
   const [scanRunning, setScanRunning] = useState(false);
   const [scanId, setScanId] = useState<number | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    document.title = `${t("admin.ligaStatus.title")} | TCG Market`;
-  }, [t]);
+  const [loaded, setLoaded] = useState(false);
 
   const statusFetcher = useCallback(
     (signal: AbortSignal) =>
@@ -85,7 +82,7 @@ export function AdminLigaStatus() {
       }),
     [],
   );
-  const status = useApi<LigaStatusResponse>(statusFetcher, []);
+  const status = useApi<LigaStatusResponse>(statusFetcher, [loaded]);
 
   const [missingCards, setMissingCards] = useState<CollectionCard[]>([]);
   const [missingTotal, setMissingTotal] = useState(0);
@@ -112,9 +109,20 @@ export function AdminLigaStatus() {
     [],
   );
 
+  // Lazy load data when section opens for the first time
   useEffect(() => {
-    fetchMissing(missingOffset);
-  }, [missingOffset, fetchMissing]);
+    if (isOpen && !loaded) {
+      setLoaded(true);
+      fetchMissing(0);
+    }
+  }, [isOpen, loaded, fetchMissing]);
+
+  // Refetch missing when offset changes (only after initial load)
+  useEffect(() => {
+    if (loaded && missingOffset > 0) {
+      fetchMissing(missingOffset);
+    }
+  }, [missingOffset, loaded, fetchMissing]);
 
   // Auto-refresh when scan is running
   useEffect(() => {
@@ -154,12 +162,14 @@ export function AdminLigaStatus() {
   const hasNextPage = missingOffset + LIMIT < missingTotal;
   const hasPrevPage = missingOffset > 0;
 
+  if (!loaded) return null;
+
   return (
-    <div data-testid="page-admin-liga-status">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <h1 className="text-2xl font-bold text-white">
+    <div data-testid="liga-status-section">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h2 className="text-lg font-semibold text-white">
           {t("admin.ligaStatus.title")}
-        </h1>
+        </h2>
         <button
           onClick={handleScanAll}
           disabled={scanRunning}
@@ -239,10 +249,10 @@ export function AdminLigaStatus() {
             >
               <thead className="text-xs text-slate-400 uppercase bg-slate-900/50">
                 <tr>
-                  <th className="px-4 py-2">Name</th>
-                  <th className="px-4 py-2">Set</th>
+                  <th className="px-4 py-2">{t("admin.colName")}</th>
+                  <th className="px-4 py-2">{t("admin.ligaStatus.colSet")}</th>
                   <th className="px-4 py-2">#</th>
-                  <th className="px-4 py-2">Qty</th>
+                  <th className="px-4 py-2">{t("admin.ligaStatus.colQty")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -281,14 +291,14 @@ export function AdminLigaStatus() {
                   onClick={() => setMissingOffset(Math.max(0, missingOffset - LIMIT))}
                   className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
                 >
-                  Prev
+                  {t("common.prev")}
                 </button>
                 <button
                   disabled={!hasNextPage}
                   onClick={() => setMissingOffset(missingOffset + LIMIT)}
                   className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
                 >
-                  Next
+                  {t("common.next")}
                 </button>
               </div>
             </div>

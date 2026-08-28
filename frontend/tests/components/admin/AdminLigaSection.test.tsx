@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { AdminLigaStatus } from "../../src/pages/AdminLigaStatus";
-import type { ApiResponse, LigaStatusResponse, CollectionCard } from "../../src/types/api";
+import { AdminLigaSection } from "../../../src/components/admin/AdminLigaSection";
+import type { ApiResponse, LigaStatusResponse, CollectionCard } from "../../../src/types/api";
 
 function envelope<T>(data: T, total?: number): ApiResponse<T> {
   return {
@@ -113,15 +113,15 @@ function mockFetch() {
   });
 }
 
-function renderPage() {
+function renderSection(isOpen = true) {
   return render(
     <MemoryRouter>
-      <AdminLigaStatus />
+      <AdminLigaSection isOpen={isOpen} />
     </MemoryRouter>,
   );
 }
 
-describe("AdminLigaStatus", () => {
+describe("AdminLigaSection", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -134,25 +134,30 @@ describe("AdminLigaStatus", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the page title", async () => {
-    renderPage();
+  it("renders nothing when isOpen is false and never opened", () => {
+    renderSection(false);
+    expect(screen.queryByTestId("liga-status-section")).not.toBeInTheDocument();
+  });
+
+  it("renders section content when isOpen is true", async () => {
+    renderSection(true);
     await waitFor(() => {
-      expect(screen.getByText("Liga Price Coverage")).toBeInTheDocument();
+      expect(screen.getByTestId("liga-status-section")).toBeInTheDocument();
     });
   });
 
   it("renders KPI cards with correct values", async () => {
-    renderPage();
+    renderSection(true);
     await waitFor(() => {
-      expect(screen.getByText("100")).toBeInTheDocument(); // total_cards
-      expect(screen.getByText("60")).toBeInTheDocument(); // liga_priced
-      expect(screen.getByText("30")).toBeInTheDocument(); // liga_missing
-      expect(screen.getByText("10")).toBeInTheDocument(); // liga_stale
+      expect(screen.getByText("100")).toBeInTheDocument();
+      expect(screen.getByText("60")).toBeInTheDocument();
+      expect(screen.getByText("30")).toBeInTheDocument();
+      expect(screen.getByText("10")).toBeInTheDocument();
     });
   });
 
   it("renders coverage progress bar", async () => {
-    renderPage();
+    renderSection(true);
     await waitFor(() => {
       const bar = screen.getByTestId("coverage-bar");
       expect(bar).toBeInTheDocument();
@@ -161,7 +166,7 @@ describe("AdminLigaStatus", () => {
   });
 
   it("renders missing cards table", async () => {
-    renderPage();
+    renderSection(true);
     await waitFor(() => {
       expect(screen.getByTestId("missing-table")).toBeInTheDocument();
       expect(screen.getByText("Lightning Bolt")).toBeInTheDocument();
@@ -170,7 +175,7 @@ describe("AdminLigaStatus", () => {
   });
 
   it("renders the Scan All Missing button", async () => {
-    renderPage();
+    renderSection(true);
     await waitFor(() => {
       const btn = screen.getByTestId("scan-all-missing");
       expect(btn).toBeInTheDocument();
@@ -179,7 +184,7 @@ describe("AdminLigaStatus", () => {
   });
 
   it("triggers scan on button click", async () => {
-    renderPage();
+    renderSection(true);
     await waitFor(() => {
       expect(screen.getByTestId("scan-all-missing")).toBeInTheDocument();
     });
@@ -188,27 +193,21 @@ describe("AdminLigaStatus", () => {
     fireEvent.click(btn);
 
     await waitFor(() => {
-      // Button should show loading state
       expect(btn.textContent).toContain("Please wait");
     });
   });
 
   it("shows last scan date", async () => {
-    renderPage();
+    renderSection(true);
     await waitFor(() => {
       expect(screen.getByText(/2026-08-25/)).toBeInTheDocument();
     });
   });
 
   it("shows unlinked count when > 0", async () => {
-    renderPage();
+    renderSection(true);
     await waitFor(() => {
       expect(screen.getByText(/Unlinked.*5/)).toBeInTheDocument();
     });
-  });
-
-  it("renders page container with correct testid", async () => {
-    renderPage();
-    expect(screen.getByTestId("page-admin-liga-status")).toBeInTheDocument();
   });
 });

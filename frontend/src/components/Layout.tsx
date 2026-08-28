@@ -26,12 +26,9 @@ const NAV_ITEMS: ReadonlyArray<{
   { to: "/banlist/history", labelKey: "nav.banHistory", requiresAuth: false },
   { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true },
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true },
-  { to: "/scans", labelKey: "nav.priceScans", requiresAuth: true },
-  { to: "/schedules", labelKey: "nav.schedules", requiresAuth: true },
   { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
   { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
-  { to: "/admin/liga-status", labelKey: "nav.ligaStatus", requiresAuth: true, requiresAdmin: true },
 ];
 
 function getInitials(name: string | null | undefined): string {

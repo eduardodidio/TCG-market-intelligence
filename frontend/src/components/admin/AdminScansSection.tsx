@@ -1,18 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScanForm } from "../components/ScanForm";
-import { ScanHistoryTable } from "../components/ScanHistoryTable";
-import { ErrorBanner } from "../components/ErrorBanner";
-import { LoadingSpinner } from "../components/LoadingSpinner";
-import { useScans } from "../hooks/useScans";
+import { ScanForm } from "../ScanForm";
+import { ScanHistoryTable } from "../ScanHistoryTable";
+import { ErrorBanner } from "../ErrorBanner";
+import { LoadingSpinner } from "../LoadingSpinner";
+import { useScans } from "../../hooks/useScans";
 
-export function Scans() {
+function ScansContent() {
   const { t } = useTranslation();
-
-  useEffect(() => {
-    document.title = `${t("scans.title")} | TCG Market`;
-  }, [t]);
-
   const [showForm, setShowForm] = useState(false);
   const { scans, loading, error, refetch } = useScans({ limit: 50 });
 
@@ -22,10 +17,10 @@ export function Scans() {
   };
 
   return (
-    <div data-testid="page-scans">
+    <div data-testid="scans-section">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">{t("scans.title")}</h2>
+        <h2 className="text-lg font-semibold text-white">{t("scans.title")}</h2>
         <button
           onClick={() => setShowForm(!showForm)}
           className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors shadow-md"
@@ -56,4 +51,18 @@ export function Scans() {
       {!loading && <ScanHistoryTable scans={scans} />}
     </div>
   );
+}
+
+export function AdminScansSection({ isOpen }: { isOpen: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && !loaded) {
+      setLoaded(true);
+    }
+  }, [isOpen, loaded]);
+
+  if (!loaded) return null;
+
+  return <ScansContent />;
 }

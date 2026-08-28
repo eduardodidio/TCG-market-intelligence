@@ -85,6 +85,13 @@
       "collectionEntries": "Collection Entries",
       "totalScans": "Total Scans"
     },
+    "section": {
+      "users": "Users",
+      "dashboard": "Dashboard",
+      "ligaStatus": "Liga Status",
+      "schedules": "Schedules",
+      "scans": "Price Scans"
+    },
     "ligaStatus": {
       "title": "Liga Price Coverage",
       "totalCards": "Total Cards",
@@ -95,7 +102,9 @@
       "scanAllMissing": "Scan All Missing",
       "lastScan": "Last Liga Scan",
       "unlinked": "Unlinked",
-      "noMissing": "All cards have Liga prices!"
+      "noMissing": "All cards have Liga prices!",
+      "colSet": "Set",
+      "colQty": "Qty"
     }
   },
   "dashboard": {

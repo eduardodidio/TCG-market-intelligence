@@ -85,6 +85,13 @@
       "collectionEntries": "Entradas na Colecao",
       "totalScans": "Total de Scans"
     },
+    "section": {
+      "users": "Usuarios",
+      "dashboard": "Dashboard",
+      "ligaStatus": "Status Liga",
+      "schedules": "Agendamentos",
+      "scans": "Scans de Preco"
+    },
     "ligaStatus": {
       "title": "Cobertura de Precos Liga",
       "totalCards": "Total de Cards",
@@ -95,7 +102,9 @@
       "scanAllMissing": "Escanear Faltantes",
       "lastScan": "Ultimo Scan Liga",
       "unlinked": "Nao Linkados",
-      "noMissing": "Todos os cards tem preco Liga!"
+      "noMissing": "Todos os cards tem preco Liga!",
+      "colSet": "Edicao",
+      "colQty": "Qtd"
     }
   },
   "dashboard": {

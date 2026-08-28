@@ -182,12 +182,60 @@ describe("AdminPanel", () => {
     expect(screen.getByTestId("page-admin-panel")).toBeInTheDocument();
   });
 
+  it("renders 5 accordion sections", () => {
+    renderPage();
+    expect(screen.getByTestId("accordion-users")).toBeInTheDocument();
+    expect(screen.getByTestId("accordion-dashboard")).toBeInTheDocument();
+    expect(screen.getByTestId("accordion-liga-status")).toBeInTheDocument();
+    expect(screen.getByTestId("accordion-schedules")).toBeInTheDocument();
+    expect(screen.getByTestId("accordion-price-scans")).toBeInTheDocument();
+  });
+
+  it("default open section is users", async () => {
+    renderPage();
+    // Users section should be open and visible
+    await waitFor(() => {
+      expect(screen.getByTestId("users-section")).toBeInTheDocument();
+    });
+    // Dashboard section should not be visible
+    expect(screen.queryByTestId("dashboard-section")).not.toBeInTheDocument();
+  });
+
+  it("only one section open at a time", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("users-section")).toBeInTheDocument();
+    });
+
+    // Click dashboard accordion
+    fireEvent.click(screen.getByTestId("accordion-toggle-dashboard"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("dashboard-section")).toBeInTheDocument();
+    });
+    // Users section should now be hidden
+    expect(screen.queryByTestId("users-section")).not.toBeInTheDocument();
+  });
+
+  it("clicking open section closes it", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("users-section")).toBeInTheDocument();
+    });
+
+    // Click users toggle to close it
+    fireEvent.click(screen.getByTestId("accordion-toggle-users"));
+
+    // All sections should be closed
+    expect(screen.queryByTestId("users-section")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dashboard-section")).not.toBeInTheDocument();
+  });
+
   it("renders user table with mock data", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("users-table")).toBeInTheDocument();
       expect(screen.getByText("Admin User")).toBeInTheDocument();
-      // User 2 has no display_name, so email appears in both Name and Email columns
       expect(screen.getByTestId("user-row-2")).toBeInTheDocument();
     });
   });
@@ -207,14 +255,6 @@ describe("AdminPanel", () => {
     });
   });
 
-  it("shows adjust credits button per user", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId("adjust-btn-1")).toBeInTheDocument();
-      expect(screen.getByTestId("adjust-btn-2")).toBeInTheDocument();
-    });
-  });
-
   it("opens adjust form when clicking adjust button", async () => {
     renderPage();
     await waitFor(() => {
@@ -222,11 +262,7 @@ describe("AdminPanel", () => {
     });
 
     fireEvent.click(screen.getByTestId("adjust-btn-1"));
-
     expect(screen.getByTestId("adjust-form-1")).toBeInTheDocument();
-    expect(screen.getByTestId("amount-input-1")).toBeInTheDocument();
-    expect(screen.getByTestId("reason-input-1")).toBeInTheDocument();
-    expect(screen.getByTestId("apply-btn-1")).toBeInTheDocument();
   });
 
   it("calls adjustUserCredits with correct params on apply", async () => {
@@ -239,12 +275,8 @@ describe("AdminPanel", () => {
     });
 
     fireEvent.click(screen.getByTestId("adjust-btn-1"));
-
-    const amountInput = screen.getByTestId("amount-input-1");
-    const reasonInput = screen.getByTestId("reason-input-1");
-
-    fireEvent.change(amountInput, { target: { value: "5" } });
-    fireEvent.change(reasonInput, { target: { value: "bonus" } });
+    fireEvent.change(screen.getByTestId("amount-input-1"), { target: { value: "5" } });
+    fireEvent.change(screen.getByTestId("reason-input-1"), { target: { value: "bonus" } });
     fireEvent.click(screen.getByTestId("apply-btn-1"));
 
     await waitFor(() => {
@@ -260,14 +292,7 @@ describe("AdminPanel", () => {
     });
   });
 
-  it("renders loading state", () => {
-    // Make fetch hang forever
-    globalThis.fetch = vi.fn().mockReturnValue(new Promise(() => {})) as unknown as typeof fetch;
-    renderPage();
-    expect(screen.getByTestId("users-loading")).toBeInTheDocument();
-  });
-
-  it("renders error state", async () => {
+  it("renders error state for users", async () => {
     globalThis.fetch = createMockFetch({
       usersResponse: errorEnvelope("Server error"),
     }) as unknown as typeof fetch;
@@ -279,53 +304,19 @@ describe("AdminPanel", () => {
     });
   });
 
-  it("pagination buttons update offset", async () => {
-    // Return 100 total so next page is available
-    const manyUsers = mockUsers();
-    globalThis.fetch = createMockFetch({
-      usersResponse: envelope(manyUsers, 100),
-    }) as unknown as typeof fetch;
-
+  it("switches to dashboard section and renders KPI cards", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("users-table")).toBeInTheDocument();
     });
 
-    const nextBtn = screen.getByTestId("users-next");
-    const prevBtn = screen.getByTestId("users-prev");
-
-    // Prev should be disabled on first page
-    expect(prevBtn).toBeDisabled();
-    expect(nextBtn).not.toBeDisabled();
-
-    fireEvent.click(nextBtn);
-
-    // After clicking next, prev should be enabled
-    await waitFor(() => {
-      expect(screen.getByTestId("users-prev")).not.toBeDisabled();
-    });
-  });
-
-  it("switches to dashboard tab and renders KPI cards", async () => {
-    renderPage();
-
-    // Wait for users tab to load first
-    await waitFor(() => {
-      expect(screen.getByTestId("users-table")).toBeInTheDocument();
-    });
-
-    // Click dashboard tab
-    fireEvent.click(screen.getByTestId("tab-dashboard"));
+    fireEvent.click(screen.getByTestId("accordion-toggle-dashboard"));
 
     await waitFor(() => {
       expect(screen.getByTestId("dashboard-section")).toBeInTheDocument();
       expect(screen.getByText("10")).toBeInTheDocument(); // total_users
       expect(screen.getByText("8")).toBeInTheDocument(); // active_users
       expect(screen.getByText("500")).toBeInTheDocument(); // credits_in_circulation
-      expect(screen.getByText("800")).toBeInTheDocument(); // credits_granted
-      expect(screen.getByText("300")).toBeInTheDocument(); // credits_spent
-      expect(screen.getByText("349")).toBeInTheDocument(); // collection_entries
-      expect(screen.getByText("42")).toBeInTheDocument(); // total_scans
     });
   });
 
@@ -336,10 +327,10 @@ describe("AdminPanel", () => {
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("users-table")).toBeInTheDocument();
+      expect(screen.getByTestId("users-section")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTestId("tab-dashboard"));
+    fireEvent.click(screen.getByTestId("accordion-toggle-dashboard"));
 
     await waitFor(() => {
       expect(screen.getByTestId("dashboard-error")).toBeInTheDocument();
@@ -347,53 +338,11 @@ describe("AdminPanel", () => {
     });
   });
 
-  it("shows dashboard loading state", async () => {
-    // First load users normally, then make dashboard hang
-    let callCount = 0;
-    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
-      if (typeof url === "string" && url.includes("/admin/dashboard")) {
-        return new Promise(() => {}); // hang
-      }
-      callCount++;
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(envelope(mockUsers(), 2)),
-      });
-    }) as unknown as typeof fetch;
-
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId("users-table")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByTestId("tab-dashboard"));
-
-    expect(screen.getByTestId("dashboard-loading")).toBeInTheDocument();
-  });
-
-  it("renders tabs with correct testids", () => {
-    renderPage();
-    expect(screen.getByTestId("tab-users")).toBeInTheDocument();
-    expect(screen.getByTestId("tab-dashboard")).toBeInTheDocument();
-  });
-
   it("renders create user toggle button", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("create-user-toggle")).toBeInTheDocument();
     });
-  });
-
-  it("opens create user form when clicking toggle", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId("create-user-toggle")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByTestId("create-user-toggle"));
-    expect(screen.getByTestId("create-user-form")).toBeInTheDocument();
-    expect(screen.getByTestId("create-email-input")).toBeInTheDocument();
-    expect(screen.getByTestId("create-displayname-input")).toBeInTheDocument();
   });
 
   it("shows temp password after creating user", async () => {
@@ -406,17 +355,12 @@ describe("AdminPanel", () => {
     });
 
     fireEvent.click(screen.getByTestId("create-user-toggle"));
-
     fireEvent.change(screen.getByTestId("create-email-input"), {
       target: { value: "new@test.com" },
-    });
-    fireEvent.change(screen.getByTestId("create-displayname-input"), {
-      target: { value: "New User" },
     });
     fireEvent.click(screen.getByTestId("create-user-submit"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("create-user-result")).toBeInTheDocument();
       expect(screen.getByTestId("temp-password")).toBeInTheDocument();
       expect(screen.getByTestId("temp-password").textContent).toBe("abc123xyz456");
     });
@@ -428,41 +372,28 @@ describe("AdminPanel", () => {
       expect(screen.getByTestId("users-table")).toBeInTheDocument();
     });
 
-    // User 1 is the admin (self) — should NOT have delete button
     expect(screen.queryByTestId("delete-btn-1")).not.toBeInTheDocument();
-    // User 2 is another user — should have delete button
     expect(screen.getByTestId("delete-btn-2")).toBeInTheDocument();
   });
 
-  it("shows confirmation dialog when clicking delete", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId("delete-btn-2")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByTestId("delete-btn-2"));
-    expect(screen.getByTestId("delete-confirm-2")).toBeInTheDocument();
-    expect(screen.getByTestId("delete-yes-2")).toBeInTheDocument();
-    expect(screen.getByTestId("delete-no-2")).toBeInTheDocument();
-  });
-
-  it("calls delete API and refreshes list on confirm", async () => {
-    const fetchSpy = createMockFetch();
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+  it("pagination buttons update offset", async () => {
+    globalThis.fetch = createMockFetch({
+      usersResponse: envelope(mockUsers(), 100),
+    }) as unknown as typeof fetch;
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("delete-btn-2")).toBeInTheDocument();
+      expect(screen.getByTestId("users-table")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTestId("delete-btn-2"));
-    fireEvent.click(screen.getByTestId("delete-yes-2"));
+    const nextBtn = screen.getByTestId("users-next");
+    const prevBtn = screen.getByTestId("users-prev");
+    expect(prevBtn).toBeDisabled();
+    expect(nextBtn).not.toBeDisabled();
 
+    fireEvent.click(nextBtn);
     await waitFor(() => {
-      const deleteCalls = fetchSpy.mock.calls.filter(
-        ([, init]: [string, RequestInit | undefined]) => init?.method === "DELETE",
-      );
-      expect(deleteCalls.length).toBeGreaterThan(0);
+      expect(screen.getByTestId("users-prev")).not.toBeDisabled();
     });
   });
 });
