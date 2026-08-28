@@ -1,6 +1,6 @@
 # F76 — Playwright Windows Startup Fix
 
-**Status:** planned
+**Status:** done
 **Wave structure:** Wave 0 (parallel with F72, F73)
 **Dependencies:** None
 
