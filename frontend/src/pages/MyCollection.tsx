@@ -213,8 +213,8 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                   aria-hidden="true"
-                  title={t("price.manualTooltip")}
                 >
+                  <title>{t("price.manualTooltip")}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"

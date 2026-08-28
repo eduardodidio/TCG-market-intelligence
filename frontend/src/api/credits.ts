@@ -6,6 +6,8 @@ export interface CreditBalanceResponse {
   bonus_eligible: boolean;
   next_bonus_at: string | null;
   is_admin: boolean;
+  monthly_grant_available?: boolean;
+  monthly_grant_amount?: number;
 }
 
 export interface CreditTransaction {
