@@ -49,3 +49,24 @@ class AdminDashboardResponse(BaseModel):
     total_credits_spent: int
     total_collection_entries: int
     total_scans: int
+
+
+class ErrorLogEntry(BaseModel):
+    id: str
+    timestamp: datetime
+    level: str
+    error_type: str
+    message: str
+    module: str | None = None
+    function: str | None = None
+
+
+class ErrorLogDetail(ErrorLogEntry):
+    traceback: str | None = None
+    line: int | None = None
+    request_method: str | None = None
+    request_path: str | None = None
+    request_user_id: int | None = None
+    request_id: str | None = None
+    request_params: dict | None = None  # parsed from JSON string
+    extra: dict | None = None  # parsed from JSON string

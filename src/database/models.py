@@ -385,3 +385,28 @@ class TradeAgreementRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     __table_args__ = (Index("ix_trade_agreement_interest", "trade_interest_id"),)
+
+
+class ErrorLogRow(Base):
+    __tablename__ = "error_log"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID string
+    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    level: Mapped[str] = mapped_column(String(20), nullable=False)  # ERROR, CRITICAL, WARNING
+    error_type: Mapped[str] = mapped_column(String(200), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    traceback: Mapped[str | None] = mapped_column(Text)
+    module: Mapped[str | None] = mapped_column(String(300))
+    function: Mapped[str | None] = mapped_column(String(200))
+    line: Mapped[int | None] = mapped_column(Integer)
+    request_method: Mapped[str | None] = mapped_column(String(10))
+    request_path: Mapped[str | None] = mapped_column(String(500))
+    request_user_id: Mapped[int | None] = mapped_column(Integer)
+    request_id: Mapped[str | None] = mapped_column(String(36))
+    request_params: Mapped[str | None] = mapped_column(Text)  # JSON string
+    extra: Mapped[str | None] = mapped_column(Text)  # JSON string
+
+    __table_args__ = (
+        Index("ix_error_log_timestamp", "timestamp"),
+        Index("ix_error_log_level", "level"),
+    )

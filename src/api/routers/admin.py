@@ -141,3 +141,54 @@ def admin_dashboard(
     """Platform stats (admin only)."""
     stats = repo.get_platform_stats()
     return success_response(data=stats)
+
+
+@router.get("/errors")
+def list_errors(
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+    level: str | None = Query(None),
+    module: str | None = Query(None),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """List application errors with filters (admin only)."""
+    errors, total = repo.list_error_logs(
+        level=level,
+        module=module,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+    return success_response(data=errors, total=total, offset=offset)
+
+
+@router.get("/errors/{error_id}")
+def get_error(
+    error_id: str,
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+):
+    """Get full error detail (admin only)."""
+    import json as json_mod
+
+    error = repo.get_error_log(error_id)
+    if error is None:
+        raise HTTPException(status_code=404, detail="Error not found")
+
+    # Parse JSON string fields into dicts
+    if isinstance(error.get("request_params"), str):
+        try:
+            error["request_params"] = json_mod.loads(error["request_params"])
+        except (json_mod.JSONDecodeError, TypeError):
+            error["request_params"] = None
+    if isinstance(error.get("extra"), str):
+        try:
+            error["extra"] = json_mod.loads(error["extra"])
+        except (json_mod.JSONDecodeError, TypeError):
+            error["extra"] = None
+
+    return success_response(data=error)

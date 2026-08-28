@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 
 from src.config import get_db_url
 from src.database.repository import Repository
@@ -35,6 +35,11 @@ def get_currency_converter_dep():  # noqa: F811
     db_url = get_db_url()
     repo = Repository(db_url=db_url)
     yield CurrencyConverter(repo)
+
+
+def get_error_logger(request: Request):
+    """Return the ErrorLogger from app state, or None."""
+    return getattr(request.app.state, "error_logger", None)
 
 
 def get_market_data_service():

@@ -14,6 +14,7 @@ import { AccordionSection } from "../components/AccordionSection";
 import { AdminLigaSection } from "../components/admin/AdminLigaSection";
 import { AdminSchedulesSection } from "../components/admin/AdminSchedulesSection";
 import { AdminScansSection } from "../components/admin/AdminScansSection";
+import { AdminErrorsSection } from "../components/admin/AdminErrorsSection";
 
 const LIMIT = 50;
 
@@ -591,6 +592,15 @@ export function AdminPanel() {
         onToggle={() => toggleSection("scans")}
       >
         <AdminScansSection isOpen={openSection === "scans"} />
+      </AccordionSection>
+
+      {/* Errors Section */}
+      <AccordionSection
+        title={t("admin.section.errors")}
+        isOpen={openSection === "errors"}
+        onToggle={() => toggleSection("errors")}
+      >
+        <AdminErrorsSection isOpen={openSection === "errors"} />
       </AccordionSection>
     </div>
   );

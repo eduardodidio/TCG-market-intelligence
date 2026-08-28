@@ -1,0 +1,26 @@
+graph TD
+    subgraph FastAPI
+        EH[Exception Handlers] -->|capture| EL[ErrorLogger]
+        SCAN[Scan Collectors] -->|capture| EL
+    end
+
+    EL --> DBS[DB Sink]
+    EL --> JSONLS[JSONL Sink]
+
+    DBS --> DB[(error_log table)]
+    JSONLS --> JSONL[errors.jsonl]
+
+    subgraph Admin API
+        LIST[GET /admin/errors] --> DB
+        DETAIL[GET /admin/errors/:id] --> DB
+    end
+
+    subgraph CLI
+        CLEANUP[error-cleanup] --> DB
+        CLEANUP --> JSONL
+    end
+
+    subgraph Frontend
+        PANEL[AdminErrorsSection] --> LIST
+        PANEL --> DETAIL
+    end

@@ -1052,6 +1052,133 @@ def reset_prices(db, source, confirm):
     click.echo(f"  Backup saved to: {backup_path}\n")
 
 
+@cli.command("db-reset")
+@click.option(
+    "--db",
+    default=None,
+    help="Database URL (default from TCG_DATABASE_URL or sqlite:///tcg_market.db)",
+)
+@click.option("--confirm", is_flag=True, help="Required to actually delete")
+@click.option("--skip-backup", is_flag=True, help="Skip pre-delete backup")
+def db_reset(db, confirm, skip_backup):
+    """Reset prices + remove non-collection cards. Preserves collection, users, decks."""
+    from src.config import get_db_url
+    from src.database.cleanup import reset_database
+
+    db_url = db or get_db_url()
+
+    try:
+        result = reset_database(
+            db_url=db_url,
+            dry_run=not confirm,
+            skip_backup=skip_backup,
+        )
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+    if result.dry_run:
+        click.echo("")
+        click.echo("  DATABASE RESET PREVIEW (dry-run)")
+        click.echo("")
+        click.echo("  Will delete:")
+        click.echo(f"    Price observations:     {result.prices_deleted:,}")
+        click.echo(f"    Scan runs:              {result.scan_runs_deleted:,}")
+        click.echo(f"    Portfolio snapshots:     {result.portfolio_snapshots_deleted:,}")
+        click.echo(f"    Collection errors:      {result.collection_errors_deleted:,}")
+        click.echo(f"    Cards (non-collection): {result.cards_deleted:,}")
+        click.echo(f"    Source cards:            {result.source_cards_deleted:,}")
+        click.echo(f"    Card legalities:        {result.legalities_deleted:,}")
+        click.echo(f"    Legality history:       {result.legality_history_deleted:,}")
+        click.echo("")
+        click.echo("  Will keep:")
+        click.echo(f"    Cards (in collection):  {result.cards_kept:,}")
+        click.echo("")
+        click.echo("  Pass --confirm to execute.")
+        click.echo("")
+    else:
+        click.echo("")
+        click.echo("  DATABASE RESET COMPLETE")
+        click.echo("")
+        click.echo("  Deleted:")
+        click.echo(f"    Price observations:     {result.prices_deleted:,}")
+        click.echo(f"    Scan runs:              {result.scan_runs_deleted:,}")
+        click.echo(f"    Portfolio snapshots:     {result.portfolio_snapshots_deleted:,}")
+        click.echo(f"    Collection errors:      {result.collection_errors_deleted:,}")
+        click.echo(f"    Cards (non-collection): {result.cards_deleted:,}")
+        click.echo(f"    Source cards:            {result.source_cards_deleted:,}")
+        click.echo(f"    Card legalities:        {result.legalities_deleted:,}")
+        click.echo(f"    Legality history:       {result.legality_history_deleted:,}")
+        click.echo("")
+        click.echo(f"  Cards kept (in collection): {result.cards_kept:,}")
+        if result.backup_path:
+            click.echo(f"  Backup saved to: {result.backup_path}")
+        click.echo("")
+
+
+@cli.command("error-cleanup")
+@click.option("--db", default=None, help="Database URL")
+@click.option(
+    "--max-age-days",
+    default=None,
+    type=int,
+    help="Max age in days (default from TCG_ERROR_MAX_AGE_DAYS or 30)",
+)
+@click.option(
+    "--max-entries",
+    default=None,
+    type=int,
+    help="Max entries to keep (default from TCG_ERROR_MAX_ENTRIES or 10000)",
+)
+@click.option("--dry-run", is_flag=True, help="Show what would be removed without removing")
+def error_cleanup(db, max_age_days, max_entries, dry_run):
+    """Clean up old error logs from database and JSONL file."""
+    from src.config import (
+        get_db_url,
+        get_error_log_dir,
+        get_error_max_age_days,
+        get_error_max_entries,
+    )
+    from src.database.repository import Repository
+    from src.errors.retention import cleanup_db, cleanup_jsonl
+
+    db_url = db or get_db_url()
+    age = max_age_days if max_age_days is not None else get_error_max_age_days()
+    entries = max_entries if max_entries is not None else get_error_max_entries()
+
+    repo = Repository(db_url=db_url)
+    jsonl_path = os.path.join(get_error_log_dir(), "errors.jsonl")
+
+    click.echo(f"\n  Error Cleanup (max_age_days={age}, max_entries={entries})")
+
+    if dry_run:
+        click.echo("  [DRY RUN] No entries will be removed.\n")
+        # Show current counts
+        from sqlalchemy import func, select
+        from sqlalchemy.orm import Session
+
+        from src.database.models import ErrorLogRow
+
+        with Session(repo.engine) as session:
+            db_count = session.execute(select(func.count()).select_from(ErrorLogRow)).scalar() or 0
+
+        jsonl_count = 0
+        if os.path.exists(jsonl_path):
+            with open(jsonl_path, "r") as f:
+                jsonl_count = sum(1 for line in f if line.strip())
+
+        click.echo(f"  Database entries: {db_count}")
+        click.echo(f"  JSONL entries:    {jsonl_count}\n")
+        return
+
+    # Run cleanup
+    db_removed = cleanup_db(repo, age, entries)
+    jsonl_removed = cleanup_jsonl(jsonl_path, age, entries)
+
+    click.echo(f"  Database entries removed: {db_removed}")
+    click.echo(f"  JSONL entries removed:    {jsonl_removed}\n")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")

@@ -1,0 +1,13 @@
+graph LR
+    A[Error Occurs] --> B[Exception Handler Captures]
+    B --> C[ErrorLogger Dispatches]
+    C --> D[Stored in DB + JSONL]
+
+    E[Admin Opens Panel] --> F[Errors Accordion]
+    F --> G[Filter & Browse]
+    G --> H[Click Error Row]
+    H --> I[View Traceback + Context]
+
+    J[Operator Needs Debug] --> K[Share errors.jsonl]
+    K --> L[Claude Analyzes]
+    L --> M[Fix Plan]

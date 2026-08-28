@@ -58,5 +58,13 @@ async def run_liga_scan(
             provider_name="liga",
             max_age_days=max_age_days,
         )
+    except Exception as exc:
+        # Capture in error logger
+        from src.errors.logger import get_global_error_logger
+
+        error_logger = get_global_error_logger()
+        if error_logger:
+            error_logger.capture(exc, extra={"context": "liga_scan", "run_id": run_id})
+        raise
     finally:
         await provider.close()

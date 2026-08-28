@@ -90,7 +90,24 @@
       "dashboard": "Dashboard",
       "ligaStatus": "Status Liga",
       "schedules": "Agendamentos",
-      "scans": "Scans de Preco"
+      "scans": "Scans de Preco",
+      "errors": "Erros da Aplicacao"
+    },
+    "errors": {
+      "level": "Nivel",
+      "module": "Modulo",
+      "dateFrom": "De",
+      "dateTo": "Ate",
+      "type": "Tipo",
+      "message": "Mensagem",
+      "traceback": "Stack Trace",
+      "requestContext": "Contexto da Requisicao",
+      "noErrors": "Nenhum erro registrado",
+      "filter": "Filtrar",
+      "allLevels": "Todos os Niveis",
+      "detail": "Detalhes do Erro",
+      "extra": "Dados Extras",
+      "line": "Linha"
     },
     "ligaStatus": {
       "title": "Cobertura de Precos Liga",

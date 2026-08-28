@@ -469,6 +469,14 @@ async def run_scan(
                 error=str(exc),
             )
         )
+
+        # Capture in error logger
+        from src.errors.logger import get_global_error_logger
+
+        error_logger = get_global_error_logger()
+        if error_logger:
+            error_logger.capture(exc, extra={"scan_id": run_id, "context": "scan_loop"})
+
         raise
     finally:
         if owns_provider and provider is not None:

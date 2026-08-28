@@ -90,7 +90,24 @@
       "dashboard": "Dashboard",
       "ligaStatus": "Liga Status",
       "schedules": "Schedules",
-      "scans": "Price Scans"
+      "scans": "Price Scans",
+      "errors": "Application Errors"
+    },
+    "errors": {
+      "level": "Level",
+      "module": "Module",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "type": "Type",
+      "message": "Message",
+      "traceback": "Traceback",
+      "requestContext": "Request Context",
+      "noErrors": "No errors recorded",
+      "filter": "Filter",
+      "allLevels": "All Levels",
+      "detail": "Error Detail",
+      "extra": "Extra Data",
+      "line": "Line"
     },
     "ligaStatus": {
       "title": "Liga Price Coverage",

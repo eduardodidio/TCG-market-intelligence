@@ -3,6 +3,7 @@
 logs/agents/*.jsonl
 logs/agents/*.meta.json
 logs/agents/state.json
+logs/errors/
 tcg_market.db
 __pycache__/
 *.pyc

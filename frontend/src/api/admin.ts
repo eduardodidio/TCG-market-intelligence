@@ -93,3 +93,46 @@ export function adjustUserCredits(
 export function fetchAdminDashboard() {
   return apiGet<AdminDashboard>("/api/v1/admin/dashboard");
 }
+
+export interface ErrorLogEntry {
+  id: string;
+  timestamp: string;
+  level: string;
+  error_type: string;
+  message: string;
+  module: string | null;
+  function: string | null;
+}
+
+export interface ErrorLogDetail extends ErrorLogEntry {
+  traceback: string | null;
+  line: number | null;
+  request_method: string | null;
+  request_path: string | null;
+  request_user_id: number | null;
+  request_id: string | null;
+  request_params: Record<string, unknown> | null;
+  extra: Record<string, unknown> | null;
+}
+
+export function fetchAdminErrors(params: {
+  level?: string;
+  module?: string;
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const query: Record<string, string> = {};
+  if (params.level) query.level = params.level;
+  if (params.module) query.module = params.module;
+  if (params.date_from) query.date_from = params.date_from;
+  if (params.date_to) query.date_to = params.date_to;
+  if (params.limit !== undefined) query.limit = String(params.limit);
+  if (params.offset !== undefined) query.offset = String(params.offset);
+  return apiGet<ErrorLogEntry[]>("/api/v1/admin/errors", query);
+}
+
+export function fetchAdminErrorDetail(errorId: string) {
+  return apiGet<ErrorLogDetail>(`/api/v1/admin/errors/${errorId}`);
+}

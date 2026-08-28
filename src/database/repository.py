@@ -16,6 +16,7 @@ from src.database.models import (
     CreditTransactionRow,
     DeckCardRow,
     DeckRow,
+    ErrorLogRow,
     ExchangeRateRow,
     LegalityHistoryRow,
     PortfolioSnapshotRow,
@@ -3158,5 +3159,132 @@ class Repository:
             if source is not None:
                 stmt = stmt.where(PriceObservationRow.source == source)
             result = session.execute(stmt)
+            session.commit()
+            return result.rowcount
+
+    # ── Error Logs ───────────────────────────────────────────────────
+
+    def insert_error_log(self, row_dict: dict) -> None:
+        """Insert a single error log entry."""
+        with Session(self.engine) as session:
+            session.add(ErrorLogRow(**row_dict))
+            session.commit()
+
+    def list_error_logs(
+        self,
+        *,
+        level: str | None = None,
+        module: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Return paginated error logs with optional filters."""
+        with Session(self.engine) as session:
+            base = select(ErrorLogRow)
+            count_base = select(func.count()).select_from(ErrorLogRow)
+
+            if level:
+                base = base.where(ErrorLogRow.level == level)
+                count_base = count_base.where(ErrorLogRow.level == level)
+            if module:
+                base = base.where(ErrorLogRow.module.contains(module))
+                count_base = count_base.where(ErrorLogRow.module.contains(module))
+            if date_from:
+                base = base.where(ErrorLogRow.timestamp >= date_from)
+                count_base = count_base.where(ErrorLogRow.timestamp >= date_from)
+            if date_to:
+                base = base.where(ErrorLogRow.timestamp <= date_to)
+                count_base = count_base.where(ErrorLogRow.timestamp <= date_to)
+
+            total = session.execute(count_base).scalar() or 0
+
+            rows = (
+                session.execute(
+                    base.order_by(ErrorLogRow.timestamp.desc()).limit(limit).offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+
+            results = []
+            for row in rows:
+                results.append(
+                    {
+                        "id": row.id,
+                        "timestamp": row.timestamp,
+                        "level": row.level,
+                        "error_type": row.error_type,
+                        "message": row.message,
+                        "traceback": row.traceback,
+                        "module": row.module,
+                        "function": row.function,
+                        "line": row.line,
+                        "request_method": row.request_method,
+                        "request_path": row.request_path,
+                        "request_user_id": row.request_user_id,
+                        "request_id": row.request_id,
+                        "request_params": row.request_params,
+                        "extra": row.extra,
+                    }
+                )
+
+            return results, total
+
+    def get_error_log(self, error_id: str) -> dict | None:
+        """Return a single error log by ID, or None."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(ErrorLogRow).where(ErrorLogRow.id == error_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            return {
+                "id": row.id,
+                "timestamp": row.timestamp,
+                "level": row.level,
+                "error_type": row.error_type,
+                "message": row.message,
+                "traceback": row.traceback,
+                "module": row.module,
+                "function": row.function,
+                "line": row.line,
+                "request_method": row.request_method,
+                "request_path": row.request_path,
+                "request_user_id": row.request_user_id,
+                "request_id": row.request_id,
+                "request_params": row.request_params,
+                "extra": row.extra,
+            }
+
+    def delete_error_logs_before(self, before: datetime) -> int:
+        """Delete error logs older than *before*. Return count deleted."""
+        from sqlalchemy import delete
+
+        with Session(self.engine) as session:
+            result = session.execute(delete(ErrorLogRow).where(ErrorLogRow.timestamp < before))
+            session.commit()
+            return result.rowcount
+
+    def delete_error_logs_excess(self, max_entries: int) -> int:
+        """Keep only the *max_entries* newest entries. Return count deleted."""
+        from sqlalchemy import delete
+
+        with Session(self.engine) as session:
+            total = session.execute(select(func.count()).select_from(ErrorLogRow)).scalar() or 0
+
+            if total <= max_entries:
+                return 0
+
+            # Find the timestamp of the Nth newest entry
+            cutoff_row = session.execute(
+                select(ErrorLogRow.timestamp)
+                .order_by(ErrorLogRow.timestamp.desc())
+                .offset(max_entries - 1)
+                .limit(1)
+            ).scalar_one()
+
+            result = session.execute(delete(ErrorLogRow).where(ErrorLogRow.timestamp < cutoff_row))
             session.commit()
             return result.rowcount

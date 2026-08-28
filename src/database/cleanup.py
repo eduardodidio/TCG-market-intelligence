@@ -10,8 +10,13 @@ from sqlalchemy.orm import Session
 
 from src.database.backup import backup_database, extract_db_path
 from src.database.models import (
+    CardLegalityRow,
     CardRow,
+    CollectionErrorRow,
+    LegalityHistoryRow,
+    PortfolioSnapshotRow,
     PriceObservationRow,
+    ScanRunRow,
     SourceCardRow,
     UserCollectionRow,
 )
@@ -408,5 +413,224 @@ def cleanup_non_collection_data(
         conn.execute(text("VACUUM"))
         conn.commit()
     log.info("cleanup.vacuum_done")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Full database reset (keep collection)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ResetResult:
+    """Counts of rows deleted (or that would be deleted in dry-run)."""
+
+    prices_deleted: int = 0
+    scan_runs_deleted: int = 0
+    portfolio_snapshots_deleted: int = 0
+    collection_errors_deleted: int = 0
+    cards_deleted: int = 0
+    source_cards_deleted: int = 0
+    legalities_deleted: int = 0
+    legality_history_deleted: int = 0
+    cards_kept: int = 0
+    dry_run: bool = False
+    backup_path: str | None = None
+
+
+def reset_database(
+    db_url: str,
+    *,
+    dry_run: bool = True,
+    skip_backup: bool = False,
+) -> ResetResult:
+    """Reset prices and remove non-collection cards from the database.
+
+    Preserves user_collection, users, decks, credits, exchange_rates,
+    scheduled_scans, and all other user-facing state.
+
+    Safety rules:
+    - Refuses to run if user_collection is empty.
+    - Creates a backup before deleting (unless *skip_backup* is True).
+    - Uses a single transaction for atomicity.
+    - Runs VACUUM after cleanup to reclaim space.
+
+    Parameters
+    ----------
+    db_url:
+        SQLAlchemy database URL (e.g. ``sqlite:///tcg_market.db``).
+    dry_run:
+        If True, compute and return counts without modifying data.
+    skip_backup:
+        If True, skip the automatic pre-delete backup.
+
+    Returns
+    -------
+    ResetResult
+        Counts of rows deleted (or that would be deleted).
+    """
+    repo = Repository(db_url=db_url)
+
+    with Session(repo.engine) as session:
+        # Safety check: refuse if collection is empty
+        collection_count = (
+            session.execute(select(func.count()).select_from(UserCollectionRow)).scalar() or 0
+        )
+        if collection_count == 0:
+            raise ValueError(
+                "Cannot reset with empty collection. "
+                "Import your collection first before running reset."
+            )
+
+        # Identify collection card_ids (cards that survive)
+        collection_card_ids: set[int] = set(
+            session.execute(
+                select(UserCollectionRow.card_id).where(UserCollectionRow.card_id.is_not(None))
+            )
+            .scalars()
+            .all()
+        )
+
+        # Count phase
+        prices_count = (
+            session.execute(select(func.count()).select_from(PriceObservationRow)).scalar() or 0
+        )
+        scan_runs_count = (
+            session.execute(select(func.count()).select_from(ScanRunRow)).scalar() or 0
+        )
+        portfolio_count = (
+            session.execute(select(func.count()).select_from(PortfolioSnapshotRow)).scalar() or 0
+        )
+        errors_count = (
+            session.execute(select(func.count()).select_from(CollectionErrorRow)).scalar() or 0
+        )
+
+        # Cards to delete: all card IDs NOT in collection
+        all_card_ids = set(session.execute(select(CardRow.id)).scalars().all())
+        card_ids_to_delete = all_card_ids - collection_card_ids
+
+        # Source cards to delete: card_id IS NULL OR card_id in cards-to-delete
+        sc_null_count = (
+            session.execute(
+                select(func.count())
+                .select_from(SourceCardRow)
+                .where(SourceCardRow.card_id.is_(None))
+            ).scalar()
+            or 0
+        )
+        sc_delete_count = 0
+        if card_ids_to_delete:
+            sc_delete_count = (
+                session.execute(
+                    select(func.count())
+                    .select_from(SourceCardRow)
+                    .where(SourceCardRow.card_id.in_(card_ids_to_delete))
+                ).scalar()
+                or 0
+            )
+
+        # Legalities to delete
+        legalities_count = 0
+        legality_history_count = 0
+        if card_ids_to_delete:
+            legalities_count = (
+                session.execute(
+                    select(func.count())
+                    .select_from(CardLegalityRow)
+                    .where(CardLegalityRow.card_id.in_(card_ids_to_delete))
+                ).scalar()
+                or 0
+            )
+            legality_history_count = (
+                session.execute(
+                    select(func.count())
+                    .select_from(LegalityHistoryRow)
+                    .where(LegalityHistoryRow.card_id.in_(card_ids_to_delete))
+                ).scalar()
+                or 0
+            )
+
+    result = ResetResult(
+        prices_deleted=prices_count,
+        scan_runs_deleted=scan_runs_count,
+        portfolio_snapshots_deleted=portfolio_count,
+        collection_errors_deleted=errors_count,
+        cards_deleted=len(card_ids_to_delete),
+        source_cards_deleted=sc_null_count + sc_delete_count,
+        legalities_deleted=legalities_count,
+        legality_history_deleted=legality_history_count,
+        cards_kept=len(collection_card_ids),
+        dry_run=dry_run,
+    )
+
+    log.info(
+        "reset.preview",
+        prices=result.prices_deleted,
+        scan_runs=result.scan_runs_deleted,
+        portfolios=result.portfolio_snapshots_deleted,
+        errors=result.collection_errors_deleted,
+        cards=result.cards_deleted,
+        source_cards=result.source_cards_deleted,
+        legalities=result.legalities_deleted,
+        legality_history=result.legality_history_deleted,
+        cards_kept=result.cards_kept,
+        dry_run=dry_run,
+    )
+
+    if dry_run:
+        return result
+
+    # Backup before deleting
+    if not skip_backup:
+        db_path = extract_db_path(db_url)
+        backup_path = backup_database(db_path)
+        result.backup_path = str(backup_path)
+
+    # Delete phase (single transaction, order matters)
+    with Session(repo.engine) as session:
+        # a. price_observations (full truncate)
+        session.execute(delete(PriceObservationRow))
+        # b. scan_runs
+        session.execute(delete(ScanRunRow))
+        # c. portfolio_snapshots
+        session.execute(delete(PortfolioSnapshotRow))
+        # d. collection_errors
+        session.execute(delete(CollectionErrorRow))
+
+        if card_ids_to_delete:
+            ids_list = list(card_ids_to_delete)
+            # e. legality_history
+            session.execute(
+                delete(LegalityHistoryRow).where(LegalityHistoryRow.card_id.in_(ids_list))
+            )
+            # f. card_legalities
+            session.execute(delete(CardLegalityRow).where(CardLegalityRow.card_id.in_(ids_list)))
+            # g. source_cards (orphans + cards-to-delete)
+            session.execute(
+                delete(SourceCardRow).where(
+                    SourceCardRow.card_id.is_(None) | SourceCardRow.card_id.in_(ids_list)
+                )
+            )
+            # h. cards
+            session.execute(delete(CardRow).where(CardRow.id.in_(ids_list)))
+        else:
+            # Still clean orphan source_cards even if no cards to delete
+            session.execute(delete(SourceCardRow).where(SourceCardRow.card_id.is_(None)))
+
+        session.commit()
+
+    log.info(
+        "reset.done",
+        prices=result.prices_deleted,
+        cards=result.cards_deleted,
+        source_cards=result.source_cards_deleted,
+    )
+
+    # VACUUM to reclaim space (must run outside a transaction)
+    with repo.engine.connect() as conn:
+        conn.execute(text("VACUUM"))
+        conn.commit()
+    log.info("reset.vacuum_done")
 
     return result

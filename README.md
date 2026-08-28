@@ -832,6 +832,26 @@ automatic MYP pricing data:
 - **i18n** -- 10 new keys in EN and PT-BR for manual price UI.
 - **Tests:** 92 new tests (47 backend + 45 frontend).
 
+### F85 -- Admin Error Tracking & Structured Error Logs (2026-08-28)
+
+Centralized error capture and admin visibility for all application errors:
+
+- **Error capture** -- all unhandled API exceptions and scan/provider errors
+  are captured via `ErrorLogger` with pluggable sinks (DB + JSONL). Request
+  context (method, path, user, params) and full tracebacks are preserved.
+- **Dual storage** -- errors are written to both an `error_log` SQLite table
+  (for admin UI queries) and a JSON Lines file (`logs/errors/errors.jsonl`)
+  structured for Claude-assisted debugging.
+- **Admin panel** -- new "Application Errors" accordion on the admin page
+  with level/module/date filters, paginated error list, and detail view
+  showing full traceback and request context.
+- **CLI** -- `error-cleanup` command with configurable retention
+  (`--max-age-days`, `--max-entries`) removes old entries from both DB and
+  JSONL. Defaults: 30 days, 10000 entries.
+- **Provider resilience** -- scan collectors and provider calls capture
+  errors via global logger, so background task failures are visible in the
+  admin panel alongside request-triggered errors.
+
 ## Future
 
 Prepared for but not yet implemented:

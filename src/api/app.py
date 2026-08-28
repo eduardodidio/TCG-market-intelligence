@@ -135,6 +135,38 @@ async def lifespan(app: FastAPI):
         log = structlog.get_logger()
         log.warning("scan_hook_registration_failed", exc_info=True)
 
+    # Initialize ErrorLogger with DB + JSONL sinks
+    try:
+        from src.config import get_error_log_dir, get_error_max_age_days, get_error_max_entries
+        from src.database.repository import Repository
+        from src.errors.logger import (
+            ErrorLogger,
+            make_db_sink,
+            make_jsonl_sink,
+            set_global_error_logger,
+        )
+        from src.errors.retention import cleanup_db, cleanup_jsonl
+
+        error_repo = Repository(get_db_url())
+        error_log_dir = get_error_log_dir()
+        os.makedirs(error_log_dir, exist_ok=True)
+        jsonl_path = os.path.join(error_log_dir, "errors.jsonl")
+
+        sinks = [make_db_sink(error_repo), make_jsonl_sink(jsonl_path)]
+        error_logger = ErrorLogger(sinks)
+        app.state.error_logger = error_logger
+        set_global_error_logger(error_logger)
+
+        # Best-effort retention cleanup on startup
+        try:
+            cleanup_db(error_repo, get_error_max_age_days(), get_error_max_entries())
+            cleanup_jsonl(jsonl_path, get_error_max_age_days(), get_error_max_entries())
+        except Exception:
+            _log.warning("error_retention_cleanup_failed", exc_info=True)
+
+    except Exception:
+        _log.warning("error_logger_init_failed", exc_info=True)
+
     yield
 
     if hasattr(app.state, "scheduler"):
@@ -257,6 +289,24 @@ def create_app() -> FastAPI:
             code=f"HTTP_{exc.status_code}",
             message=str(exc.detail),
         )
+
+        # Capture server errors (5xx) in error logger
+        if exc.status_code >= 500:
+            try:
+                error_logger = getattr(request.app.state, "error_logger", None)
+                if error_logger:
+                    user_id = getattr(getattr(request.state, "user", None), "id", None)
+                    ctx = {
+                        "request_method": request.method,
+                        "request_path": str(request.url.path),
+                        "request_user_id": user_id,
+                        "request_id": request_id,
+                        "params": dict(request.query_params),
+                    }
+                    error_logger.capture(exc, request_context=ctx)
+            except Exception:
+                pass
+
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -273,6 +323,23 @@ def create_app() -> FastAPI:
         log = structlog.get_logger()
         log.error("unhandled_exception", error=str(exc), exc_info=True)
         request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
+
+        # Capture in error logger
+        try:
+            error_logger = getattr(request.app.state, "error_logger", None)
+            if error_logger:
+                user_id = getattr(getattr(request.state, "user", None), "id", None)
+                ctx = {
+                    "request_method": request.method,
+                    "request_path": str(request.url.path),
+                    "request_user_id": user_id,
+                    "request_id": request_id,
+                    "params": dict(request.query_params),
+                }
+                error_logger.capture(exc, request_context=ctx)
+        except Exception:
+            pass  # Never let error logging break error response
+
         error = ErrorDetail(
             code="INTERNAL_ERROR",
             message="An internal error occurred",
