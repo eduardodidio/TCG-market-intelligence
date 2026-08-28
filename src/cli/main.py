@@ -17,6 +17,15 @@ structlog.configure(
 )
 
 
+def _resolve_db(ctx, param, value):
+    """Click callback: resolve --db to auto-detected URL when None."""
+    if value is None:
+        from src.config import get_db_url
+
+        return get_db_url()
+    return value
+
+
 @click.group()
 def cli():
     """TEDHC Market — Data Collector"""
@@ -24,7 +33,14 @@ def cli():
 
 
 @cli.command()
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--set", "set_filter", default=None, help="Only collect from this set slug")
 @click.option("--limit", default=None, type=int, help="Max cards to process")
 @click.option("--dry-run", is_flag=True, help="Don't write to database")
@@ -52,7 +68,14 @@ def backfill(db, set_filter, limit, dry_run, delay, history_days, concurrency, n
 
 
 @cli.command()
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--delay", default=1.0, type=float, help="Seconds between requests")
 @click.option("--history-days", default=30, type=int, help="Days of history to fetch")
 def update(db, delay, history_days):
@@ -64,7 +87,14 @@ def update(db, delay, history_days):
 
 
 @cli.command("retry-failed")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--delay", default=2.0, type=float, help="Seconds between requests")
 @click.option("--history-days", default=1095, type=int, help="Days of history to fetch")
 def retry_failed(db, delay, history_days):
@@ -82,7 +112,14 @@ def analyze():
 
 
 @analyze.command("card")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--source", default="myp", help="Data source")
 @click.option("--price-field", default="median_price", help="Price field to analyze")
 @click.argument("external_id")
@@ -109,7 +146,14 @@ def analyze_card(db, source, price_field, external_id):
 
 
 @analyze.command("list")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--source", default="myp", help="Data source")
 def analyze_list(db, source):
     """List all cards with observation counts."""
@@ -190,7 +234,14 @@ def _print_summary(summary, dry_run):
 
 
 @cli.command("match-report")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--limit", default=None, type=int, help="Max cards to process")
 @click.option("--delay", default=1.0, type=float, help="Seconds between requests")
 @click.option("--concurrency", default=3, type=int, help="Max concurrent searches")
@@ -214,7 +265,14 @@ def match_report(db, limit, delay, concurrency, output):
 
 
 @cli.command("db-backup")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--backup-dir", default="backups", help="Directory for backups")
 def db_backup(db, backup_dir):
     """Create a timestamped backup of the SQLite database."""
@@ -231,7 +289,14 @@ def db_backup(db, backup_dir):
 
 
 @cli.command("db-cleanup")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted without deleting")
 @click.option("--no-backup", is_flag=True, help="Skip automatic backup before cleanup")
 def db_cleanup(db, dry_run, no_backup):
@@ -303,7 +368,14 @@ def db_clear_prices(db, source, confirm, skip_backup):
 
 
 @cli.command("snapshot-prices")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--limit", default=None, type=int, help="Max cards to process")
 @click.option("--dry-run", is_flag=True, help="Don't write to database")
 @click.option("--delay", default=1.0, type=float, help="Seconds between requests")
@@ -334,7 +406,14 @@ def snapshot_prices(db, limit, dry_run, delay, concurrency, provider):
 
 
 @cli.command("sync-collection")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--limit", default=None, type=int, help="Max cards to process")
 @click.option("--dry-run", is_flag=True, help="Don't write to database")
 @click.option("--delay", default=1.0, type=float, help="Seconds between requests")
@@ -443,7 +522,14 @@ def _resolve_provider(provider_name: str, delay: float = 1.0):
 
 
 @cli.command()
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option(
     "--type",
     "scan_type",
@@ -508,7 +594,14 @@ def scan(
 
 
 @cli.command("scan-history")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--limit", default=20, type=int, help="Max runs to show")
 @click.option("--type", "scan_type", default=None, help="Filter by scan type")
 @click.option("--status", default=None, help="Filter by status")
@@ -554,7 +647,14 @@ def _print_scan_history(runs):
 
 
 @cli.command("update-exchange-rate")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--date", "target_date", default=None, help="Date (YYYY-MM-DD), defaults to today")
 @click.option("--backfill-days", default=0, type=int, help="Fetch rates for last N days")
 def update_exchange_rate(db, target_date, backfill_days):
@@ -592,7 +692,14 @@ def update_exchange_rate(db, target_date, backfill_days):
 
 
 @cli.command("migrate-user")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--old-id", default="eduardo", help="Old user ID to migrate from")
 @click.option("--new-id", required=True, help="New user ID to migrate to")
 def migrate_user(db, old_id, new_id):
@@ -608,7 +715,14 @@ def migrate_user(db, old_id, new_id):
 
 
 @cli.command("seed-users")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 def seed_users(db):
     """Create initial seed users (idempotent)."""
     from src.auth.passwords import hash_password
@@ -616,7 +730,7 @@ def seed_users(db):
 
     log = structlog.get_logger()
 
-    password = os.environ.get("TCG_SEED_PASSWORD", "mudar12345")
+    password = os.environ.get("TCG_SEED_PASSWORD", "mudar@123")
 
     SEED_USERS = [
         {
@@ -685,7 +799,14 @@ def seed_users(db):
 
 
 @cli.command("banlist-sync")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option(
     "--bulk/--no-bulk", default=True, help="Use bulk NDJSON download (default) or per-card API"
 )
@@ -721,7 +842,14 @@ def _print_banlist_sync_summary(summary):
 
 
 @cli.command("schedule-list")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option(
     "--status",
     type=click.Choice(["active", "paused", "disabled"]),
@@ -755,7 +883,14 @@ def schedule_list(db, status):
 
 
 @cli.command("schedule-add")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--name", required=True, help="Schedule name")
 @click.option("--cron", required=True, help="Cron expression (e.g. '0 6 * * *')")
 @click.option("--type", "scan_type", default="collection", help="Scan type")
@@ -800,7 +935,14 @@ def schedule_add(db, name, cron, scan_type, filters, description, max_retries, u
 
 
 @cli.command("schedule-remove")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.argument("schedule_id", type=int)
 def schedule_remove(db, schedule_id):
     """Remove a scheduled scan by ID."""
@@ -820,7 +962,14 @@ def schedule_remove(db, schedule_id):
 @click.option("--limit", type=int, default=None, help="Max entries to process")
 @click.option("--concurrency", type=int, default=3, help="Parallel MYP calls")
 @click.option("--dry-run", is_flag=True, help="Show unlinked count without processing")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 def canonize_all(user_id, limit, concurrency, dry_run, db):
     """Bulk-canonize all unlinked collection entries."""
     from src.collectors.bulk_canonize import _get_unlinked_entries, bulk_canonize
@@ -927,7 +1076,14 @@ def _print_liga_sweep_summary(result):
 
 
 @cli.command("snapshot-portfolio")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option(
     "--user-id", default=None, help="Snapshot a specific user (default: all active users)"
 )
@@ -973,7 +1129,14 @@ def snapshot_portfolio(db, user_id):
 
 
 @cli.command("db-reset-scans")
-@click.option("--db", default="sqlite:///tcg_market.db", help="Database URL")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
 @click.option("--confirm", is_flag=True, help="Confirm deletion of all scan runs")
 def db_reset_scans(db, confirm):
     """Delete all scan run records."""
