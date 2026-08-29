@@ -174,49 +174,49 @@ describe("CollectionCardDetail page", () => {
     expect(panel.textContent).toContain("#123");
   });
 
-  it("renders quantity badge when quantity > 1", async () => {
+  it("renders quantity stepper when quantity > 1", async () => {
     globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
     renderDetail();
 
     await waitFor(() => {
-      expect(screen.getByTestId("quantity-badge")).toBeDefined();
+      expect(screen.getByTestId("quantity-stepper")).toBeDefined();
     });
 
-    expect(screen.getByTestId("quantity-badge").textContent).toBe("x3");
+    expect(screen.getByTestId("qty-value").textContent).toBe("3");
   });
 
-  it("does not render quantity badge when quantity is 1", async () => {
+  it("renders quantity stepper when quantity is 1", async () => {
     globalThis.fetch = createMockFetch(makeLinkedEntry({ quantity: 1 })) as unknown as typeof fetch;
     renderDetail();
 
     await waitFor(() => {
-      expect(screen.getByTestId("card-info-panel")).toBeDefined();
+      expect(screen.getByTestId("quantity-stepper")).toBeDefined();
     });
 
-    expect(screen.queryByTestId("quantity-badge")).toBeNull();
+    expect(screen.getByTestId("qty-value").textContent).toBe("1");
   });
 
-  it("renders quality and language badges", async () => {
+  it("renders editable quality and language fields", async () => {
     globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
     renderDetail();
 
     await waitFor(() => {
-      expect(screen.getByTestId("quality-badge")).toBeDefined();
+      expect(screen.getByTestId("inline-edit-quality")).toBeDefined();
     });
 
-    expect(screen.getByTestId("quality-badge").textContent).toBe("NM");
-    expect(screen.getByTestId("language-badge").textContent).toBe("EN");
+    expect(screen.getByTestId("inline-edit-quality").textContent).toContain("NM");
+    expect(screen.getByTestId("inline-edit-language").textContent).toContain("EN");
   });
 
-  it("renders extras badge", async () => {
+  it("renders editable extras field", async () => {
     globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
     renderDetail();
 
     await waitFor(() => {
-      expect(screen.getByTestId("extras-badge")).toBeDefined();
+      expect(screen.getByTestId("inline-edit-extras")).toBeDefined();
     });
 
-    expect(screen.getByTestId("extras-badge").textContent).toBe("Foil");
+    expect(screen.getByTestId("inline-edit-extras").textContent).toContain("Foil");
   });
 
   it("renders 'Not linked' state for unlinked cards", async () => {

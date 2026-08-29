@@ -904,6 +904,123 @@ class Repository:
                 select(UserCollectionRow).where(UserCollectionRow.id == entry_id)
             ).scalar_one_or_none()
 
+    _EDITABLE_COLLECTION_FIELDS = {"quantity", "quality", "language", "extras"}
+
+    def update_collection_entry(
+        self,
+        entry_id: int,
+        user_id: str,
+        updates: dict,
+    ) -> UserCollectionRow | None:
+        """Update a single collection entry. Returns updated row or None if not found.
+
+        Raises ValueError if the entry belongs to a different user.
+        """
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(UserCollectionRow).where(UserCollectionRow.id == entry_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            if row.user_id != user_id:
+                msg = "Not authorized to modify this entry"
+                raise ValueError(msg)
+            for key, value in updates.items():
+                if key in self._EDITABLE_COLLECTION_FIELDS:
+                    setattr(row, key, value)
+            session.commit()
+            session.refresh(row)
+            # Detach from session so caller can use it after session close
+            session.expunge(row)
+            return row
+
+    def delete_collection_entry(self, entry_id: int, user_id: str) -> bool:
+        """Delete a single collection entry. Returns True if deleted.
+
+        Raises ValueError if the entry belongs to a different user.
+        """
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(UserCollectionRow).where(UserCollectionRow.id == entry_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return False
+            if row.user_id != user_id:
+                msg = "Not authorized to delete this entry"
+                raise ValueError(msg)
+            session.delete(row)
+            session.commit()
+            return True
+
+    def bulk_update_collection_entries(
+        self,
+        ids: list[int],
+        user_id: str,
+        updates: dict,
+    ) -> int:
+        """Update multiple collection entries atomically.
+
+        Returns number of affected rows.
+        Raises ValueError if any entry doesn't belong to the user.
+        """
+        with Session(self.engine) as session:
+            rows = (
+                session.execute(select(UserCollectionRow).where(UserCollectionRow.id.in_(ids)))
+                .scalars()
+                .all()
+            )
+            # Check all IDs exist
+            found_ids = {r.id for r in rows}
+            missing = set(ids) - found_ids
+            if missing:
+                msg = f"Entries not found: {sorted(missing)}"
+                raise ValueError(msg)
+            # Check all belong to user
+            for row in rows:
+                if row.user_id != user_id:
+                    msg = f"Not authorized to modify entry {row.id}"
+                    raise ValueError(msg)
+            # Apply updates
+            for row in rows:
+                for key, value in updates.items():
+                    if key in self._EDITABLE_COLLECTION_FIELDS:
+                        setattr(row, key, value)
+            session.commit()
+            return len(rows)
+
+    def bulk_delete_collection_entries(
+        self,
+        ids: list[int],
+        user_id: str,
+    ) -> int:
+        """Delete multiple collection entries atomically.
+
+        Returns number of deleted rows.
+        Raises ValueError if any entry doesn't belong to the user.
+        """
+        with Session(self.engine) as session:
+            rows = (
+                session.execute(select(UserCollectionRow).where(UserCollectionRow.id.in_(ids)))
+                .scalars()
+                .all()
+            )
+            # Check all IDs exist
+            found_ids = {r.id for r in rows}
+            missing = set(ids) - found_ids
+            if missing:
+                msg = f"Entries not found: {sorted(missing)}"
+                raise ValueError(msg)
+            # Check all belong to user
+            for row in rows:
+                if row.user_id != user_id:
+                    msg = f"Not authorized to delete entry {row.id}"
+                    raise ValueError(msg)
+            # Delete all
+            for row in rows:
+                session.delete(row)
+            session.commit()
+            return len(rows)
+
     def get_collection_entry_id_by_card(self, user_id: str, card_id: int) -> int | None:
         """Return the first collection entry ID for a given user+card, or None."""
         with Session(self.engine) as session:

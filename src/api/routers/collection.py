@@ -27,14 +27,25 @@ from src.api.schemas.ban_engine import BannedCollectionCard, CardLegalityWithCha
 from src.api.schemas.cards import PriceObservation, SourceCardSchema
 from src.api.schemas.collect import JobStatus
 from src.api.schemas.collection import (
+    BatchAddErrorResponse,
+    BatchAddRequest,
+    BatchAddResultResponse,
+    BatchParseRequest,
+    BatchParseResponse,
     BulkCanonizeResult,
+    BulkDeleteRequest,
+    BulkDeleteResponse,
+    BulkUpdateRequest,
+    BulkUpdateResponse,
     CollectionCard,
     CollectionCardDetail,
     CollectionHistoryResponse,
     CollectionSummary,
+    CollectionUpdateRequest,
     ImportResult,
     LigaStatusResponse,
     ManualPriceRequest,
+    ParsedLineResponse,
     SnapshotRequest,
     SyncRequest,
     ValuationResponse,
@@ -373,6 +384,102 @@ def list_liga_missing(
         total=total,
         offset=offset + limit if offset + limit < total else None,
     )
+
+
+@router.patch("/bulk", response_model=ApiResponse[BulkUpdateResponse])
+def bulk_update_collection(
+    request: BulkUpdateRequest,
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Bulk update multiple collection entries (atomic)."""
+    updates = request.updates.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=422, detail="No fields to update")
+    try:
+        affected = repo.bulk_update_collection_entries(request.ids, user_id, updates)
+    except ValueError as exc:
+        detail = str(exc)
+        if "Not authorized" in detail:
+            raise HTTPException(status_code=403, detail=detail) from exc
+        raise HTTPException(status_code=404, detail=detail) from exc
+    log.info("bulk_update_collection", ids=request.ids, affected=affected)
+    return success_response(data=BulkUpdateResponse(affected=affected))
+
+
+@router.post("/bulk-delete", response_model=ApiResponse[BulkDeleteResponse])
+def bulk_delete_collection(
+    request: BulkDeleteRequest,
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Bulk delete collection entries (atomic).
+
+    Uses POST because DELETE with body is non-standard.
+    """
+    try:
+        deleted = repo.bulk_delete_collection_entries(request.ids, user_id)
+    except ValueError as exc:
+        detail = str(exc)
+        if "Not authorized" in detail:
+            raise HTTPException(status_code=403, detail=detail) from exc
+        raise HTTPException(status_code=404, detail=detail) from exc
+    log.info("bulk_delete_collection", ids=request.ids, deleted=deleted)
+    return success_response(data=BulkDeleteResponse(deleted=deleted))
+
+
+@router.patch("/{entry_id}", response_model=ApiResponse[CollectionCard])
+def update_collection_entry(
+    entry_id: int,
+    request: CollectionUpdateRequest,
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Update a single collection entry (partial)."""
+    updates = request.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=422, detail="No fields to update")
+    try:
+        row = repo.update_collection_entry(entry_id, user_id, updates)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    if row is None:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+    log.info("update_collection_entry", entry_id=entry_id, updates=updates)
+    data = CollectionCard(
+        id=row.id,
+        card_id=row.card_id,
+        set_code=row.set_code,
+        collector_number=row.collector_number,
+        name_en=row.name_en,
+        name_pt=row.name_pt,
+        set_name_en=row.set_name_en,
+        quantity=row.quantity,
+        quality=row.quality,
+        language=row.language,
+        rarity=row.rarity,
+        color=row.color,
+        extras=row.extras,
+        is_foil=is_foil_entry(row.extras),
+    )
+    return success_response(data=data)
+
+
+@router.delete("/{entry_id}", status_code=204)
+def delete_collection_entry(
+    entry_id: int,
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Delete a single collection entry."""
+    try:
+        deleted = repo.delete_collection_entry(entry_id, user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Collection entry not found")
+    log.info("delete_collection_entry", entry_id=entry_id)
+    return None
 
 
 METRICS_PERIOD_MAP = {"24h": 1, "7d": 7, "30d": 30, "90d": 90, "180d": 180, "1y": 365}
@@ -1200,6 +1307,70 @@ def _build_collection_detail(
         ligamagic_url=ligamagic_url,
     )
 
+    return success_response(data=data)
+
+
+@router.post("/batch/parse", response_model=ApiResponse[BatchParseResponse])
+def batch_parse(
+    body: BatchParseRequest,
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Parse text into structured card entries (preview, no DB writes)."""
+    from src.collection.batch_parser import parse_batch_text
+
+    parsed = parse_batch_text(body.text)
+    entries = [
+        ParsedLineResponse(
+            line_number=p.line_number,
+            raw_text=p.raw_text,
+            quantity=p.quantity,
+            name=p.name,
+            set_code=p.set_code,
+            quality=p.quality,
+            language=p.language,
+            extras=p.extras,
+            error=p.error,
+        )
+        for p in parsed
+    ]
+    return success_response(data=BatchParseResponse(entries=entries))
+
+
+@router.post("/batch", response_model=ApiResponse[BatchAddResultResponse])
+def batch_add(
+    body: BatchAddRequest,
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Add multiple cards to the collection in one request."""
+    from sqlalchemy.orm import Session
+
+    from src.collection.batch_add import BatchAddEntry as BatchEntry
+    from src.collection.batch_add import batch_add_entries
+
+    entries = [
+        BatchEntry(
+            name_en=e.name_en,
+            set_code=e.set_code,
+            collector_number=e.collector_number,
+            quantity=e.quantity,
+            quality=e.quality,
+            language=e.language,
+            extras=e.extras,
+        )
+        for e in body.entries
+    ]
+
+    with Session(repo.engine) as session:
+        try:
+            result = batch_add_entries(session, user_id, entries)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+    errors = [BatchAddErrorResponse(line=e.line, text=e.text, error=e.error) for e in result.errors]
+    data = BatchAddResultResponse(added=result.added, errors=errors)
     return success_response(data=data)
 
 

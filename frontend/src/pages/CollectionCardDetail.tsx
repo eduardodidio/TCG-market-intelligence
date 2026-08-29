@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { useCredits } from "../hooks/useCredits";
-import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, refreshCardPrice, refreshCardPriceLiga } from "../api/collection";
+import { canonizeCard, deleteCollectionEntry, fetchCollectionEntry, fetchCollectionHistory, patchCollectionEntry, refreshCardPrice, refreshCardPriceLiga } from "../api/collection";
 import { fetchCardBanHistory } from "../api/banlist";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
@@ -13,6 +13,8 @@ import { Breadcrumb } from "../components/Breadcrumb";
 import { BanEventCard } from "../components/BanEventCard";
 import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
+import { DeleteEntryButton } from "../components/DeleteEntryButton";
+import { InlineEditField } from "../components/InlineEditField";
 import { LegalityPanel } from "../components/LegalityPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ManualPriceInput } from "../components/ManualPriceInput";
@@ -20,6 +22,7 @@ import { MetricsPanel } from "../components/MetricsPanel";
 import { PriceChart } from "../components/PriceChart";
 import { FoilBadge } from "../components/FoilBadge";
 import { PriceSourceBadge } from "../components/PriceSourceBadge";
+import { QuantityStepper } from "../components/QuantityStepper";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
 import type { CardBanHistoryEntry } from "../types/banlist";
 import type { CollectionCardDetail as CollectionCardDetailType } from "../types/api";
@@ -39,8 +42,31 @@ function sourceLabel(source: string): string {
   return labels[source] ?? source;
 }
 
+const QUALITY_OPTIONS = [
+  { label: "M", value: "M" },
+  { label: "NM", value: "NM" },
+  { label: "SP", value: "SP" },
+  { label: "MP", value: "MP" },
+  { label: "HP", value: "HP" },
+  { label: "D", value: "D" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { label: "BR", value: "BR" },
+  { label: "EN", value: "EN" },
+  { label: "DE", value: "DE" },
+  { label: "ES", value: "ES" },
+  { label: "FR", value: "FR" },
+  { label: "IT", value: "IT" },
+  { label: "JP", value: "JP" },
+  { label: "KO", value: "KO" },
+  { label: "RU", value: "RU" },
+  { label: "TW", value: "TW" },
+];
+
 export function CollectionCardDetail() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
   const entryId = Number(id);
@@ -287,34 +313,88 @@ export function CollectionCardDetail() {
             )}
           </div>
 
-          {/* Collection metadata */}
+          {/* Collection metadata — editable */}
           <div className="mb-6" data-testid="collection-metadata">
-            <p className="text-sm text-slate-400 mb-2">{t("collection.collectionInfo")}</p>
-            <div className="flex flex-wrap gap-2">
-              {entry.quantity > 1 && (
-                <span className="inline-block rounded-full bg-indigo-500 px-3 py-1 text-xs font-bold text-white" data-testid="quantity-badge">
-                  x{entry.quantity}
-                </span>
-              )}
-              {entry.quality && (
-                <span className="inline-block rounded-full bg-slate-700 px-3 py-1 text-xs font-medium text-slate-400" data-testid="quality-badge">
-                  {entry.quality}
-                </span>
-              )}
-              {entry.language && (
-                <span className="inline-block rounded-full bg-slate-700 px-3 py-1 text-xs font-medium text-slate-400" data-testid="language-badge">
-                  {entry.language}
-                </span>
-              )}
+            <p className="text-sm text-slate-400 mb-3">{t("collection.collectionInfo")}</p>
+            <div className="space-y-3">
+              {/* Quantity — stepper */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 uppercase tracking-wider">{t("inlineEdit.quantityLabel")}</span>
+                <QuantityStepper
+                  value={entry.quantity}
+                  onChange={async (newQty) => {
+                    const res = await patchCollectionEntry(entryId, { quantity: newQty });
+                    if (res.data) {
+                      setEntry({ ...entry, quantity: res.data.quantity });
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Quality — select */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 uppercase tracking-wider">{t("inlineEdit.qualityLabel")}</span>
+                <InlineEditField
+                  label="quality"
+                  type="select"
+                  options={QUALITY_OPTIONS}
+                  value={entry.quality || "NM"}
+                  onSave={async (val) => {
+                    const res = await patchCollectionEntry(entryId, { quality: val });
+                    if (res.data) {
+                      setEntry({ ...entry, quality: res.data.quality });
+                    } else {
+                      throw new Error("save failed");
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Language — select */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 uppercase tracking-wider">{t("inlineEdit.languageLabel")}</span>
+                <InlineEditField
+                  label="language"
+                  type="select"
+                  options={LANGUAGE_OPTIONS}
+                  value={entry.language || "EN"}
+                  onSave={async (val) => {
+                    const res = await patchCollectionEntry(entryId, { language: val });
+                    if (res.data) {
+                      setEntry({ ...entry, language: res.data.language });
+                    } else {
+                      throw new Error("save failed");
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Extras — text */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 uppercase tracking-wider">{t("inlineEdit.extrasLabel")}</span>
+                <InlineEditField
+                  label="extras"
+                  type="text"
+                  value={entry.extras || ""}
+                  onSave={async (val) => {
+                    const res = await patchCollectionEntry(entryId, { extras: val });
+                    if (res.data) {
+                      setEntry({ ...entry, extras: res.data.extras });
+                    } else {
+                      throw new Error("save failed");
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Rarity — read-only */}
               {entry.rarity && (
-                <span className="inline-block rounded-full bg-slate-700 px-3 py-1 text-xs font-medium text-slate-400" data-testid="rarity-badge">
-                  {RARITY_LABEL_KEYS[entry.rarity] ? t(RARITY_LABEL_KEYS[entry.rarity]) : entry.rarity}
-                </span>
-              )}
-              {entry.extras && (
-                <span className="inline-block rounded-full bg-amber-600/90 px-3 py-1 text-xs font-bold text-white" data-testid="extras-badge">
-                  {entry.extras}
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500 uppercase tracking-wider">{t("cardDetail.rarity")}</span>
+                  <span className="inline-block rounded-full bg-slate-700 px-3 py-1 text-xs font-medium text-slate-400" data-testid="rarity-badge">
+                    {RARITY_LABEL_KEYS[entry.rarity] ? t(RARITY_LABEL_KEYS[entry.rarity]) : entry.rarity}
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -467,6 +547,17 @@ export function CollectionCardDetail() {
               </div>
             </div>
           )}
+
+          {/* Delete entry */}
+          <div className="mt-6 mb-6" data-testid="delete-section">
+            <DeleteEntryButton
+              entryName={displayName}
+              onConfirm={async () => {
+                await deleteCollectionEntry(entryId);
+                navigate("/collection");
+              }}
+            />
+          </div>
 
           {/* External Links */}
           <div className="mt-6" data-testid="external-links">

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { fetchCollectionBanned } from "../api/banEngine";
-import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPriceLiga } from "../api/collection";
+import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPriceLiga, bulkUpdateEntries, bulkDeleteEntries } from "../api/collection";
 import { BanAlertBanner } from "../components/BanAlertBanner";
 import { BulkCanonizeButton } from "../components/BulkCanonizeButton";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
@@ -36,6 +36,10 @@ import { fetchSharingStatus, toggleSharing as apiToggleSharing } from "../api/ma
 import { ValuationBadge } from "../components/ValuationBadge";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { BatchAddModal } from "../components/BatchAddModal";
+import { BulkActionsToolbar } from "../components/BulkActionsToolbar";
+import { SelectableCardTile } from "../components/SelectableCardTile";
+import { useMultiSelect } from "../hooks/useMultiSelect";
 
 const HIGHLIGHT_DURATION_MS = 2_000;
 
@@ -311,6 +315,42 @@ export function MyCollection() {
   const [previewSkipped, setPreviewSkipped] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
   const { balance: creditBalance, isAdmin: creditIsAdmin } = useCredits();
+
+  // Batch add modal state
+  const [batchAddOpen, setBatchAddOpen] = useState(false);
+
+  // Selection mode
+  const [selectionMode, setSelectionMode] = useState(false);
+  const { selectedIds, toggle: toggleSelect, selectAll, deselectAll, count: selectedCount } = useMultiSelect();
+
+  const handleExitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    deselectAll();
+  }, [deselectAll]);
+
+  const handleBulkUpdate = useCallback(async (ids: number[], updates: { quality?: string; language?: string; extras?: string }) => {
+    const res = await bulkUpdateEntries(ids, updates);
+    if (res.errors.length > 0) {
+      setError(res.errors.map((e) => e.message).join("; "));
+      return;
+    }
+    handleExitSelectionMode();
+    setRefreshKey((k) => k + 1);
+  }, [handleExitSelectionMode]);
+
+  const handleBulkDelete = useCallback(async (ids: number[]) => {
+    const res = await bulkDeleteEntries(ids);
+    if (res.errors.length > 0) {
+      setError(res.errors.map((e) => e.message).join("; "));
+      return;
+    }
+    handleExitSelectionMode();
+    setRefreshKey((k) => k + 1);
+  }, [handleExitSelectionMode]);
+
+  const handleSelectAll = useCallback(() => {
+    selectAll(cards.map((c) => c.id));
+  }, [selectAll, cards]);
 
   // Sharing state
   const [isShared, setIsShared] = useState(false);
@@ -672,6 +712,56 @@ export function MyCollection() {
           <SetIconFilter options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
         )}
         <div className="flex justify-end items-center gap-3">
+          {/* Select mode toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              if (selectionMode) {
+                handleExitSelectionMode();
+              } else {
+                setSelectionMode(true);
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors duration-200 ${
+              selectionMode
+                ? "bg-cyan-500 text-white"
+                : "bg-slate-700 hover:bg-slate-600 text-slate-300"
+            }`}
+            data-testid="select-mode-btn"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="hidden sm:inline">{t("bulk.select")}</span>
+          </button>
+
+          {/* Select All / Deselect All (only in selection mode) */}
+          {selectionMode && (
+            <button
+              type="button"
+              onClick={selectedCount === cards.length ? deselectAll : handleSelectAll}
+              className="px-3 py-1.5 text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors"
+              data-testid="select-all-btn"
+            >
+              {selectedCount === cards.length ? t("bulk.deselectAll") : t("bulk.selectAll")}
+            </button>
+          )}
+
+          {/* Add Cards button */}
+          <button
+            type="button"
+            onClick={() => setBatchAddOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
+              bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg
+              transition-colors duration-200"
+            data-testid="add-cards-btn"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="hidden sm:inline">{t("batchAdd.addCards")}</span>
+          </button>
+
           {/* Bulk canonize button (only when unlinked cards exist) */}
           {summary && (
             <BulkCanonizeButton
@@ -766,7 +856,7 @@ export function MyCollection() {
                 });
               }
               const banInfo = card.card_id ? bannedCardMap.get(card.card_id) : undefined;
-              return (
+              const tile = (
                 <CollectionCardTile
                   key={card.id}
                   card={card}
@@ -777,6 +867,17 @@ export function MyCollection() {
                   banStatus={banInfo?.status}
                   banRecentlyChanged={banInfo?.recentlyChanged}
                 />
+              );
+              return (
+                <SelectableCardTile
+                  key={card.id}
+                  cardId={card.id}
+                  isSelectable={selectionMode}
+                  isSelected={selectedIds.has(card.id)}
+                  onToggle={toggleSelect}
+                >
+                  {tile}
+                </SelectableCardTile>
               );
             })}
           </div>
@@ -809,6 +910,24 @@ export function MyCollection() {
           disabled={previewLoading}
         />
       </CreditConfirmModal>
+
+      <BatchAddModal
+        isOpen={batchAddOpen}
+        onClose={() => setBatchAddOpen(false)}
+        onSuccess={() => {
+          setBatchAddOpen(false);
+          setRefreshKey((k) => k + 1);
+        }}
+      />
+
+      {selectionMode && (
+        <BulkActionsToolbar
+          selectedIds={selectedIds}
+          onUpdate={handleBulkUpdate}
+          onDelete={handleBulkDelete}
+          onCancel={handleExitSelectionMode}
+        />
+      )}
     </div>
   );
 }

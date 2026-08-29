@@ -1,5 +1,5 @@
 import type { ApiResponse, BulkCanonizeResult, CollectionCard, CollectionCardDetail, CollectionSummary, PriceHistoryResponse } from "../types/api";
-import { apiGet, apiPatch, apiPost } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 
 export function fetchCollection(
   params?: Record<string, string>,
@@ -115,8 +115,93 @@ export function fetchValuation(
   return apiGet<ValuationData>("/api/v1/collection/valuation", params);
 }
 
+export function patchCollectionEntry(
+  id: number,
+  updates: { quantity?: number; quality?: string; language?: string; extras?: string },
+): Promise<ApiResponse<CollectionCard>> {
+  return apiPatch<CollectionCard>(`/api/v1/collection/${id}`, updates);
+}
+
+export async function deleteCollectionEntry(id: number): Promise<void> {
+  return apiDelete(`/api/v1/collection/${id}`);
+}
+
 export function fetchCollectionSets(): Promise<
   ApiResponse<{ set_code: string; set_name: string | null; count: number }[]>
 > {
   return apiGet("/api/v1/collection/sets");
+}
+
+// --- Batch operations ---
+
+export interface ParsedLine {
+  line_number: number;
+  raw_text: string;
+  quantity: number;
+  name: string;
+  set_code: string | null;
+  quality: string | null;
+  language: string | null;
+  extras: string | null;
+  error: string | null;
+}
+
+export interface BatchParseResult {
+  entries: ParsedLine[];
+}
+
+export interface BatchAddEntry {
+  name_en: string;
+  set_code?: string;
+  collector_number?: string;
+  quantity?: number;
+  quality?: string;
+  language?: string;
+  extras?: string;
+}
+
+export interface BatchAddError {
+  line: number;
+  text: string;
+  error: string;
+}
+
+export interface BatchAddResult {
+  added: number;
+  errors: BatchAddError[];
+}
+
+export function parseBatchText(
+  text: string,
+): Promise<ApiResponse<BatchParseResult>> {
+  return apiPost<BatchParseResult>("/api/v1/collection/batch/parse", { text });
+}
+
+export function addBatchEntries(
+  entries: BatchAddEntry[],
+): Promise<ApiResponse<BatchAddResult>> {
+  return apiPost<BatchAddResult>("/api/v1/collection/batch", { entries });
+}
+
+// --- Bulk operations ---
+
+export interface BulkUpdateResponse {
+  affected: number;
+}
+
+export interface BulkDeleteResponse {
+  deleted: number;
+}
+
+export function bulkUpdateEntries(
+  ids: number[],
+  updates: { quality?: string; language?: string; extras?: string },
+): Promise<ApiResponse<BulkUpdateResponse>> {
+  return apiPatch<BulkUpdateResponse>("/api/v1/collection/bulk", { ids, updates });
+}
+
+export function bulkDeleteEntries(
+  ids: number[],
+): Promise<ApiResponse<BulkDeleteResponse>> {
+  return apiPost<BulkDeleteResponse>("/api/v1/collection/bulk-delete", { ids });
 }
