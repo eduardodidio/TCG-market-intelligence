@@ -234,11 +234,13 @@ def create_app() -> FastAPI:
     from src.api.routers.admin import router as admin_router
     from src.api.routers.auth import router as auth_router
     from src.api.routers.banlist import router as banlist_router
+    from src.api.routers.card_search import router as card_search_router
     from src.api.routers.cards import router as cards_router
     from src.api.routers.collect import router as collect_router
     from src.api.routers.collection import router as collection_router
     from src.api.routers.credits import router as credits_router
     from src.api.routers.decks import router as decks_router
+    from src.api.routers.evaluations import router as evaluations_router
     from src.api.routers.exchange_rates import router as exchange_rates_router
     from src.api.routers.market import router as market_router
     from src.api.routers.marketplace import router as marketplace_router
@@ -248,6 +250,7 @@ def create_app() -> FastAPI:
 
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(card_search_router, prefix="/api/v1")
     app.include_router(cards_router, prefix="/api/v1")
     app.include_router(credits_router, prefix="/api/v1")
     app.include_router(sets_router, prefix="/api/v1")
@@ -255,6 +258,7 @@ def create_app() -> FastAPI:
     app.include_router(collect_router, prefix="/api/v1")
     app.include_router(collection_router, prefix="/api/v1")
     app.include_router(decks_router, prefix="/api/v1")
+    app.include_router(evaluations_router, prefix="/api/v1")
     app.include_router(marketplace_router, prefix="/api/v1")
     app.include_router(scans_router, prefix="/api/v1")
     app.include_router(exchange_rates_router, prefix="/api/v1")

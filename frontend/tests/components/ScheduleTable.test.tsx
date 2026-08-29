@@ -101,4 +101,27 @@ describe("ScheduleTable", () => {
     fireEvent.click(screen.getByTestId("action-delete-1"));
     expect(onDelete).toHaveBeenCalledWith(1);
   });
+
+  it("renders amber badge for paused_insufficient_credits status", () => {
+    renderTable([
+      makeSchedule({ id: 1, status: "paused_insufficient_credits" }),
+    ]);
+    const badge = screen.getByTestId(
+      "status-badge-paused_insufficient_credits",
+    );
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain("text-yellow-400");
+    expect(badge.textContent).toBe("Insufficient tokens");
+  });
+
+  it("resume button works for paused_insufficient_credits", () => {
+    const onPauseResume = vi.fn();
+    renderTable(
+      [makeSchedule({ id: 1, status: "paused_insufficient_credits" })],
+      { onPauseResume },
+    );
+
+    fireEvent.click(screen.getByTestId("action-pause-1"));
+    expect(onPauseResume).toHaveBeenCalledWith(1, "active");
+  });
 });

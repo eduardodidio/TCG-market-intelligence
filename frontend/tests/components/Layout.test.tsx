@@ -87,33 +87,68 @@ function renderLayout(
   );
 }
 
+/** Helper: expand beta nav section */
+function expandBeta() {
+  const toggle = screen.getByTestId("beta-nav-toggle");
+  fireEvent.click(toggle);
+}
+
+/** Helper: get all visible link texts in the sidebar nav */
+function getNavLinkTexts() {
+  const nav = screen.getByTestId("sidebar-nav");
+  return Array.from(nav.querySelectorAll("a")).map((a) => a.textContent);
+}
+
 describe("Layout", () => {
-  it("renders the sidebar with navigation links when authenticated (non-admin)", () => {
+  // --- Primary nav items (always visible) ---
+
+  it("renders primary nav items when authenticated (non-admin)", () => {
     renderLayout();
 
     const nav = screen.getByTestId("sidebar-nav");
-    expect(nav).toBeDefined();
-
     const links = nav.querySelectorAll("a");
-    // Non-admin sees 11 links (no Admin; scans/schedules/liga-status consolidated into Admin)
-    expect(links).toHaveLength(11);
+    // Non-admin primary: Dashboard, My Collection, Explore Cards, Settings (no Admin)
+    expect(links).toHaveLength(4);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
+    expect(linkTexts).toContain("Settings");
+    expect(linkTexts).not.toContain("Admin");
+  });
+
+  it("shows all nav items (primary + beta) when beta is expanded", () => {
+    renderLayout();
+    expandBeta();
+
+    const linkTexts = getNavLinkTexts();
+    // Primary (4) + Beta (8) = 12
+    expect(linkTexts).toHaveLength(12);
+    expect(linkTexts).toContain("Dashboard");
+    expect(linkTexts).toContain("My Collection");
+    expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Market");
     expect(linkTexts).toContain("Trending");
+    expect(linkTexts).toContain("Ban List");
     expect(linkTexts).toContain("Ban History");
     expect(linkTexts).toContain("My Decks");
     expect(linkTexts).toContain("Top Decks");
     expect(linkTexts).toContain("Marketplace");
-    expect(linkTexts).toContain("Ban List");
+    expect(linkTexts).toContain("Evaluations");
     expect(linkTexts).toContain("Settings");
     expect(linkTexts).not.toContain("Admin");
-    expect(linkTexts).not.toContain("Price Scans");
-    expect(linkTexts).not.toContain("Schedules");
-    expect(linkTexts).not.toContain("Liga Status");
+  });
+
+  it("hides beta items when collapsed (default)", () => {
+    renderLayout();
+
+    const linkTexts = getNavLinkTexts();
+    expect(linkTexts).not.toContain("Market");
+    expect(linkTexts).not.toContain("Trending");
+    expect(linkTexts).not.toContain("Ban List");
+    expect(linkTexts).not.toContain("My Decks");
+    expect(linkTexts).not.toContain("Marketplace");
   });
 
   it("hides protected nav items when unauthenticated", () => {
@@ -121,18 +156,29 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Only public items: Dashboard, Explore Cards, Market, Trending, Ban List, Ban History
-    expect(links).toHaveLength(6);
+    // Only public primary items: Dashboard, Explore Cards
+    expect(links).toHaveLength(2);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("Explore Cards");
+    expect(linkTexts).not.toContain("My Collection");
+    expect(linkTexts).not.toContain("Settings");
+  });
+
+  it("shows public beta items when unauthenticated and expanded", () => {
+    renderLayout("/", mockAuthUnauthenticated);
+    expandBeta();
+
+    const linkTexts = getNavLinkTexts();
     expect(linkTexts).toContain("Market");
     expect(linkTexts).toContain("Trending");
-    expect(linkTexts).not.toContain("My Collection");
+    expect(linkTexts).toContain("Ban List");
+    expect(linkTexts).toContain("Ban History");
+    // Auth-required beta items should be hidden
+    expect(linkTexts).not.toContain("My Decks");
     expect(linkTexts).not.toContain("Top Decks");
-    expect(linkTexts).not.toContain("Price Scans");
-    expect(linkTexts).not.toContain("Schedules");
+    expect(linkTexts).not.toContain("Marketplace");
   });
 
   it("renders the main content area (Outlet)", () => {
@@ -163,6 +209,8 @@ describe("Layout", () => {
 
   it("links have correct href attributes when authenticated", () => {
     renderLayout();
+    expandBeta();
+
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
 
@@ -211,6 +259,8 @@ describe("Layout", () => {
 
   it("nav links have focus-visible ring classes", () => {
     renderLayout();
+    expandBeta();
+
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
 
@@ -249,6 +299,8 @@ describe("Layout", () => {
 
   it("on /market, Market is active and Trending is NOT active", () => {
     renderLayout("/market");
+    expandBeta();
+
     const nav = screen.getByTestId("sidebar-nav");
     const links = Array.from(nav.querySelectorAll("a"));
     const marketLink = links.find((a) => a.textContent === "Market");
@@ -259,6 +311,8 @@ describe("Layout", () => {
 
   it("on /market/trending, Trending is active and Market is NOT active", () => {
     renderLayout("/market/trending");
+    expandBeta();
+
     const nav = screen.getByTestId("sidebar-nav");
     const links = Array.from(nav.querySelectorAll("a"));
     const marketLink = links.find((a) => a.textContent === "Market");
@@ -269,6 +323,8 @@ describe("Layout", () => {
 
   it("on /banlist, Ban List is active and Ban History is NOT active", () => {
     renderLayout("/banlist");
+    expandBeta();
+
     const nav = screen.getByTestId("sidebar-nav");
     const links = Array.from(nav.querySelectorAll("a"));
     const banlistLink = links.find((a) => a.textContent === "Ban List");
@@ -279,6 +335,8 @@ describe("Layout", () => {
 
   it("on /decks, My Decks is active and Top Decks is NOT active", () => {
     renderLayout("/decks");
+    expandBeta();
+
     const nav = screen.getByTestId("sidebar-nav");
     const links = Array.from(nav.querySelectorAll("a"));
     const decksLink = links.find((a) => a.textContent === "My Decks");
@@ -315,10 +373,13 @@ describe("Layout", () => {
 
   it("shows Admin link for admin users", () => {
     renderLayout("/", mockAuthAdmin);
+    expandBeta();
+
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Admin sees 12 links (11 non-admin + Admin)
-    expect(links).toHaveLength(12);
+    // Admin sees 5 primary (Dashboard, My Collection, Explore Cards, Settings, Admin)
+    // + 8 beta = 13 total
+    expect(links).toHaveLength(13);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Admin");
@@ -335,20 +396,85 @@ describe("Layout", () => {
 
   it("hides Liga Status link for non-admin authenticated users", () => {
     renderLayout();
-    const nav = screen.getByTestId("sidebar-nav");
-    const linkTexts = Array.from(nav.querySelectorAll("a")).map(
-      (a) => a.textContent,
-    );
+    expandBeta();
+    const linkTexts = getNavLinkTexts();
     expect(linkTexts).not.toContain("Liga Status");
   });
 
   it("hides admin links for unauthenticated users", () => {
     renderLayout("/", mockAuthUnauthenticated);
-    const nav = screen.getByTestId("sidebar-nav");
-    const linkTexts = Array.from(nav.querySelectorAll("a")).map(
-      (a) => a.textContent,
-    );
+    expandBeta();
+    const linkTexts = getNavLinkTexts();
     expect(linkTexts).not.toContain("Admin");
     expect(linkTexts).not.toContain("Liga Status");
+  });
+
+  // --- Beta Test disclosure section ---
+
+  it("renders Beta Test toggle button", () => {
+    renderLayout();
+    const toggle = screen.getByTestId("beta-nav-toggle");
+    expect(toggle).toBeDefined();
+    expect(toggle.textContent).toContain("Beta Test");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("toggles beta section open and closed", () => {
+    renderLayout();
+    const toggle = screen.getByTestId("beta-nav-toggle");
+
+    // Initially collapsed
+    expect(screen.queryByTestId("beta-nav-items")).toBeNull();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    // Open
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("beta-nav-items")).toBeDefined();
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    // Close
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId("beta-nav-items")).toBeNull();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("persists beta open state to localStorage", () => {
+    renderLayout();
+    const toggle = screen.getByTestId("beta-nav-toggle");
+
+    fireEvent.click(toggle);
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      "tcg_beta_nav_open",
+      "true",
+    );
+
+    fireEvent.click(toggle);
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      "tcg_beta_nav_open",
+      "false",
+    );
+  });
+
+  it("restores beta open state from localStorage", () => {
+    (localStorage.getItem as ReturnType<typeof vi.fn>).mockImplementation(
+      (key: string) => (key === "tcg_beta_nav_open" ? "true" : null),
+    );
+
+    renderLayout();
+    // Beta section should be open because localStorage returned "true"
+    expect(screen.getByTestId("beta-nav-items")).toBeDefined();
+  });
+
+  it("chevron rotates when beta is expanded", () => {
+    renderLayout();
+    const toggle = screen.getByTestId("beta-nav-toggle");
+    const svg = toggle.querySelector("svg");
+
+    // Collapsed: no rotate-90
+    expect(svg?.getAttribute("class")).not.toContain("rotate-90");
+
+    // Expanded: rotate-90
+    fireEvent.click(toggle);
+    expect(svg?.getAttribute("class")).toContain("rotate-90");
   });
 });

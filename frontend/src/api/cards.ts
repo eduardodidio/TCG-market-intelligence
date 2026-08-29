@@ -1,4 +1,4 @@
-import type { ApiResponse, CardDetail, CardSummary, PriceHistoryResponse } from "../types/api";
+import type { ApiResponse, CardDetail, CardSummary, PriceHistoryResponse, WebSearchResult } from "../types/api";
 import { apiGet } from "./client";
 
 export function fetchCards(
@@ -23,4 +23,10 @@ export function fetchCardHistory(
   if (period) params.period = period;
   if (currency) params.currency = currency;
   return apiGet<PriceHistoryResponse>(`/api/v1/cards/${id}/history`, params);
+}
+
+export function searchCardsWeb(
+  query: string,
+): Promise<ApiResponse<WebSearchResult[]>> {
+  return apiGet<WebSearchResult[]>("/api/v1/cards/search-web", { q: query }, { timeoutMs: 35_000 });
 }

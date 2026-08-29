@@ -47,7 +47,9 @@
     "settings": "Settings",
     "admin": "Admin",
     "ligaStatus": "Liga Status",
-    "marketplace": "Marketplace"
+    "marketplace": "Marketplace",
+    "evaluations": "Evaluations",
+    "betaTest": "Beta Test"
   },
   "admin": {
     "title": "Admin Panel",
@@ -155,7 +157,18 @@
     "searchPlaceholder": "Search cards by name...",
     "noCardsFiltered": "No cards found. Try a different search.",
     "noCardsEmpty": "No cards with price data yet. Run a collection sync to fetch prices.",
-    "setsLoadError": "Failed to load sets filter"
+    "setsLoadError": "Failed to load sets filter",
+    "searchWeb": "Web Search",
+    "localSearch": "Local",
+    "webSearchPlaceholder": "Search card name on Liga...",
+    "searching": "Searching...",
+    "noWebResults": "No results found",
+    "addToCollection": "Add to Collection",
+    "addToEvaluation": "Add to Evaluation",
+    "searchCooldown": "Wait before searching again",
+    "webSearchCost": "Costs 1 token",
+    "ligaUnavailable": "Liga search unavailable",
+    "comingSoon": "Coming soon"
   },
   "cardDetail": {
     "pageTitle": "Card Detail | TEDHC Market",
@@ -529,7 +542,8 @@
     "updated": "Schedule updated",
     "deleted": "Schedule deleted",
     "triggered": "Scan triggered",
-    "pausedByErrors": "Auto-paused after {{count}} errors"
+    "pausedByErrors": "Auto-paused after {{count}} errors",
+    "pausedInsufficientCredits": "Insufficient tokens"
   },
   "topDecks": {
     "title": "Top Decks by Value",
@@ -601,7 +615,8 @@
     "observations": "{{count}} observations",
     "cached": "Cached {{time}} ago",
     "changePercent": "{{value}}%",
-    "priceChange": "Price Change"
+    "priceChange": "Price Change",
+    "collectionOnly": "My Collection Only"
   },
   "marketPage": {
     "title": "Market Overview",
@@ -810,5 +825,17 @@
     "deleteMessage": "This will permanently delete {{count}} card(s) from your collection. This action cannot be undone.",
     "updateSuccess": "{{count}} card(s) updated",
     "deleteSuccess": "{{count}} card(s) deleted"
+  },
+  "evaluations": {
+    "title": "Evaluation List",
+    "empty": "No cards under evaluation. Search for cards to add.",
+    "priceAtAdd": "Price when added",
+    "addedOn": "Added on",
+    "promote": "Add to Collection",
+    "remove": "Remove",
+    "promoted": "Card promoted to collection",
+    "removed": "Card removed from evaluation",
+    "limitReached": "Evaluation list limit reached (50)",
+    "addSuccess": "Added to eval"
   }
 }

@@ -387,6 +387,29 @@ class TradeAgreementRow(Base):
     __table_args__ = (Index("ix_trade_agreement_interest", "trade_interest_id"),)
 
 
+class EvaluationEntryRow(Base):
+    __tablename__ = "evaluation_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    card_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    set_code: Mapped[str | None] = mapped_column(String(20))
+    collector_number: Mapped[str | None] = mapped_column(String(20))
+    liga_url: Mapped[str | None] = mapped_column(String(1000))
+    source_data_json: Mapped[str | None] = mapped_column(Text)
+    price_at_add: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    card_id: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    __table_args__ = (
+        Index("ix_evaluation_entries_user", "user_id"),
+        Index("ix_evaluation_entries_card", "card_id"),
+    )
+
+
 class ErrorLogRow(Base):
     __tablename__ = "error_log"
 

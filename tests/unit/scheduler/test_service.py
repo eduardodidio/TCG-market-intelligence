@@ -236,6 +236,7 @@ class TestExecuteScheduledScan:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "Daily",
             "cron_expression": "0 6 * * *",
             "scan_type": "collection",
@@ -246,6 +247,7 @@ class TestExecuteScheduledScan:
             "max_retries": 3,
         }
         mock_repo.create_scan_run.return_value = 10
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -270,6 +272,7 @@ class TestExecuteScheduledScan:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "Daily",
             "cron_expression": "0 6 * * *",
             "scan_type": "collection",
@@ -279,6 +282,7 @@ class TestExecuteScheduledScan:
             "error_count": 0,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -298,6 +302,7 @@ class TestExecuteScheduledScan:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "Daily",
             "cron_expression": "0 6 * * *",
             "scan_type": "collection",
@@ -307,6 +312,7 @@ class TestExecuteScheduledScan:
             "error_count": 2,  # already at max_retries - 1
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -323,6 +329,7 @@ class TestExecuteScheduledScan:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "Daily",
             "cron_expression": "0 6 * * *",
             "scan_type": "collection",
@@ -344,3 +351,139 @@ class TestExecuteScheduledScan:
 
         # Should not have created a new scan run
         mock_repo.create_scan_run.assert_not_called()
+
+
+class TestScheduleTokenCost:
+    """Token cost enforcement for scheduled scans (F90-T04)."""
+
+    def _make_schedule(self, **overrides) -> dict:
+        """Create a schedule dict with sensible defaults."""
+        base = {
+            "id": 1,
+            "user_id": "42",
+            "name": "Daily",
+            "cron_expression": "0 6 * * *",
+            "scan_type": "collection",
+            "filters_json": "{}",
+            "status": "active",
+            "last_run_id": None,
+            "error_count": 0,
+            "max_retries": 3,
+        }
+        base.update(overrides)
+        return base
+
+    @patch("src.scheduler.service.Repository")
+    @patch("src.scheduler.service.asyncio.run")
+    def test_scheduled_scan_deducts_tokens(self, mock_asyncio_run, MockRepo) -> None:
+        """When user has enough credits, tokens are deducted and scan proceeds."""
+        mock_repo = MockRepo.return_value
+        mock_repo.get_scheduled_scan.return_value = self._make_schedule()
+        mock_repo.count_collection.return_value = 10
+        mock_repo.create_scan_run.return_value = 100
+
+        # Mock CreditService balance check
+        mock_balance_row = MagicMock()
+        mock_balance_row.user_id = "42"
+        mock_balance_row.balance = 50
+        mock_balance_row.last_bonus_at = None
+        mock_repo.ensure_credit_balance.return_value = mock_balance_row
+
+        # Mock the deduction
+        mock_deducted_row = MagicMock()
+        mock_deducted_row.user_id = "42"
+        mock_deducted_row.balance = 40
+        mock_deducted_row.last_bonus_at = None
+        mock_repo.update_credit_balance.return_value = mock_deducted_row
+
+        scheduler = ScanScheduler("sqlite:///:memory:")
+        scheduler._scheduler = MagicMock()
+        scheduler._scheduler.get_job.return_value = None
+
+        scheduler._execute_scheduled_scan(1, scan_id=100)
+
+        # Verify deduction was called
+        mock_repo.update_credit_balance.assert_called_once_with(
+            user_id="42",
+            delta=-10,
+            reason="scheduled_scan",
+            reference_id="schedule_1",
+        )
+
+        # Verify scan actually ran
+        mock_asyncio_run.assert_called_once()
+
+    @patch("src.scheduler.service.Repository")
+    @patch("src.scheduler.service.asyncio.run")
+    def test_scheduled_scan_insufficient_credits(self, mock_asyncio_run, MockRepo) -> None:
+        """When user lacks credits, schedule is paused and scan is skipped."""
+        mock_repo = MockRepo.return_value
+        mock_repo.get_scheduled_scan.return_value = self._make_schedule()
+        mock_repo.count_collection.return_value = 10
+
+        # User has only 5 credits but needs 10
+        mock_balance_row = MagicMock()
+        mock_balance_row.user_id = "42"
+        mock_balance_row.balance = 5
+        mock_balance_row.last_bonus_at = None
+        mock_repo.ensure_credit_balance.return_value = mock_balance_row
+
+        scheduler = ScanScheduler("sqlite:///:memory:")
+        scheduler._scheduler = MagicMock()
+        scheduler._scheduler.get_job.return_value = MagicMock()
+
+        scheduler._execute_scheduled_scan(1, scan_id=100)
+
+        # Scan should NOT have run
+        mock_asyncio_run.assert_not_called()
+
+        # Schedule should be paused with insufficient credits status
+        mock_repo.update_scheduled_scan.assert_called_once_with(
+            1, status="paused_insufficient_credits"
+        )
+
+    @patch("src.scheduler.service.Repository")
+    @patch("src.scheduler.service.asyncio.run")
+    def test_admin_daily_liga_exempt(self, mock_asyncio_run, MockRepo) -> None:
+        """admin_daily_liga scans skip token checks entirely."""
+        mock_repo = MockRepo.return_value
+        mock_repo.get_scheduled_scan.return_value = self._make_schedule(
+            scan_type="admin_daily_liga",
+            filters_json='{"provider": "liga", "max_age_days": 1}',
+        )
+        mock_repo.create_scan_run.return_value = 200
+
+        scheduler = ScanScheduler("sqlite:///:memory:")
+        scheduler._scheduler = MagicMock()
+        scheduler._scheduler.get_job.return_value = None
+
+        scheduler._execute_scheduled_scan(1, scan_id=200)
+
+        # Should not check credits at all
+        mock_repo.count_collection.assert_not_called()
+        mock_repo.ensure_credit_balance.assert_not_called()
+
+        # Scan should have run
+        mock_asyncio_run.assert_called_once()
+
+    @patch("src.scheduler.service.Repository")
+    @patch("src.scheduler.service.asyncio.run")
+    def test_scheduled_scan_zero_cards(self, mock_asyncio_run, MockRepo) -> None:
+        """If user has 0 cards, scan proceeds with 0 cost (no deduction)."""
+        mock_repo = MockRepo.return_value
+        mock_repo.get_scheduled_scan.return_value = self._make_schedule()
+        mock_repo.count_collection.return_value = 0
+        mock_repo.create_scan_run.return_value = 300
+
+        scheduler = ScanScheduler("sqlite:///:memory:")
+        scheduler._scheduler = MagicMock()
+        scheduler._scheduler.get_job.return_value = None
+
+        scheduler._execute_scheduled_scan(1, scan_id=300)
+
+        # Should not attempt deduction
+        mock_repo.update_credit_balance.assert_not_called()
+        mock_repo.ensure_credit_balance.assert_not_called()
+
+        # Scan should have run
+        mock_asyncio_run.assert_called_once()

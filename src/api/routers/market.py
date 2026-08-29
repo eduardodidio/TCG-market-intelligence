@@ -6,7 +6,12 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
 
-from src.api.deps import get_currency_converter_dep, get_db, get_market_data_service
+from src.api.deps import (
+    get_currency_converter_dep,
+    get_db,
+    get_market_data_service,
+    get_optional_user,
+)
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.api.schemas.market import (
     MarketStats,
@@ -16,6 +21,7 @@ from src.api.schemas.market import (
 from src.api.schemas.market_summary import MarketSummaryResponse
 from src.api.schemas.trending import TrendingCardEntry, TrendingResponse
 from src.database.repository import Repository
+from src.domain.models import User
 from src.services.currency import CurrencyConverter
 from src.services.market_data import MarketDataService
 from src.services.trending import TrendingService
@@ -128,8 +134,10 @@ def get_trending_gainers(
     period: str = Query(default="30d"),
     limit: int = Query(default=20, ge=1, le=50),
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    collection_only: bool = Query(default=False),
     service: TrendingService = Depends(get_trending_service),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user: User | None = Depends(get_optional_user),
 ):
     if period not in TRENDING_PERIOD_MAP:
         raise HTTPException(
@@ -137,7 +145,8 @@ def get_trending_gainers(
             detail=f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
         )
     days = TRENDING_PERIOD_MAP[period]
-    data = service.get_trending("up", days, limit, converter, currency)
+    user_id = user.id if collection_only and user else None
+    data = service.get_trending("up", days, limit, converter, currency, user_id=user_id)
     data.period = period
     return success_response(data=data)
 
@@ -147,8 +156,10 @@ def get_trending_losers(
     period: str = Query(default="30d"),
     limit: int = Query(default=20, ge=1, le=50),
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    collection_only: bool = Query(default=False),
     service: TrendingService = Depends(get_trending_service),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user: User | None = Depends(get_optional_user),
 ):
     if period not in TRENDING_PERIOD_MAP:
         raise HTTPException(
@@ -156,7 +167,8 @@ def get_trending_losers(
             detail=f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
         )
     days = TRENDING_PERIOD_MAP[period]
-    data = service.get_trending("down", days, limit, converter, currency)
+    user_id = user.id if collection_only and user else None
+    data = service.get_trending("down", days, limit, converter, currency, user_id=user_id)
     data.period = period
     return success_response(data=data)
 

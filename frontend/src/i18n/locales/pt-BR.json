@@ -47,7 +47,9 @@
     "settings": "Configuracoes",
     "admin": "Administracao",
     "ligaStatus": "Status Liga",
-    "marketplace": "Marketplace"
+    "marketplace": "Marketplace",
+    "evaluations": "Avaliacoes",
+    "betaTest": "Beta Test"
   },
   "admin": {
     "title": "Painel Admin",
@@ -155,7 +157,18 @@
     "searchPlaceholder": "Buscar cartas por nome...",
     "noCardsFiltered": "Nenhuma carta encontrada. Tente uma busca diferente.",
     "noCardsEmpty": "Ainda nao ha cartas com dados de preco. Execute uma sincronizacao de colecao para buscar precos.",
-    "setsLoadError": "Falha ao carregar filtro de edicoes"
+    "setsLoadError": "Falha ao carregar filtro de edicoes",
+    "searchWeb": "Busca Web",
+    "localSearch": "Local",
+    "webSearchPlaceholder": "Buscar nome do card na Liga...",
+    "searching": "Buscando...",
+    "noWebResults": "Nenhum resultado encontrado",
+    "addToCollection": "Adicionar a Colecao",
+    "addToEvaluation": "Adicionar a Avaliacao",
+    "searchCooldown": "Aguarde antes de buscar novamente",
+    "webSearchCost": "Custa 1 token",
+    "ligaUnavailable": "Busca Liga indisponivel",
+    "comingSoon": "Em breve"
   },
   "cardDetail": {
     "pageTitle": "Detalhe da Carta | TEDHC Market",
@@ -529,7 +542,8 @@
     "updated": "Agendamento atualizado",
     "deleted": "Agendamento excluido",
     "triggered": "Scan iniciado",
-    "pausedByErrors": "Auto-pausado apos {{count}} erro(s)"
+    "pausedByErrors": "Auto-pausado apos {{count}} erro(s)",
+    "pausedInsufficientCredits": "Tokens insuficientes"
   },
   "topDecks": {
     "title": "Top Decks por Valor",
@@ -601,7 +615,8 @@
     "observations": "{{count}} observacoes",
     "cached": "Cache de {{time}} atras",
     "changePercent": "{{value}}%",
-    "priceChange": "Variacao de Preco"
+    "priceChange": "Variacao de Preco",
+    "collectionOnly": "Somente Minha Colecao"
   },
   "marketPage": {
     "title": "Visao Geral do Mercado",
@@ -810,5 +825,17 @@
     "deleteMessage": "Isso excluira permanentemente {{count}} carta(s) da sua colecao. Esta acao nao pode ser desfeita.",
     "updateSuccess": "{{count}} carta(s) atualizada(s)",
     "deleteSuccess": "{{count}} carta(s) excluida(s)"
+  },
+  "evaluations": {
+    "title": "Lista de Avaliacao",
+    "empty": "Nenhum card em avaliacao. Busque cards para adicionar.",
+    "priceAtAdd": "Preco ao adicionar",
+    "addedOn": "Adicionado em",
+    "promote": "Adicionar a Colecao",
+    "remove": "Remover",
+    "promoted": "Card promovido para colecao",
+    "removed": "Card removido da avaliacao",
+    "limitReached": "Limite da lista de avaliacao atingido (50)",
+    "addSuccess": "Adicionado a avaliacao"
   }
 }

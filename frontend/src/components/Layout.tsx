@@ -11,15 +11,22 @@ import { LanguageSelector } from "./LanguageSelector";
 import { MarketTicker } from "./MarketTicker";
 import { TreasureBalance } from "./TreasureBalance";
 
-const NAV_ITEMS: ReadonlyArray<{
+interface NavItem {
   to: string;
   labelKey: string;
   requiresAuth: boolean;
   requiresAdmin?: boolean;
-}> = [
+}
+
+const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/", labelKey: "nav.dashboard", requiresAuth: false },
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
+  { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
+  { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
+];
+
+const BETA_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/market", labelKey: "nav.market", requiresAuth: false },
   { to: "/market/trending", labelKey: "nav.trending", requiresAuth: false },
   { to: "/banlist", labelKey: "nav.banlist", requiresAuth: false },
@@ -27,9 +34,10 @@ const NAV_ITEMS: ReadonlyArray<{
   { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true },
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true },
   { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true },
-  { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
-  { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
+  { to: "/evaluations", labelKey: "nav.evaluations", requiresAuth: true },
 ];
+
+const BETA_NAV_STORAGE_KEY = "tcg_beta_nav_open";
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
@@ -45,6 +53,13 @@ function getInitials(name: string | null | undefined): string {
 export function Layout() {
   const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [betaOpen, setBetaOpen] = useState(() => {
+    try {
+      return localStorage.getItem(BETA_NAV_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
@@ -58,11 +73,27 @@ export function Layout() {
   const initials = getInitials(displayName);
 
   // Filter nav items based on auth status and admin role
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (item.requiresAuth && !isAuthenticated) return false;
-    if (item.requiresAdmin && !user?.is_admin) return false;
-    return true;
-  });
+  const filterNavItems = (items: ReadonlyArray<NavItem>) =>
+    items.filter((item) => {
+      if (item.requiresAuth && !isAuthenticated) return false;
+      if (item.requiresAdmin && !user?.is_admin) return false;
+      return true;
+    });
+
+  const visiblePrimaryItems = filterNavItems(PRIMARY_NAV_ITEMS);
+  const visibleBetaItems = filterNavItems(BETA_NAV_ITEMS);
+
+  const toggleBeta = () => {
+    setBetaOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(BETA_NAV_STORAGE_KEY, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   // Gaucho easter egg (PILA currency)
   const gaucho = useGauchoEasterEgg(location.pathname);
@@ -147,7 +178,7 @@ export function Layout() {
           <LanguageSelector variant="compact" />
         </div>
         <nav className="mt-4 px-3" data-testid="sidebar-nav">
-          {visibleNavItems.map((item) => {
+          {visiblePrimaryItems.map((item) => {
             const isActive = location.pathname === item.to;
             return (
               <Link
@@ -167,6 +198,54 @@ export function Layout() {
               </Link>
             );
           })}
+
+          {/* Beta Test disclosure section */}
+          {visibleBetaItems.length > 0 && (
+            <div className="mt-2">
+              <button
+                onClick={toggleBeta}
+                className="flex items-center w-full px-3 py-2 mb-1 rounded-md text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                data-testid="beta-nav-toggle"
+                aria-expanded={betaOpen}
+              >
+                <svg
+                  className={`h-4 w-4 mr-2 transition-transform duration-200 ${betaOpen ? "rotate-90" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                {t("nav.betaTest")}
+              </button>
+              {betaOpen && (
+                <div data-testid="beta-nav-items">
+                  {visibleBetaItems.map((item) => {
+                    const isActive = location.pathname === item.to;
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        className={`
+                          flex items-center px-6 py-2 mb-1 rounded-md text-sm font-medium
+                          transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400
+                          ${
+                            isActive
+                              ? "bg-indigo-500 text-white shadow-md"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          }
+                        `}
+                      >
+                        {t(item.labelKey)}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
       </aside>
 

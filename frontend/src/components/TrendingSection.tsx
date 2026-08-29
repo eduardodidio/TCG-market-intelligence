@@ -13,6 +13,7 @@ interface TrendingSectionProps {
   currency: string;
   limit?: number;
   variant?: "cards" | "list";
+  collectionOnly?: boolean;
 }
 
 function SkeletonCard() {
@@ -27,15 +28,16 @@ function SkeletonCard() {
   );
 }
 
-export function TrendingSection({ direction, period, currency, limit, variant = "cards" }: TrendingSectionProps) {
+export function TrendingSection({ direction, period, currency, limit, variant = "cards", collectionOnly }: TrendingSectionProps) {
   const { t } = useTranslation();
 
   const params: Record<string, string> = { period, currency };
   if (limit) params.limit = String(limit);
+  if (collectionOnly) params.collection_only = "true";
 
   const { data, loading, error, refetch } = useApi<TrendingResponse>(
     (signal) => fetchTrending(direction, params, { signal }),
-    [direction, period, currency, limit],
+    [direction, period, currency, limit, collectionOnly],
   );
 
   const titleKey = direction === "gainers" ? "trending.trendingUp" : "trending.trendingDown";

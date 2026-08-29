@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.api.deps import get_current_user_id
+from src.api.schemas.envelope import ApiResponse, success_response
 from src.api.schemas.schedules import (
     ScheduleCreateRequest,
     ScheduleListResponse,
@@ -63,7 +64,7 @@ def _get_scheduler(request: Request):
     return getattr(request.app.state, "scheduler", None)
 
 
-@router.post("", response_model=ScheduleResponse, status_code=201)
+@router.post("", response_model=ApiResponse[ScheduleResponse], status_code=201)
 async def create_schedule(
     body: ScheduleCreateRequest,
     request: Request,
@@ -104,10 +105,10 @@ async def create_schedule(
             pass  # best-effort; schedule will be picked up on restart
 
     row = repo.get_scheduled_scan(schedule_id)
-    return _row_to_response(row)
+    return success_response(_row_to_response(row))
 
 
-@router.get("", response_model=ScheduleListResponse)
+@router.get("", response_model=ApiResponse[ScheduleListResponse])
 async def list_schedules(
     status: str | None = None,
     limit: int = 50,
@@ -120,13 +121,14 @@ async def list_schedules(
         user_id=user_id, status=status, limit=limit, offset=offset
     )
     total = repo.count_scheduled_scans(user_id, status=status)
-    return ScheduleListResponse(
+    data = ScheduleListResponse(
         schedules=[_row_to_response(s) for s in schedules],
         total=total,
     )
+    return success_response(data, total=total)
 
 
-@router.get("/{schedule_id}", response_model=ScheduleResponse)
+@router.get("/{schedule_id}", response_model=ApiResponse[ScheduleResponse])
 async def get_schedule(
     schedule_id: int,
     user_id: str = Depends(get_current_user_id),
@@ -136,10 +138,10 @@ async def get_schedule(
     row = repo.get_scheduled_scan(schedule_id)
     if row is None or row["user_id"] != user_id:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    return _row_to_response(row)
+    return success_response(_row_to_response(row))
 
 
-@router.patch("/{schedule_id}", response_model=ScheduleResponse)
+@router.patch("/{schedule_id}", response_model=ApiResponse[ScheduleResponse])
 async def update_schedule(
     schedule_id: int,
     body: ScheduleUpdateRequest,
@@ -154,7 +156,7 @@ async def update_schedule(
 
     updates = body.model_dump(exclude_none=True)
     if not updates:
-        return _row_to_response(existing)
+        return success_response(_row_to_response(existing))
 
     # Validate new cron expression
     if "cron_expression" in updates:
@@ -179,7 +181,7 @@ async def update_schedule(
                 scheduler.resume_schedule(schedule_id)
 
     row = repo.get_scheduled_scan(schedule_id)
-    return _row_to_response(row)
+    return success_response(_row_to_response(row))
 
 
 @router.delete("/{schedule_id}")
@@ -200,10 +202,10 @@ async def delete_schedule(
         scheduler.remove_schedule(schedule_id)
 
     repo.delete_scheduled_scan(schedule_id)
-    return {"status": "deleted"}
+    return success_response({"status": "deleted"})
 
 
-@router.post("/{schedule_id}/trigger", response_model=ScheduleTriggerResponse)
+@router.post("/{schedule_id}/trigger", response_model=ApiResponse[ScheduleTriggerResponse])
 async def trigger_schedule(
     schedule_id: int,
     request: Request,
@@ -220,8 +222,10 @@ async def trigger_schedule(
         raise HTTPException(status_code=503, detail="Scheduler not available")
 
     scan_id = scheduler.trigger_now(schedule_id)
-    return ScheduleTriggerResponse(
-        schedule_id=schedule_id,
-        scan_id=scan_id,
-        status="pending",
+    return success_response(
+        ScheduleTriggerResponse(
+            schedule_id=schedule_id,
+            scan_id=scan_id,
+            status="pending",
+        )
     )

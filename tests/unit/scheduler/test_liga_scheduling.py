@@ -28,6 +28,7 @@ class TestSchedulerLigaRouting:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "Liga Daily Partial",
             "cron_expression": "0 3 * * *",
             "scan_type": "liga_partial",
@@ -39,6 +40,7 @@ class TestSchedulerLigaRouting:
             "error_count": 0,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -61,6 +63,7 @@ class TestSchedulerLigaRouting:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 2,
+            "user_id": "1",
             "name": "MYP Daily",
             "cron_expression": "0 6 * * *",
             "scan_type": "collection",
@@ -70,6 +73,7 @@ class TestSchedulerLigaRouting:
             "error_count": 0,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -86,6 +90,7 @@ class TestSchedulerLigaRouting:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 3,
+            "user_id": "1",
             "name": "MYP Explicit",
             "cron_expression": "0 6 * * *",
             "scan_type": "collection",
@@ -95,6 +100,7 @@ class TestSchedulerLigaRouting:
             "error_count": 0,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -115,6 +121,7 @@ class TestSchedulerLigaPartial:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "Liga Daily Partial",
             "cron_expression": "0 3 * * *",
             "scan_type": "liga_partial",
@@ -126,6 +133,7 @@ class TestSchedulerLigaPartial:
             "error_count": 0,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -146,6 +154,7 @@ class TestSchedulerLigaPartial:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 2,
+            "user_id": "1",
             "name": "Liga Weekly Full",
             "cron_expression": "0 1 * * 0",
             "scan_type": "liga_full",
@@ -155,6 +164,7 @@ class TestSchedulerLigaPartial:
             "error_count": 0,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -177,6 +187,7 @@ class TestSchedulerAutoPauseLiga:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "Liga Daily Partial",
             "cron_expression": "0 3 * * *",
             "scan_type": "liga_partial",
@@ -188,6 +199,7 @@ class TestSchedulerAutoPauseLiga:
             "error_count": 2,  # at max_retries - 1
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -208,6 +220,7 @@ class TestSchedulerAutoPauseLiga:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "Liga Daily Partial",
             "cron_expression": "0 3 * * *",
             "scan_type": "liga_partial",
@@ -217,6 +230,7 @@ class TestSchedulerAutoPauseLiga:
             "error_count": 0,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -389,6 +403,7 @@ class TestExistingMypUnaffected:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "MYP Daily",
             "cron_expression": "0 6 * * *",
             "scan_type": "collection",
@@ -398,6 +413,7 @@ class TestExistingMypUnaffected:
             "error_count": 0,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()
@@ -415,6 +431,7 @@ class TestExistingMypUnaffected:
         mock_repo = MockRepo.return_value
         mock_repo.get_scheduled_scan.return_value = {
             "id": 1,
+            "user_id": "1",
             "name": "MYP Daily",
             "cron_expression": "0 6 * * *",
             "scan_type": "collection",
@@ -424,6 +441,7 @@ class TestExistingMypUnaffected:
             "error_count": 1,
             "max_retries": 3,
         }
+        mock_repo.count_collection.return_value = 0
 
         scheduler = ScanScheduler("sqlite:///:memory:")
         scheduler._scheduler = MagicMock()

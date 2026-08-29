@@ -1,6 +1,7 @@
 """Tests for schedule management API endpoints (F37-T05).
 
 Uses TestClient with mocked scheduler and in-memory DB.
+Updated for F90-T01: responses now use ApiResponse envelope.
 """
 
 from __future__ import annotations
@@ -60,25 +61,58 @@ def _setup_user(client):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _create_schedule(client, headers, name="Daily Scan", cron="0 6 * * *"):
+    """Helper: create a schedule and return the data dict from the envelope."""
+    resp = client.post(
+        "/api/v1/schedules",
+        json={
+            "name": name,
+            "cron_expression": cron,
+            "scan_type": "collection",
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert "data" in body
+    return body["data"]
+
+
 class TestCreateSchedule:
     """POST /api/v1/schedules."""
 
     def test_create_schedule_201(self, client) -> None:
         headers = _setup_user(client)
+        data = _create_schedule(client, headers)
+        assert data["name"] == "Daily Scan"
+        assert data["cron_expression"] == "0 6 * * *"
+        assert data["status"] == "active"
+
+    def test_create_schedule_envelope_shape(self, client) -> None:
+        """Verify the response matches the ApiResponse envelope format."""
+        headers = _setup_user(client)
         resp = client.post(
             "/api/v1/schedules",
             json={
-                "name": "Daily Scan",
+                "name": "Envelope Test",
                 "cron_expression": "0 6 * * *",
                 "scan_type": "collection",
             },
             headers=headers,
         )
         assert resp.status_code == 201
-        data = resp.json()
-        assert data["name"] == "Daily Scan"
-        assert data["cron_expression"] == "0 6 * * *"
-        assert data["status"] == "active"
+        body = resp.json()
+        # Must have the standard envelope keys
+        assert "data" in body
+        assert "meta" in body
+        assert "errors" in body
+        assert isinstance(body["errors"], list)
+        assert len(body["errors"]) == 0
+        # Data must contain the schedule
+        assert body["data"]["name"] == "Envelope Test"
+        assert "id" in body["data"]
+        # Meta must have request_id
+        assert "request_id" in body["meta"]
 
     def test_create_invalid_cron_422(self, client) -> None:
         headers = _setup_user(client)
@@ -112,22 +146,27 @@ class TestListSchedules:
 
     def test_list_schedules(self, client) -> None:
         headers = _setup_user(client)
-        # Create two schedules
-        client.post(
-            "/api/v1/schedules",
-            json={"name": "S1", "cron_expression": "0 6 * * *"},
-            headers=headers,
-        )
-        client.post(
-            "/api/v1/schedules",
-            json={"name": "S2", "cron_expression": "0 12 * * *"},
-            headers=headers,
-        )
+        _create_schedule(client, headers, "S1", "0 6 * * *")
+        _create_schedule(client, headers, "S2", "0 12 * * *")
+
         resp = client.get("/api/v1/schedules", headers=headers)
         assert resp.status_code == 200
-        data = resp.json()
-        assert data["total"] == 2
-        assert len(data["schedules"]) == 2
+        body = resp.json()
+        assert "data" in body
+        assert body["data"]["total"] == 2
+        assert len(body["data"]["schedules"]) == 2
+
+    def test_list_schedules_envelope_shape(self, client) -> None:
+        """Verify the list response has correct envelope."""
+        headers = _setup_user(client)
+        resp = client.get("/api/v1/schedules", headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "data" in body
+        assert "meta" in body
+        assert "errors" in body
+        assert body["data"]["schedules"] == []
+        assert body["data"]["total"] == 0
 
 
 class TestGetSchedule:
@@ -135,16 +174,13 @@ class TestGetSchedule:
 
     def test_get_existing(self, client) -> None:
         headers = _setup_user(client)
-        create_resp = client.post(
-            "/api/v1/schedules",
-            json={"name": "Test", "cron_expression": "0 6 * * *"},
-            headers=headers,
-        )
-        schedule_id = create_resp.json()["id"]
+        created = _create_schedule(client, headers, "Test")
+        schedule_id = created["id"]
 
         resp = client.get(f"/api/v1/schedules/{schedule_id}", headers=headers)
         assert resp.status_code == 200
-        assert resp.json()["name"] == "Test"
+        body = resp.json()
+        assert body["data"]["name"] == "Test"
 
     def test_get_nonexistent_404(self, client) -> None:
         headers = _setup_user(client)
@@ -157,12 +193,8 @@ class TestUpdateSchedule:
 
     def test_update_name(self, client) -> None:
         headers = _setup_user(client)
-        create_resp = client.post(
-            "/api/v1/schedules",
-            json={"name": "Original", "cron_expression": "0 6 * * *"},
-            headers=headers,
-        )
-        schedule_id = create_resp.json()["id"]
+        created = _create_schedule(client, headers, "Original")
+        schedule_id = created["id"]
 
         resp = client.patch(
             f"/api/v1/schedules/{schedule_id}",
@@ -170,16 +202,12 @@ class TestUpdateSchedule:
             headers=headers,
         )
         assert resp.status_code == 200
-        assert resp.json()["name"] == "Updated"
+        assert resp.json()["data"]["name"] == "Updated"
 
     def test_update_status_to_paused(self, client) -> None:
         headers = _setup_user(client)
-        create_resp = client.post(
-            "/api/v1/schedules",
-            json={"name": "S1", "cron_expression": "0 6 * * *"},
-            headers=headers,
-        )
-        schedule_id = create_resp.json()["id"]
+        created = _create_schedule(client, headers, "S1")
+        schedule_id = created["id"]
 
         resp = client.patch(
             f"/api/v1/schedules/{schedule_id}",
@@ -187,16 +215,46 @@ class TestUpdateSchedule:
             headers=headers,
         )
         assert resp.status_code == 200
-        assert resp.json()["status"] == "paused"
+        assert resp.json()["data"]["status"] == "paused"
+
+    def test_update_envelope_shape(self, client) -> None:
+        """Verify PATCH response uses envelope."""
+        headers = _setup_user(client)
+        created = _create_schedule(client, headers, "PatchTest")
+        schedule_id = created["id"]
+
+        resp = client.patch(
+            f"/api/v1/schedules/{schedule_id}",
+            json={"name": "PatchUpdated"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "data" in body
+        assert "meta" in body
+        assert "errors" in body
+        assert body["data"]["name"] == "PatchUpdated"
+
+    def test_update_no_changes(self, client) -> None:
+        """PATCH with empty body returns current data in envelope."""
+        headers = _setup_user(client)
+        created = _create_schedule(client, headers, "NoChange")
+        schedule_id = created["id"]
+
+        resp = client.patch(
+            f"/api/v1/schedules/{schedule_id}",
+            json={},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "data" in body
+        assert body["data"]["name"] == "NoChange"
 
     def test_update_invalid_cron_422(self, client) -> None:
         headers = _setup_user(client)
-        create_resp = client.post(
-            "/api/v1/schedules",
-            json={"name": "S1", "cron_expression": "0 6 * * *"},
-            headers=headers,
-        )
-        schedule_id = create_resp.json()["id"]
+        created = _create_schedule(client, headers, "S1")
+        schedule_id = created["id"]
 
         resp = client.patch(
             f"/api/v1/schedules/{schedule_id}",
@@ -211,15 +269,14 @@ class TestDeleteSchedule:
 
     def test_delete_existing(self, client) -> None:
         headers = _setup_user(client)
-        create_resp = client.post(
-            "/api/v1/schedules",
-            json={"name": "To Delete", "cron_expression": "0 6 * * *"},
-            headers=headers,
-        )
-        schedule_id = create_resp.json()["id"]
+        created = _create_schedule(client, headers, "To Delete")
+        schedule_id = created["id"]
 
         resp = client.delete(f"/api/v1/schedules/{schedule_id}", headers=headers)
         assert resp.status_code == 200
+        body = resp.json()
+        assert "data" in body
+        assert body["data"]["status"] == "deleted"
 
         # Verify deleted
         resp = client.get(f"/api/v1/schedules/{schedule_id}", headers=headers)
@@ -236,12 +293,8 @@ class TestTriggerSchedule:
 
     def test_trigger_without_scheduler_503(self, client) -> None:
         headers = _setup_user(client)
-        create_resp = client.post(
-            "/api/v1/schedules",
-            json={"name": "S1", "cron_expression": "0 6 * * *"},
-            headers=headers,
-        )
-        schedule_id = create_resp.json()["id"]
+        created = _create_schedule(client, headers, "S1")
+        schedule_id = created["id"]
 
         # No scheduler available (TCG_SCHEDULER_DISABLED=1)
         resp = client.post(
@@ -249,3 +302,36 @@ class TestTriggerSchedule:
             headers=headers,
         )
         assert resp.status_code == 503
+
+
+class TestCreateThenListRoundTrip:
+    """Integration: create schedule, verify it appears in list."""
+
+    def test_created_schedule_appears_in_list(self, client) -> None:
+        """After POST, the new schedule must appear in GET list."""
+        headers = _setup_user(client)
+        _create_schedule(client, headers, "RoundTrip")
+
+        resp = client.get("/api/v1/schedules", headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        names = [s["name"] for s in body["data"]["schedules"]]
+        assert "RoundTrip" in names
+        assert body["data"]["total"] >= 1
+
+    def test_update_then_verify_in_list(self, client) -> None:
+        """After PATCH, the updated name must appear in GET list."""
+        headers = _setup_user(client)
+        created = _create_schedule(client, headers, "Before")
+        schedule_id = created["id"]
+
+        client.patch(
+            f"/api/v1/schedules/{schedule_id}",
+            json={"name": "After"},
+            headers=headers,
+        )
+
+        resp = client.get("/api/v1/schedules", headers=headers)
+        names = [s["name"] for s in resp.json()["data"]["schedules"]]
+        assert "After" in names
+        assert "Before" not in names

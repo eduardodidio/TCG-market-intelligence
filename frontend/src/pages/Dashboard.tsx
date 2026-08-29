@@ -6,6 +6,7 @@ import { fetchMarketStats } from "../api/market";
 import { fetchCollectionHealth } from "../api/collect";
 import { fetchCollectionSummary } from "../api/collection";
 import { useCurrency } from "../hooks/useCurrency";
+import { useAuth } from "../hooks/useAuth";
 import { formatCurrency } from "../utils/format";
 import { KpiCard } from "../components/KpiCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
@@ -29,6 +30,7 @@ export function Dashboard() {
   }, [t]);
 
   const { currency } = useCurrency();
+  const { isAuthenticated } = useAuth();
 
   const stats = useApi<MarketStats>(() => fetchMarketStats({ currency }), [currency]);
   const health = useApi<CollectionHealth>(() => fetchCollectionHealth());
@@ -228,6 +230,7 @@ export function Dashboard() {
             currency={currency}
             limit={10}
             variant="list"
+            collectionOnly={isAuthenticated}
           />
         </div>
         <div data-testid="landing-trending-down">
@@ -237,6 +240,7 @@ export function Dashboard() {
             currency={currency}
             limit={10}
             variant="list"
+            collectionOnly={isAuthenticated}
           />
         </div>
       </div>

@@ -14,17 +14,28 @@ function StatusBadge({ status }: { status: string }) {
   const colorMap: Record<string, string> = {
     active: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
     paused: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    paused_insufficient_credits:
+      "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
     disabled: "bg-red-500/20 text-red-400 border-red-500/30",
   };
   const colors = colorMap[status] || colorMap.disabled;
-  const labelKey = `schedules.${status}` as const;
+
+  const labelMap: Record<string, string> = {
+    paused_insufficient_credits: t("schedules.pausedInsufficientCredits"),
+  };
+  const label = labelMap[status] || t(`schedules.${status}` as const);
 
   return (
     <span
       className={`inline-flex px-2 py-0.5 text-xs font-medium rounded border ${colors}`}
       data-testid={`status-badge-${status}`}
+      title={
+        status === "paused_insufficient_credits"
+          ? t("schedules.pausedInsufficientCredits")
+          : undefined
+      }
     >
-      {t(labelKey)}
+      {label}
     </span>
   );
 }

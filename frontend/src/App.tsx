@@ -72,6 +72,9 @@ const ChangePassword = lazy(() =>
     default: m.ChangePassword,
   })),
 );
+const Evaluations = lazy(() =>
+  import("./pages/Evaluations").then((m) => ({ default: m.Evaluations })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -322,6 +325,18 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <Marketplace />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/evaluations"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <Evaluations />
                     </ProtectedRoute>
                   </Suspense>
                 }

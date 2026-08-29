@@ -17,6 +17,7 @@ from src.database.models import (
     DeckCardRow,
     DeckRow,
     ErrorLogRow,
+    EvaluationEntryRow,
     ExchangeRateRow,
     LegalityHistoryRow,
     PortfolioSnapshotRow,
@@ -734,6 +735,54 @@ class Repository:
                     PriceObservationRow,
                     (PriceObservationRow.external_id == SourceCardRow.external_id)
                     & (PriceObservationRow.source.in_([SourceCardRow.source, "jsonld_snapshot"])),
+                )
+                .where(
+                    SourceCardRow.card_id.isnot(None),
+                    PriceObservationRow.observed_at >= cutoff,
+                    PriceObservationRow.median_price.isnot(None),
+                )
+                .order_by(SourceCardRow.card_id, PriceObservationRow.observed_at.asc())
+            )
+            rows = session.execute(stmt).all()
+
+        result: dict[int, list[tuple[date, Decimal]]] = {}
+        for card_id, obs_date, median_price in rows:
+            if card_id not in result:
+                result[card_id] = []
+            result[card_id].append((obs_date, Decimal(str(median_price))))
+
+        # Deduplicate within each card: same date keeps max price
+        for card_id in result:
+            by_date: dict[date, Decimal] = {}
+            for d, p in result[card_id]:
+                if d not in by_date or p > by_date[d]:
+                    by_date[d] = p
+            result[card_id] = sorted(by_date.items(), key=lambda x: x[0])
+
+        return result
+
+    def get_trending_price_data_for_user(
+        self, user_id: int, period_days: int
+    ) -> dict[int, list[tuple[date, Decimal]]]:
+        """Like get_trending_price_data but filtered to user's collection cards."""
+        cutoff = date.today() - timedelta(days=period_days)
+
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    SourceCardRow.card_id,
+                    PriceObservationRow.observed_at,
+                    PriceObservationRow.median_price,
+                )
+                .join(
+                    PriceObservationRow,
+                    (PriceObservationRow.external_id == SourceCardRow.external_id)
+                    & (PriceObservationRow.source.in_([SourceCardRow.source, "jsonld_snapshot"])),
+                )
+                .join(
+                    UserCollectionRow,
+                    (UserCollectionRow.card_id == SourceCardRow.card_id)
+                    & (UserCollectionRow.user_id == user_id),
                 )
                 .where(
                     SourceCardRow.card_id.isnot(None),
@@ -3464,3 +3513,104 @@ class Repository:
             result = session.execute(delete(ErrorLogRow).where(ErrorLogRow.timestamp < cutoff_row))
             session.commit()
             return result.rowcount
+
+    # ── Evaluation entries ───────────────────────────────────────────────
+
+    def count_evaluation_entries(self, user_id: int) -> int:
+        """Count evaluation entries for a user."""
+        with Session(self.engine) as session:
+            return (
+                session.execute(
+                    select(func.count())
+                    .select_from(EvaluationEntryRow)
+                    .where(EvaluationEntryRow.user_id == user_id)
+                ).scalar()
+                or 0
+            )
+
+    def create_evaluation_entry(
+        self,
+        user_id: int,
+        card_name: str,
+        set_code: str | None = None,
+        collector_number: str | None = None,
+        liga_url: str | None = None,
+        source_data_json: str | None = None,
+        price_at_add: float | None = None,
+        card_id: int | None = None,
+    ) -> int:
+        """Insert a new evaluation entry. Returns the entry id."""
+        row = EvaluationEntryRow(
+            user_id=user_id,
+            card_name=card_name,
+            set_code=set_code,
+            collector_number=collector_number,
+            liga_url=liga_url,
+            source_data_json=source_data_json,
+            price_at_add=Decimal(str(price_at_add)) if price_at_add is not None else None,
+            card_id=card_id,
+        )
+        with Session(self.engine) as session:
+            session.add(row)
+            session.commit()
+            return row.id
+
+    def list_evaluation_entries(self, user_id: int) -> list[dict]:
+        """List all evaluation entries for a user, newest first."""
+        with Session(self.engine) as session:
+            rows = (
+                session.execute(
+                    select(EvaluationEntryRow)
+                    .where(EvaluationEntryRow.user_id == user_id)
+                    .order_by(EvaluationEntryRow.created_at.desc())
+                )
+                .scalars()
+                .all()
+            )
+            return [
+                {
+                    "id": r.id,
+                    "user_id": r.user_id,
+                    "card_name": r.card_name,
+                    "set_code": r.set_code,
+                    "collector_number": r.collector_number,
+                    "liga_url": r.liga_url,
+                    "source_data_json": r.source_data_json,
+                    "price_at_add": float(r.price_at_add) if r.price_at_add is not None else None,
+                    "card_id": r.card_id,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                }
+                for r in rows
+            ]
+
+    def get_evaluation_entry(self, entry_id: int) -> dict | None:
+        """Get a single evaluation entry by id."""
+        with Session(self.engine) as session:
+            r = session.get(EvaluationEntryRow, entry_id)
+            if r is None:
+                return None
+            return {
+                "id": r.id,
+                "user_id": r.user_id,
+                "card_name": r.card_name,
+                "set_code": r.set_code,
+                "collector_number": r.collector_number,
+                "liga_url": r.liga_url,
+                "source_data_json": r.source_data_json,
+                "price_at_add": float(r.price_at_add) if r.price_at_add is not None else None,
+                "card_id": r.card_id,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+
+    def delete_evaluation_entry(self, entry_id: int) -> bool:
+        """Hard-delete an evaluation entry. Returns True if deleted."""
+        from sqlalchemy import delete as sa_delete
+
+        with Session(self.engine) as session:
+            result = session.execute(
+                sa_delete(EvaluationEntryRow).where(EvaluationEntryRow.id == entry_id)
+            )
+            session.commit()
+            return (result.rowcount or 0) > 0

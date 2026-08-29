@@ -18,6 +18,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from croniter import croniter
 
+from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import ScanFilter
 
@@ -170,6 +171,43 @@ class ScanScheduler:
                         last_run_id=schedule["last_run_id"],
                     )
                     return
+
+            # --- Token cost enforcement ---
+            # admin_daily_liga is exempt from token checks
+            if schedule["scan_type"] != "admin_daily_liga":
+                user_id = schedule["user_id"]
+                # Count cards the user owns (approximation of scan cost)
+                card_count = repo.count_collection(user_id)
+
+                if card_count > 0:
+                    credit_svc = CreditService(repo)
+                    if not credit_svc.check_sufficient(user_id, card_count):
+                        # Pause the schedule due to insufficient credits
+                        repo.update_scheduled_scan(
+                            schedule_id, status="paused_insufficient_credits"
+                        )
+                        self.pause_schedule(schedule_id)
+                        log.warning(
+                            "schedule_paused_insufficient_credits",
+                            schedule_id=schedule_id,
+                            user_id=user_id,
+                            card_count=card_count,
+                        )
+                        return
+
+                    # Deduct tokens before running the scan
+                    credit_svc.deduct(
+                        user_id=user_id,
+                        cost=card_count,
+                        reason="scheduled_scan",
+                        reference_id=f"schedule_{schedule_id}",
+                    )
+                    log.info(
+                        "schedule_tokens_deducted",
+                        schedule_id=schedule_id,
+                        user_id=user_id,
+                        cost=card_count,
+                    )
 
             # Create scan run if not provided (APScheduler callback)
             if scan_id is None:

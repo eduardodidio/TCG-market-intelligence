@@ -550,3 +550,13 @@ export interface TickerItemData {
   direction: "up" | "down";
   currency: string;
 }
+
+export interface WebSearchResult {
+  card_name: string;
+  set_name: string | null;
+  liga_url: string | null;
+  normal_price: number | null;
+  foil_price: number | null;
+  image_url: string | null;
+  local_card_id: number | null;
+}

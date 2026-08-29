@@ -36,9 +36,11 @@ class TrendingService:
         limit: int,
         converter: CurrencyConverter,
         currency: str,
+        user_id: int | None = None,
     ) -> TrendingResponse:
         """Return cached or freshly computed trending cards."""
-        cache_key = f"{direction}:{period_days}"
+        scope = f"user_{user_id}" if user_id is not None else "all"
+        cache_key = f"{direction}:{period_days}:{scope}"
         now = datetime.now()
 
         cached_entry = self._cache.get(cache_key)
@@ -51,7 +53,10 @@ class TrendingService:
                 )
 
         # Cache miss: compute fresh data
-        price_data = self._repo.get_trending_price_data(period_days)
+        if user_id is not None:
+            price_data = self._repo.get_trending_price_data_for_user(user_id, period_days)
+        else:
+            price_data = self._repo.get_trending_price_data(period_days)
 
         scores = []
         for card_id, card_prices in price_data.items():
