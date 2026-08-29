@@ -1,0 +1,21 @@
+{
+  "decision_id": "D-F91-create-20260829-001",
+  "timestamp": "2026-08-29T16:05:00Z",
+  "type": "feature_start",
+  "context_summary": "F91 Liga CSV Import — plan already exists with 3 tasks in 2 waves. Wave 0: schema changes (set_name_pt, notes columns). Wave 1: backend importer enhancement (encoding, fields, set code normalization) + frontend CSV import modal (parallel). Small, well-scoped feature building on existing infrastructure.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Execute create-feature pipeline for F91 as planned.",
+      "pros": ["Plan already validated", "Small scope (3 tasks)", "No new dependencies", "Reuses existing API endpoint"],
+      "cons": ["None significant"]
+    }
+  ],
+  "decision": "A",
+  "rationale": "Plan is solid and minimal. Proceed with execution.",
+  "actions": [
+    { "action": "create-feature", "feature": "F91" }
+  ],
+  "status": "executed",
+  "governance": null
+}

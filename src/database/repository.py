@@ -65,6 +65,16 @@ class Repository:
                 with self.engine.begin() as conn:
                     sql = "ALTER TABLE users ADD COLUMN password_expires_at DATETIME"
                     conn.execute(text(sql))
+        if "user_collection" in insp.get_table_names():
+            columns = {col["name"] for col in insp.get_columns("user_collection")}
+            if "set_name_pt" not in columns:
+                with self.engine.begin() as conn:
+                    sql = "ALTER TABLE user_collection ADD COLUMN set_name_pt VARCHAR(200)"
+                    conn.execute(text(sql))
+            if "notes" not in columns:
+                with self.engine.begin() as conn:
+                    sql = "ALTER TABLE user_collection ADD COLUMN notes VARCHAR(500)"
+                    conn.execute(text(sql))
         if "credit_balances" in insp.get_table_names():
             columns = {col["name"] for col in insp.get_columns("credit_balances")}
             if "last_monthly_grant_at" not in columns:

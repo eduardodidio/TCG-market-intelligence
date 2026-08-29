@@ -234,7 +234,15 @@
     "maxAgeDaysOptionAll": "Scan all cards",
     "skippedCards": "{{count}} cards skipped (recently scanned)",
     "cardsToScan": "{{count}} cards to scan",
-    "lineTotal": "x {{qty}} = {{total}}"
+    "lineTotal": "x {{qty}} = {{total}}",
+    "importCsv": "Import CSV",
+    "importCsvTitle": "Import Collection CSV",
+    "importCsvWarning": "This will replace your entire collection. This action cannot be undone.",
+    "importCsvSuccess": "Import completed successfully!",
+    "importCsvError": "Import failed. Please check your CSV file.",
+    "importing": "Importing...",
+    "importStats": "{{imported}} imported, {{skipped}} skipped, {{linked}} linked",
+    "selectCsvFile": "Select CSV file"
   },
   "market": {
     "title": "Market Movers",

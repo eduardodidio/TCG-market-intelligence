@@ -234,7 +234,15 @@
     "maxAgeDaysOptionAll": "Escanear todos os cards",
     "skippedCards": "{{count}} cards ignorados (escaneados recentemente)",
     "cardsToScan": "{{count}} cards para escanear",
-    "lineTotal": "x {{qty}} = {{total}}"
+    "lineTotal": "x {{qty}} = {{total}}",
+    "importCsv": "Importar CSV",
+    "importCsvTitle": "Importar CSV da Colecao",
+    "importCsvWarning": "Isso vai substituir toda sua colecao. Esta acao nao pode ser desfeita.",
+    "importCsvSuccess": "Importacao concluida com sucesso!",
+    "importCsvError": "Falha na importacao. Verifique seu arquivo CSV.",
+    "importing": "Importando...",
+    "importStats": "{{imported}} importados, {{skipped}} ignorados, {{linked}} vinculados",
+    "selectCsvFile": "Selecionar arquivo CSV"
   },
   "market": {
     "title": "Movimentacao de Mercado",

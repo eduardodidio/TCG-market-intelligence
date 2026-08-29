@@ -13,6 +13,8 @@ class CollectionCard(BaseModel):
     name_en: str | None = None
     name_pt: str | None = None
     set_name_en: str | None = None
+    set_name_pt: str | None = None
+    notes: str | None = None
     quantity: int = 1
     quality: str | None = None
     language: str | None = None

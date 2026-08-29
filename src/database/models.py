@@ -97,6 +97,8 @@ class UserCollectionRow(Base):
     name_en: Mapped[str | None] = mapped_column(String(500))
     name_pt: Mapped[str | None] = mapped_column(String(500))
     set_name_en: Mapped[str | None] = mapped_column(String(200))
+    set_name_pt: Mapped[str | None] = mapped_column(String(200))
+    notes: Mapped[str | None] = mapped_column(String(500))
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     quality: Mapped[str | None] = mapped_column(String(10))
     language: Mapped[str | None] = mapped_column(String(10))

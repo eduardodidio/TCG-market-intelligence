@@ -37,6 +37,7 @@ import { ValuationBadge } from "../components/ValuationBadge";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { BatchAddModal } from "../components/BatchAddModal";
+import { CsvImportModal } from "../components/CsvImportModal";
 import { BulkActionsToolbar } from "../components/BulkActionsToolbar";
 import { SelectableCardTile } from "../components/SelectableCardTile";
 import { useMultiSelect } from "../hooks/useMultiSelect";
@@ -318,6 +319,9 @@ export function MyCollection() {
 
   // Batch add modal state
   const [batchAddOpen, setBatchAddOpen] = useState(false);
+
+  // CSV import modal state
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // Selection mode
   const [selectionMode, setSelectionMode] = useState(false);
@@ -747,6 +751,21 @@ export function MyCollection() {
             </button>
           )}
 
+          {/* Import CSV button */}
+          <button
+            type="button"
+            onClick={() => setCsvImportOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
+              bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg
+              transition-colors duration-200"
+            data-testid="import-csv-btn"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span className="hidden sm:inline">{t("collection.importCsv")}</span>
+          </button>
+
           {/* Add Cards button */}
           <button
             type="button"
@@ -916,6 +935,15 @@ export function MyCollection() {
         onClose={() => setBatchAddOpen(false)}
         onSuccess={() => {
           setBatchAddOpen(false);
+          setRefreshKey((k) => k + 1);
+        }}
+      />
+
+      <CsvImportModal
+        isOpen={csvImportOpen}
+        onClose={() => setCsvImportOpen(false)}
+        onSuccess={() => {
+          setCsvImportOpen(false);
           setRefreshKey((k) => k + 1);
         }}
       />

@@ -1,4 +1,4 @@
-import type { ApiResponse, BulkCanonizeResult, CollectionCard, CollectionCardDetail, CollectionSummary, PriceHistoryResponse } from "../types/api";
+import type { ApiResponse, BulkCanonizeResult, CollectionCard, CollectionCardDetail, CollectionSummary, ImportResult, PriceHistoryResponse } from "../types/api";
 import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 
 export function fetchCollection(
@@ -204,4 +204,20 @@ export function bulkDeleteEntries(
   ids: number[],
 ): Promise<ApiResponse<BulkDeleteResponse>> {
   return apiPost<BulkDeleteResponse>("/api/v1/collection/bulk-delete", { ids });
+}
+
+// --- CSV import ---
+
+export async function importCollectionCsv(
+  file: File,
+): Promise<ApiResponse<ImportResult>> {
+  const token = localStorage.getItem("tcg_access_token");
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/v1/collection/import", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  return res.json();
 }

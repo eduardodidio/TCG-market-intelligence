@@ -9,6 +9,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.database.models import Base, CardRow, UserCollectionRow
+from src.utils.set_code_map import map_to_scryfall_set_code
+
+
+def _detect_encoding(file_path: Path) -> str:
+    """Try UTF-8 first (with BOM), fall back to cp1252 for Liga exports."""
+    raw = file_path.read_bytes()
+    try:
+        raw.decode("utf-8-sig")
+        return "utf-8-sig"
+    except UnicodeDecodeError:
+        return "cp1252"
 
 
 def import_collection_csv(
@@ -28,12 +39,15 @@ def import_collection_csv(
     linked = 0
     new_entry_ids: list[int] = []
 
-    with open(csv_path, encoding="utf-8", errors="replace", newline="") as f:
+    encoding = _detect_encoding(csv_path)
+
+    with open(csv_path, encoding=encoding, newline="") as f:
         reader = csv.DictReader(f)
         rows_to_insert: list[dict] = []
 
         for row in reader:
             set_code = (row.get("Edicao (Sigla)") or "").strip().lower()
+            set_code = map_to_scryfall_set_code(set_code)
             collector_number = (row.get("Card #") or "").strip()
             if not set_code or not collector_number:
                 skipped += 1
@@ -48,6 +62,8 @@ def import_collection_csv(
             rarity = (row.get("Raridade (M R U C)") or "").strip() or None
             color = (row.get("Cor (W U B R G M A L)") or "").strip() or None
             extras = (row.get("Extras") or "").strip() or None
+            set_name_pt = (row.get("Edicao (PTBR)") or "").strip() or None
+            notes = (row.get("Comentario") or "").strip() or None
 
             rows_to_insert.append(
                 {
@@ -63,6 +79,8 @@ def import_collection_csv(
                     "rarity": rarity,
                     "color": color,
                     "extras": extras,
+                    "set_name_pt": set_name_pt,
+                    "notes": notes,
                 }
             )
 

@@ -115,6 +115,8 @@ export interface CollectionCard {
   name_en: string | null;
   name_pt: string | null;
   set_name_en: string | null;
+  set_name_pt: string | null;
+  notes: string | null;
   quantity: number;
   quality: string | null;
   language: string | null;
@@ -536,6 +538,17 @@ export interface BulkCanonizeResult {
   failed: number;
   skipped: number;
   rate_limited: number;
+}
+
+// CSV import types (F91)
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  linked: number;
+  total_csv_rows: number;
+  new_entry_ids: number[];
+  canonize_scheduled: boolean;
 }
 
 // Ticker types (F39)

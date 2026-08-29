@@ -1,0 +1,27 @@
+{
+  "decision_id": "D-F91-20260829-001",
+  "timestamp": "2026-08-29T16:00:00Z",
+  "type": "feature_start",
+  "context_summary": "F91 Liga CSV Import — The existing CSV importer already supports the Liga column headers (same format), but has 3 gaps: (1) encoding is hardcoded UTF-8 while Liga exports Latin-1/CP-1252 (accented chars become mojibake), (2) Edicao (PTBR) and Comentario columns are ignored, (3) Liga variant set codes (smbro, cbafr) are not normalized to Scryfall codes. The set_code_map utility already exists. Minimal backend changes + small frontend update.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Enhance existing importer with encoding auto-detection, new fields, and set code normalization.",
+      "pros": ["Reuses existing importer — minimal code changes", "set_code_map already handles Liga→Scryfall mapping", "No new dependencies needed (chardet optional, can use heuristic)", "Liga CSV is the primary user workflow"],
+      "cons": ["Need to add set_name_pt and notes columns to UserCollectionRow model"]
+    },
+    {
+      "option": "B",
+      "description": "Create separate Liga-specific importer alongside generic one.",
+      "pros": ["No risk of breaking existing import"],
+      "cons": ["Code duplication — both importers read same CSV format", "Over-engineering for identical column structure"]
+    }
+  ],
+  "decision": "A",
+  "rationale": "Liga CSV has identical columns to current format. Enhancing the existing importer with encoding detection, 2 new fields, and set code normalization is minimal and correct. No need for separate importer.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F91" }
+  ],
+  "status": "executed",
+  "governance": null
+}
