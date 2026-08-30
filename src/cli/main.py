@@ -1490,6 +1490,105 @@ async def _push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age
     click.echo(f"\nDone! {total_inserted} prices pushed to remote.")
 
 
+@cli.command("push-db")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option(
+    "--remote", required=True, help="Remote API base URL (e.g. https://tedhc.onrender.com)"
+)
+@click.option(
+    "--api-key", envvar="TCG_API_KEY", default=None, help="API key for remote ($TCG_API_KEY)"
+)
+def push_db(db, remote, api_key):
+    """Upload local SQLite database to the remote deployment.
+
+    Use this after a Render restart to restore your collection data.
+
+    Example:
+        collector push-db --remote https://tedhc.onrender.com --api-key SECRET
+    """
+    import httpx
+
+    # Extract file path from sqlite URL
+    raw = db.replace("sqlite:///", "", 1)
+    db_path = os.path.join(os.getcwd(), raw) if not os.path.isabs(raw) else raw
+
+    if not os.path.exists(db_path):
+        click.echo(f"Database file not found: {db_path}")
+        raise SystemExit(1)
+
+    size_mb = os.path.getsize(db_path) / (1024 * 1024)
+    click.echo(f"Uploading {db_path} ({size_mb:.1f} MB) to {remote}...")
+
+    url = remote.rstrip("/") + "/api/v1/db/restore"
+    headers = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    with open(db_path, "rb") as f:
+        resp = httpx.post(
+            url,
+            files={"file": ("tcg_market.db", f, "application/octet-stream")},
+            headers=headers,
+            timeout=120.0,
+        )
+
+    if resp.status_code == 200:
+        data = resp.json().get("data", {})
+        click.echo(f"OK — {data.get('status', 'done')}, {data.get('size_bytes', 0)} bytes")
+    else:
+        click.echo(f"FAILED: {resp.status_code} {resp.text}")
+        raise SystemExit(1)
+
+
+@cli.command("pull-db")
+@click.option(
+    "--remote", required=True, help="Remote API base URL (e.g. https://tedhc.onrender.com)"
+)
+@click.option(
+    "--api-key", envvar="TCG_API_KEY", default=None, help="API key for remote ($TCG_API_KEY)"
+)
+@click.option(
+    "--output",
+    default="tcg_market_remote.db",
+    help="Output file path (default: tcg_market_remote.db)",
+)
+def pull_db(remote, api_key, output):
+    """Download the remote SQLite database to a local file.
+
+    Use this to backup the remote DB before a Render restart.
+
+    Example:
+        collector pull-db --remote https://tedhc.onrender.com --api-key SECRET
+    """
+    import httpx
+
+    url = remote.rstrip("/") + "/api/v1/db/backup"
+    headers = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    click.echo(f"Downloading database from {remote}...")
+
+    with httpx.stream("GET", url, headers=headers, timeout=120.0) as resp:
+        if resp.status_code != 200:
+            click.echo(f"FAILED: {resp.status_code}")
+            raise SystemExit(1)
+
+        with open(output, "wb") as f:
+            for chunk in resp.iter_bytes(chunk_size=8192):
+                f.write(chunk)
+
+    size_mb = os.path.getsize(output) / (1024 * 1024)
+    click.echo(f"OK — saved to {output} ({size_mb:.1f} MB)")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")
