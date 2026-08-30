@@ -311,7 +311,7 @@ export function MyCollection() {
   const [healthStatus, setHealthStatus] = useState<string>("healthy");
   const [bulkCreditModalOpen, setBulkCreditModalOpen] = useState(false);
   const [previewMaxAgeDays, setPreviewMaxAgeDays] = useState<number | undefined>(1);
-  const [previewCost, setPreviewCost] = useState(5);
+  const [previewCost, setPreviewCost] = useState(0);
   const [previewCardCount, setPreviewCardCount] = useState(0);
   const [previewSkipped, setPreviewSkipped] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);

@@ -1,4 +1,4 @@
-"""Tests for GET /cards/search-web — web card search via Liga."""
+"""Tests for GET /cards/search-web — web card search via Liga / MYP fallback."""
 
 from __future__ import annotations
 
@@ -18,8 +18,9 @@ from src.api.routers.card_search import router
 from src.credits.exceptions import InsufficientCreditsError
 from src.credits.service import CreditService
 from src.database.models import CardRow
-from src.domain.models import User
+from src.domain.models import MypSearchResult, User
 from src.providers.liga.provider import LigaMagicProvider
+from src.providers.myp.provider import MypCardsProvider
 from src.providers.registry import ProviderRegistry
 
 _TEST_USER_ID = "testuser"
@@ -63,9 +64,17 @@ def _make_mock_provider() -> MagicMock:
     return provider
 
 
+def _make_mock_myp_provider() -> MagicMock:
+    provider = MagicMock(spec=MypCardsProvider)
+    provider.source_name = "myp"
+    provider.search_card = AsyncMock()
+    return provider
+
+
 def _make_app(
     mock_repo: MagicMock,
     mock_provider: MagicMock | None = None,
+    myp_provider: MagicMock | None = None,
     credit_svc: MagicMock | None = None,
     user: User | None = None,
     include_auth: bool = True,
@@ -80,8 +89,14 @@ def _make_app(
 
     app.dependency_overrides[get_credit_service] = lambda: (credit_svc or _make_credit_svc())
 
+    providers = []
     if mock_provider is not None:
-        registry = ProviderRegistry([mock_provider])
+        providers.append(mock_provider)
+    if myp_provider is not None:
+        providers.append(myp_provider)
+
+    if providers:
+        registry = ProviderRegistry(providers)
         app.state.provider_registry = registry
 
     return app
@@ -240,3 +255,167 @@ class TestSearchWebLigaError:
         resp = client.get("/cards/search-web", params={"q": "Test"})
         assert resp.status_code == 502
         assert "failed" in resp.json()["detail"].lower()
+
+
+class TestSearchWebMypFallback:
+    """Tests for MYP fallback when Liga provider is unavailable."""
+
+    def test_returns_results_via_myp_fallback(self):
+        mock_repo = MagicMock()
+        mock_repo.list_cards.return_value = []
+
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = [
+            MypSearchResult(
+                external_id="12345",
+                name="Lightning Bolt",
+                slug="lightning-bolt",
+                url="https://mypcards.com/magic/produto/12345/lightning-bolt",
+                sku="magic_lea_232",
+                set_code="lea",
+                collector_number="232",
+            ),
+        ]
+
+        # No Liga provider — only MYP
+        app = _make_app(mock_repo, myp_provider=myp)
+        client = TestClient(app)
+
+        resp = client.get("/cards/search-web", params={"q": "Lightning Bolt"})
+        assert resp.status_code == 200
+
+        data = resp.json()["data"]
+        assert len(data) == 1
+        assert data[0]["card_name"] == "Lightning Bolt"
+        assert data[0]["normal_price"] is None
+        assert data[0]["foil_price"] is None
+        assert data[0]["liga_url"] is None
+
+    def test_myp_fallback_returns_multiple_results(self):
+        mock_repo = MagicMock()
+        mock_repo.list_cards.return_value = []
+
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = [
+            MypSearchResult(
+                external_id="111",
+                name="Sol Ring",
+                slug="sol-ring",
+                url="https://mypcards.com/magic/produto/111/sol-ring",
+            ),
+            MypSearchResult(
+                external_id="222",
+                name="Sol Ring (Extended Art)",
+                slug="sol-ring-extended-art",
+                url="https://mypcards.com/magic/produto/222/sol-ring-extended-art",
+            ),
+        ]
+
+        app = _make_app(mock_repo, myp_provider=myp)
+        client = TestClient(app)
+
+        resp = client.get("/cards/search-web", params={"q": "Sol Ring"})
+        assert resp.status_code == 200
+        assert len(resp.json()["data"]) == 2
+
+    def test_myp_fallback_includes_local_card_id(self):
+        mock_repo = MagicMock()
+        local_card = MagicMock(spec=CardRow)
+        local_card.id = 99
+        local_card.name_en = "Lightning Bolt"
+        mock_repo.list_cards.return_value = [local_card]
+
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = [
+            MypSearchResult(
+                external_id="12345",
+                name="Lightning Bolt",
+                slug="lightning-bolt",
+                url="https://mypcards.com/magic/produto/12345/lightning-bolt",
+            ),
+        ]
+
+        app = _make_app(mock_repo, myp_provider=myp)
+        client = TestClient(app)
+
+        resp = client.get("/cards/search-web", params={"q": "Lightning Bolt"})
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["local_card_id"] == 99
+
+    def test_myp_fallback_empty_results(self):
+        mock_repo = MagicMock()
+
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = []
+
+        app = _make_app(mock_repo, myp_provider=myp)
+        client = TestClient(app)
+
+        resp = client.get("/cards/search-web", params={"q": "Nonexistent"})
+        assert resp.status_code == 200
+        assert resp.json()["data"] == []
+
+    def test_myp_fallback_502_on_error(self):
+        mock_repo = MagicMock()
+
+        myp = _make_mock_myp_provider()
+        myp.search_card.side_effect = RuntimeError("Connection failed")
+
+        app = _make_app(mock_repo, myp_provider=myp)
+        client = TestClient(app)
+
+        resp = client.get("/cards/search-web", params={"q": "Test"})
+        assert resp.status_code == 502
+        assert "myp" in resp.json()["detail"].lower()
+
+    def test_liga_preferred_over_myp_when_both_available(self):
+        """When both Liga and MYP are registered, Liga should be used."""
+        mock_repo = MagicMock()
+        mock_repo.list_cards.return_value = []
+
+        liga = _make_mock_provider()
+        liga.search_card.return_value = _liga_prices(mid=Decimal("5.00"))
+
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = []
+
+        app = _make_app(mock_repo, mock_provider=liga, myp_provider=myp)
+        client = TestClient(app)
+
+        resp = client.get("/cards/search-web", params={"q": "Test"})
+        assert resp.status_code == 200
+        # Liga was used (has price), MYP was NOT called
+        liga.search_card.assert_called_once()
+        myp.search_card.assert_not_called()
+
+    def test_503_when_neither_provider_available(self):
+        """When no providers at all, return 503."""
+        mock_repo = MagicMock()
+        app = _make_app(mock_repo)  # no providers
+        client = TestClient(app)
+
+        resp = client.get("/cards/search-web", params={"q": "Test"})
+        assert resp.status_code == 503
+        assert "unavailable" in resp.json()["detail"].lower()
+
+    def test_myp_fallback_includes_image_url(self):
+        mock_repo = MagicMock()
+        mock_repo.list_cards.return_value = []
+
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = [
+            MypSearchResult(
+                external_id="12345",
+                name="Lightning Bolt",
+                slug="lightning-bolt",
+                url="https://mypcards.com/magic/produto/12345/lightning-bolt",
+                image_url="https://mypcards.com/images/12345.jpg",
+            ),
+        ]
+
+        app = _make_app(mock_repo, myp_provider=myp)
+        client = TestClient(app)
+
+        resp = client.get("/cards/search-web", params={"q": "Lightning Bolt"})
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["image_url"] == "https://mypcards.com/images/12345.jpg"

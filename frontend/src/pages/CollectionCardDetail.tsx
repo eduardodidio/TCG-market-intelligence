@@ -93,6 +93,11 @@ export function CollectionCardDetail() {
   const [creditModalTarget, setCreditModalTarget] = useState<"liga" | "myp">("liga");
   const { balance, isAdmin, refetch: refetchCredits } = useCredits();
 
+  // Refetch credit balance when navigating between cards
+  useEffect(() => {
+    refetchCredits();
+  }, [entryId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleRefresh = useCallback(async () => {
     if (refreshing || !entry || entry.card_id == null) return;
     setRefreshing(true);

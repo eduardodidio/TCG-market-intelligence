@@ -1,4 +1,4 @@
-"""Web card search router — search LigaMagic for cards not in local DB."""
+"""Web card search router — search LigaMagic (or MYP fallback) for cards not in local DB."""
 
 from __future__ import annotations
 
@@ -60,24 +60,42 @@ async def search_web(
     except InsufficientCreditsError:
         raise HTTPException(status_code=402, detail="Insufficient credits")
 
-    # 2. Get Liga provider from registry
+    # 2. Get search provider from registry (Liga preferred, MYP fallback)
     registry = getattr(request.app.state, "provider_registry", None)
     liga_provider = None
+    myp_provider = None
     if registry:
         from src.providers.liga.provider import LigaMagicProvider
+        from src.providers.myp.provider import MypCardsProvider
 
         for provider in registry.providers:
-            if isinstance(provider, LigaMagicProvider):
+            if isinstance(provider, LigaMagicProvider) and liga_provider is None:
                 liga_provider = provider
-                break
+            elif isinstance(provider, MypCardsProvider) and myp_provider is None:
+                myp_provider = provider
 
-    if liga_provider is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Liga search is unavailable on this deployment",
-        )
+    # Liga available — use it (original path)
+    if liga_provider is not None:
+        return await _search_via_liga(liga_provider, q, repo)
 
-    # 3. Call Liga search with timeout
+    # MYP fallback
+    if myp_provider is not None:
+        log.info("web_search_myp_fallback", query=q)
+        return await _search_via_myp(myp_provider, q, repo)
+
+    # Neither provider available
+    raise HTTPException(
+        status_code=503,
+        detail="Card search is unavailable on this deployment",
+    )
+
+
+async def _search_via_liga(
+    liga_provider,
+    q: str,
+    repo: Repository,
+) -> ApiResponse[list[WebSearchResult]]:
+    """Execute search via LigaMagic provider."""
     try:
         prices = await asyncio.wait_for(
             liga_provider.search_card(q.strip()),
@@ -90,7 +108,6 @@ async def search_web(
         log.warning("web_search_error", query=q, error=str(e))
         raise HTTPException(status_code=502, detail="Liga search failed")
 
-    # 4. Build results
     normal = prices.get("normal", {})
     foil = prices.get("foil", {})
     has_normal = any(v is not None for v in normal.values())
@@ -102,7 +119,6 @@ async def search_web(
     card_name = prices.get("card_name", q.strip())
     local_card_id = _find_local_card(repo, card_name)
 
-    # Build Liga URL for the card
     encoded_name = quote_plus(card_name)
     liga_url = f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_name}"
 
@@ -118,3 +134,41 @@ async def search_web(
     )
 
     return success_response(data=[result])
+
+
+async def _search_via_myp(
+    myp_provider,
+    q: str,
+    repo: Repository,
+) -> ApiResponse[list[WebSearchResult]]:
+    """Execute search via MYP provider (fallback when Liga is unavailable)."""
+    try:
+        myp_results = await asyncio.wait_for(
+            myp_provider.search_card(q.strip()),
+            timeout=_SEARCH_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        log.warning("web_search_myp_timeout", query=q)
+        raise HTTPException(status_code=504, detail="MYP search timed out")
+    except Exception as e:
+        log.warning("web_search_myp_error", query=q, error=str(e))
+        raise HTTPException(status_code=502, detail="MYP search failed")
+
+    if not myp_results:
+        return success_response(data=[])
+
+    results: list[WebSearchResult] = []
+    for item in myp_results:
+        local_card_id = _find_local_card(repo, item.name)
+        results.append(
+            WebSearchResult(
+                card_name=item.name,
+                liga_url=None,
+                normal_price=None,
+                foil_price=None,
+                image_url=item.image_url,
+                local_card_id=local_card_id,
+            )
+        )
+
+    return success_response(data=results)

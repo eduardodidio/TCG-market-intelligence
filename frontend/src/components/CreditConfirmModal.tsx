@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { TreasureTokenCard } from "./TreasureTokenCard";
+import { useTreasureImage } from "../hooks/useTreasureImage";
 
 export interface CreditConfirmModalProps {
   isOpen: boolean;
@@ -27,6 +27,7 @@ export function CreditConfirmModal({
   children,
 }: CreditConfirmModalProps) {
   const { t } = useTranslation();
+  const treasureImage = useTreasureImage();
 
   if (!isOpen) return null;
 
@@ -52,7 +53,22 @@ export function CreditConfirmModal({
 
         {/* Treasure Token Card */}
         <div className="flex justify-center mb-4">
-          <TreasureTokenCard count={balance} />
+          <div className="relative w-32" data-testid="treasure-token-card">
+            <img
+              src={treasureImage}
+              alt={t("credits.balance")}
+              className="w-full rounded-lg object-cover shadow-lg"
+              data-testid="treasure-image"
+            />
+            <div
+              className="absolute bottom-1 right-1 bg-black/70 text-amber-400
+                          rounded-full w-8 h-8 flex items-center justify-center
+                          text-sm font-bold border border-amber-500"
+              data-testid="treasure-count"
+            >
+              {balance}
+            </div>
+          </div>
         </div>
 
         {/* Cost info */}
