@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -572,25 +572,41 @@ class TestRefreshLigaProviderErrors:
 
 
 class TestRefreshLigaNoRegistry:
-    """Liga provider not in registry — 503."""
+    """Liga provider not in registry — falls back to MYP."""
 
-    def test_no_registry_returns_503(self) -> None:
+    @patch("src.providers.myp.provider.MypCardsProvider", autospec=True)
+    def test_no_registry_falls_back_to_myp(self, MockMypCls) -> None:
         entry = _make_collection_row()
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = entry
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        # MYP search returns empty — expect warning, not 503
+        mock_myp = MockMypCls.return_value
+        mock_myp.search_card = AsyncMock(return_value=[])
+        mock_myp.close = AsyncMock()
 
         app = _make_app(mock_repo, include_registry=False)
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
-        assert resp.status_code == 503
-        assert "Liga provider" in resp.json()["detail"]
+        assert resp.status_code == 200
+        body = resp.json()
+        assert any("not found" in (e.get("message", "").lower()) for e in body.get("errors", []))
 
-    def test_registry_without_liga_returns_503(self) -> None:
-        """Registry exists but has no Liga provider."""
+    @patch("src.providers.myp.provider.MypCardsProvider", autospec=True)
+    def test_registry_without_liga_falls_back_to_myp(self, MockMypCls) -> None:
+        """Registry exists but has no Liga provider — falls back to MYP."""
         entry = _make_collection_row()
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = entry
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        mock_myp = MockMypCls.return_value
+        mock_myp.search_card = AsyncMock(return_value=[])
+        mock_myp.close = AsyncMock()
 
         # Registry with a non-Liga provider
         other_provider = MagicMock()
@@ -602,7 +618,7 @@ class TestRefreshLigaNoRegistry:
         client = TestClient(app)
         resp = client.post("/collection/1/refresh-liga")
 
-        assert resp.status_code == 503
+        assert resp.status_code == 200
 
 
 class TestRefreshLigaAutoCreateCard:

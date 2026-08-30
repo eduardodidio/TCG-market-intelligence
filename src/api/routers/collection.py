@@ -1133,7 +1133,19 @@ async def refresh_card_price_liga(
             None,
         )
     if provider is None:
-        raise HTTPException(status_code=503, detail="Liga provider not available")
+        # MYP fallback when Liga is unavailable (e.g. Render deployment)
+        log.info("liga_refresh_myp_fallback", entry_id=entry_id, card_name=card_name)
+        return await _refresh_via_myp_fallback(
+            entry,
+            entry_id,
+            card_name,
+            currency,
+            repo,
+            converter,
+            user_id,
+            user,
+            credit_svc,
+        )
 
     log.debug("liga_refresh_start", entry_id=entry_id, card_name=card_name)
 
@@ -1241,6 +1253,100 @@ async def refresh_card_price_liga(
     credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
 
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+
+
+async def _refresh_via_myp_fallback(
+    entry,
+    entry_id: int,
+    card_name: str,
+    currency: str,
+    repo: Repository,
+    converter: CurrencyConverter,
+    user_id: str,
+    user: User,
+    credit_svc: CreditService,
+) -> ApiResponse[CollectionCardDetail]:
+    """Fallback: refresh card price via MYP when Liga is unavailable."""
+    from src.domain.models import HistoricalPrice
+    from src.providers.myp.provider import MypCardsProvider
+
+    # If card has a linked MYP source, use JSON-LD price directly
+    if entry.card_id is not None:
+        source_cards = repo.get_source_cards_for_card(entry.card_id)
+        myp_sources = [sc for sc in source_cards if sc.source == "myp"]
+        if myp_sources:
+            sc = myp_sources[0]
+            slug = sc.url.rsplit("/", 1)[-1]
+            external_id = sc.external_id
+
+            provider = MypCardsProvider()
+            try:
+                jsonld = await provider.fetch_current_price(external_id, slug)
+            finally:
+                await provider.close()
+
+            if jsonld and jsonld.price and jsonld.price > 0:
+                obs = HistoricalPrice(
+                    source="jsonld_snapshot",
+                    external_id=external_id,
+                    observed_at=date.today(),
+                    median_price=jsonld.price,
+                )
+                repo.insert_price_observations([obs])
+                credit_svc.deduct(
+                    user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id)
+                )
+                return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+
+    # No MYP source linked — try MYP search
+    provider = MypCardsProvider()
+    try:
+        search_results = await provider.search_card(card_name)
+    except Exception as exc:
+        log.warning("myp_fallback_search_failed", entry_id=entry_id, error=str(exc))
+        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+        response.errors.append(
+            ErrorDetail(code="liga_warning", message=f"Price refresh unavailable: {exc}")
+        )
+        return response
+    finally:
+        await provider.close()
+
+    if not search_results:
+        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+        response.errors.append(ErrorDetail(code="liga_warning", message="Card not found on MYP"))
+        return response
+
+    # Use first result to fetch price
+    best = search_results[0]
+    provider = MypCardsProvider()
+    try:
+        jsonld = await provider.fetch_current_price(best.external_id, best.slug)
+    except Exception as exc:
+        log.warning("myp_fallback_price_failed", entry_id=entry_id, error=str(exc))
+        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+        response.errors.append(
+            ErrorDetail(code="liga_warning", message=f"MYP price fetch failed: {exc}")
+        )
+        return response
+    finally:
+        await provider.close()
+
+    if jsonld and jsonld.price and jsonld.price > 0:
+        ext_id = best.external_id
+        obs = HistoricalPrice(
+            source="jsonld_snapshot",
+            external_id=ext_id,
+            observed_at=date.today(),
+            median_price=jsonld.price,
+        )
+        repo.insert_price_observations([obs])
+        credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
+        return _build_collection_detail(entry_id, currency, repo, converter, user_id)
+
+    response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
+    response.errors.append(ErrorDetail(code="liga_warning", message="No price available from MYP"))
+    return response
 
 
 def _build_collection_detail(
