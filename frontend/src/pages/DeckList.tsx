@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { fetchDecks } from "../api/decks";
@@ -11,11 +11,13 @@ export function DeckList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const lastFetchedAtRef = useRef(0);
 
   const loadDecks = useCallback(async () => {
     setLoading(true);
     setError(null);
     const resp = await fetchDecks();
+    lastFetchedAtRef.current = Date.now();
     if (resp.errors.length > 0) {
       setError(resp.errors[0].message);
     } else {
@@ -26,6 +28,18 @@ export function DeckList() {
 
   useEffect(() => {
     loadDecks();
+  }, [loadDecks]);
+
+  // Refetch deck list when the browser tab regains focus (debounced 30s)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState !== "visible") return;
+      const elapsed = Date.now() - lastFetchedAtRef.current;
+      if (elapsed < 30_000) return;
+      loadDecks();
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
   }, [loadDecks]);
 
   return (

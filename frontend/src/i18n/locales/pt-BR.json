@@ -322,7 +322,8 @@
     "confirmPassword": "Confirmar Senha",
     "changePasswordBtn": "Alterar Senha",
     "passwordMismatch": "As senhas nao coincidem",
-    "passwordTooShort": "A senha deve ter pelo menos 8 caracteres"
+    "passwordTooShort": "A senha deve ter pelo menos 8 caracteres",
+    "sessionExpired": "Sua sessao expirou. Faca login novamente."
   },
   "scans": {
     "title": "Scans de Preco",

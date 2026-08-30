@@ -94,6 +94,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  // Sync auth state across browser tabs via storage events
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== "tcg_access_token") return;
+
+      if (e.newValue === null) {
+        // Token was removed in another tab (logout)
+        setUser(null);
+        setError(null);
+        setMustChangePassword(false);
+      } else {
+        // Token was added/changed in another tab (login)
+        fetchMe().then((resp) => {
+          if (resp.data) {
+            setUser(resp.data);
+          }
+        });
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
     setMustChangePassword(false);

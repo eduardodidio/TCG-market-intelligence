@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiResponse } from "../types/api";
 
+interface UseApiOptions {
+  /** Re-fetch data when the browser tab regains focus (default: false) */
+  refetchOnFocus?: boolean;
+}
+
 interface UseApiResult<T> {
   data: T | null;
   loading: boolean;
@@ -9,6 +14,8 @@ interface UseApiResult<T> {
   setData: (data: T | null) => void;
 }
 
+const REFETCH_DEBOUNCE_MS = 30_000;
+
 /**
  * Generic data-fetching hook with AbortController cleanup.
  * Extracts data from the API envelope and handles loading/error states.
@@ -16,11 +23,13 @@ interface UseApiResult<T> {
 export function useApi<T>(
   fetcher: (signal: AbortSignal) => Promise<ApiResponse<T>>,
   deps: unknown[] = [],
+  options?: UseApiOptions,
 ): UseApiResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetchCountRef = useRef(0);
+  const lastFetchedAtRef = useRef(0);
 
   const execute = useCallback(() => {
     const controller = new AbortController();
@@ -34,6 +43,8 @@ export function useApi<T>(
       .then((response) => {
         // Ignore stale responses
         if (currentFetch !== fetchCountRef.current) return;
+
+        lastFetchedAtRef.current = Date.now();
 
         if (response.errors.length > 0) {
           setError(response.errors.map((e) => e.message).join("; "));
@@ -67,6 +78,21 @@ export function useApi<T>(
   const refetch = useCallback(() => {
     execute();
   }, [execute]);
+
+  // Refetch on window focus (visibilitychange) with debounce
+  useEffect(() => {
+    if (!options?.refetchOnFocus) return;
+
+    const handler = () => {
+      if (document.visibilityState !== "visible") return;
+      const elapsed = Date.now() - lastFetchedAtRef.current;
+      if (elapsed < REFETCH_DEBOUNCE_MS) return;
+      execute();
+    };
+
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [options?.refetchOnFocus, execute]);
 
   return { data, loading, error, refetch, setData };
 }

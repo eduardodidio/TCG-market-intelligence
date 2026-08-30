@@ -82,6 +82,7 @@ export function CollectionCardDetail() {
   const { data: entry, loading, error, refetch, setData: setEntry } = useApi<CollectionCardDetailType>(
     detailFetcher,
     [entryId, currency],
+    { refetchOnFocus: true },
   );
 
   const [period, setPeriod] = useState("30d");

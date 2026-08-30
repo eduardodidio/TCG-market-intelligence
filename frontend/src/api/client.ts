@@ -1,19 +1,11 @@
 import type { ApiResponse } from "../types/api";
 import { API_BASE_URL } from "../utils/constants";
+import { tryRefreshToken, forceLogout } from "./authRefresh";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
-/**
- * Handle 401 Unauthorized — clear tokens and redirect to login.
- * Skips redirect if already on the login page to avoid loops.
- */
-function handleUnauthorized(): void {
-  localStorage.removeItem("tcg_access_token");
-  localStorage.removeItem("tcg_refresh_token");
-  if (window.location.pathname !== "/login") {
-    window.location.href = "/login";
-  }
-}
+/** Path suffix used by the refresh endpoint — never retry on this. */
+const REFRESH_PATH = "/api/v1/auth/refresh";
 
 /**
  * Typed fetch wrapper that returns the standard API envelope.
@@ -23,6 +15,7 @@ export async function apiGet<T>(
   path: string,
   params?: Record<string, string>,
   options?: { signal?: AbortSignal; timeoutMs?: number },
+  _isRetry = false,
 ): Promise<ApiResponse<T>> {
   const url = new URL(path, API_BASE_URL || window.location.origin);
   if (params) {
@@ -60,8 +53,14 @@ export async function apiGet<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      if (response.status === 401) {
-        handleUnauthorized();
+      if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          return apiGet<T>(path, params, options, true);
+        }
+        forceLogout();
+      } else if (response.status === 401) {
+        forceLogout();
       }
       const errorBody = await response.json().catch(() => null);
       // If the backend returned a proper envelope with errors, use it
@@ -109,6 +108,7 @@ export async function apiPost<T>(
   path: string,
   body: unknown,
   options?: { signal?: AbortSignal; timeoutMs?: number },
+  _isRetry = false,
 ): Promise<ApiResponse<T>> {
   const url = new URL(path, API_BASE_URL || window.location.origin);
 
@@ -141,8 +141,14 @@ export async function apiPost<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      if (response.status === 401) {
-        handleUnauthorized();
+      if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          return apiPost<T>(path, body, options, true);
+        }
+        forceLogout();
+      } else if (response.status === 401) {
+        forceLogout();
       }
       const errorBody = await response.json().catch(() => null);
       if (errorBody && Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
@@ -188,6 +194,7 @@ export async function apiPatch<T>(
   path: string,
   body: unknown,
   options?: { signal?: AbortSignal; timeoutMs?: number },
+  _isRetry = false,
 ): Promise<ApiResponse<T>> {
   const url = new URL(path, API_BASE_URL || window.location.origin);
 
@@ -219,8 +226,14 @@ export async function apiPatch<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      if (response.status === 401) {
-        handleUnauthorized();
+      if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          return apiPatch<T>(path, body, options, true);
+        }
+        forceLogout();
+      } else if (response.status === 401) {
+        forceLogout();
       }
       const errorBody = await response.json().catch(() => null);
       if (errorBody && Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
@@ -265,6 +278,7 @@ export async function apiPatch<T>(
 export async function apiDelete(
   path: string,
   options?: { signal?: AbortSignal; timeoutMs?: number },
+  _isRetry = false,
 ): Promise<void> {
   const url = new URL(path, API_BASE_URL || window.location.origin);
 
@@ -294,8 +308,14 @@ export async function apiDelete(
     clearTimeout(timeoutId);
 
     if (!response.ok && response.status !== 204) {
-      if (response.status === 401) {
-        handleUnauthorized();
+      if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          return apiDelete(path, options, true);
+        }
+        forceLogout();
+      } else if (response.status === 401) {
+        forceLogout();
       }
       const errorBody = await response.json().catch(() => null);
       throw new Error(errorBody?.detail || response.statusText);

@@ -380,6 +380,19 @@ export function MyCollection() {
 
   const debouncedSearch = useDebounce(searchTerm, 300);
   const fetchIdRef = useRef(0);
+  const lastFetchedAtRef = useRef(0);
+
+  // Refetch collection data when the browser tab regains focus (debounced 30s)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState !== "visible") return;
+      const elapsed = Date.now() - lastFetchedAtRef.current;
+      if (elapsed < 30_000) return;
+      setRefreshKey((k) => k + 1);
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
 
   const handleRefreshComplete = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -571,6 +584,7 @@ export function MyCollection() {
     fetchCollection(buildParams(0))
       .then((res) => {
         if (currentId !== fetchIdRef.current) return;
+        lastFetchedAtRef.current = Date.now();
         if (res.errors.length > 0) {
           setError(res.errors.map((e) => e.message).join("; "));
         } else {

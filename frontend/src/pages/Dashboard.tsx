@@ -32,11 +32,12 @@ export function Dashboard() {
   const { currency } = useCurrency();
   const { isAuthenticated } = useAuth();
 
-  const stats = useApi<MarketStats>(() => fetchMarketStats({ currency }), [currency]);
-  const health = useApi<CollectionHealth>(() => fetchCollectionHealth());
+  const stats = useApi<MarketStats>(() => fetchMarketStats({ currency }), [currency], { refetchOnFocus: true });
+  const health = useApi<CollectionHealth>(() => fetchCollectionHealth(), [], { refetchOnFocus: true });
   const collectionSummary = useApi<CollectionSummary>(() =>
     fetchCollectionSummary({ currency }),
     [currency],
+    { refetchOnFocus: true },
   );
 
   const loading = stats.loading;

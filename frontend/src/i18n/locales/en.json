@@ -322,7 +322,8 @@
     "confirmPassword": "Confirm Password",
     "changePasswordBtn": "Change Password",
     "passwordMismatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 8 characters"
+    "passwordTooShort": "Password must be at least 8 characters",
+    "sessionExpired": "Your session has expired. Please log in again."
   },
   "scans": {
     "title": "Price Scans",

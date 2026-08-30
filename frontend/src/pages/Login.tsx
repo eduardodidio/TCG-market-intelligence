@@ -17,6 +17,7 @@ export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/collection";
+  const isSessionExpired = searchParams.get("expired") === "1";
 
   // Redirect to change-password when login detects expired password
   useEffect(() => {
@@ -74,6 +75,14 @@ export function Login() {
 
         <div className="bg-slate-800 rounded-xl border border-slate-600 p-8 shadow-lg">
           <form onSubmit={handleSubmit} data-testid="auth-form">
+            {isSessionExpired && (
+              <div
+                className="mb-4 p-3 rounded-md bg-amber-900/50 border border-amber-500 text-amber-200 text-sm"
+                data-testid="session-expired-banner"
+              >
+                {t("auth.sessionExpired")}
+              </div>
+            )}
             {displayError && (
               <div
                 className="mb-4 p-3 rounded-md bg-red-900/30 border border-red-700/50 text-red-400 text-sm"
