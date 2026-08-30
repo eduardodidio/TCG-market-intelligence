@@ -17,6 +17,12 @@ build/
 .claude/worktrees/
 backups/
 
+# Batch scripts (contain API keys)
+push-all.bat
+push-db.bat
+push-prices.bat
+setup-schedule.bat
+
 # Frontend
 node_modules/
 frontend/dist/
