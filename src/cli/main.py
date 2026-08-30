@@ -1342,6 +1342,154 @@ def error_cleanup(db, max_age_days, max_entries, dry_run):
     click.echo(f"  JSONL entries removed:    {jsonl_removed}\n")
 
 
+@cli.command("push-prices")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option(
+    "--remote", required=True, help="Remote API base URL (e.g. https://tedhc.onrender.com)"
+)
+@click.option(
+    "--api-key", envvar="TCG_API_KEY", default=None, help="API key for remote ($TCG_API_KEY)"
+)
+@click.option("--delay", default=5.0, type=float, help="Seconds between Liga requests")
+@click.option("--limit", default=None, type=int, help="Max cards to process")
+@click.option("--dry-run", is_flag=True, help="Fetch prices but don't push to remote")
+@click.option("--max-age-days", default=None, type=int, help="Skip cards scanned within N days")
+def push_prices(db, remote, api_key, delay, limit, dry_run, max_age_days):
+    """Scan collection prices via Liga locally, push results to remote API.
+
+    Runs LigaMagic price scan on your local machine (requires Playwright),
+    then POSTs the price observations to the remote Render deployment.
+
+    Example:
+        collector push-prices --remote https://tedhc.onrender.com --api-key SECRET
+    """
+    asyncio.run(_push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age_days))
+
+
+async def _push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age_days):
+    from datetime import date
+    from decimal import Decimal
+
+    import httpx
+
+    from src.collection.converter import is_foil_entry
+    from src.database.repository import Repository
+    from src.domain.models import ScanFilter
+    from src.providers.liga.provider import LigaMagicProvider
+
+    repo = Repository(db_url=db)
+    scan_filter = ScanFilter(limit=limit)
+    entries = repo.get_cards_for_liga_scan(scan_filter, max_age_days=max_age_days)
+    total = len(entries)
+
+    if total == 0:
+        click.echo("No cards to scan.")
+        return
+
+    click.echo(f"Found {total} cards to scan via Liga.")
+
+    provider = LigaMagicProvider()
+    observations = []
+    processed = 0
+    failed = 0
+
+    try:
+        await provider.open()
+
+        for i, entry in enumerate(entries, 1):
+            card_id = entry["card_id"]
+            card_name = entry.get("name_en") or entry.get("name_pt", "")
+            is_foil = is_foil_entry(entry.get("extras"))
+
+            if not card_name:
+                click.echo(f"  [{i}/{total}] Skipped (no name) card_id={card_id}")
+                continue
+
+            try:
+                prices = await provider.search_card(card_name)
+
+                if is_foil:
+                    foil = prices.get("foil", {})
+                    price: Decimal | None = foil.get("low") or foil.get("mid") or foil.get("high")
+                    external_id = f"liga_{card_id}_foil"
+                else:
+                    normal = prices.get("normal", {})
+                    price = normal.get("low") or normal.get("mid") or normal.get("high")
+                    external_id = f"liga_{card_id}"
+
+                if price is not None:
+                    observations.append(
+                        {
+                            "source": "liga",
+                            "external_id": external_id,
+                            "observed_at": date.today().isoformat(),
+                            "median_price": str(price),
+                            "currency": "BRL",
+                        }
+                    )
+                    click.echo(f"  [{i}/{total}] {card_name}: R${price}")
+                    processed += 1
+                else:
+                    click.echo(f"  [{i}/{total}] {card_name}: no price")
+                    failed += 1
+
+            except Exception as exc:
+                click.echo(f"  [{i}/{total}] {card_name}: ERROR {exc}")
+                failed += 1
+
+            if i < total:
+                await asyncio.sleep(delay)
+
+    finally:
+        await provider.close()
+
+    click.echo(f"\nScan complete: {processed} prices, {failed} failed, {total} total.")
+
+    if not observations:
+        click.echo("No prices to push.")
+        return
+
+    if dry_run:
+        click.echo(f"[DRY RUN] Would push {len(observations)} observations to {remote}")
+        return
+
+    # Push to remote
+    remote_url = remote.rstrip("/") + "/api/v1/prices/ingest"
+    headers = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    click.echo(f"Pushing {len(observations)} observations to {remote_url}...")
+
+    # Send in batches of 500
+    batch_size = 500
+    total_inserted = 0
+    for start in range(0, len(observations), batch_size):
+        batch = observations[start : start + batch_size]
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                remote_url,
+                json={"observations": batch},
+                headers=headers,
+            )
+        if resp.status_code == 200:
+            result = resp.json().get("data", {})
+            inserted = result.get("inserted", 0)
+            total_inserted += inserted
+            click.echo(f"  Batch {start // batch_size + 1}: {inserted} inserted")
+        else:
+            click.echo(f"  Batch {start // batch_size + 1}: FAILED {resp.status_code} {resp.text}")
+
+    click.echo(f"\nDone! {total_inserted} prices pushed to remote.")
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to bind to")
 @click.option("--port", default=8000, type=int, help="Port to bind to")
