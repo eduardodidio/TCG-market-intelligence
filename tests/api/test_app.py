@@ -24,7 +24,12 @@ class TestCreateApp:
     def test_health_endpoint(self, client):
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {"status": "ok"}
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "db" in data
+        assert "replication" in data
+        assert isinstance(data["db"]["exists"], bool)
+        assert isinstance(data["replication"]["enabled"], bool)
 
 
 class TestRouterMounting:

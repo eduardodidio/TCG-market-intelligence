@@ -1473,7 +1473,7 @@ async def _push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age
     total_inserted = 0
     for start in range(0, len(observations), batch_size):
         batch = observations[start : start + batch_size]
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
                 remote_url,
                 json={"observations": batch},
@@ -1536,7 +1536,7 @@ def push_db(db, remote, api_key):
             url,
             files={"file": ("tcg_market.db", f, "application/octet-stream")},
             headers=headers,
-            timeout=120.0,
+            timeout=300.0,
         )
 
     if resp.status_code == 200:
@@ -1587,6 +1587,124 @@ def pull_db(remote, api_key, output):
 
     size_mb = os.path.getsize(output) / (1024 * 1024)
     click.echo(f"OK — saved to {output} ({size_mb:.1f} MB)")
+
+
+@cli.command("backup-r2")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+def backup_r2(db):
+    """Force a Litestream snapshot to R2 (requires litestream binary + R2 env vars)."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("litestream"):
+        click.echo("Error: litestream binary not found in PATH.", err=True)
+        raise SystemExit(1)
+
+    config = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "litestream.yml"
+    )
+    if not os.path.exists(config):
+        config = "litestream.yml"
+
+    if not os.environ.get("LITESTREAM_REPLICA_BUCKET"):
+        click.echo("Error: LITESTREAM_REPLICA_BUCKET env var not set.", err=True)
+        raise SystemExit(1)
+
+    from src.database.backup import extract_db_path
+
+    db_path = extract_db_path(db)
+    click.echo(f"Triggering Litestream snapshot for {db_path}...")
+
+    result = subprocess.run(
+        ["litestream", "snapshots", "-config", config, db_path],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        click.echo(f"Current snapshots:\n{result.stdout}")
+    else:
+        click.echo(f"Warning: could not list snapshots: {result.stderr}")
+
+    result = subprocess.run(
+        ["litestream", "replicate", "-config", config, "-exec", "true"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode == 0:
+        click.echo("Snapshot pushed to R2 successfully.")
+    else:
+        click.echo(f"Error: {result.stderr}", err=True)
+        raise SystemExit(1)
+
+
+@cli.command("restore-r2")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--confirm", is_flag=True, help="Required to overwrite local database")
+def restore_r2(db, confirm):
+    """Restore SQLite database from R2 via Litestream."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("litestream"):
+        click.echo("Error: litestream binary not found in PATH.", err=True)
+        raise SystemExit(1)
+
+    if not os.environ.get("LITESTREAM_REPLICA_BUCKET"):
+        click.echo("Error: LITESTREAM_REPLICA_BUCKET env var not set.", err=True)
+        raise SystemExit(1)
+
+    from src.database.backup import extract_db_path
+
+    db_path = extract_db_path(db)
+
+    if not confirm:
+        click.echo(f"This will overwrite {db_path} with the latest R2 backup.")
+        click.echo("Pass --confirm to proceed.")
+        return
+
+    config = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "litestream.yml"
+    )
+    if not os.path.exists(config):
+        config = "litestream.yml"
+
+    # Backup current DB before overwriting
+    if os.path.exists(db_path):
+        from src.database.backup import backup_database
+
+        backup_path = backup_database(db_path)
+        click.echo(f"Current DB backed up to: {backup_path}")
+
+    click.echo(f"Restoring {db_path} from R2...")
+    result = subprocess.run(
+        ["litestream", "restore", "-config", config, "-if-replica-exists", db_path],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        if os.path.exists(db_path):
+            size_mb = os.path.getsize(db_path) / (1024 * 1024)
+            click.echo(f"Restored successfully ({size_mb:.1f} MB).")
+        else:
+            click.echo("No replica found in R2. Database not restored.")
+    else:
+        click.echo(f"Error: {result.stderr}", err=True)
+        raise SystemExit(1)
 
 
 @cli.command()

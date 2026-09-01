@@ -1,0 +1,11 @@
+dbs:
+  - path: /data/tcg_market.db
+    replicas:
+      - type: s3
+        bucket: $LITESTREAM_REPLICA_BUCKET
+        path: db
+        endpoint: $LITESTREAM_ENDPOINT
+        access-key-id: $LITESTREAM_ACCESS_KEY_ID
+        secret-access-key: $LITESTREAM_SECRET_ACCESS_KEY
+        retention: 72h
+        sync-interval: 1s

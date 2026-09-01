@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# Render start script
+# Render entrypoint: restore DB from R2 via Litestream, then start app with replication
 set -e
 
-# Seed exchange rates (best-effort, non-blocking)
-echo "==> Seeding exchange rates..."
-python -m src.cli.main update-exchange-rate --backfill-days 30 || echo "Warning: exchange rate seeding failed. Continuing..."
+if [ -n "$LITESTREAM_REPLICA_BUCKET" ]; then
+  echo "==> Restoring database from R2 (if backup exists)..."
+  litestream restore -if-replica-exists -config /app/litestream.yml /data/tcg_market.db || echo "Warning: Litestream restore failed or no backup found. Starting fresh."
 
-# Seed admin user (best-effort)
-echo "==> Seeding users..."
-python -m src.cli.main seed-users || echo "Warning: user seeding failed. Continuing..."
-
-# Start API server
-echo "==> Starting TEDHC Market API on port ${PORT:-8000}..."
-exec uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}"
+  echo "==> Starting with Litestream replication..."
+  exec litestream replicate -exec "sh /app/render-start-app.sh" -config /app/litestream.yml
+else
+  echo "==> No LITESTREAM_REPLICA_BUCKET set, starting without replication..."
+  exec sh /app/render-start-app.sh
+fi

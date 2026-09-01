@@ -24,6 +24,15 @@ services:
         value: "0"
       - key: TCG_ERROR_LOG_DIR
         value: /data/logs/errors
+      # Litestream R2 replication (set via Render dashboard)
+      - key: LITESTREAM_REPLICA_BUCKET
+        sync: false
+      - key: LITESTREAM_ENDPOINT
+        sync: false
+      - key: LITESTREAM_ACCESS_KEY_ID
+        sync: false
+      - key: LITESTREAM_SECRET_ACCESS_KEY
+        sync: false
     disk:
       name: tcg-data
       mountPath: /data

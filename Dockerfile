@@ -6,7 +6,13 @@ RUN npm ci --ignore-scripts
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Python runtime
+# Stage 2: Download Litestream
+FROM debian:bookworm-slim AS litestream
+ARG LITESTREAM_VERSION=0.3.13
+ADD https://github.com/benbjohnson/litestream/releases/download/v${LITESTREAM_VERSION}/litestream-v${LITESTREAM_VERSION}-linux-amd64.tar.gz /tmp/litestream.tar.gz
+RUN tar -C /usr/local/bin -xzf /tmp/litestream.tar.gz && rm /tmp/litestream.tar.gz
+
+# Stage 3: Python runtime
 FROM python:3.12-slim AS runtime
 WORKDIR /app
 
@@ -14,6 +20,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ libcurl4-openssl-dev libssl-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy Litestream binary
+COPY --from=litestream /usr/local/bin/litestream /usr/local/bin/litestream
 
 # Install Python deps
 COPY pyproject.toml ./
@@ -32,7 +41,7 @@ USER appuser
 
 EXPOSE 8000
 
-# Copy start script
-COPY render-start.sh ./
+# Copy start scripts and Litestream config
+COPY litestream.yml render-start.sh render-start-app.sh ./
 # Render sets $PORT dynamically; default to 8000
 CMD ["sh", "render-start.sh"]

@@ -81,6 +81,8 @@ python -m src.cli.main retry-failed
 | `analyze list` | List all cards with observation counts |
 | `analyze card <id>` | Compute analytics for a single card by external ID |
 | `canonize-all` | Bulk-canonize all unlinked collection entries |
+| `backup-r2` | Force a Litestream snapshot to Cloudflare R2 |
+| `restore-r2` | Restore SQLite database from R2 (`--confirm` required) |
 
 ### Options
 
@@ -852,6 +854,37 @@ Centralized error capture and admin visibility for all application errors:
   errors via global logger, so background task failures are visible in the
   admin panel alongside request-triggered errors.
 
+### F94 -- Collection Persistence (Litestream + R2) (2026-08-31)
+
+SQLite database persistence across Render free tier cold starts via
+continuous WAL replication to Cloudflare R2:
+
+- **Litestream sidecar** -- Litestream binary installed in Docker image,
+  wraps the app process via `-exec`. Continuously streams SQLite WAL
+  changes to an S3-compatible bucket (Cloudflare R2 free tier).
+- **Auto-restore on startup** -- `render-start.sh` runs
+  `litestream restore -if-replica-exists` before booting the app. First
+  deploy (no backup) starts fresh; subsequent cold starts restore the
+  latest snapshot in ~2-5 seconds.
+- **Zero app changes** -- Litestream is transparent to SQLite. No ORM or
+  query changes needed.
+- **CLI commands** -- `backup-r2` (force snapshot to R2) and `restore-r2`
+  (pull latest from R2, with `--confirm` safety). Both require Litestream
+  binary and R2 env vars.
+- **Health endpoint** -- `/health` now reports `db.exists`, `db.size_mb`,
+  and `replication.enabled`/`replication.provider`.
+- **Graceful fallback** -- if `LITESTREAM_REPLICA_BUCKET` is not set, app
+  starts without replication (same as before).
+- **Architecture decision:** [ADR-0010](docs/adr/0010-sqlite-persistence-litestream.md)
+
+**R2 setup:**
+1. Create a Cloudflare R2 bucket (free tier: 10GB, 10M ops/mo)
+2. Generate an R2 API token with Object Read & Write permissions
+3. Set 4 env vars on Render dashboard: `LITESTREAM_REPLICA_BUCKET`,
+   `LITESTREAM_ENDPOINT`, `LITESTREAM_ACCESS_KEY_ID`,
+   `LITESTREAM_SECRET_ACCESS_KEY`
+4. Next deploy auto-restores and replicates
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).
@@ -860,8 +893,8 @@ TEDHC Market deploys as a single web service on [Render](https://render.com).
 1. Fork/connect this repo on Render
 2. Create a new Web Service → select Docker runtime
 3. Use the `render.yaml` Blueprint for auto-configuration
-4. Add a 1GB Persistent Disk mounted at `/data`
-5. Set `TCG_CORS_ORIGINS` to your Render URL after first deploy
+4. Set `TCG_CORS_ORIGINS` to your Render URL after first deploy
+5. (Recommended) Set up Litestream + R2 for database persistence (see F94 above)
 
 **Environment variables:** see `.env.example` for the full reference.
 

@@ -272,7 +272,31 @@ def create_app() -> FastAPI:
     # Health check (outside /api/v1)
     @app.get("/health")
     def health_check():
-        return {"status": "ok"}
+        from src.config import get_db_url
+
+        db_url = get_db_url()
+        db_info: dict = {"exists": False, "size_mb": 0}
+        try:
+            from src.database.backup import extract_db_path
+
+            db_path = extract_db_path(db_url)
+            db_file = Path(db_path)
+            if db_file.exists():
+                db_info["exists"] = True
+                db_info["size_mb"] = round(db_file.stat().st_size / (1024 * 1024), 2)
+        except Exception:
+            pass
+
+        replication = {
+            "enabled": bool(os.environ.get("LITESTREAM_REPLICA_BUCKET")),
+            "provider": "litestream-r2" if os.environ.get("LITESTREAM_REPLICA_BUCKET") else None,
+        }
+
+        return {
+            "status": "ok",
+            "db": db_info,
+            "replication": replication,
+        }
 
     # Serve frontend SPA (production: built files in frontend/dist/)
     _frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
