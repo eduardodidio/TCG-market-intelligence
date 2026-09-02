@@ -76,7 +76,7 @@ describe("InlineEditField", () => {
     });
   });
 
-  it("shows success indicator after save", async () => {
+  it("shows checkmark after successful save", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(<InlineEditField value="old" onSave={onSave} type="text" label="test" />);
 
@@ -85,8 +85,44 @@ describe("InlineEditField", () => {
     fireEvent.click(screen.getByTestId("inline-edit-save"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("inline-edit-success")).toBeDefined();
+      expect(screen.getByTestId("save-checkmark")).toBeDefined();
     });
+  });
+
+  it("checkmark disappears after 1.5 seconds", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<InlineEditField value="old" onSave={onSave} type="text" label="test" />);
+
+    fireEvent.click(screen.getByTestId("inline-edit-pencil"));
+    fireEvent.change(screen.getByTestId("inline-edit-input"), { target: { value: "new" } });
+    fireEvent.click(screen.getByTestId("inline-edit-save"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("save-checkmark")).toBeDefined();
+    });
+
+    vi.advanceTimersByTime(1500);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("save-checkmark")).toBeNull();
+    });
+
+    vi.useRealTimers();
+  });
+
+  it("no checkmark on save failure", async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error("fail"));
+    render(<InlineEditField value="original" onSave={onSave} type="text" label="test" />);
+
+    fireEvent.click(screen.getByTestId("inline-edit-pencil"));
+    fireEvent.change(screen.getByTestId("inline-edit-input"), { target: { value: "bad" } });
+    fireEvent.click(screen.getByTestId("inline-edit-save"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("inline-edit-error")).toBeDefined();
+    });
+    expect(screen.queryByTestId("save-checkmark")).toBeNull();
   });
 
   it("shows error and reverts on save failure", async () => {

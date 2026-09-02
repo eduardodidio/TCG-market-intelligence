@@ -245,7 +245,10 @@
     "importing": "Importando...",
     "importStats": "{{imported}} importados, {{skipped}} ignorados, {{linked}} vinculados",
     "selectCsvFile": "Selecionar arquivo CSV",
-    "noMatchingCards": "Nenhuma carta corresponde aos filtros."
+    "noMatchingCards": "Nenhuma carta corresponde aos filtros.",
+    "deleteUndoMessage": "\"{{name}}\" excluido",
+    "deleteUndo": "Desfazer",
+    "deleteUndone": "Exclusao cancelada"
   },
   "market": {
     "title": "Movimentacao de Mercado",
@@ -447,6 +450,16 @@
       "complete": "Varredura completa: {{total}} cartas, {{prices}} precos atualizados",
       "failed": "Varredura falhou: {{error}}",
       "fallback": "Streaming indisponivel, usando polling..."
+    },
+    "summary": {
+      "title": "Varredura Concluida",
+      "titleWarning": "Varredura Concluida (com problemas)",
+      "priced": "Com preco",
+      "notFound": "Nao encontrado",
+      "rateLimited": "Limite de requisicoes",
+      "otherErrors": "Outros erros",
+      "duration": "Concluido em {{time}}",
+      "dismiss": "Fechar"
     }
   },
   "rarity": {
@@ -787,6 +800,7 @@
   "inlineEdit": {
     "edit": "Editar",
     "save": "Salvar",
+    "saved": "Salvo",
     "saveError": "Falha ao salvar alteracoes",
     "invalidValue": "Valor invalido",
     "empty": "(vazio)",

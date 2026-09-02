@@ -245,7 +245,10 @@
     "importing": "Importing...",
     "importStats": "{{imported}} imported, {{skipped}} skipped, {{linked}} linked",
     "selectCsvFile": "Select CSV file",
-    "noMatchingCards": "No cards match your filters."
+    "noMatchingCards": "No cards match your filters.",
+    "deleteUndoMessage": "\"{{name}}\" deleted",
+    "deleteUndo": "Undo",
+    "deleteUndone": "Deletion cancelled"
   },
   "market": {
     "title": "Market Movers",
@@ -447,6 +450,16 @@
       "complete": "Scan complete: {{total}} cards, {{prices}} prices updated",
       "failed": "Scan failed: {{error}}",
       "fallback": "Streaming unavailable, using polling..."
+    },
+    "summary": {
+      "title": "Scan Complete",
+      "titleWarning": "Scan Complete (with issues)",
+      "priced": "Priced",
+      "notFound": "Not Found",
+      "rateLimited": "Rate Limited",
+      "otherErrors": "Other Errors",
+      "duration": "Completed in {{time}}",
+      "dismiss": "Dismiss"
     }
   },
   "rarity": {
@@ -787,6 +800,7 @@
   "inlineEdit": {
     "edit": "Edit",
     "save": "Save",
+    "saved": "Saved",
     "saveError": "Failed to save changes",
     "invalidValue": "Invalid value",
     "empty": "(empty)",

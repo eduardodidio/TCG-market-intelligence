@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { useCredits } from "../hooks/useCredits";
-import { canonizeCard, deleteCollectionEntry, fetchCollectionEntry, fetchCollectionHistory, patchCollectionEntry, refreshCardPrice, refreshCardPriceLiga } from "../api/collection";
+import { usePendingDelete } from "../hooks/usePendingDelete";
+import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, patchCollectionEntry, refreshCardPrice, refreshCardPriceLiga } from "../api/collection";
 import { fetchCardBanHistory } from "../api/banlist";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
@@ -69,6 +70,7 @@ export function CollectionCardDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { setPendingDelete } = usePendingDelete();
 
   const entryId = Number(id);
 
@@ -562,7 +564,7 @@ export function CollectionCardDetail() {
             <DeleteEntryButton
               entryName={displayName}
               onConfirm={async () => {
-                await deleteCollectionEntry(entryId);
+                setPendingDelete({ entryId, entryName: displayName });
                 navigate("/collection");
               }}
             />

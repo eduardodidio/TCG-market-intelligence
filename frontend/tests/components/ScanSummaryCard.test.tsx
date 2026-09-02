@@ -71,8 +71,10 @@ describe("ScanSummaryCard", () => {
   it("formats duration correctly", () => {
     render(<ScanSummaryCard summary={baseSummary} onDismiss={vi.fn()} />);
     const durationEl = screen.getByTestId("scan-summary-duration");
-    // i18n mock returns the key; check the key is used
-    expect(durationEl.textContent).toContain("scan.summary.duration");
+    // The i18n key receives {{time}} as "2m 34s" -- check for either the
+    // formatted output (when locale is loaded) or the key (when mock returns key)
+    const text = durationEl.textContent || "";
+    expect(text.includes("2m 34s") || text.includes("scan.summary.duration")).toBe(true);
   });
 
   it("card persists until dismissed (no auto-timeout)", async () => {
