@@ -367,6 +367,55 @@ def db_clear_prices(db, source, confirm, skip_backup):
         click.echo("")
 
 
+@cli.command("cleanup-orphans")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--execute", is_flag=True, help="Actually clean orphans (default is dry-run)")
+@click.option("--skip-backup", is_flag=True, help="Skip automatic backup before cleanup")
+def cleanup_orphans(db, execute, skip_backup):
+    """Clean orphan references that would violate FK constraints."""
+    from src.database.cleanup import cleanup_orphan_references
+
+    try:
+        result = cleanup_orphan_references(
+            db_url=db,
+            dry_run=not execute,
+            skip_backup=skip_backup,
+        )
+    except Exception as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+    prefix = "[DRY RUN] Would clean" if result.dry_run else "Cleaned"
+    click.echo("")
+    click.echo(f"  {prefix}:")
+    click.echo(f"    source_cards unlinked:        {result.source_cards_unlinked}")
+    click.echo(f"    user_collection unlinked:     {result.user_collection_unlinked}")
+    click.echo(f"    deck_cards unlinked:          {result.deck_cards_unlinked}")
+    click.echo(f"    card_legalities deleted:      {result.card_legalities_deleted}")
+    click.echo(f"    legality_history deleted:     {result.legality_history_deleted}")
+    click.echo(f"    evaluation_entries unlinked:  {result.evaluation_entries_unlinked}")
+    click.echo(f"    deck_cards (no deck) deleted: {result.deck_cards_no_deck_deleted}")
+    click.echo(f"    credit_balances deleted:      {result.credit_balances_deleted}")
+    click.echo(f"    credit_transactions deleted:  {result.credit_transactions_deleted}")
+    click.echo(f"    Total:                        {result.total}")
+
+    if result.total == 0:
+        click.echo("\n  No orphan references found -- database is clean.")
+    elif result.dry_run:
+        click.echo("\n  Pass --execute to actually clean orphan references.")
+
+    if result.backup_path:
+        click.echo(f"\n  Backup saved to: {result.backup_path}")
+    click.echo("")
+
+
 @cli.command("snapshot-prices")
 @click.option(
     "--db",

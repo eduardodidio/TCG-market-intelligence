@@ -62,6 +62,7 @@ class SourceCardRow(Base):
     __table_args__ = (
         UniqueConstraint("source", "external_id", name="uq_source_card"),
         Index("ix_source_card_sku", "sku"),
+        Index("ix_source_card_cardid_source", "card_id", "source"),
     )
 
 
@@ -83,6 +84,7 @@ class PriceObservationRow(Base):
     __table_args__ = (
         UniqueConstraint("source", "external_id", "observed_at", name="uq_price_observation"),
         Index("ix_price_obs_card_date", "source", "external_id", "observed_at"),
+        Index("ix_price_obs_extid_date", "external_id", "observed_at"),
     )
 
 
@@ -110,6 +112,7 @@ class UserCollectionRow(Base):
     __table_args__ = (
         Index("ix_user_collection_user", "user_id"),
         Index("ix_user_collection_card", "card_id"),
+        Index("ix_user_collection_user_card", "user_id", "card_id"),
     )
 
 
@@ -281,6 +284,7 @@ class DeckCardRow(Base):
     __table_args__ = (
         Index("ix_deck_cards_deck", "deck_id"),
         Index("ix_deck_cards_card", "card_id"),
+        Index("ix_deck_cards_deck_card", "deck_id", "card_id"),
     )
 
 
