@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useCurrency } from "../hooks/useCurrency";
 import { useLanguage } from "../hooks/useLanguage";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { CurrencyToggle } from "../components/CurrencyToggle";
 import { LanguageSelector } from "../components/LanguageSelector";
 import { apiPatch } from "../api/client";
@@ -35,6 +36,12 @@ export function Settings() {
 
   return (
     <div data-testid="page-settings" className="max-w-2xl">
+      <Breadcrumb
+        items={[
+          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.settings") },
+        ]}
+      />
       <h2 className="text-2xl font-bold text-white mb-6">{t("settings.title")}</h2>
 
       {/* Account section */}

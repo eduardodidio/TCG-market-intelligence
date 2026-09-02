@@ -10,6 +10,7 @@ interface BatchAddModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialText?: string;
 }
 
 type ModalState = "input" | "preview" | "result";
@@ -19,10 +20,10 @@ interface BatchResult {
   errors: { line: number; text: string; error: string }[];
 }
 
-export function BatchAddModal({ isOpen, onClose, onSuccess }: BatchAddModalProps) {
+export function BatchAddModal({ isOpen, onClose, onSuccess, initialText }: BatchAddModalProps) {
   const { t } = useTranslation();
-  const [state, setState] = useState<ModalState>("input");
-  const [text, setText] = useState("");
+  const [state, setState] = useState<ModalState>(initialText ? "input" : "input");
+  const [text, setText] = useState(initialText ?? "");
   const [entries, setEntries] = useState<ParsedEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,12 +99,12 @@ export function BatchAddModal({ isOpen, onClose, onSuccess }: BatchAddModalProps
     }
     // Reset state
     setState("input");
-    setText("");
+    setText(initialText ?? "");
     setEntries([]);
     setError(null);
     setResult(null);
     onClose();
-  }, [result, onSuccess, onClose]);
+  }, [result, onSuccess, onClose, initialText]);
 
   const handleBackToInput = useCallback(() => {
     setState("input");

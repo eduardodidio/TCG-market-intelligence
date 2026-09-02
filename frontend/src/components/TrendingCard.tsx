@@ -6,6 +6,7 @@ import type { TrendingCardEntry } from "../types/api";
 
 interface TrendingCardProps {
   entry: TrendingCardEntry;
+  ownedCardIds?: Set<number>;
 }
 
 function formatCurrency(value: number, currency: string): string {
@@ -20,12 +21,13 @@ function scoreColor(score: number): string {
   return "bg-red-500";
 }
 
-export function TrendingCard({ entry }: TrendingCardProps) {
+export function TrendingCard({ entry, ownedCardIds }: TrendingCardProps) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const [imgError, setImgError] = useState(false);
 
   const isUp = entry.change_pct > 0;
+  const isOwned = ownedCardIds?.has(entry.card_id) ?? false;
   const arrow = isUp ? "\u2191" : "\u2193";
   const changeColor = isUp ? "text-green-400" : "text-red-400";
   const sign = isUp ? "+" : "";
@@ -34,9 +36,22 @@ export function TrendingCard({ entry }: TrendingCardProps) {
   return (
     <Link
       to={`/cards/${entry.card_id}`}
-      className="flex-shrink-0 w-44 rounded-lg bg-slate-800 border border-slate-700 p-3 hover:ring-2 hover:ring-cyan-400 transition-all"
+      className="flex-shrink-0 w-44 rounded-lg bg-slate-800 border border-slate-700 p-3 hover:ring-2 hover:ring-cyan-400 transition-all relative"
       data-testid="trending-card"
     >
+      {/* Owned badge */}
+      {isOwned && (
+        <span
+          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center z-10"
+          title={t("trending.inCollection")}
+          data-testid="owned-badge"
+        >
+          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </span>
+      )}
+
       {/* Card image */}
       <div className="w-16 h-[90px] mx-auto mb-2 rounded overflow-hidden bg-slate-700">
         {entry.image_url && !imgError ? (
