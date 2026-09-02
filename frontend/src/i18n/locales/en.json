@@ -556,7 +556,9 @@
     "deleted": "Schedule deleted",
     "triggered": "Scan triggered",
     "pausedByErrors": "Auto-paused after {{count}} errors",
-    "pausedInsufficientCredits": "Insufficient tokens"
+    "pausedInsufficientCredits": "Insufficient tokens",
+    "creditPauseTooltip": "Paused: insufficient tokens. Claim your bonus or wait for monthly grant to resume.",
+    "creditPauseHint": "Claim bonus or add tokens to resume"
   },
   "topDecks": {
     "title": "Top Decks by Value",
@@ -741,7 +743,13 @@
     "cancel": "Cancel",
     "monthlyGrant": "{{amount}}/mo grant",
     "monthlyGrantClaimed": "Monthly grant claimed!",
+    "approxCost": "~{{count}} tokens",
+    "bonusClaimed": "+{{amount}} tokens!",
+    "claimBonusModal": "Claim Bonus",
+    "costBadge": "({{cost}} token)",
+    "earnInfo": "Earn 5 tokens every 12 hours by claiming your bonus.",
     "refreshCost": "Refresh price",
+    "refreshCostTooltip": "Costs {{cost}} token to refresh",
     "scanCost": "Run price scan",
     "tokenTypeLine": "Token Artifact — Treasure",
     "tokenRulesText": "Tap, Sacrifice this artifact: Add one mana of any color."

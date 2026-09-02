@@ -556,7 +556,9 @@
     "deleted": "Agendamento excluido",
     "triggered": "Scan iniciado",
     "pausedByErrors": "Auto-pausado apos {{count}} erro(s)",
-    "pausedInsufficientCredits": "Tokens insuficientes"
+    "pausedInsufficientCredits": "Tokens insuficientes",
+    "creditPauseTooltip": "Pausado: tokens insuficientes. Resgate seu bonus ou aguarde o credito mensal para retomar.",
+    "creditPauseHint": "Resgate bonus ou adicione tokens para retomar"
   },
   "topDecks": {
     "title": "Top Decks por Valor",
@@ -741,7 +743,13 @@
     "cancel": "Cancelar",
     "monthlyGrant": "{{amount}}/mes de bonus",
     "monthlyGrantClaimed": "Bonus mensal resgatado!",
+    "approxCost": "~{{count}} tokens",
+    "bonusClaimed": "+{{amount}} tokens!",
+    "claimBonusModal": "Resgatar Bonus",
+    "costBadge": "({{cost}} token)",
+    "earnInfo": "Ganhe 5 tokens a cada 12 horas resgatando seu bonus.",
     "refreshCost": "Atualizar preco",
+    "refreshCostTooltip": "Custa {{cost}} token para atualizar",
     "scanCost": "Executar scan de precos",
     "tokenTypeLine": "Token Artefato — Tesouro",
     "tokenRulesText": "Tap, sacrifique este artefato: Adicione um mana de qualquer cor."

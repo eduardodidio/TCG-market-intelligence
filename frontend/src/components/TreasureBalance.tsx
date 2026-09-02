@@ -10,12 +10,14 @@ export function TreasureBalance() {
     useCredits();
   const treasureImage = useTreasureImage();
   const [claimed, setClaimed] = useState(false);
+  const [creditedAmount, setCreditedAmount] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [originRect, setOriginRect] = useState<DOMRect | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
   const handleClaim = async () => {
-    await claimBonus();
+    const credited = await claimBonus();
+    setCreditedAmount(credited);
     setClaimed(true);
     setTimeout(() => setClaimed(false), 1500);
   };
@@ -73,6 +75,14 @@ export function TreasureBalance() {
         <span className="text-xs text-slate-500 truncate">
           {t("credits.balance")}
         </span>
+        {claimed && creditedAmount > 0 && (
+          <span
+            className="text-xs text-emerald-400 font-medium animate-fade-in-up"
+            data-testid="bonus-claimed-message"
+          >
+            {t("credits.bonusClaimed", { amount: creditedAmount })}
+          </span>
+        )}
         {isAdmin && monthlyGrantAmount > 0 && (
           <span
             className="text-xs text-cyan-400/70 truncate"

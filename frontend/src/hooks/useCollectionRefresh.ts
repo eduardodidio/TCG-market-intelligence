@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { triggerScanAuth } from "../api/scans";
+import type { ScanSummary } from "../components/ScanSummaryCard";
 import type { ScanStreamEvent } from "./useScanStream";
 import { useScanStream } from "./useScanStream";
 
-const COMPLETE_DISPLAY_MS = 2_000;
 const ERROR_DISPLAY_MS = 3_000;
 
 export interface RefreshProgress {
@@ -24,8 +24,10 @@ export interface UseCollectionRefreshReturn {
   error: string | null;
   isDone: boolean;
   lastScannedCard: LastScannedCard | null;
+  summary: ScanSummary | null;
   startRefresh: (maxAgeDays?: number) => Promise<void>;
   cancelRefresh: () => void;
+  dismissSummary: () => void;
 }
 
 export function useCollectionRefresh(
@@ -37,8 +39,9 @@ export function useCollectionRefresh(
   const [isDone, setIsDone] = useState(false);
   const [lastScannedCard, setLastScannedCard] = useState<LastScannedCard | null>(null);
   const [scanId, setScanId] = useState<number | null>(null);
+  const [summary, setSummary] = useState<ScanSummary | null>(null);
 
-  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTimeRef = useRef<number>(0);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -51,10 +54,6 @@ export function useCollectionRefresh(
     : "";
 
   const clearTimers = useCallback(() => {
-    if (doneTimerRef.current) {
-      clearTimeout(doneTimerRef.current);
-      doneTimerRef.current = null;
-    }
     if (errorTimerRef.current) {
       clearTimeout(errorTimerRef.current);
       errorTimerRef.current = null;
@@ -85,12 +84,19 @@ export function useCollectionRefresh(
     setIsDone(true);
     setScanId(null);
     localStorage.removeItem("tcg_active_scan");
+
+    // Build summary from event data
+    setSummary({
+      cardsTotal: event.cards_total,
+      cardsProcessed: event.cards_processed,
+      cardsFailed: event.cards_failed,
+      observationsSaved: event.observations_saved,
+      notFoundCount: event.not_found_count ?? 0,
+      rateLimitedCount: event.rate_limited_count ?? 0,
+      durationMs: Date.now() - startTimeRef.current,
+    });
+
     onCompleteRef.current?.();
-    doneTimerRef.current = setTimeout(() => {
-      setIsDone(false);
-      setProgress(null);
-      setLastScannedCard(null);
-    }, COMPLETE_DISPLAY_MS);
   }, []);
 
   const handleStreamError = useCallback((msg: string) => {
@@ -115,6 +121,13 @@ export function useCollectionRefresh(
     fallbackToPolling: true,
   });
 
+  const dismissSummary = useCallback(() => {
+    setSummary(null);
+    setIsDone(false);
+    setProgress(null);
+    setLastScannedCard(null);
+  }, []);
+
   const cancelRefresh = useCallback(() => {
     clearTimers();
     disconnect();
@@ -125,6 +138,7 @@ export function useCollectionRefresh(
     setError(null);
     setIsDone(false);
     setLastScannedCard(null);
+    setSummary(null);
   }, [clearTimers, disconnect]);
 
   const startRefresh = useCallback(async (maxAgeDays?: number) => {
@@ -135,6 +149,8 @@ export function useCollectionRefresh(
     setIsRefreshing(true);
     setProgress(null);
     setLastScannedCard(null);
+    setSummary(null);
+    startTimeRef.current = Date.now();
 
     const res = await triggerScanAuth({
       scan_type: "collection",
@@ -187,7 +203,9 @@ export function useCollectionRefresh(
     error,
     isDone,
     lastScannedCard,
+    summary,
     startRefresh,
     cancelRefresh,
+    dismissSummary,
   };
 }

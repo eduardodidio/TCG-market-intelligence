@@ -102,7 +102,8 @@ describe("ScheduleTable", () => {
     expect(onDelete).toHaveBeenCalledWith(1);
   });
 
-  it("renders amber badge for paused_insufficient_credits status", () => {
+  // F96-T05: Credit-pause indicator tests
+  it("renders red badge for paused_insufficient_credits status", () => {
     renderTable([
       makeSchedule({ id: 1, status: "paused_insufficient_credits" }),
     ]);
@@ -110,8 +111,43 @@ describe("ScheduleTable", () => {
       "status-badge-paused_insufficient_credits",
     );
     expect(badge).toBeDefined();
-    expect(badge.className).toContain("text-yellow-400");
-    expect(badge.textContent).toBe("Insufficient tokens");
+    expect(badge.className).toContain("text-red-400");
+    expect(badge.className).toContain("bg-red-500/20");
+    expect(badge.textContent).toContain("Insufficient tokens");
+  });
+
+  it("renders warning icon for paused_insufficient_credits", () => {
+    renderTable([
+      makeSchedule({ id: 1, status: "paused_insufficient_credits" }),
+    ]);
+    const icon = screen.getByTestId("credit-pause-warning-icon");
+    expect(icon).toBeDefined();
+  });
+
+  it("does NOT render warning icon for regular paused status", () => {
+    renderTable([
+      makeSchedule({ id: 1, status: "paused" }),
+    ]);
+    expect(screen.queryByTestId("credit-pause-warning-icon")).toBeNull();
+  });
+
+  it("renders recovery hint for paused_insufficient_credits", () => {
+    renderTable([
+      makeSchedule({ id: 1, status: "paused_insufficient_credits" }),
+    ]);
+    const hint = screen.getByTestId("credit-pause-hint-1");
+    expect(hint).toBeDefined();
+    expect(hint.textContent).toContain("Claim bonus or add tokens to resume");
+  });
+
+  it("tooltip includes recovery advice for credit-paused schedule", () => {
+    renderTable([
+      makeSchedule({ id: 1, status: "paused_insufficient_credits" }),
+    ]);
+    const badge = screen.getByTestId(
+      "status-badge-paused_insufficient_credits",
+    );
+    expect(badge.getAttribute("title")).toContain("Claim your bonus");
   });
 
   it("resume button works for paused_insufficient_credits", () => {

@@ -18,6 +18,9 @@ vi.mock("react-i18next", () => ({
         "credits.tokenTypeLine": "Token Artifact — Treasure",
         "credits.tokenRulesText":
           "Tap, Sacrifice this artifact: Add one mana of any color.",
+        "credits.claimBonusModal": "Claim Bonus",
+        "credits.earnInfo": "Earn 5 tokens every 12 hours by claiming your bonus.",
+        "credits.bonusClaimed": `+${opts?.amount ?? ""}tokens!`,
         "collection.cardsToScan": `${opts?.count ?? ""} cards to scan`,
         "collection.skippedCards": `${opts?.count ?? ""} cards skipped (recently scanned)`,
       };
@@ -193,5 +196,88 @@ describe("CreditConfirmModal", () => {
     expect(screen.getByTestId("cost-text").textContent).toContain("12");
     const confirmBtn = screen.getByTestId("modal-confirm-btn");
     expect(confirmBtn.textContent).toContain("12");
+  });
+
+  // F96-T01: Claim Bonus + Earn Info tests
+  it("shows Claim Bonus button when insufficient and bonusEligible", () => {
+    render(
+      <CreditConfirmModal
+        {...defaultProps}
+        cost={5}
+        balance={2}
+        bonusEligible={true}
+        onClaimBonus={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    expect(screen.getByTestId("modal-claim-bonus-btn")).toBeTruthy();
+    expect(screen.getByTestId("modal-claim-bonus-btn").textContent).toBe("Claim Bonus");
+  });
+
+  it("does NOT show Claim Bonus button when bonusEligible is false", () => {
+    render(
+      <CreditConfirmModal
+        {...defaultProps}
+        cost={5}
+        balance={2}
+        bonusEligible={false}
+        onClaimBonus={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    expect(screen.queryByTestId("modal-claim-bonus-btn")).toBeNull();
+  });
+
+  it("does NOT show Claim Bonus button when balance is sufficient", () => {
+    render(
+      <CreditConfirmModal
+        {...defaultProps}
+        cost={1}
+        balance={10}
+        bonusEligible={true}
+        onClaimBonus={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    expect(screen.queryByTestId("modal-claim-bonus-btn")).toBeNull();
+  });
+
+  it("shows earn-info text when insufficient", () => {
+    render(
+      <CreditConfirmModal {...defaultProps} cost={5} balance={2} />,
+    );
+    const el = screen.getByTestId("earn-info-text");
+    expect(el.textContent).toContain("Earn 5 tokens every 12 hours");
+  });
+
+  it("shows earn-info text when insufficient regardless of bonus eligibility", () => {
+    render(
+      <CreditConfirmModal
+        {...defaultProps}
+        cost={5}
+        balance={2}
+        bonusEligible={false}
+      />,
+    );
+    expect(screen.getByTestId("earn-info-text")).toBeTruthy();
+  });
+
+  it("does NOT show earn-info text when balance is sufficient", () => {
+    render(
+      <CreditConfirmModal {...defaultProps} cost={1} balance={10} />,
+    );
+    expect(screen.queryByTestId("earn-info-text")).toBeNull();
+  });
+
+  it("calls onClaimBonus when Claim Bonus button clicked", () => {
+    const onClaimBonus = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CreditConfirmModal
+        {...defaultProps}
+        cost={5}
+        balance={2}
+        bonusEligible={true}
+        onClaimBonus={onClaimBonus}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("modal-claim-bonus-btn"));
+    expect(onClaimBonus).toHaveBeenCalledTimes(1);
   });
 });

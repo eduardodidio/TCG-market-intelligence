@@ -15,6 +15,7 @@ import { GridSizeToggle } from "../components/GridSizeToggle";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { KpiCard } from "../components/KpiCard";
 import { ScanProgressBar } from "../components/ScanProgressBar";
+import { ScanSummaryCard } from "../components/ScanSummaryCard";
 import { SearchBar } from "../components/SearchBar";
 import { SetIconFilter } from "../components/SetIconFilter";
 import { SkeletonCard } from "../components/Skeleton";
@@ -29,6 +30,7 @@ import { useCardName } from "../hooks/useCardName";
 import { useCollectionRefresh } from "../hooks/useCollectionRefresh";
 import { useCredits } from "../hooks/useCredits";
 import { useCurrency } from "../hooks/useCurrency";
+import { CostBadge } from "../components/CostBadge";
 import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { MaxAgeDaysSelect } from "../components/MaxAgeDaysSelect";
 import { fetchScanPreview } from "../api/scans";
@@ -66,7 +68,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   const [fallbackError, setFallbackError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
-  const { balance, isAdmin, refetch: refetchCredits } = useCredits();
+  const { balance, isAdmin, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
 
   // Primary image: backend-provided URL (Scryfall by set/number)
   // Fallback: Scryfall by exact card name
@@ -153,7 +155,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
               setCreditModalOpen(true);
             }}
             disabled={refreshing}
-            title={t("collection.refresh")}
+            title={t("credits.refreshCostTooltip", { cost: 1 })}
             className="absolute bottom-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-black/60 text-slate-300 hover:text-cyan-400 hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-100 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             <svg
@@ -273,6 +275,8 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
         balance={balance ?? 0}
         actionLabel={t("credits.refreshCost")}
         isAdmin={isAdmin}
+        bonusEligible={bonusEligible}
+        onClaimBonus={async () => { await claimBonus(); refetchCredits(); }}
       />
     </>
   );
@@ -315,7 +319,7 @@ export function MyCollection() {
   const [previewCardCount, setPreviewCardCount] = useState(0);
   const [previewSkipped, setPreviewSkipped] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const { balance: creditBalance, isAdmin: creditIsAdmin } = useCredits();
+  const { balance: creditBalance, isAdmin: creditIsAdmin, bonusEligible: creditBonusEligible, claimBonus: creditClaimBonus, refetch: creditRefetch } = useCredits();
 
   // Batch add modal state
   const [batchAddOpen, setBatchAddOpen] = useState(false);
@@ -404,8 +408,10 @@ export function MyCollection() {
     error: refreshError,
     isDone: refreshDone,
     lastScannedCard,
+    summary: scanSummary,
     startRefresh: rawStartRefresh,
     cancelRefresh,
+    dismissSummary,
   } = useCollectionRefresh(handleRefreshComplete);
 
   // Wrap startRefresh to reset scan tracking state
@@ -817,6 +823,9 @@ export function MyCollection() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span className="hidden sm:inline">{t("collection.refreshAll")}</span>
+              {summary && summary.total_unique > 0 && (
+                <CostBadge cost={summary.total_unique} balance={creditBalance} />
+              )}
             </button>
           )}
 
@@ -824,7 +833,7 @@ export function MyCollection() {
         </div>
 
         {/* Enhanced progress bar */}
-        {(isRefreshing || refreshDone || refreshError) && (
+        {(isRefreshing || refreshError) && (
           <ScanProgressBar
             processed={refreshProgress?.processed ?? 0}
             total={refreshProgress?.total ?? 0}
@@ -832,9 +841,17 @@ export function MyCollection() {
             priceFoundCount={priceFoundCount}
             startTime={scanStartTime}
             isRefreshing={isRefreshing}
-            isDone={refreshDone}
+            isDone={false}
             error={refreshError}
             onCancel={isRefreshing ? cancelRefresh : undefined}
+          />
+        )}
+
+        {/* Scan summary card -- replaces done state */}
+        {refreshDone && scanSummary && (
+          <ScanSummaryCard
+            summary={scanSummary}
+            onDismiss={dismissSummary}
           />
         )}
       </div>
@@ -956,6 +973,8 @@ export function MyCollection() {
         isAdmin={creditIsAdmin}
         cardCount={previewCardCount}
         skippedCount={previewSkipped}
+        bonusEligible={creditBonusEligible}
+        onClaimBonus={async () => { await creditClaimBonus(); creditRefetch(); }}
       >
         <MaxAgeDaysSelect
           value={previewMaxAgeDays}

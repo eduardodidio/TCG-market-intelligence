@@ -17,7 +17,7 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
   const { getCardName } = useCardName();
   const [refreshing, setRefreshing] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
-  const { balance, isAdmin, refetch: refetchCredits } = useCredits();
+  const { balance, isAdmin, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const linkTo = card.in_collection && card.collection_entry_id
     ? `/collection/${card.collection_entry_id}`
@@ -91,7 +91,7 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
               setCreditModalOpen(true);
             }}
             disabled={refreshing}
-            title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
+            title={refreshing ? t("collection.refreshing") : t("credits.refreshCostTooltip", { cost: 1 })}
             className="absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-black/60 text-slate-300 hover:text-cyan-400 hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-100 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             <svg
@@ -167,6 +167,8 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
       balance={balance ?? 0}
       actionLabel={t("credits.refreshCost")}
       isAdmin={isAdmin}
+      bonusEligible={bonusEligible}
+      onClaimBonus={async () => { await claimBonus(); refetchCredits(); }}
     />
   );
 

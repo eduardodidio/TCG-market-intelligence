@@ -9,7 +9,7 @@ import { CurrencyProvider } from "../../src/contexts/CurrencyContext";
 import { LanguageProvider } from "../../src/contexts/LanguageContext";
 
 // Mock useCredits hook
-const mockClaimBonus = vi.fn().mockResolvedValue(undefined);
+const mockClaimBonus = vi.fn().mockResolvedValue(5);
 const mockRefetch = vi.fn();
 
 let mockCreditsState = {
@@ -220,6 +220,51 @@ describe("TreasureBalance", () => {
 
     const count = screen.getByTestId("treasure-modal-count");
     expect(count.textContent).toBe("42");
+  });
+
+  it("shows bonus claimed message after claiming bonus", async () => {
+    mockCreditsState.bonusEligible = true;
+    mockClaimBonus.mockResolvedValue(5);
+    renderTreasureBalance();
+
+    const claimBtn = screen.getByTestId("claim-bonus-button");
+    fireEvent.click(claimBtn);
+
+    await waitFor(() => {
+      const msg = screen.getByTestId("bonus-claimed-message");
+      expect(msg).toBeDefined();
+      expect(msg.textContent).toContain("+5");
+    });
+  });
+
+  it("does not show bonus claimed message when credited amount is 0", async () => {
+    mockCreditsState.bonusEligible = true;
+    mockClaimBonus.mockResolvedValue(0);
+    renderTreasureBalance();
+
+    const claimBtn = screen.getByTestId("claim-bonus-button");
+    fireEvent.click(claimBtn);
+
+    await waitFor(() => {
+      expect(mockClaimBonus).toHaveBeenCalled();
+    });
+    expect(screen.queryByTestId("bonus-claimed-message")).toBeNull();
+  });
+
+  it("bonus claimed message disappears after timeout", async () => {
+    vi.useFakeTimers();
+    mockCreditsState.bonusEligible = true;
+    mockClaimBonus.mockResolvedValue(5);
+    renderTreasureBalance();
+
+    const claimBtn = screen.getByTestId("claim-bonus-button");
+    await act(async () => { fireEvent.click(claimBtn); });
+
+    expect(screen.getByTestId("bonus-claimed-message")).toBeDefined();
+
+    act(() => { vi.advanceTimersByTime(1500); });
+    expect(screen.queryByTestId("bonus-claimed-message")).toBeNull();
+    vi.useRealTimers();
   });
 
   it("modal closes when backdrop is clicked (after exit animation)", () => {

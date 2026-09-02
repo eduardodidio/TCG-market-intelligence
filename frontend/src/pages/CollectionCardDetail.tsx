@@ -11,6 +11,7 @@ import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { BanEventCard } from "../components/BanEventCard";
+import { CostBadge } from "../components/CostBadge";
 import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { DeleteEntryButton } from "../components/DeleteEntryButton";
@@ -92,7 +93,7 @@ export function CollectionCardDetail() {
   const [canonizing, setCanonizing] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
   const [creditModalTarget, setCreditModalTarget] = useState<"liga" | "myp">("liga");
-  const { balance, isAdmin, refetch: refetchCredits } = useCredits();
+  const { balance, isAdmin, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
 
   // Refetch credit balance when navigating between cards
   useEffect(() => {
@@ -436,6 +437,7 @@ export function CollectionCardDetail() {
                     />
                   </svg>
                   {t("card.refreshLiga")}
+                  <CostBadge cost={1} balance={balance} />
                 </button>
               )}
               {entry.card_id != null && (
@@ -461,6 +463,7 @@ export function CollectionCardDetail() {
                     />
                   </svg>
                   {t("card.refreshMyp")}
+                  <CostBadge cost={1} balance={balance} />
                 </button>
               )}
             </div>
@@ -657,6 +660,8 @@ export function CollectionCardDetail() {
         balance={balance ?? 0}
         actionLabel={t("credits.refreshCost")}
         isAdmin={isAdmin}
+        bonusEligible={bonusEligible}
+        onClaimBonus={async () => { await claimBonus(); refetchCredits(); }}
       />
     </div>
   );

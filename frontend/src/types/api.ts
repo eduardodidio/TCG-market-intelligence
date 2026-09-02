@@ -209,6 +209,9 @@ export interface ScanRun {
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
+  not_found_count?: number;
+  rate_limited_count?: number;
+  priced_count?: number;
 }
 
 export interface ScanListResponse {
