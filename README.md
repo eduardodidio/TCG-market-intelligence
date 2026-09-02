@@ -885,6 +885,49 @@ continuous WAL replication to Cloudflare R2:
    `LITESTREAM_SECRET_ACCESS_KEY`
 4. Next deploy auto-restores and replicates
 
+### Gap Analysis & UX Hardening (2026-09-02)
+
+Comprehensive review of 21 pages, 78 API endpoints, and 7 user journeys
+identified 34 gaps. Five features shipped in a single parallel batch:
+
+- **F95 Onboarding & Empty States** -- Enhanced `EmptyState` component
+  (title, description, multiple actions, compact mode). Welcome banner on
+  first login (localStorage-gated, 3 step cards, dismissable). Dashboard,
+  collection, and deck pages show actionable CTAs in empty states instead
+  of bare text. i18n completeness test ensures EN/PT-BR key parity.
+
+- **F96 Credit Transparency** -- Credit cost visible inline on action
+  buttons *before* clicking (CostBadge component). CreditConfirmModal
+  enhanced with "Claim Bonus" shortcut and "how to earn" guidance when
+  balance is insufficient. TreasureBalance shows animated feedback after
+  bonus claim. Admin scheduled scan table highlights credit-paused scans
+  with red badge and recovery hint.
+
+- **F97 Navigation & Cross-Links** -- Breadcrumbs added to all 11
+  secondary pages. Bidirectional links between Market and Trending pages.
+  Ownership badge on trending cards (green checkmark if user owns the
+  card, via `useOwnedCardIds` hook). "Add to Collection" CTA on card
+  detail page for non-owned cards (opens BatchAddModal pre-filled).
+  "Add Missing Cards" button on deck view when ownership < 100%.
+
+- **F98 Scan Results & Action Feedback** -- Backend: ScanRun API response
+  includes computed `priced_count`, `not_found_count`, `rate_limited_count`
+  (parsed from `error_summary` JSON, no DB migration). Frontend:
+  `ScanSummaryCard` persists after bulk refresh until dismissed (replaces
+  the old 2-second auto-fade). Undo delete toast with 5-second delayed
+  execution (survives page navigation via `PendingDeleteProvider` context).
+  Inline edit save feedback (emerald checkmark flash).
+
+- **F99 Data Integrity Hardening** -- Foreign key constraints added to 11
+  tables via SQLite table-rebuild migration. `PRAGMA foreign_keys=ON` per
+  connection. Composite indexes on 4 hot query paths. Orphan cleanup CLI
+  command (`cleanup-orphans`). Sync collection pipeline wrapped in atomic
+  transaction (rollback on failure). Exchange rate fallback with
+  bidirectional 7-day search. N+1 query fix in `link_orphan_source_cards`
+  (single correlated UPDATE). 274 new integration tests.
+
+Full gap analysis: [`docs/gap-analysis-2026-09-02.md`](docs/gap-analysis-2026-09-02.md)
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).

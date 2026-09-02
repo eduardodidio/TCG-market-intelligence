@@ -1,0 +1,39 @@
+{
+  "id": "D-F95-20260902-001",
+  "feature": "F95",
+  "type": "feature_start",
+  "status": "executed",
+  "decision": "proceed",
+  "rationale": "F95 addresses a P0 UX gap: new users land on empty pages with no guidance, which directly impacts retention. The feature is frontend-only (no backend changes, no DB migrations, no provider integration), making it low-risk and self-contained. It consolidates inconsistent empty states into a shared EmptyState component, reducing tech debt. The i18n infrastructure is already mature (215+ keys, EN+PT-BR). localStorage-based first-login detection is simple and reliable. With 1477 frontend tests and established component patterns, this is a safe, high-value improvement. No blocking dependencies.",
+  "actions": ["plan-feature"],
+  "options_considered": [
+    {
+      "option": "proceed",
+      "pros": [
+        "Fixes critical new-user experience gap (no onboarding exists today)",
+        "Frontend-only — zero risk to backend, database, or providers",
+        "Creates reusable EmptyState component that reduces future tech debt",
+        "Leverages existing i18n, Tailwind theme, and component patterns",
+        "High user impact relative to low implementation complexity"
+      ],
+      "cons": [
+        "Adds ~30-50 i18n keys across two locales",
+        "Requires touching multiple pages to migrate existing empty states"
+      ],
+      "verdict": "accepted"
+    },
+    {
+      "option": "defer",
+      "pros": [
+        "Could bundle with a larger UX overhaul later"
+      ],
+      "cons": [
+        "Every new user hitting empty pages without guidance is a retention loss",
+        "The longer it waits, the more inconsistent empty states accumulate",
+        "No upcoming features would conflict or benefit from deferral"
+      ],
+      "verdict": "rejected"
+    }
+  ],
+  "timestamp": "2026-09-02T12:00:00Z"
+}
