@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import structlog
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.orm import Session
 
 from src.database.backup import backup_database, extract_db_path
@@ -13,12 +13,18 @@ from src.database.models import (
     CardLegalityRow,
     CardRow,
     CollectionErrorRow,
+    CreditBalanceRow,
+    CreditTransactionRow,
+    DeckCardRow,
+    DeckRow,
+    EvaluationEntryRow,
     LegalityHistoryRow,
     PortfolioSnapshotRow,
     PriceObservationRow,
     ScanRunRow,
     SourceCardRow,
     UserCollectionRow,
+    UserRow,
 )
 from src.database.repository import Repository
 
@@ -633,4 +639,208 @@ def reset_database(
         conn.commit()
     log.info("reset.vacuum_done")
 
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Orphan reference cleanup (pre-FK constraint preparation)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class OrphanCleanupResult:
+    """Per-table counts of orphan records cleaned."""
+
+    source_cards_unlinked: int = 0
+    user_collection_unlinked: int = 0
+    deck_cards_unlinked: int = 0
+    card_legalities_deleted: int = 0
+    legality_history_deleted: int = 0
+    evaluation_entries_unlinked: int = 0
+    deck_cards_no_deck_deleted: int = 0
+    credit_balances_deleted: int = 0
+    credit_transactions_deleted: int = 0
+    dry_run: bool = False
+    backup_path: str | None = None
+
+    @property
+    def total(self) -> int:
+        return (
+            self.source_cards_unlinked
+            + self.user_collection_unlinked
+            + self.deck_cards_unlinked
+            + self.card_legalities_deleted
+            + self.legality_history_deleted
+            + self.evaluation_entries_unlinked
+            + self.deck_cards_no_deck_deleted
+            + self.credit_balances_deleted
+            + self.credit_transactions_deleted
+        )
+
+
+def _count_orphans_card_id(session: Session, model_class, label: str) -> int:
+    """Count rows where card_id references a non-existent cards.id."""
+    stmt = (
+        select(func.count())
+        .select_from(model_class)
+        .where(
+            model_class.card_id.is_not(None),
+            ~model_class.card_id.in_(select(CardRow.id)),
+        )
+    )
+    return session.execute(stmt).scalar() or 0
+
+
+def cleanup_orphan_references(
+    db_url: str,
+    *,
+    dry_run: bool = True,
+    skip_backup: bool = False,
+) -> OrphanCleanupResult:
+    """Clean orphan references that would violate FK constraints.
+
+    For card_id references:
+    - source_cards, user_collection, deck_cards, evaluation_entries: SET NULL
+    - card_legalities, legality_history: DELETE
+
+    For other FK references:
+    - deck_cards with invalid deck_id: DELETE
+    - credit_balances, credit_transactions with invalid user_id: DELETE
+
+    Parameters
+    ----------
+    db_url:
+        SQLAlchemy database URL.
+    dry_run:
+        If True, return counts without modifying data.
+    skip_backup:
+        If True, skip the automatic pre-delete backup.
+
+    Returns
+    -------
+    OrphanCleanupResult
+        Per-table counts of orphan records cleaned.
+    """
+    repo = Repository(db_url=db_url)
+    result = OrphanCleanupResult(dry_run=dry_run)
+
+    with Session(repo.engine) as session:
+        # Count orphans in each table
+        valid_card_ids = select(CardRow.id)
+
+        # 1-3: card_id -> cards.id (SET NULL targets)
+        result.source_cards_unlinked = _count_orphans_card_id(
+            session, SourceCardRow, "source_cards"
+        )
+        result.user_collection_unlinked = _count_orphans_card_id(
+            session, UserCollectionRow, "user_collection"
+        )
+        result.deck_cards_unlinked = _count_orphans_card_id(session, DeckCardRow, "deck_cards")
+
+        # 4-5: card_id -> cards.id (DELETE targets)
+        result.card_legalities_deleted = _count_orphans_card_id(
+            session, CardLegalityRow, "card_legalities"
+        )
+        result.legality_history_deleted = _count_orphans_card_id(
+            session, LegalityHistoryRow, "legality_history"
+        )
+
+        # 6: evaluation_entries.card_id -> cards.id (SET NULL)
+        result.evaluation_entries_unlinked = _count_orphans_card_id(
+            session, EvaluationEntryRow, "evaluation_entries"
+        )
+
+        # 7: deck_cards.deck_id -> decks.id (DELETE)
+        result.deck_cards_no_deck_deleted = (
+            session.execute(
+                select(func.count())
+                .select_from(DeckCardRow)
+                .where(~DeckCardRow.deck_id.in_(select(DeckRow.id)))
+            ).scalar()
+            or 0
+        )
+
+        # 8: credit_balances.user_id -> users.id (DELETE)
+        result.credit_balances_deleted = (
+            session.execute(
+                select(func.count())
+                .select_from(CreditBalanceRow)
+                .where(~CreditBalanceRow.user_id.in_(select(UserRow.id)))
+            ).scalar()
+            or 0
+        )
+
+        # 9: credit_transactions.user_id -> users.id (DELETE)
+        result.credit_transactions_deleted = (
+            session.execute(
+                select(func.count())
+                .select_from(CreditTransactionRow)
+                .where(~CreditTransactionRow.user_id.in_(select(UserRow.id)))
+            ).scalar()
+            or 0
+        )
+
+    log.info(
+        "orphan_cleanup.preview",
+        source_cards=result.source_cards_unlinked,
+        user_collection=result.user_collection_unlinked,
+        deck_cards=result.deck_cards_unlinked,
+        card_legalities=result.card_legalities_deleted,
+        legality_history=result.legality_history_deleted,
+        evaluation_entries=result.evaluation_entries_unlinked,
+        deck_cards_no_deck=result.deck_cards_no_deck_deleted,
+        credit_balances=result.credit_balances_deleted,
+        credit_transactions=result.credit_transactions_deleted,
+        total=result.total,
+        dry_run=dry_run,
+    )
+
+    if dry_run:
+        return result
+
+    # Backup before mutations
+    if not skip_backup:
+        db_path = extract_db_path(db_url)
+        backup_path = backup_database(db_path)
+        result.backup_path = str(backup_path)
+
+    # Execute cleanup in a single transaction
+    with Session(repo.engine) as session:
+        valid_card_ids = select(CardRow.id)
+
+        # SET NULL for card_id orphans
+        for model_class in (SourceCardRow, UserCollectionRow, DeckCardRow, EvaluationEntryRow):
+            session.execute(
+                update(model_class)
+                .where(
+                    model_class.card_id.is_not(None),
+                    ~model_class.card_id.in_(valid_card_ids),
+                )
+                .values(card_id=None)
+            )
+
+        # DELETE for card_id orphans (legalities)
+        for model_class in (CardLegalityRow, LegalityHistoryRow):
+            session.execute(
+                delete(model_class).where(
+                    ~model_class.card_id.in_(valid_card_ids),
+                )
+            )
+
+        # DELETE deck_cards with invalid deck_id
+        session.execute(delete(DeckCardRow).where(~DeckCardRow.deck_id.in_(select(DeckRow.id))))
+
+        # DELETE credit rows with invalid user_id
+        session.execute(
+            delete(CreditBalanceRow).where(~CreditBalanceRow.user_id.in_(select(UserRow.id)))
+        )
+        session.execute(
+            delete(CreditTransactionRow).where(
+                ~CreditTransactionRow.user_id.in_(select(UserRow.id))
+            )
+        )
+
+        session.commit()
+
+    log.info("orphan_cleanup.done", total=result.total)
     return result

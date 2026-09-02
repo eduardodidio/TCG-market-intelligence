@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy import create_engine, event, func, inspect, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -45,8 +46,20 @@ from src.domain.models import (
 class Repository:
     def __init__(self, db_url: str = "sqlite:///tcg_market.db"):
         self.engine = create_engine(db_url, echo=False)
+        self._setup_sqlite_pragmas()
         Base.metadata.create_all(self.engine)
         self._ensure_columns()
+        self._ensure_fk_constraints()
+
+    def _setup_sqlite_pragmas(self) -> None:
+        """Enable PRAGMA foreign_keys=ON for every SQLite connection."""
+        if str(self.engine.url).startswith("sqlite"):
+
+            @event.listens_for(self.engine, "connect")
+            def _set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
 
     def _ensure_columns(self) -> None:
         """Add missing columns to existing tables (SQLite migration)."""
@@ -82,10 +95,117 @@ class Repository:
                     sql = "ALTER TABLE credit_balances ADD COLUMN last_monthly_grant_at DATETIME"
                     conn.execute(text(sql))
 
-    def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
-        """Insert or update a source card. Returns the source_card id."""
+    def _ensure_fk_constraints(self) -> None:
+        """Add FK constraints to existing tables that lack them.
+
+        SQLite does not support ALTER TABLE ADD CONSTRAINT. This method
+        detects tables missing FK constraints and rebuilds them using the
+        rename-create-copy-drop pattern. Idempotent -- skips tables that
+        already have the expected FKs.
+        """
+        if not str(self.engine.url).startswith("sqlite"):
+            return
+
+        insp = inspect(self.engine)
+        table_names = set(insp.get_table_names())
+
+        # Map: table_name -> set of columns that should have FKs
+        expected_fks: dict[str, set[str]] = {
+            "source_cards": {"card_id"},
+            "user_collection": {"card_id"},
+            "deck_cards": {"deck_id", "card_id"},
+            "card_legalities": {"card_id"},
+            "legality_history": {"card_id"},
+            "evaluation_entries": {"card_id"},
+            "credit_balances": {"user_id"},
+            "credit_transactions": {"user_id"},
+            "shared_collections": {"user_id"},
+            "trade_interests": {"buyer_user_id", "seller_user_id", "collection_entry_id"},
+            "trade_agreements": {"trade_interest_id"},
+        }
+
+        for table_name, expected_cols in expected_fks.items():
+            if table_name not in table_names:
+                continue
+
+            # Check existing FK constraints via PRAGMA
+            with self.engine.connect() as conn:
+                fk_rows = conn.execute(text(f"PRAGMA foreign_key_list({table_name})")).fetchall()
+                existing_fk_cols = {row[3] for row in fk_rows}  # column 3 = 'from'
+
+            if expected_cols.issubset(existing_fk_cols):
+                continue  # All FKs already present
+
+            # Need to rebuild this table. Temporarily disable FK enforcement
+            # so the rename/drop steps do not trigger constraint checks.
+            with self.engine.connect() as conn:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                # Rename old table
+                conn.execute(text(f"ALTER TABLE {table_name} RENAME TO _{table_name}_old"))
+                conn.commit()
+
+            # Create new table with FK constraints, copy data, drop old
+            with self.engine.connect() as conn:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                model_table = Base.metadata.tables[table_name]
+                model_table.create(conn)
+
+                # Copy data from old to new
+                columns = [col["name"] for col in insp.get_columns(f"_{table_name}_old")]
+                new_columns = {c.name for c in model_table.columns}
+                copy_cols = [c for c in columns if c in new_columns]
+                cols_str = ", ".join(copy_cols)
+                insert_sql = (
+                    f"INSERT INTO {table_name} ({cols_str}) "
+                    f"SELECT {cols_str} FROM _{table_name}_old"
+                )
+                conn.execute(text(insert_sql))
+
+                # Drop old table
+                conn.execute(text(f"DROP TABLE _{table_name}_old"))
+                conn.commit()
+
+            # Refresh inspector cache
+            insp = inspect(self.engine)
+
+    @contextmanager
+    def transaction(self):
+        """Yield a session that commits on success, rolls back on failure.
+
+        Use this to wrap multiple repo operations in a single atomic
+        transaction. The session is committed automatically if no
+        exception occurs; rolled back otherwise.
+
+        Usage::
+
+            with repo.transaction() as session:
+                card_id = repo.upsert_card(detailed, session=session)
+                repo.upsert_source_card(detailed, card_id=card_id, session=session)
+                repo.insert_price_observations(history, session=session)
+        """
         with Session(self.engine) as session:
-            existing = session.execute(
+            try:
+                yield session
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+
+    def upsert_source_card(
+        self,
+        card: SourceCard,
+        card_id: int | None = None,
+        *,
+        session: Session | None = None,
+    ) -> int:
+        """Insert or update a source card. Returns the source_card id.
+
+        If *session* is provided, uses it without committing (caller
+        manages the transaction). Otherwise creates its own session.
+        """
+
+        def _do(s: Session) -> int:
+            existing = s.execute(
                 select(SourceCardRow).where(
                     SourceCardRow.source == card.source,
                     SourceCardRow.external_id == card.external_id,
@@ -104,7 +224,7 @@ class Repository:
                     existing.name_pt = card.identity.name_pt
                     existing.set_code = card.identity.set_code
                     existing.collector_number = card.identity.collector_number
-                session.commit()
+                s.flush()
                 return existing.id
 
             row = SourceCardRow(
@@ -116,11 +236,18 @@ class Repository:
                 name_en=card.identity.name_en if card.identity else None,
                 name_pt=card.identity.name_pt if card.identity else None,
                 set_code=card.identity.set_code if card.identity else None,
-                collector_number=card.identity.collector_number if card.identity else None,
+                collector_number=(card.identity.collector_number if card.identity else None),
             )
-            session.add(row)
-            session.commit()
+            s.add(row)
+            s.flush()
             return row.id
+
+        if session is not None:
+            return _do(session)
+        with Session(self.engine) as own_session:
+            result = _do(own_session)
+            own_session.commit()
+            return result
 
     def create_canonical_card(
         self,
@@ -159,13 +286,16 @@ class Repository:
             session.commit()
             return row.id
 
-    def upsert_card(self, card: SourceCard) -> int | None:
-        """Insert or update a canonical card row. Returns card id."""
+    def upsert_card(self, card: SourceCard, *, session: Session | None = None) -> int | None:
+        """Insert or update a canonical card row. Returns card id.
+
+        If *session* is provided, uses it without committing.
+        """
         if not card.identity or not card.identity.set_code or not card.identity.collector_number:
             return None
 
-        with Session(self.engine) as session:
-            existing = session.execute(
+        def _do(s: Session) -> int:
+            existing = s.execute(
                 select(CardRow).where(
                     CardRow.game == card.identity.game,
                     CardRow.set_code == card.identity.set_code,
@@ -178,7 +308,7 @@ class Repository:
                     existing.name_en = card.identity.name_en
                 if card.identity.name_pt:
                     existing.name_pt = card.identity.name_pt
-                session.commit()
+                s.flush()
                 return existing.id
 
             row = CardRow(
@@ -188,16 +318,32 @@ class Repository:
                 set_code=card.identity.set_code,
                 collector_number=card.identity.collector_number,
             )
-            session.add(row)
-            session.commit()
+            s.add(row)
+            s.flush()
             return row.id
 
-    def insert_price_observations(self, prices: list[HistoricalPrice]) -> int:
-        """Insert price observations, skipping duplicates. Returns count inserted."""
+        if session is not None:
+            return _do(session)
+        with Session(self.engine) as own_session:
+            result = _do(own_session)
+            own_session.commit()
+            return result
+
+    def insert_price_observations(
+        self,
+        prices: list[HistoricalPrice],
+        *,
+        session: Session | None = None,
+    ) -> int:
+        """Insert price observations, skipping duplicates. Returns count inserted.
+
+        If *session* is provided, uses it without committing.
+        """
         if not prices:
             return 0
-        inserted = 0
-        with Session(self.engine) as session:
+
+        def _do(s: Session) -> int:
+            count = 0
             for batch_start in range(0, len(prices), 500):
                 batch = prices[batch_start : batch_start + 500]
                 for p in batch:
@@ -218,10 +364,16 @@ class Repository:
                             index_elements=["source", "external_id", "observed_at"]
                         )
                     )
-                    result = session.execute(stmt)
-                    inserted += result.rowcount
-            session.commit()
-        return inserted
+                    result = s.execute(stmt)
+                    count += result.rowcount
+            return count
+
+        if session is not None:
+            return _do(session)
+        with Session(self.engine) as own_session:
+            result = _do(own_session)
+            own_session.commit()
+            return result
 
     def upsert_manual_price(self, card_id: int, price_brl: Decimal, observed_date: date) -> int:
         """Insert or update a manual price observation for a card.
@@ -282,10 +434,21 @@ class Repository:
                 stmt = stmt.where(CollectionErrorRow.source == source)
             return list(session.execute(stmt).scalars().all())
 
-    def mark_errors_resolved(self, source: str, external_id: str) -> None:
-        with Session(self.engine) as session:
+    def mark_errors_resolved(
+        self,
+        source: str,
+        external_id: str,
+        *,
+        session: Session | None = None,
+    ) -> None:
+        """Mark collection errors as resolved.
+
+        If *session* is provided, uses it without committing.
+        """
+
+        def _do(s: Session) -> None:
             rows = (
-                session.execute(
+                s.execute(
                     select(CollectionErrorRow).where(
                         CollectionErrorRow.source == source,
                         CollectionErrorRow.external_id == external_id,
@@ -297,33 +460,57 @@ class Repository:
             )
             for r in rows:
                 r.resolved = 1
-            session.commit()
+
+        if session is not None:
+            _do(session)
+            return
+        with Session(self.engine) as own_session:
+            _do(own_session)
+            own_session.commit()
 
     def link_orphan_source_cards(self) -> int:
         """Link source_cards with card_id=NULL to their canonical card.
 
-        Matches on (game, set_code, collector_number). Returns count linked.
+        Uses a single correlated UPDATE instead of N+1 individual queries.
+        Matches on (game='magic', set_code, collector_number). Returns count linked.
         """
-        linked = 0
         with Session(self.engine) as session:
-            orphans = (
-                session.execute(select(SourceCardRow).where(SourceCardRow.card_id.is_(None)))
-                .scalars()
-                .all()
+            # Correlated subquery to find the matching card_id
+            card_id_subquery = (
+                select(CardRow.id)
+                .where(
+                    CardRow.game == "magic",
+                    CardRow.set_code == SourceCardRow.set_code,
+                    CardRow.collector_number == SourceCardRow.collector_number,
+                )
+                .correlate(SourceCardRow)
+                .scalar_subquery()
             )
-            for sc in orphans:
-                if not sc.set_code or not sc.collector_number:
-                    continue
-                card = session.execute(
-                    select(CardRow).where(
-                        CardRow.game == "magic",
-                        CardRow.set_code == sc.set_code,
-                        CardRow.collector_number == sc.collector_number,
-                    )
-                ).scalar_one_or_none()
-                if card:
-                    sc.card_id = card.id
-                    linked += 1
+
+            # Existence check to only update rows that have a match
+            match_exists = (
+                select(CardRow.id)
+                .where(
+                    CardRow.game == "magic",
+                    CardRow.set_code == SourceCardRow.set_code,
+                    CardRow.collector_number == SourceCardRow.collector_number,
+                )
+                .correlate(SourceCardRow)
+                .exists()
+            )
+
+            stmt = (
+                update(SourceCardRow)
+                .where(
+                    SourceCardRow.card_id.is_(None),
+                    SourceCardRow.set_code.is_not(None),
+                    SourceCardRow.collector_number.is_not(None),
+                    match_exists,
+                )
+                .values(card_id=card_id_subquery)
+            )
+            result = session.execute(stmt)
+            linked = result.rowcount
             session.commit()
         return linked
 
@@ -1092,13 +1279,29 @@ class Repository:
                 .limit(1)
             ).scalar_one_or_none()
 
-    def link_collection_entry(self, entry_id: int, card_id: int) -> None:
-        """Set card_id on a user_collection entry."""
-        with Session(self.engine) as session:
-            entry = session.get(UserCollectionRow, entry_id)
+    def link_collection_entry(
+        self,
+        entry_id: int,
+        card_id: int,
+        *,
+        session: Session | None = None,
+    ) -> None:
+        """Set card_id on a user_collection entry.
+
+        If *session* is provided, uses it without committing.
+        """
+
+        def _do(s: Session) -> None:
+            entry = s.get(UserCollectionRow, entry_id)
             if entry:
                 entry.card_id = card_id
-                session.commit()
+
+        if session is not None:
+            _do(session)
+            return
+        with Session(self.engine) as own_session:
+            _do(own_session)
+            own_session.commit()
 
     def get_all_collection_entries(self) -> list[UserCollectionRow]:
         """Return all user_collection rows (all users). READ-ONLY helper
@@ -1619,15 +1822,46 @@ class Repository:
                 select(ExchangeRateRow).where(ExchangeRateRow.rate_date == rate_date)
             ).scalar_one_or_none()
 
-    def get_closest_rate(self, target_date: date) -> ExchangeRateRow | None:
-        """Get the closest exchange rate on or before target_date."""
+    def get_closest_rate(
+        self, target_date: date, *, max_gap_days: int = 7
+    ) -> ExchangeRateRow | None:
+        """Get the closest exchange rate within *max_gap_days* of target_date.
+
+        Looks on or before target_date first. If none found within the gap,
+        looks after target_date (for dates before the earliest stored rate).
+        Returns None if no rate exists within the gap in either direction.
+        """
         with Session(self.engine) as session:
-            return session.execute(
+            # Try on or before target_date
+            row = session.execute(
                 select(ExchangeRateRow)
                 .where(ExchangeRateRow.rate_date <= target_date)
                 .order_by(ExchangeRateRow.rate_date.desc())
                 .limit(1)
             ).scalar_one_or_none()
+
+            if row is not None:
+                gap = (target_date - row.rate_date).days
+                if gap <= max_gap_days:
+                    # Detach from session before returning
+                    session.expunge(row)
+                    return row
+
+            # Try after target_date (within max_gap_days)
+            upper_bound = target_date + timedelta(days=max_gap_days)
+            row = session.execute(
+                select(ExchangeRateRow)
+                .where(
+                    ExchangeRateRow.rate_date > target_date,
+                    ExchangeRateRow.rate_date <= upper_bound,
+                )
+                .order_by(ExchangeRateRow.rate_date.asc())
+                .limit(1)
+            ).scalar_one_or_none()
+
+            if row is not None:
+                session.expunge(row)
+            return row
 
     def get_latest_rate(self) -> ExchangeRateRow | None:
         """Get the most recent exchange rate."""
