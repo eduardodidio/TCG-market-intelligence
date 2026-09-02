@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchDeckRanking } from "../api/deckRanking";
 import { DeckSparkline } from "../components/DeckSparkline";
+import { EmptyState } from "../components/EmptyState";
 import type { DeckRankingEntry, DeckRankingResponse } from "../types/api";
 
 const SORT_OPTIONS = [
@@ -17,6 +18,7 @@ const PAGE_SIZE = 20;
 
 export function TopDecksPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const sortBy = searchParams.get("sort_by") || "total_value";
@@ -135,12 +137,19 @@ export function TopDecksPage() {
 
       {/* Empty state */}
       {!loading && allDecks.length === 0 && !error && (
-        <div
-          className="text-center py-12 text-slate-400"
-          data-testid="ranking-empty"
-        >
-          <p className="text-lg mb-2">{t("topDecks.noDecks")}</p>
-          <p className="text-sm">{t("topDecks.noDecksHint")}</p>
+        <div data-testid="ranking-empty">
+          <EmptyState
+            icon={
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+            title={t("topDecks.noDecks")}
+            description={t("topDecks.noDecksHint")}
+            actions={[
+              { label: t("decks.importDeck"), onClick: () => navigate("/decks") },
+            ]}
+          />
         </div>
       )}
 

@@ -242,7 +242,8 @@
     "importCsvError": "Import failed. Please check your CSV file.",
     "importing": "Importing...",
     "importStats": "{{imported}} imported, {{skipped}} skipped, {{linked}} linked",
-    "selectCsvFile": "Select CSV file"
+    "selectCsvFile": "Select CSV file",
+    "noMatchingCards": "No cards match your filters."
   },
   "market": {
     "title": "Market Movers",
@@ -834,6 +835,27 @@
     "deleteMessage": "This will permanently delete {{count}} card(s) from your collection. This action cannot be undone.",
     "updateSuccess": "{{count}} card(s) updated",
     "deleteSuccess": "{{count}} card(s) deleted"
+  },
+  "onboarding": {
+    "welcomeTitle": "Welcome to TEDHC Market!",
+    "welcomeSubtitle": "Here are a few steps to get started:",
+    "step1Title": "Import your collection",
+    "step1Desc": "Upload a CSV or add cards manually to start tracking prices.",
+    "step2Title": "Explore the market",
+    "step2Desc": "Browse trending cards, check price history, and spot opportunities.",
+    "step3Title": "Import a deck",
+    "step3Desc": "Add your decklists to track ownership and value over time.",
+    "dashboardCollectionTitle": "Your collection is empty",
+    "dashboardCollectionDesc": "Import your cards to see stats, prices, and trends here.",
+    "dashboardMarketTitle": "No market data yet",
+    "dashboardMarketDesc": "Run a price scan after importing your collection to see market insights.",
+    "importCollection": "Import Collection",
+    "exploreCards": "Explore Cards",
+    "runScan": "Run Price Scan",
+    "collectionEmptyTitle": "Start building your collection",
+    "collectionEmptyDesc": "Import a CSV from LigaMagic or add cards manually to begin tracking prices and value.",
+    "evalEmptyDesc": "Search for cards in Explore and add them here to evaluate before buying.",
+    "dismiss": "Dismiss"
   },
   "evaluations": {
     "title": "Evaluation List",

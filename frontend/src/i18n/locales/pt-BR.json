@@ -242,7 +242,8 @@
     "importCsvError": "Falha na importacao. Verifique seu arquivo CSV.",
     "importing": "Importando...",
     "importStats": "{{imported}} importados, {{skipped}} ignorados, {{linked}} vinculados",
-    "selectCsvFile": "Selecionar arquivo CSV"
+    "selectCsvFile": "Selecionar arquivo CSV",
+    "noMatchingCards": "Nenhuma carta corresponde aos filtros."
   },
   "market": {
     "title": "Movimentacao de Mercado",
@@ -834,6 +835,27 @@
     "deleteMessage": "Isso excluira permanentemente {{count}} carta(s) da sua colecao. Esta acao nao pode ser desfeita.",
     "updateSuccess": "{{count}} carta(s) atualizada(s)",
     "deleteSuccess": "{{count}} carta(s) excluida(s)"
+  },
+  "onboarding": {
+    "welcomeTitle": "Bem-vindo ao TEDHC Market!",
+    "welcomeSubtitle": "Alguns passos para comecar:",
+    "step1Title": "Importe sua colecao",
+    "step1Desc": "Envie um CSV ou adicione cards manualmente para comecar a rastrear precos.",
+    "step2Title": "Explore o mercado",
+    "step2Desc": "Navegue por cards em alta, veja historico de precos e encontre oportunidades.",
+    "step3Title": "Importe um deck",
+    "step3Desc": "Adicione seus decklists para acompanhar posse e valor ao longo do tempo.",
+    "dashboardCollectionTitle": "Sua colecao esta vazia",
+    "dashboardCollectionDesc": "Importe seus cards para ver estatisticas, precos e tendencias aqui.",
+    "dashboardMarketTitle": "Sem dados de mercado ainda",
+    "dashboardMarketDesc": "Execute um scan de precos apos importar sua colecao para ver dados de mercado.",
+    "importCollection": "Importar Colecao",
+    "exploreCards": "Explorar Cards",
+    "runScan": "Executar Scan de Precos",
+    "collectionEmptyTitle": "Comece a montar sua colecao",
+    "collectionEmptyDesc": "Importe um CSV da LigaMagic ou adicione cards manualmente para rastrear precos e valor.",
+    "evalEmptyDesc": "Pesquise cards em Explorar e adicione aqui para avaliar antes de comprar.",
+    "dismiss": "Dispensar"
   },
   "evaluations": {
     "title": "Lista de Avaliacao",

@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { fetchMarketStats } from "../api/market";
 import { fetchCollectionHealth } from "../api/collect";
 import { fetchCollectionSummary } from "../api/collection";
 import { useCurrency } from "../hooks/useCurrency";
 import { useAuth } from "../hooks/useAuth";
+import { useWelcome } from "../hooks/useWelcome";
 import { formatCurrency } from "../utils/format";
 import { KpiCard } from "../components/KpiCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
@@ -16,6 +17,7 @@ import { FreshnessIndicator } from "../components/FreshnessIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SkeletonKpi } from "../components/Skeleton";
 import { ValuationBadge } from "../components/ValuationBadge";
+import { WelcomeBanner } from "../components/WelcomeBanner";
 import type {
   CollectionHealth,
   CollectionSummary,
@@ -29,8 +31,10 @@ export function Dashboard() {
     document.title = `${t("nav.dashboard")} | TCG Market`;
   }, [t]);
 
+  const navigate = useNavigate();
   const { currency } = useCurrency();
   const { isAuthenticated } = useAuth();
+  const { showWelcome, dismiss: dismissWelcome } = useWelcome();
 
   const stats = useApi<MarketStats>(() => fetchMarketStats({ currency }), [currency], { refetchOnFocus: true });
   const health = useApi<CollectionHealth>(() => fetchCollectionHealth(), [], { refetchOnFocus: true });
@@ -134,6 +138,9 @@ export function Dashboard() {
 
   return (
     <div data-testid="page-dashboard">
+      {/* Welcome banner for new users */}
+      {showWelcome && <WelcomeBanner onDismiss={dismissWelcome} />}
+
       {/* Hero header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white">
@@ -188,7 +195,19 @@ export function Dashboard() {
         </div>
       ) : !collectionSummary.loading ? (
         <div className="mb-8" data-testid="collection-empty">
-          <EmptyState message={t("dashboard.emptyCollection")} />
+          <EmptyState
+            icon={
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            }
+            title={t("onboarding.dashboardCollectionTitle")}
+            description={t("onboarding.dashboardCollectionDesc")}
+            actions={[
+              { label: t("onboarding.importCollection"), onClick: () => navigate("/collection"), variant: "primary" },
+              { label: t("onboarding.exploreCards"), onClick: () => navigate("/cards"), variant: "secondary" },
+            ]}
+          />
         </div>
       ) : null}
 
@@ -218,7 +237,18 @@ export function Dashboard() {
         </div>
       ) : (
         <div className="mb-8" data-testid="market-empty">
-          <EmptyState message={t("dashboard.emptyMarket")} />
+          <EmptyState
+            icon={
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            }
+            title={t("onboarding.dashboardMarketTitle")}
+            description={t("onboarding.dashboardMarketDesc")}
+            actions={[
+              { label: t("onboarding.runScan"), onClick: () => navigate("/scans"), variant: "primary" },
+            ]}
+          />
         </div>
       )}
 

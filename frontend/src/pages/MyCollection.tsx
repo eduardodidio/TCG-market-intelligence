@@ -856,12 +856,32 @@ export function MyCollection() {
         </div>
       )}
 
-      {!loading && !error && cards.length === 0 && (
-        <EmptyState
-          message={t("collection.emptyCollection")}
-          action={{ label: t("common.clearFilters"), onClick: handleClearFilters }}
-        />
-      )}
+      {!loading && !error && cards.length === 0 && (() => {
+        const hasActiveFilters = debouncedSearch !== "" || selectedSet !== null;
+        if (hasActiveFilters) {
+          return (
+            <EmptyState
+              message={t("collection.noMatchingCards")}
+              action={{ label: t("common.clearFilters"), onClick: handleClearFilters }}
+            />
+          );
+        }
+        return (
+          <EmptyState
+            icon={
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            }
+            title={t("onboarding.collectionEmptyTitle")}
+            description={t("onboarding.collectionEmptyDesc")}
+            actions={[
+              { label: t("collection.importCsv"), onClick: () => setCsvImportOpen(true), variant: "primary" },
+              { label: t("batchAdd.addCards"), onClick: () => setBatchAddOpen(true), variant: "secondary" },
+            ]}
+          />
+        );
+      })()}
 
       {!loading && cards.length > 0 && (
         <>
