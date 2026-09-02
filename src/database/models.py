@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy import (
     Date,
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     Numeric,
@@ -47,7 +48,9 @@ class SourceCardRow(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     source: Mapped[str] = mapped_column(String(50), nullable=False)
     external_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    card_id: Mapped[int | None] = mapped_column(Integer)
+    card_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="SET NULL")
+    )
     sku: Mapped[str | None] = mapped_column(String(100))
     url: Mapped[str] = mapped_column(String(1000), nullable=False)
     name_en: Mapped[str | None] = mapped_column(String(500))
@@ -93,7 +96,9 @@ class UserCollectionRow(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    card_id: Mapped[int | None] = mapped_column(Integer)
+    card_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="SET NULL")
+    )
     set_code: Mapped[str] = mapped_column(String(20), nullable=False)
     collector_number: Mapped[str] = mapped_column(String(20), nullable=False)
     name_en: Mapped[str | None] = mapped_column(String(500))
@@ -242,7 +247,9 @@ class CardLegalityRow(Base):
     __tablename__ = "card_legalities"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    card_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    card_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False
+    )
     format: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     effective_date: Mapped[date | None] = mapped_column(Date)
@@ -260,7 +267,9 @@ class LegalityHistoryRow(Base):
     __tablename__ = "legality_history"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    card_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    card_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False
+    )
     format: Mapped[str] = mapped_column(String(50), nullable=False)
     old_status: Mapped[str | None] = mapped_column(String(20))
     new_status: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -274,12 +283,16 @@ class DeckCardRow(Base):
     __tablename__ = "deck_cards"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    deck_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    deck_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("decks.id", ondelete="CASCADE"), nullable=False
+    )
     set_code: Mapped[str | None] = mapped_column(String(20))
     collector_number: Mapped[str | None] = mapped_column(String(20))
     name_en: Mapped[str] = mapped_column(String(500), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
-    card_id: Mapped[int | None] = mapped_column(Integer)
+    card_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="SET NULL")
+    )
 
     __table_args__ = (
         Index("ix_deck_cards_deck", "deck_id"),
@@ -292,7 +305,9 @@ class CreditBalanceRow(Base):
     __tablename__ = "credit_balances"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     balance: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_bonus_at: Mapped[datetime | None] = mapped_column(DateTime)
     last_monthly_grant_at: Mapped[datetime | None] = mapped_column(DateTime)
@@ -307,7 +322,9 @@ class CreditTransactionRow(Base):
     __tablename__ = "credit_transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[str] = mapped_column(String(50), nullable=False)
     reference_id: Mapped[str | None] = mapped_column(String(200))
@@ -323,7 +340,9 @@ class SharedCollectionRow(Base):
     __tablename__ = "shared_collections"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     is_shared: Mapped[int] = mapped_column(Integer, default=0)  # 0=private, 1=shared
     share_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     shared_at: Mapped[datetime | None] = mapped_column(DateTime)
@@ -341,9 +360,15 @@ class TradeInterestRow(Base):
     __tablename__ = "trade_interests"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    buyer_user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    seller_user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    collection_entry_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    buyer_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    seller_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    collection_entry_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user_collection.id", ondelete="CASCADE"), nullable=False
+    )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     # status: pending, accepted, rejected, completed, cancelled
     message: Mapped[str | None] = mapped_column(Text)
@@ -382,7 +407,9 @@ class TradeAgreementRow(Base):
     __tablename__ = "trade_agreements"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    trade_interest_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    trade_interest_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("trade_interests.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     buyer_confirmed: Mapped[int] = mapped_column(Integer, default=0)
     seller_confirmed: Mapped[int] = mapped_column(Integer, default=0)
     buyer_fee_charged: Mapped[int] = mapped_column(Integer, default=0)  # credits charged
@@ -404,7 +431,9 @@ class EvaluationEntryRow(Base):
     liga_url: Mapped[str | None] = mapped_column(String(1000))
     source_data_json: Mapped[str | None] = mapped_column(Text)
     price_at_add: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
-    card_id: Mapped[int | None] = mapped_column(Integer)
+    card_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now

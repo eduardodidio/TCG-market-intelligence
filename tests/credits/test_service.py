@@ -16,7 +16,10 @@ from src.database.repository import Repository
 def repo(tmp_path):
     """Create a temporary SQLite repository with tables."""
     db_url = f"sqlite:///{tmp_path / 'test.db'}"
-    return Repository(db_url=db_url)
+    r = Repository(db_url=db_url)
+    # Create a user so FK constraints on credit_balances/transactions are satisfied
+    r.create_user(email="test@example.com", auth_provider="email", password_hash="hash")
+    return r
 
 
 @pytest.fixture()

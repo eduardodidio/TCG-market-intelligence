@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy import create_engine, event, func, inspect, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -45,8 +45,20 @@ from src.domain.models import (
 class Repository:
     def __init__(self, db_url: str = "sqlite:///tcg_market.db"):
         self.engine = create_engine(db_url, echo=False)
+        self._setup_sqlite_pragmas()
         Base.metadata.create_all(self.engine)
         self._ensure_columns()
+        self._ensure_fk_constraints()
+
+    def _setup_sqlite_pragmas(self) -> None:
+        """Enable PRAGMA foreign_keys=ON for every SQLite connection."""
+        if str(self.engine.url).startswith("sqlite"):
+
+            @event.listens_for(self.engine, "connect")
+            def _set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
 
     def _ensure_columns(self) -> None:
         """Add missing columns to existing tables (SQLite migration)."""
@@ -81,6 +93,79 @@ class Repository:
                 with self.engine.begin() as conn:
                     sql = "ALTER TABLE credit_balances ADD COLUMN last_monthly_grant_at DATETIME"
                     conn.execute(text(sql))
+
+    def _ensure_fk_constraints(self) -> None:
+        """Add FK constraints to existing tables that lack them.
+
+        SQLite does not support ALTER TABLE ADD CONSTRAINT. This method
+        detects tables missing FK constraints and rebuilds them using the
+        rename-create-copy-drop pattern. Idempotent -- skips tables that
+        already have the expected FKs.
+        """
+        if not str(self.engine.url).startswith("sqlite"):
+            return
+
+        insp = inspect(self.engine)
+        table_names = set(insp.get_table_names())
+
+        # Map: table_name -> set of columns that should have FKs
+        expected_fks: dict[str, set[str]] = {
+            "source_cards": {"card_id"},
+            "user_collection": {"card_id"},
+            "deck_cards": {"deck_id", "card_id"},
+            "card_legalities": {"card_id"},
+            "legality_history": {"card_id"},
+            "evaluation_entries": {"card_id"},
+            "credit_balances": {"user_id"},
+            "credit_transactions": {"user_id"},
+            "shared_collections": {"user_id"},
+            "trade_interests": {"buyer_user_id", "seller_user_id", "collection_entry_id"},
+            "trade_agreements": {"trade_interest_id"},
+        }
+
+        for table_name, expected_cols in expected_fks.items():
+            if table_name not in table_names:
+                continue
+
+            # Check existing FK constraints via PRAGMA
+            with self.engine.connect() as conn:
+                fk_rows = conn.execute(text(f"PRAGMA foreign_key_list({table_name})")).fetchall()
+                existing_fk_cols = {row[3] for row in fk_rows}  # column 3 = 'from'
+
+            if expected_cols.issubset(existing_fk_cols):
+                continue  # All FKs already present
+
+            # Need to rebuild this table. Temporarily disable FK enforcement
+            # so the rename/drop steps do not trigger constraint checks.
+            with self.engine.connect() as conn:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                # Rename old table
+                conn.execute(text(f"ALTER TABLE {table_name} RENAME TO _{table_name}_old"))
+                conn.commit()
+
+            # Create new table with FK constraints, copy data, drop old
+            with self.engine.connect() as conn:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                model_table = Base.metadata.tables[table_name]
+                model_table.create(conn)
+
+                # Copy data from old to new
+                columns = [col["name"] for col in insp.get_columns(f"_{table_name}_old")]
+                new_columns = {c.name for c in model_table.columns}
+                copy_cols = [c for c in columns if c in new_columns]
+                cols_str = ", ".join(copy_cols)
+                insert_sql = (
+                    f"INSERT INTO {table_name} ({cols_str}) "
+                    f"SELECT {cols_str} FROM _{table_name}_old"
+                )
+                conn.execute(text(insert_sql))
+
+                # Drop old table
+                conn.execute(text(f"DROP TABLE _{table_name}_old"))
+                conn.commit()
+
+            # Refresh inspector cache
+            insp = inspect(self.engine)
 
     def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
         """Insert or update a source card. Returns the source_card id."""
@@ -302,28 +387,46 @@ class Repository:
     def link_orphan_source_cards(self) -> int:
         """Link source_cards with card_id=NULL to their canonical card.
 
-        Matches on (game, set_code, collector_number). Returns count linked.
+        Uses a single correlated UPDATE instead of N+1 individual queries.
+        Matches on (game='magic', set_code, collector_number). Returns count linked.
         """
-        linked = 0
         with Session(self.engine) as session:
-            orphans = (
-                session.execute(select(SourceCardRow).where(SourceCardRow.card_id.is_(None)))
-                .scalars()
-                .all()
+            # Correlated subquery to find the matching card_id
+            card_id_subquery = (
+                select(CardRow.id)
+                .where(
+                    CardRow.game == "magic",
+                    CardRow.set_code == SourceCardRow.set_code,
+                    CardRow.collector_number == SourceCardRow.collector_number,
+                )
+                .correlate(SourceCardRow)
+                .scalar_subquery()
             )
-            for sc in orphans:
-                if not sc.set_code or not sc.collector_number:
-                    continue
-                card = session.execute(
-                    select(CardRow).where(
-                        CardRow.game == "magic",
-                        CardRow.set_code == sc.set_code,
-                        CardRow.collector_number == sc.collector_number,
-                    )
-                ).scalar_one_or_none()
-                if card:
-                    sc.card_id = card.id
-                    linked += 1
+
+            # Existence check to only update rows that have a match
+            match_exists = (
+                select(CardRow.id)
+                .where(
+                    CardRow.game == "magic",
+                    CardRow.set_code == SourceCardRow.set_code,
+                    CardRow.collector_number == SourceCardRow.collector_number,
+                )
+                .correlate(SourceCardRow)
+                .exists()
+            )
+
+            stmt = (
+                update(SourceCardRow)
+                .where(
+                    SourceCardRow.card_id.is_(None),
+                    SourceCardRow.set_code.is_not(None),
+                    SourceCardRow.collector_number.is_not(None),
+                    match_exists,
+                )
+                .values(card_id=card_id_subquery)
+            )
+            result = session.execute(stmt)
+            linked = result.rowcount
             session.commit()
         return linked
 

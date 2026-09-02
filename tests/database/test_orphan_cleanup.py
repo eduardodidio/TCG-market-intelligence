@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from src.database.cleanup import OrphanCleanupResult, cleanup_orphan_references
@@ -48,6 +48,9 @@ def seeded_repo(tmp_path):
     engine = repo.engine
 
     with Session(engine) as session:
+        # Disable FK enforcement to simulate pre-FK database state
+        session.execute(text("PRAGMA foreign_keys=OFF"))
+
         # Create a valid card
         card = CardRow(game="magic", name_en="Lightning Bolt", set_code="2xm", collector_number="1")
         session.add(card)
