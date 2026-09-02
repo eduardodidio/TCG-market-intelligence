@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { useCurrency } from "../hooks/useCurrency";
 import { fetchMarketSummary } from "../api/market";
+import { useOwnedCardIds } from "../hooks/useOwnedCardIds";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { PeriodSelector } from "../components/PeriodSelector";
 import { MarketSummaryKpis } from "../components/MarketSummaryKpis";
 import { TrendingSection } from "../components/TrendingSection";
@@ -13,6 +16,7 @@ import type { MarketSummaryResponse } from "../types/api";
 export function MarketPage() {
   const { t } = useTranslation();
   const { currency } = useCurrency();
+  const ownedCardIds = useOwnedCardIds();
   const [period, setPeriod] = useState("30d");
 
   useEffect(() => {
@@ -26,6 +30,12 @@ export function MarketPage() {
 
   return (
     <div data-testid="page-market">
+      <Breadcrumb
+        items={[
+          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.market") },
+        ]}
+      />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <h1 className="text-2xl font-bold text-white">{t("marketPage.title")}</h1>
         <PeriodSelector value={period} onChange={setPeriod} />
@@ -45,6 +55,7 @@ export function MarketPage() {
           period={period}
           currency={currency}
           limit={10}
+          ownedCardIds={ownedCardIds}
         />
       </div>
 
@@ -55,7 +66,19 @@ export function MarketPage() {
           period={period}
           currency={currency}
           limit={10}
+          ownedCardIds={ownedCardIds}
         />
+      </div>
+
+      {/* View All Trending link */}
+      <div className="mb-8 flex justify-end">
+        <Link
+          to="/market/trending"
+          className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+          data-testid="view-all-trending-link"
+        >
+          {t("marketPage.viewAllTrending")} &rarr;
+        </Link>
       </div>
 
       {/* Most Volatile */}

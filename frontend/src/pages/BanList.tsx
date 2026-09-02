@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { fetchBanList, fetchFormats } from "../api/banlist";
 import { useApi } from "../hooks/useApi";
 import { useCardName } from "../hooks/useCardName";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { LegalityBadge } from "../components/LegalityBadge";
 import { scryfallImageUrl } from "../utils/scryfall";
 import type { BanListEntry } from "../types/banlist";
@@ -95,6 +96,12 @@ export function BanList() {
 
   return (
     <div data-testid="page-banlist">
+      <Breadcrumb
+        items={[
+          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.banlist") },
+        ]}
+      />
       <h1 className="text-2xl font-bold text-white mb-6">
         {t("banlist.title")}
       </h1>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { Breadcrumb } from "../components/Breadcrumb";
 
 export function ChangePassword() {
   const { t } = useTranslation();
@@ -53,6 +54,12 @@ export function ChangePassword() {
       data-testid="page-change-password"
     >
       <div className="w-full max-w-md">
+        <Breadcrumb
+          items={[
+            { label: t("nav.settings"), to: "/settings" },
+            { label: t("auth.changePasswordTitle") },
+          ]}
+        />
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
             TEDHC Market

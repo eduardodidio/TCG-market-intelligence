@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { fetchDeckRanking } from "../api/deckRanking";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckSparkline } from "../components/DeckSparkline";
 import type { DeckRankingEntry, DeckRankingResponse } from "../types/api";
 
@@ -72,6 +73,12 @@ export function TopDecksPage() {
 
   return (
     <div data-testid="page-top-decks">
+      <Breadcrumb
+        items={[
+          { label: t("nav.myDecks"), to: "/decks" },
+          { label: t("nav.topDecks") },
+        ]}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <h1 className="text-2xl font-bold text-white">{t("topDecks.title")}</h1>

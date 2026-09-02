@@ -183,7 +183,9 @@
     "externalLinks": "Links Externos",
     "viewOnScryfall": "Ver no Scryfall",
     "viewOnLigaMagic": "Ver no LigaMagic",
-    "rarity": "Raridade"
+    "rarity": "Raridade",
+    "addToCollection": "Adicionar a Colecao",
+    "signInToAdd": "Entre para adicionar a colecao"
   },
   "collection": {
     "title": "Minha Colecao",
@@ -274,7 +276,8 @@
     "deleteTitle": "Excluir Deck?",
     "deleteMessage": "Isso excluira permanentemente \"{{name}}\" e todas as suas cartas. Esta acao nao pode ser desfeita.",
     "failedDelete": "Falha ao excluir deck",
-    "cardNotFound": "Carta nao encontrada"
+    "cardNotFound": "Carta nao encontrada",
+    "addMissingCards": "Adicionar Cartas Faltantes"
   },
   "deckImport": {
     "title": "Importar Deck",
@@ -625,7 +628,9 @@
     "cached": "Cache de {{time}} atras",
     "changePercent": "{{value}}%",
     "priceChange": "Variacao de Preco",
-    "collectionOnly": "Somente Minha Colecao"
+    "collectionOnly": "Somente Minha Colecao",
+    "backToMarket": "Voltar ao Mercado",
+    "inCollection": "Na sua colecao"
   },
   "marketPage": {
     "title": "Visao Geral do Mercado",
@@ -648,6 +653,7 @@
       "topDecks": "Top Decks por Valor"
     },
     "viewAll": "Ver Todos",
+    "viewAllTrending": "Ver Todas as Tendencias",
     "empty": "Sem dados de mercado ainda. Execute um scan de precos para comecar.",
     "volatile": {
       "empty": "Nenhum card volatil encontrado para este periodo."

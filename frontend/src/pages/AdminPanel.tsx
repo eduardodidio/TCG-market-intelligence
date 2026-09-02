@@ -11,6 +11,7 @@ import type { AdminUser, AdminDashboard, CreateUserResult } from "../api/admin";
 import type { ApiResponse } from "../types/api";
 import { useAuth } from "../hooks/useAuth";
 import { AccordionSection } from "../components/AccordionSection";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { AdminLigaSection } from "../components/admin/AdminLigaSection";
 import { AdminSchedulesSection } from "../components/admin/AdminSchedulesSection";
 import { AdminScansSection } from "../components/admin/AdminScansSection";
@@ -417,6 +418,12 @@ export function AdminPanel() {
 
   return (
     <div data-testid="page-admin-panel">
+      <Breadcrumb
+        items={[
+          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.admin") },
+        ]}
+      />
       <h1 className="text-2xl font-bold text-white mb-6">
         {t("admin.title")}
       </h1>

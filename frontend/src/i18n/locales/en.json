@@ -183,7 +183,9 @@
     "externalLinks": "External Links",
     "viewOnScryfall": "View on Scryfall",
     "viewOnLigaMagic": "View on LigaMagic",
-    "rarity": "Rarity"
+    "rarity": "Rarity",
+    "addToCollection": "Add to Collection",
+    "signInToAdd": "Sign in to add to collection"
   },
   "collection": {
     "title": "My Collection",
@@ -274,7 +276,8 @@
     "deleteTitle": "Delete Deck?",
     "deleteMessage": "This will permanently delete \"{{name}}\" and all its cards. This action cannot be undone.",
     "failedDelete": "Failed to delete deck",
-    "cardNotFound": "Card not found"
+    "cardNotFound": "Card not found",
+    "addMissingCards": "Add Missing Cards"
   },
   "deckImport": {
     "title": "Import Deck",
@@ -625,7 +628,9 @@
     "cached": "Cached {{time}} ago",
     "changePercent": "{{value}}%",
     "priceChange": "Price Change",
-    "collectionOnly": "My Collection Only"
+    "collectionOnly": "My Collection Only",
+    "backToMarket": "Back to Market",
+    "inCollection": "In your collection"
   },
   "marketPage": {
     "title": "Market Overview",
@@ -648,6 +653,7 @@
       "topDecks": "Top Decks by Value"
     },
     "viewAll": "View All",
+    "viewAllTrending": "View All Trending",
     "empty": "No market data available yet. Run a price scan to get started.",
     "volatile": {
       "empty": "No volatile cards found for this period."

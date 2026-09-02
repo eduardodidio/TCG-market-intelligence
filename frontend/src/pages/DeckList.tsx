@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { fetchDecks } from "../api/decks";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckImportModal } from "../components/DeckImportModal";
 import type { DeckSummary } from "../types/api";
 
@@ -44,6 +45,12 @@ export function DeckList() {
 
   return (
     <div data-testid="page-decks">
+      <Breadcrumb
+        items={[
+          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.myDecks") },
+        ]}
+      />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">{t("decks.title")}</h1>
         <button
