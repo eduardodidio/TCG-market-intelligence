@@ -11,11 +11,13 @@ interface ScheduleTableProps {
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
+  const isCreditPause = status === "paused_insufficient_credits";
+
   const colorMap: Record<string, string> = {
     active: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
     paused: "bg-amber-500/20 text-amber-400 border-amber-500/30",
     paused_insufficient_credits:
-      "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      "bg-red-500/20 text-red-400 border-red-500/30",
     disabled: "bg-red-500/20 text-red-400 border-red-500/30",
   };
   const colors = colorMap[status] || colorMap.disabled;
@@ -27,14 +29,31 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <span
-      className={`inline-flex px-2 py-0.5 text-xs font-medium rounded border ${colors}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border ${colors}`}
       data-testid={`status-badge-${status}`}
       title={
-        status === "paused_insufficient_credits"
-          ? t("schedules.pausedInsufficientCredits")
+        isCreditPause
+          ? t("schedules.creditPauseTooltip")
           : undefined
       }
     >
+      {isCreditPause && (
+        <svg
+          className="w-3 h-3 flex-shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+          aria-hidden="true"
+          data-testid="credit-pause-warning-icon"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+          />
+        </svg>
+      )}
       {label}
     </span>
   );
@@ -114,6 +133,14 @@ export function ScheduleTable({
                 {schedule.status === "paused" && schedule.error_count > 0 && (
                   <span className="block text-xs text-amber-400/70 mt-0.5" data-testid={`pause-reason-${schedule.id}`}>
                     {t("schedules.pausedByErrors", { count: schedule.error_count })}
+                  </span>
+                )}
+                {schedule.status === "paused_insufficient_credits" && (
+                  <span
+                    className="block text-xs text-red-400/70 mt-0.5"
+                    data-testid={`credit-pause-hint-${schedule.id}`}
+                  >
+                    {t("schedules.creditPauseHint")}
                   </span>
                 )}
               </td>

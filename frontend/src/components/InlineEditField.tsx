@@ -53,7 +53,7 @@ export function InlineEditField({ value, onSave, type, options, label, min }: In
       await onSave(draft);
       setEditing(false);
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 2000);
+      setTimeout(() => setSuccess(false), 1500);
     } catch {
       setError(t("inlineEdit.saveError"));
       setDraft(value);
@@ -89,12 +89,12 @@ export function InlineEditField({ value, onSave, type, options, label, min }: In
         </span>
         {success && (
           <svg
-            className="h-4 w-4 text-green-400"
+            className="h-4 w-4 text-emerald-400 animate-fade-in-out"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
             aria-hidden="true"
-            data-testid="inline-edit-success"
+            data-testid="save-checkmark"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>

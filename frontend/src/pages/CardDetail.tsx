@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
+import { useAuth } from "../hooks/useAuth";
 import { fetchCardDetail } from "../api/cards";
 import { refreshCardPrice } from "../api/collection";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatDate, formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { BatchAddModal } from "../components/BatchAddModal";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -27,8 +29,10 @@ export function CardDetail() {
   const { id } = useParams<{ id: string }>();
   const cardId = Number(id);
 
+  const { isAuthenticated } = useAuth();
   const { currency } = useCurrency();
   const { getCardName, getSubtitleName } = useCardName();
+  const [showBatchAdd, setShowBatchAdd] = useState(false);
 
   const detailFetcher = useCallback(
     () => fetchCardDetail(cardId, { currency }),
@@ -345,6 +349,29 @@ export function CardDetail() {
               </a>
             </div>
           </div>
+
+          {/* Add to Collection CTA */}
+          {card.collection_entry_id == null && (
+            <div className="mt-6" data-testid="add-to-collection-section">
+              {isAuthenticated ? (
+                <button
+                  data-testid="add-to-collection-btn"
+                  onClick={() => setShowBatchAdd(true)}
+                  className="inline-flex items-center gap-2 rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  + {t("cardDetail.addToCollection")}
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                  data-testid="sign-in-to-add-link"
+                >
+                  {t("cardDetail.signInToAdd")}
+                </Link>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right panel: Price chart */}
@@ -352,6 +379,19 @@ export function CardDetail() {
           <PriceChart cardId={cardId} currency={currency} />
         </div>
       </div>
+
+      {/* Batch Add Modal (pre-filled with card name) */}
+      {showBatchAdd && card && (
+        <BatchAddModal
+          isOpen={showBatchAdd}
+          onClose={() => setShowBatchAdd(false)}
+          onSuccess={() => {
+            setShowBatchAdd(false);
+            refetch();
+          }}
+          initialText={`1 ${card.name_en}${card.set_code ? ` [${card.set_code}]` : ""}`}
+        />
+      )}
     </div>
   );
 }

@@ -84,7 +84,7 @@ describe("DeckList page", () => {
       expect(screen.getByTestId("page-decks")).toBeDefined();
     });
 
-    expect(screen.getByText("My Decks")).toBeDefined();
+    expect(screen.getAllByText("My Decks").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByTestId("import-deck-btn")).toBeDefined();
   });
 

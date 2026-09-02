@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { EmptyState } from "./EmptyState";
 import type { ScanRun } from "../types/api";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -52,11 +53,11 @@ export function ScanHistoryTable({ scans, onSelect }: ScanHistoryTableProps) {
 
   if (scans.length === 0) {
     return (
-      <div
-        className="rounded-md border border-slate-600 bg-slate-800 p-8 text-center text-slate-400"
-        data-testid="scans-empty"
-      >
-        {t("scans.noScans")}
+      <div data-testid="scans-empty">
+        <EmptyState
+          message={t("scans.noScans")}
+          compact
+        />
       </div>
     );
   }

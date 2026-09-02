@@ -14,6 +14,7 @@ interface TrendingSectionProps {
   limit?: number;
   variant?: "cards" | "list";
   collectionOnly?: boolean;
+  ownedCardIds?: Set<number>;
 }
 
 function SkeletonCard() {
@@ -28,7 +29,7 @@ function SkeletonCard() {
   );
 }
 
-export function TrendingSection({ direction, period, currency, limit, variant = "cards", collectionOnly }: TrendingSectionProps) {
+export function TrendingSection({ direction, period, currency, limit, variant = "cards", collectionOnly, ownedCardIds }: TrendingSectionProps) {
   const { t } = useTranslation();
 
   const params: Record<string, string> = { period, currency };
@@ -82,13 +83,13 @@ export function TrendingSection({ direction, period, currency, limit, variant = 
         variant === "list" ? (
           <div className="flex flex-col divide-y divide-slate-700/50" data-testid="trending-list">
             {data.cards.map((entry) => (
-              <TrendingListItem key={entry.card_id} entry={entry} />
+              <TrendingListItem key={entry.card_id} entry={entry} ownedCardIds={ownedCardIds} />
             ))}
           </div>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
             {data.cards.map((entry) => (
-              <TrendingCard key={entry.card_id} entry={entry} />
+              <TrendingCard key={entry.card_id} entry={entry} ownedCardIds={ownedCardIds} />
             ))}
           </div>
         )

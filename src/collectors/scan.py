@@ -197,6 +197,8 @@ async def run_scan(
         cards_processed = 0
         cards_failed = 0
         observations_saved = 0
+        not_found_count = 0
+        rate_limited_count = 0
         error_messages: list[str] = []
         processed_external_ids: list[str] = []
         retry_queue: list[tuple[dict, int]] = []  # (entry, attempt_count)
@@ -213,7 +215,12 @@ async def run_scan(
             )
 
         async def process_entry(entry: dict, index: int, attempt: int = 1) -> None:
-            nonlocal cards_processed, cards_failed, observations_saved
+            nonlocal \
+                cards_processed, \
+                cards_failed, \
+                observations_saved, \
+                not_found_count, \
+                rate_limited_count
 
             async with sem:
                 external_id = entry.get("external_id", "")
@@ -248,6 +255,7 @@ async def run_scan(
                     async with lock:
                         cards_processed += 1
                         cards_failed += 1
+                        not_found_count += 1
                         error_messages.append(f"{entry_ident}: NotFoundError: {e}")
                         scan_bus.publish(
                             ScanEvent(
@@ -287,6 +295,7 @@ async def run_scan(
                     async with lock:
                         cards_processed += 1
                         cards_failed += 1
+                        rate_limited_count += 1
                         error_messages.append(f"{entry_ident}: RateLimitError: {e}")
                         scan_bus.publish(
                             ScanEvent(
@@ -461,6 +470,8 @@ async def run_scan(
                 cards_failed=cards_failed,
                 observations_saved=observations_saved,
                 error=error_summary,
+                not_found_count=not_found_count,
+                rate_limited_count=rate_limited_count,
             )
         )
 

@@ -504,10 +504,9 @@ describe("Dashboard", () => {
 
     // Market summary strip should show empty state instead
     expect(screen.getByTestId("market-empty")).toBeDefined();
+    // Now uses enhanced EmptyState with title
     expect(
-      screen.getByText(
-        "Import your collection and sync with MYP to see market data here.",
-      ),
+      screen.getByText("No market data yet"),
     ).toBeDefined();
 
     // Trending sections are still rendered (they handle their own empty states)
@@ -558,10 +557,9 @@ describe("Dashboard", () => {
 
     // Collection section should show empty state
     expect(screen.getByTestId("collection-empty")).toBeDefined();
+    // Now uses enhanced EmptyState with title
     expect(
-      screen.getByText(
-        "Import your collection and sync with MYP to see your stats here.",
-      ),
+      screen.getByText("Your collection is empty"),
     ).toBeDefined();
 
     // Market section still works

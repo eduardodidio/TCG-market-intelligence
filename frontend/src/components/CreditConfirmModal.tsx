@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTreasureImage } from "../hooks/useTreasureImage";
 
@@ -11,6 +12,8 @@ export interface CreditConfirmModalProps {
   isAdmin?: boolean;
   cardCount?: number;
   skippedCount?: number;
+  bonusEligible?: boolean;
+  onClaimBonus?: () => Promise<void>;
   children?: React.ReactNode;
 }
 
@@ -24,15 +27,25 @@ export function CreditConfirmModal({
   isAdmin,
   cardCount,
   skippedCount,
+  bonusEligible,
+  onClaimBonus,
   children,
 }: CreditConfirmModalProps) {
   const { t } = useTranslation();
   const treasureImage = useTreasureImage();
+  const [claimedFlash, setClaimedFlash] = useState(false);
 
   if (!isOpen) return null;
 
   const insufficient = balance < cost;
   const balanceAfter = balance - cost;
+
+  const handleClaimBonus = async () => {
+    if (!onClaimBonus) return;
+    await onClaimBonus();
+    setClaimedFlash(true);
+    setTimeout(() => setClaimedFlash(false), 1500);
+  };
 
   return (
     <div
@@ -93,6 +106,34 @@ export function CreditConfirmModal({
               data-testid="insufficient-text"
             >
               {t("credits.insufficient")}
+            </p>
+          )}
+          {insufficient && bonusEligible && onClaimBonus && (
+            <div className="flex items-center justify-center gap-2" data-testid="claim-bonus-section">
+              <button
+                type="button"
+                data-testid="modal-claim-bonus-btn"
+                onClick={handleClaimBonus}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1 rounded-md transition-colors"
+              >
+                {t("credits.claimBonusModal")}
+              </button>
+              {claimedFlash && (
+                <span
+                  className="text-xs text-emerald-400 font-medium"
+                  data-testid="claimed-flash"
+                >
+                  Claimed!
+                </span>
+              )}
+            </div>
+          )}
+          {insufficient && (
+            <p
+              className="text-xs text-slate-400 mt-2"
+              data-testid="earn-info-text"
+            >
+              {t("credits.earnInfo")}
             </p>
           )}
         </div>

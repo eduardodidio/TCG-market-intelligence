@@ -16,6 +16,8 @@ export interface ScanStreamEvent {
   cards_total: number;
   cards_failed: number;
   observations_saved: number;
+  not_found_count?: number;
+  rate_limited_count?: number;
 }
 
 export interface UseScanStreamOptions {
@@ -96,6 +98,8 @@ export function useScanStream({
           cards_failed: scan.cards_failed,
           observations_saved: scan.observations_saved,
           error: scan.error_summary || undefined,
+          not_found_count: scan.not_found_count,
+          rate_limited_count: scan.rate_limited_count,
         };
         setLastEvent(evt);
         setProgress({ processed: scan.cards_processed, total: scan.cards_total });

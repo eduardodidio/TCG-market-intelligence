@@ -183,7 +183,9 @@
     "externalLinks": "External Links",
     "viewOnScryfall": "View on Scryfall",
     "viewOnLigaMagic": "View on LigaMagic",
-    "rarity": "Rarity"
+    "rarity": "Rarity",
+    "addToCollection": "Add to Collection",
+    "signInToAdd": "Sign in to add to collection"
   },
   "collection": {
     "title": "My Collection",
@@ -242,7 +244,11 @@
     "importCsvError": "Import failed. Please check your CSV file.",
     "importing": "Importing...",
     "importStats": "{{imported}} imported, {{skipped}} skipped, {{linked}} linked",
-    "selectCsvFile": "Select CSV file"
+    "selectCsvFile": "Select CSV file",
+    "noMatchingCards": "No cards match your filters.",
+    "deleteUndoMessage": "\"{{name}}\" deleted",
+    "deleteUndo": "Undo",
+    "deleteUndone": "Deletion cancelled"
   },
   "market": {
     "title": "Market Movers",
@@ -274,7 +280,8 @@
     "deleteTitle": "Delete Deck?",
     "deleteMessage": "This will permanently delete \"{{name}}\" and all its cards. This action cannot be undone.",
     "failedDelete": "Failed to delete deck",
-    "cardNotFound": "Card not found"
+    "cardNotFound": "Card not found",
+    "addMissingCards": "Add Missing Cards"
   },
   "deckImport": {
     "title": "Import Deck",
@@ -443,6 +450,16 @@
       "complete": "Scan complete: {{total}} cards, {{prices}} prices updated",
       "failed": "Scan failed: {{error}}",
       "fallback": "Streaming unavailable, using polling..."
+    },
+    "summary": {
+      "title": "Scan Complete",
+      "titleWarning": "Scan Complete (with issues)",
+      "priced": "Priced",
+      "notFound": "Not Found",
+      "rateLimited": "Rate Limited",
+      "otherErrors": "Other Errors",
+      "duration": "Completed in {{time}}",
+      "dismiss": "Dismiss"
     }
   },
   "rarity": {
@@ -552,7 +569,9 @@
     "deleted": "Schedule deleted",
     "triggered": "Scan triggered",
     "pausedByErrors": "Auto-paused after {{count}} errors",
-    "pausedInsufficientCredits": "Insufficient tokens"
+    "pausedInsufficientCredits": "Insufficient tokens",
+    "creditPauseTooltip": "Paused: insufficient tokens. Claim your bonus or wait for monthly grant to resume.",
+    "creditPauseHint": "Claim bonus or add tokens to resume"
   },
   "topDecks": {
     "title": "Top Decks by Value",
@@ -625,7 +644,9 @@
     "cached": "Cached {{time}} ago",
     "changePercent": "{{value}}%",
     "priceChange": "Price Change",
-    "collectionOnly": "My Collection Only"
+    "collectionOnly": "My Collection Only",
+    "backToMarket": "Back to Market",
+    "inCollection": "In your collection"
   },
   "marketPage": {
     "title": "Market Overview",
@@ -648,6 +669,7 @@
       "topDecks": "Top Decks by Value"
     },
     "viewAll": "View All",
+    "viewAllTrending": "View All Trending",
     "empty": "No market data available yet. Run a price scan to get started.",
     "volatile": {
       "empty": "No volatile cards found for this period."
@@ -734,7 +756,13 @@
     "cancel": "Cancel",
     "monthlyGrant": "{{amount}}/mo grant",
     "monthlyGrantClaimed": "Monthly grant claimed!",
+    "approxCost": "~{{count}} tokens",
+    "bonusClaimed": "+{{amount}} tokens!",
+    "claimBonusModal": "Claim Bonus",
+    "costBadge": "({{cost}} token)",
+    "earnInfo": "Earn 5 tokens every 12 hours by claiming your bonus.",
     "refreshCost": "Refresh price",
+    "refreshCostTooltip": "Costs {{cost}} token to refresh",
     "scanCost": "Run price scan",
     "tokenTypeLine": "Token Artifact — Treasure",
     "tokenRulesText": "Tap, Sacrifice this artifact: Add one mana of any color."
@@ -772,6 +800,7 @@
   "inlineEdit": {
     "edit": "Edit",
     "save": "Save",
+    "saved": "Saved",
     "saveError": "Failed to save changes",
     "invalidValue": "Invalid value",
     "empty": "(empty)",
@@ -834,6 +863,27 @@
     "deleteMessage": "This will permanently delete {{count}} card(s) from your collection. This action cannot be undone.",
     "updateSuccess": "{{count}} card(s) updated",
     "deleteSuccess": "{{count}} card(s) deleted"
+  },
+  "onboarding": {
+    "welcomeTitle": "Welcome to TEDHC Market!",
+    "welcomeSubtitle": "Here are a few steps to get started:",
+    "step1Title": "Import your collection",
+    "step1Desc": "Upload a CSV or add cards manually to start tracking prices.",
+    "step2Title": "Explore the market",
+    "step2Desc": "Browse trending cards, check price history, and spot opportunities.",
+    "step3Title": "Import a deck",
+    "step3Desc": "Add your decklists to track ownership and value over time.",
+    "dashboardCollectionTitle": "Your collection is empty",
+    "dashboardCollectionDesc": "Import your cards to see stats, prices, and trends here.",
+    "dashboardMarketTitle": "No market data yet",
+    "dashboardMarketDesc": "Run a price scan after importing your collection to see market insights.",
+    "importCollection": "Import Collection",
+    "exploreCards": "Explore Cards",
+    "runScan": "Run Price Scan",
+    "collectionEmptyTitle": "Start building your collection",
+    "collectionEmptyDesc": "Import a CSV from LigaMagic or add cards manually to begin tracking prices and value.",
+    "evalEmptyDesc": "Search for cards in Explore and add them here to evaluate before buying.",
+    "dismiss": "Dismiss"
   },
   "evaluations": {
     "title": "Evaluation List",

@@ -13,7 +13,7 @@ export interface CreditState {
   monthlyGrantAmount: number;
   loading: boolean;
   refetch: () => void;
-  claimBonus: () => Promise<void>;
+  claimBonus: () => Promise<number>;
 }
 
 export function useCredits(): CreditState {
@@ -43,12 +43,14 @@ export function useCredits(): CreditState {
     fetchBalance();
   }, [fetchBalance]);
 
-  const claimBonus = useCallback(async () => {
+  const claimBonus = useCallback(async (): Promise<number> => {
     const res = await apiClaimBonus();
     if (res.data) {
       setBalance(res.data.balance);
       setBonusEligible(false);
+      return res.data.credited;
     }
+    return 0;
   }, []);
 
   return {

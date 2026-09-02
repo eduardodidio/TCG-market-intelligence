@@ -59,8 +59,39 @@ def _extract_provider(filters_json: str) -> str | None:
         return None
 
 
+def _parse_error_counts(error_summary: str | None) -> dict[str, int]:
+    """Parse the error_summary JSON array and count error types.
+
+    Returns a dict with 'not_found' and 'rate_limited' counts.
+    Handles None, empty string, and invalid JSON gracefully.
+    """
+    if not error_summary:
+        return {"not_found": 0, "rate_limited": 0}
+    import json as _json
+
+    try:
+        errors = _json.loads(error_summary)
+    except (ValueError, TypeError):
+        return {"not_found": 0, "rate_limited": 0}
+
+    if not isinstance(errors, list):
+        return {"not_found": 0, "rate_limited": 0}
+
+    not_found = 0
+    rate_limited = 0
+    for err in errors:
+        if not isinstance(err, str):
+            continue
+        if "NotFoundError" in err:
+            not_found += 1
+        elif "RateLimitError" in err:
+            rate_limited += 1
+    return {"not_found": not_found, "rate_limited": rate_limited}
+
+
 def _row_to_response(row: dict) -> ScanRunResponse:
     """Convert a repository scan-run dict to a ScanRunResponse."""
+    counts = _parse_error_counts(row.get("error_summary"))
     return ScanRunResponse(
         id=row["id"],
         scan_type=row["scan_type"],
@@ -75,6 +106,9 @@ def _row_to_response(row: dict) -> ScanRunResponse:
         started_at=_dt_to_str(row.get("started_at")),
         finished_at=_dt_to_str(row.get("finished_at")),
         created_at=_dt_to_str(row.get("created_at")) or "",
+        not_found_count=counts["not_found"],
+        rate_limited_count=counts["rate_limited"],
+        priced_count=row["observations_saved"],
     )
 
 
@@ -263,6 +297,7 @@ async def stream_scan(
     if run["status"] in ("completed", "failed"):
         from src.domain.events import ScanEvent
 
+        counts = _parse_error_counts(run.get("error_summary"))
         final_event = ScanEvent(
             event_type="scan_complete",
             scan_id=scan_id,
@@ -272,6 +307,8 @@ async def stream_scan(
             cards_failed=run["cards_failed"],
             observations_saved=run["observations_saved"],
             error=run.get("error_summary"),
+            not_found_count=counts["not_found"],
+            rate_limited_count=counts["rate_limited"],
         )
 
         async def _final_generator() -> AsyncGenerator[str, None]:

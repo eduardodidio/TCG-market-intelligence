@@ -7,6 +7,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CurrencyProvider } from "./contexts/CurrencyContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
+import { PendingDeleteProvider } from "./hooks/usePendingDelete";
 import type { SupportedLanguage } from "./contexts/LanguageContext";
 import { useAuth } from "./hooks/useAuth";
 import { useLanguage } from "./hooks/useLanguage";
@@ -111,6 +112,7 @@ export default function App() {
       <LanguageSyncEffect />
       <CurrencyProvider>
         <BrowserRouter>
+        <PendingDeleteProvider>
           <Routes>
             {/* Login page — no layout */}
             <Route
@@ -371,6 +373,7 @@ export default function App() {
               }
             />
           </Routes>
+        </PendingDeleteProvider>
         </BrowserRouter>
       </CurrencyProvider>
     </AuthProvider>

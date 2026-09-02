@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { fetchDecks } from "../api/decks";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckImportModal } from "../components/DeckImportModal";
+import { EmptyState } from "../components/EmptyState";
 import type { DeckSummary } from "../types/api";
 
 export function DeckList() {
@@ -44,6 +46,12 @@ export function DeckList() {
 
   return (
     <div data-testid="page-decks">
+      <Breadcrumb
+        items={[
+          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.myDecks") },
+        ]}
+      />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">{t("decks.title")}</h1>
         <button
@@ -77,14 +85,19 @@ export function DeckList() {
       )}
 
       {!loading && decks.length === 0 && !error && (
-        <div
-          className="text-center py-12 text-slate-400"
-          data-testid="deck-empty-state"
-        >
-          <p className="text-lg mb-2">{t("decks.noDecks")}</p>
-          <p className="text-sm">
-            {t("decks.noDecksHint")}
-          </p>
+        <div data-testid="deck-empty-state">
+          <EmptyState
+            icon={
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+            title={t("decks.noDecks")}
+            description={t("decks.noDecksHint")}
+            actions={[
+              { label: t("decks.importDeck"), onClick: () => setShowImport(true) },
+            ]}
+          />
         </div>
       )}
 

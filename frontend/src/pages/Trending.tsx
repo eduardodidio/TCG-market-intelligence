@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "../hooks/useCurrency";
 import { useAuth } from "../hooks/useAuth";
+import { useOwnedCardIds } from "../hooks/useOwnedCardIds";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { TrendingSection } from "../components/TrendingSection";
 
 const PERIODS = ["7d", "30d", "90d"] as const;
@@ -18,6 +20,7 @@ export function Trending() {
   const { t } = useTranslation();
   const { currency } = useCurrency();
   const { isAuthenticated } = useAuth();
+  const ownedCardIds = useOwnedCardIds();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const initialPeriod = searchParams.get("period") ?? "30d";
@@ -41,7 +44,22 @@ export function Trending() {
 
   return (
     <div data-testid="page-trending">
-      <h1 className="mb-6 text-2xl font-bold text-white">{t("trending.title")}</h1>
+      <Breadcrumb
+        items={[
+          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.trending") },
+        ]}
+      />
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-white">{t("trending.title")}</h1>
+        <Link
+          to="/market"
+          className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+          data-testid="back-to-market-link"
+        >
+          &larr; {t("trending.backToMarket")}
+        </Link>
+      </div>
 
       {/* Controls row */}
       <div className="mb-6 flex flex-wrap items-center gap-4">
@@ -103,6 +121,7 @@ export function Trending() {
           limit={Number(limit)}
           variant="list"
           collectionOnly={isAuthenticated && collectionOnly}
+          ownedCardIds={ownedCardIds}
         />
         <TrendingSection
           direction="losers"
@@ -111,6 +130,7 @@ export function Trending() {
           limit={Number(limit)}
           variant="list"
           collectionOnly={isAuthenticated && collectionOnly}
+          ownedCardIds={ownedCardIds}
         />
       </div>
     </div>

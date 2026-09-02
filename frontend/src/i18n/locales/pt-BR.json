@@ -183,7 +183,9 @@
     "externalLinks": "Links Externos",
     "viewOnScryfall": "Ver no Scryfall",
     "viewOnLigaMagic": "Ver no LigaMagic",
-    "rarity": "Raridade"
+    "rarity": "Raridade",
+    "addToCollection": "Adicionar a Colecao",
+    "signInToAdd": "Entre para adicionar a colecao"
   },
   "collection": {
     "title": "Minha Colecao",
@@ -242,7 +244,11 @@
     "importCsvError": "Falha na importacao. Verifique seu arquivo CSV.",
     "importing": "Importando...",
     "importStats": "{{imported}} importados, {{skipped}} ignorados, {{linked}} vinculados",
-    "selectCsvFile": "Selecionar arquivo CSV"
+    "selectCsvFile": "Selecionar arquivo CSV",
+    "noMatchingCards": "Nenhuma carta corresponde aos filtros.",
+    "deleteUndoMessage": "\"{{name}}\" excluido",
+    "deleteUndo": "Desfazer",
+    "deleteUndone": "Exclusao cancelada"
   },
   "market": {
     "title": "Movimentacao de Mercado",
@@ -274,7 +280,8 @@
     "deleteTitle": "Excluir Deck?",
     "deleteMessage": "Isso excluira permanentemente \"{{name}}\" e todas as suas cartas. Esta acao nao pode ser desfeita.",
     "failedDelete": "Falha ao excluir deck",
-    "cardNotFound": "Carta nao encontrada"
+    "cardNotFound": "Carta nao encontrada",
+    "addMissingCards": "Adicionar Cartas Faltantes"
   },
   "deckImport": {
     "title": "Importar Deck",
@@ -443,6 +450,16 @@
       "complete": "Varredura completa: {{total}} cartas, {{prices}} precos atualizados",
       "failed": "Varredura falhou: {{error}}",
       "fallback": "Streaming indisponivel, usando polling..."
+    },
+    "summary": {
+      "title": "Varredura Concluida",
+      "titleWarning": "Varredura Concluida (com problemas)",
+      "priced": "Com preco",
+      "notFound": "Nao encontrado",
+      "rateLimited": "Limite de requisicoes",
+      "otherErrors": "Outros erros",
+      "duration": "Concluido em {{time}}",
+      "dismiss": "Fechar"
     }
   },
   "rarity": {
@@ -552,7 +569,9 @@
     "deleted": "Agendamento excluido",
     "triggered": "Scan iniciado",
     "pausedByErrors": "Auto-pausado apos {{count}} erro(s)",
-    "pausedInsufficientCredits": "Tokens insuficientes"
+    "pausedInsufficientCredits": "Tokens insuficientes",
+    "creditPauseTooltip": "Pausado: tokens insuficientes. Resgate seu bonus ou aguarde o credito mensal para retomar.",
+    "creditPauseHint": "Resgate bonus ou adicione tokens para retomar"
   },
   "topDecks": {
     "title": "Top Decks por Valor",
@@ -625,7 +644,9 @@
     "cached": "Cache de {{time}} atras",
     "changePercent": "{{value}}%",
     "priceChange": "Variacao de Preco",
-    "collectionOnly": "Somente Minha Colecao"
+    "collectionOnly": "Somente Minha Colecao",
+    "backToMarket": "Voltar ao Mercado",
+    "inCollection": "Na sua colecao"
   },
   "marketPage": {
     "title": "Visao Geral do Mercado",
@@ -648,6 +669,7 @@
       "topDecks": "Top Decks por Valor"
     },
     "viewAll": "Ver Todos",
+    "viewAllTrending": "Ver Todas as Tendencias",
     "empty": "Sem dados de mercado ainda. Execute um scan de precos para comecar.",
     "volatile": {
       "empty": "Nenhum card volatil encontrado para este periodo."
@@ -734,7 +756,13 @@
     "cancel": "Cancelar",
     "monthlyGrant": "{{amount}}/mes de bonus",
     "monthlyGrantClaimed": "Bonus mensal resgatado!",
+    "approxCost": "~{{count}} tokens",
+    "bonusClaimed": "+{{amount}} tokens!",
+    "claimBonusModal": "Resgatar Bonus",
+    "costBadge": "({{cost}} token)",
+    "earnInfo": "Ganhe 5 tokens a cada 12 horas resgatando seu bonus.",
     "refreshCost": "Atualizar preco",
+    "refreshCostTooltip": "Custa {{cost}} token para atualizar",
     "scanCost": "Executar scan de precos",
     "tokenTypeLine": "Token Artefato — Tesouro",
     "tokenRulesText": "Tap, sacrifique este artefato: Adicione um mana de qualquer cor."
@@ -772,6 +800,7 @@
   "inlineEdit": {
     "edit": "Editar",
     "save": "Salvar",
+    "saved": "Salvo",
     "saveError": "Falha ao salvar alteracoes",
     "invalidValue": "Valor invalido",
     "empty": "(vazio)",
@@ -834,6 +863,27 @@
     "deleteMessage": "Isso excluira permanentemente {{count}} carta(s) da sua colecao. Esta acao nao pode ser desfeita.",
     "updateSuccess": "{{count}} carta(s) atualizada(s)",
     "deleteSuccess": "{{count}} carta(s) excluida(s)"
+  },
+  "onboarding": {
+    "welcomeTitle": "Bem-vindo ao TEDHC Market!",
+    "welcomeSubtitle": "Alguns passos para comecar:",
+    "step1Title": "Importe sua colecao",
+    "step1Desc": "Envie um CSV ou adicione cards manualmente para comecar a rastrear precos.",
+    "step2Title": "Explore o mercado",
+    "step2Desc": "Navegue por cards em alta, veja historico de precos e encontre oportunidades.",
+    "step3Title": "Importe um deck",
+    "step3Desc": "Adicione seus decklists para acompanhar posse e valor ao longo do tempo.",
+    "dashboardCollectionTitle": "Sua colecao esta vazia",
+    "dashboardCollectionDesc": "Importe seus cards para ver estatisticas, precos e tendencias aqui.",
+    "dashboardMarketTitle": "Sem dados de mercado ainda",
+    "dashboardMarketDesc": "Execute um scan de precos apos importar sua colecao para ver dados de mercado.",
+    "importCollection": "Importar Colecao",
+    "exploreCards": "Explorar Cards",
+    "runScan": "Executar Scan de Precos",
+    "collectionEmptyTitle": "Comece a montar sua colecao",
+    "collectionEmptyDesc": "Importe um CSV da LigaMagic ou adicione cards manualmente para rastrear precos e valor.",
+    "evalEmptyDesc": "Pesquise cards em Explorar e adicione aqui para avaliar antes de comprar.",
+    "dismiss": "Dispensar"
   },
   "evaluations": {
     "title": "Lista de Avaliacao",

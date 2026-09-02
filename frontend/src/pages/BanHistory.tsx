@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { fetchBanHistoryPaginated, fetchFormats } from "../api/banlist";
 import { useApi } from "../hooks/useApi";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { BanEventCard } from "../components/BanEventCard";
 import { scryfallImageUrl } from "../utils/scryfall";
 import type { LegalityHistoryEntry } from "../types/banlist";
@@ -133,6 +134,12 @@ export function BanHistory() {
 
   return (
     <div data-testid="page-ban-history">
+      <Breadcrumb
+        items={[
+          { label: t("nav.banlist"), to: "/banlist" },
+          { label: t("nav.banHistory") },
+        ]}
+      />
       <h1 className="text-2xl font-bold text-white mb-1">
         {t("banHistory.title")}
       </h1>

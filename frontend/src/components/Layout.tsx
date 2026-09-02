@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useGauchoEasterEgg } from "../hooks/useGauchoEasterEgg";
+import { usePendingDelete } from "../hooks/usePendingDelete";
 import { ChimarraoIcon } from "./ChimarraoIcon";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { ExchangeRateBanner } from "./ExchangeRateBanner";
@@ -10,6 +11,7 @@ import { GauchoDialog } from "./GauchoDialog";
 import { LanguageSelector } from "./LanguageSelector";
 import { MarketTicker } from "./MarketTicker";
 import { TreasureBalance } from "./TreasureBalance";
+import { UndoToast } from "./UndoToast";
 
 interface NavItem {
   to: string;
@@ -94,6 +96,9 @@ export function Layout() {
       return next;
     });
   };
+
+  // Pending delete (undo toast)
+  const { pendingDelete, clearPendingDelete, executeDelete } = usePendingDelete();
 
   // Gaucho easter egg (PILA currency)
   const gaucho = useGauchoEasterEgg(location.pathname);
@@ -299,6 +304,20 @@ export function Layout() {
           options={gaucho.dialogData.options}
           autoDismissMs={gaucho.dialogData.autoDismissMs}
           onDismiss={gaucho.dismissDialog}
+        />
+      )}
+
+      {/* Undo delete toast -- survives page navigation */}
+      {pendingDelete && (
+        <UndoToast
+          message={t("collection.deleteUndoMessage", { name: pendingDelete.entryName })}
+          onUndo={() => {
+            clearPendingDelete();
+            navigate(`/collection/${pendingDelete.entryId}`);
+          }}
+          onExpire={async () => {
+            await executeDelete();
+          }}
         />
       )}
     </div>

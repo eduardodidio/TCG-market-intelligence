@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useCardName } from "../hooks/useCardName";
 import type { TrendingCardEntry } from "../types/api";
 
 interface TrendingListItemProps {
   entry: TrendingCardEntry;
+  ownedCardIds?: Set<number>;
 }
 
 function formatCurrency(value: number, currency: string): string {
@@ -12,13 +14,15 @@ function formatCurrency(value: number, currency: string): string {
   return `R$${value.toFixed(2)}`;
 }
 
-export function TrendingListItem({ entry }: TrendingListItemProps) {
+export function TrendingListItem({ entry, ownedCardIds }: TrendingListItemProps) {
+  const { t } = useTranslation();
   const { getCardName } = useCardName();
 
   const isUp = entry.change_pct > 0;
   const sign = isUp ? "+" : "";
   const changeColor = isUp ? "text-green-400" : "text-red-400";
   const displayName = getCardName(entry.name_en, entry.name_pt);
+  const isOwned = ownedCardIds?.has(entry.card_id) ?? false;
 
   return (
     <Link
@@ -34,6 +38,17 @@ export function TrendingListItem({ entry }: TrendingListItemProps) {
         {entry.set_code && (
           <span className="flex-shrink-0 text-xs text-slate-400 uppercase bg-slate-700 px-1.5 py-0.5 rounded">
             {entry.set_code}
+          </span>
+        )}
+        {isOwned && (
+          <span
+            className="flex-shrink-0 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center"
+            title={t("trending.inCollection")}
+            data-testid="owned-badge"
+          >
+            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
           </span>
         )}
       </div>

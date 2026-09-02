@@ -7,6 +7,7 @@ import {
   triggerSchedule,
   updateSchedule,
 } from "../../api/schedules";
+import { EmptyState } from "../EmptyState";
 import { ScheduleForm } from "../ScheduleForm";
 import { ScheduleTable } from "../ScheduleTable";
 import type {
@@ -202,11 +203,11 @@ export function AdminSchedulesSection({ isOpen }: { isOpen: boolean }) {
 
       {/* Empty state */}
       {!loading && !error && schedules.length === 0 && (
-        <div
-          className="text-center py-12 text-slate-400"
-          data-testid="schedules-empty"
-        >
-          <p>{t("schedules.empty")}</p>
+        <div data-testid="schedules-empty">
+          <EmptyState
+            message={t("schedules.empty")}
+            compact
+          />
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 import { refreshCardPriceLiga } from "../api/collection";
 import { fetchDeckValue } from "../api/deckRanking";
 import { deleteDeck, fetchDeck } from "../api/decks";
+import { BatchAddModal } from "../components/BatchAddModal";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckCardTile } from "../components/DeckCardTile";
 import type { DeckDetail, DeckValueDetail } from "../types/api";
@@ -21,6 +22,7 @@ export function DeckView() {
   const [valueData, setValueData] = useState<DeckValueDetail | null>(null);
   const [valuePeriod, setValuePeriod] = useState("30d");
   const [showHistory, setShowHistory] = useState(false);
+  const [showBatchAdd, setShowBatchAdd] = useState(false);
 
   const loadDeck = useCallback(async () => {
     if (!id) return;
@@ -152,6 +154,15 @@ export function DeckView() {
         >
           {t("decks.completePct", { pct: deck.ownership_pct.toFixed(0) })}
         </span>
+        {deck.ownership_pct < 100 && (
+          <button
+            onClick={() => setShowBatchAdd(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-400 transition-colors"
+            data-testid="add-missing-cards-btn"
+          >
+            + {t("decks.addMissingCards")}
+          </button>
+        )}
       </div>
 
       {/* Value Summary Panel */}
@@ -294,6 +305,26 @@ export function DeckView() {
             return <DeckCardTile key={card.id} card={card} onRefresh={handleDeckCardRefresh} />;
           })}
         </div>
+      )}
+
+      {/* Batch Add Missing Cards Modal */}
+      {showBatchAdd && (
+        <BatchAddModal
+          isOpen={showBatchAdd}
+          onClose={() => setShowBatchAdd(false)}
+          onSuccess={() => {
+            setShowBatchAdd(false);
+            loadDeck();
+          }}
+          initialText={deck.cards
+            .filter((c) => !c.in_collection && c.name_en)
+            .map((c) => {
+              const qty = c.quantity - c.owned_quantity;
+              const set = c.set_code ? ` [${c.set_code}]` : "";
+              return `${qty > 0 ? qty : 1} ${c.name_en}${set}`;
+            })
+            .join("\n")}
+        />
       )}
 
       {/* Delete confirmation */}

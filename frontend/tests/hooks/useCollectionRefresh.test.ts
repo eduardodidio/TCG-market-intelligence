@@ -231,7 +231,128 @@ describe("useCollectionRefresh", () => {
     expect(result.current).toHaveProperty("isDone");
     expect(result.current).toHaveProperty("startRefresh");
     expect(result.current).toHaveProperty("cancelRefresh");
-    // New field
+    // New fields
     expect(result.current).toHaveProperty("lastScannedCard");
+    expect(result.current).toHaveProperty("summary");
+    expect(result.current).toHaveProperty("dismissSummary");
+  });
+
+  it("summary is populated on scan_complete", async () => {
+    const { triggerScanAuth } = await import("../../src/api/scans");
+    vi.mocked(triggerScanAuth).mockResolvedValue({
+      data: { scan_id: 1, status: "pending" },
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
+      errors: [],
+    });
+
+    const { useCollectionRefresh } = await import("../../src/hooks/useCollectionRefresh");
+    const { result } = renderHook(() => useCollectionRefresh());
+
+    await act(async () => {
+      await result.current.startRefresh();
+    });
+
+    const es = MockEventSource.instances[MockEventSource.instances.length - 1];
+
+    await act(async () => {
+      es.emit("scan_complete", {
+        event_type: "scan_complete",
+        scan_id: 1,
+        timestamp: "2026-09-01T10:01:00",
+        cards_processed: 10,
+        cards_total: 10,
+        cards_failed: 3,
+        observations_saved: 7,
+        not_found_count: 2,
+        rate_limited_count: 1,
+      });
+    });
+
+    expect(result.current.summary).not.toBeNull();
+    expect(result.current.summary!.cardsTotal).toBe(10);
+    expect(result.current.summary!.observationsSaved).toBe(7);
+    expect(result.current.summary!.notFoundCount).toBe(2);
+    expect(result.current.summary!.rateLimitedCount).toBe(1);
+    expect(result.current.summary!.cardsFailed).toBe(3);
+  });
+
+  it("summary persists until dismissSummary called", async () => {
+    const { triggerScanAuth } = await import("../../src/api/scans");
+    vi.mocked(triggerScanAuth).mockResolvedValue({
+      data: { scan_id: 1, status: "pending" },
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
+      errors: [],
+    });
+
+    const { useCollectionRefresh } = await import("../../src/hooks/useCollectionRefresh");
+    const { result } = renderHook(() => useCollectionRefresh());
+
+    await act(async () => {
+      await result.current.startRefresh();
+    });
+
+    const es = MockEventSource.instances[MockEventSource.instances.length - 1];
+
+    await act(async () => {
+      es.emit("scan_complete", {
+        event_type: "scan_complete",
+        scan_id: 1,
+        timestamp: "2026-09-01T10:01:00",
+        cards_processed: 5,
+        cards_total: 5,
+        cards_failed: 0,
+        observations_saved: 5,
+      });
+    });
+
+    // Summary persists after 5 seconds
+    vi.advanceTimersByTime(5000);
+    expect(result.current.summary).not.toBeNull();
+
+    // Dismiss clears everything
+    act(() => {
+      result.current.dismissSummary();
+    });
+
+    expect(result.current.summary).toBeNull();
+    expect(result.current.isDone).toBe(false);
+    expect(result.current.progress).toBeNull();
+  });
+
+  it("durationMs is calculated from start time", async () => {
+    const { triggerScanAuth } = await import("../../src/api/scans");
+    vi.mocked(triggerScanAuth).mockResolvedValue({
+      data: { scan_id: 1, status: "pending" },
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
+      errors: [],
+    });
+
+    const { useCollectionRefresh } = await import("../../src/hooks/useCollectionRefresh");
+    const { result } = renderHook(() => useCollectionRefresh());
+
+    await act(async () => {
+      await result.current.startRefresh();
+    });
+
+    // Advance some time to simulate scan duration
+    vi.advanceTimersByTime(3000);
+
+    const es = MockEventSource.instances[MockEventSource.instances.length - 1];
+
+    await act(async () => {
+      es.emit("scan_complete", {
+        event_type: "scan_complete",
+        scan_id: 1,
+        timestamp: "2026-09-01T10:01:00",
+        cards_processed: 5,
+        cards_total: 5,
+        cards_failed: 0,
+        observations_saved: 5,
+      });
+    });
+
+    // durationMs should be approximately 3000ms
+    expect(result.current.summary).not.toBeNull();
+    expect(result.current.summary!.durationMs).toBeGreaterThanOrEqual(2900);
   });
 });

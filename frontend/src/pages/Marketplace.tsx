@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { expressInterest, fetchListings, type MarketplaceListing } from "../api/marketplace";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { TradeInterestModal } from "../components/TradeInterestModal";
@@ -164,6 +165,12 @@ export function Marketplace() {
 
   return (
     <div data-testid="page-marketplace">
+      <Breadcrumb
+        items={[
+          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.marketplace") },
+        ]}
+      />
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-white">{t("marketplace.title")}</h2>
         <Link
