@@ -303,27 +303,22 @@ async def _process_single_entry(
 
     # Step 3b-c: Upsert card and source_card
     card_id = None
-    if not dry_run:
-        card_id = repo.upsert_card(detailed)
-        repo.upsert_source_card(detailed, card_id=card_id)
 
-    # Step 3d: Fetch price history
+    # Step 3d: Fetch price history (outside transaction -- slow I/O)
     history = await provider.get_price_history(source_card, days=history_days)
 
-    # Step 3e: Store observations
+    # Steps 3b-3g: Atomic transaction for all DB mutations
     inserted = 0
     if not dry_run:
-        inserted = repo.insert_price_observations(history)
+        with repo.transaction() as txn_session:
+            card_id = repo.upsert_card(detailed, session=txn_session)
+            repo.upsert_source_card(detailed, card_id=card_id, session=txn_session)
+            inserted = repo.insert_price_observations(history, session=txn_session)
+            if card_id is not None:
+                repo.link_collection_entry(row.id, card_id, session=txn_session)
+            repo.mark_errors_resolved("myp", source_card.external_id, session=txn_session)
     else:
         inserted = len(history)
-
-    # Step 3f: Link collection entry
-    if not dry_run and card_id is not None:
-        repo.link_collection_entry(row.id, card_id)
-
-    # Step 3g: Mark previous errors as resolved
-    if not dry_run:
-        repo.mark_errors_resolved("myp", source_card.external_id)
 
     async with lock:
         summary.matched += 1

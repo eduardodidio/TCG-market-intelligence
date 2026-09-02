@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from decimal import Decimal
 
 from src.database.repository import Repository
+
+log = logging.getLogger(__name__)
 
 
 class CurrencyConverter:
@@ -24,17 +27,26 @@ class CurrencyConverter:
         value: Decimal | float | None,
         from_date: date,
         to_currency: str,
+        *,
+        fallback_to_brl: bool = True,
     ) -> Decimal | None:
         """Convert a BRL value to the target currency.
 
-        Returns the original value unchanged if to_currency is BRL.
-        Returns None if the value is None or no exchange rate is available.
+        Returns the original value unchanged if to_currency is BRL or PILA.
+        When *fallback_to_brl* is True and no exchange rate is available,
+        returns the original BRL value (with a log warning) instead of None.
         """
         if to_currency in ("BRL", "PILA") or value is None:
             return Decimal(str(value)) if value is not None else None
 
         rate = self._get_rate(from_date)
         if rate is None:
+            if fallback_to_brl:
+                log.warning(
+                    "No exchange rate for %s, falling back to BRL value",
+                    from_date,
+                )
+                return Decimal(str(value)) if not isinstance(value, Decimal) else value
             return None
 
         decimal_value = Decimal(str(value)) if not isinstance(value, Decimal) else value

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
@@ -167,10 +168,44 @@ class Repository:
             # Refresh inspector cache
             insp = inspect(self.engine)
 
-    def upsert_source_card(self, card: SourceCard, card_id: int | None = None) -> int:
-        """Insert or update a source card. Returns the source_card id."""
+    @contextmanager
+    def transaction(self):
+        """Yield a session that commits on success, rolls back on failure.
+
+        Use this to wrap multiple repo operations in a single atomic
+        transaction. The session is committed automatically if no
+        exception occurs; rolled back otherwise.
+
+        Usage::
+
+            with repo.transaction() as session:
+                card_id = repo.upsert_card(detailed, session=session)
+                repo.upsert_source_card(detailed, card_id=card_id, session=session)
+                repo.insert_price_observations(history, session=session)
+        """
         with Session(self.engine) as session:
-            existing = session.execute(
+            try:
+                yield session
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+
+    def upsert_source_card(
+        self,
+        card: SourceCard,
+        card_id: int | None = None,
+        *,
+        session: Session | None = None,
+    ) -> int:
+        """Insert or update a source card. Returns the source_card id.
+
+        If *session* is provided, uses it without committing (caller
+        manages the transaction). Otherwise creates its own session.
+        """
+
+        def _do(s: Session) -> int:
+            existing = s.execute(
                 select(SourceCardRow).where(
                     SourceCardRow.source == card.source,
                     SourceCardRow.external_id == card.external_id,
@@ -189,7 +224,7 @@ class Repository:
                     existing.name_pt = card.identity.name_pt
                     existing.set_code = card.identity.set_code
                     existing.collector_number = card.identity.collector_number
-                session.commit()
+                s.flush()
                 return existing.id
 
             row = SourceCardRow(
@@ -201,11 +236,18 @@ class Repository:
                 name_en=card.identity.name_en if card.identity else None,
                 name_pt=card.identity.name_pt if card.identity else None,
                 set_code=card.identity.set_code if card.identity else None,
-                collector_number=card.identity.collector_number if card.identity else None,
+                collector_number=(card.identity.collector_number if card.identity else None),
             )
-            session.add(row)
-            session.commit()
+            s.add(row)
+            s.flush()
             return row.id
+
+        if session is not None:
+            return _do(session)
+        with Session(self.engine) as own_session:
+            result = _do(own_session)
+            own_session.commit()
+            return result
 
     def create_canonical_card(
         self,
@@ -244,13 +286,16 @@ class Repository:
             session.commit()
             return row.id
 
-    def upsert_card(self, card: SourceCard) -> int | None:
-        """Insert or update a canonical card row. Returns card id."""
+    def upsert_card(self, card: SourceCard, *, session: Session | None = None) -> int | None:
+        """Insert or update a canonical card row. Returns card id.
+
+        If *session* is provided, uses it without committing.
+        """
         if not card.identity or not card.identity.set_code or not card.identity.collector_number:
             return None
 
-        with Session(self.engine) as session:
-            existing = session.execute(
+        def _do(s: Session) -> int:
+            existing = s.execute(
                 select(CardRow).where(
                     CardRow.game == card.identity.game,
                     CardRow.set_code == card.identity.set_code,
@@ -263,7 +308,7 @@ class Repository:
                     existing.name_en = card.identity.name_en
                 if card.identity.name_pt:
                     existing.name_pt = card.identity.name_pt
-                session.commit()
+                s.flush()
                 return existing.id
 
             row = CardRow(
@@ -273,16 +318,32 @@ class Repository:
                 set_code=card.identity.set_code,
                 collector_number=card.identity.collector_number,
             )
-            session.add(row)
-            session.commit()
+            s.add(row)
+            s.flush()
             return row.id
 
-    def insert_price_observations(self, prices: list[HistoricalPrice]) -> int:
-        """Insert price observations, skipping duplicates. Returns count inserted."""
+        if session is not None:
+            return _do(session)
+        with Session(self.engine) as own_session:
+            result = _do(own_session)
+            own_session.commit()
+            return result
+
+    def insert_price_observations(
+        self,
+        prices: list[HistoricalPrice],
+        *,
+        session: Session | None = None,
+    ) -> int:
+        """Insert price observations, skipping duplicates. Returns count inserted.
+
+        If *session* is provided, uses it without committing.
+        """
         if not prices:
             return 0
-        inserted = 0
-        with Session(self.engine) as session:
+
+        def _do(s: Session) -> int:
+            count = 0
             for batch_start in range(0, len(prices), 500):
                 batch = prices[batch_start : batch_start + 500]
                 for p in batch:
@@ -303,10 +364,16 @@ class Repository:
                             index_elements=["source", "external_id", "observed_at"]
                         )
                     )
-                    result = session.execute(stmt)
-                    inserted += result.rowcount
-            session.commit()
-        return inserted
+                    result = s.execute(stmt)
+                    count += result.rowcount
+            return count
+
+        if session is not None:
+            return _do(session)
+        with Session(self.engine) as own_session:
+            result = _do(own_session)
+            own_session.commit()
+            return result
 
     def upsert_manual_price(self, card_id: int, price_brl: Decimal, observed_date: date) -> int:
         """Insert or update a manual price observation for a card.
@@ -367,10 +434,21 @@ class Repository:
                 stmt = stmt.where(CollectionErrorRow.source == source)
             return list(session.execute(stmt).scalars().all())
 
-    def mark_errors_resolved(self, source: str, external_id: str) -> None:
-        with Session(self.engine) as session:
+    def mark_errors_resolved(
+        self,
+        source: str,
+        external_id: str,
+        *,
+        session: Session | None = None,
+    ) -> None:
+        """Mark collection errors as resolved.
+
+        If *session* is provided, uses it without committing.
+        """
+
+        def _do(s: Session) -> None:
             rows = (
-                session.execute(
+                s.execute(
                     select(CollectionErrorRow).where(
                         CollectionErrorRow.source == source,
                         CollectionErrorRow.external_id == external_id,
@@ -382,7 +460,13 @@ class Repository:
             )
             for r in rows:
                 r.resolved = 1
-            session.commit()
+
+        if session is not None:
+            _do(session)
+            return
+        with Session(self.engine) as own_session:
+            _do(own_session)
+            own_session.commit()
 
     def link_orphan_source_cards(self) -> int:
         """Link source_cards with card_id=NULL to their canonical card.
@@ -1195,13 +1279,29 @@ class Repository:
                 .limit(1)
             ).scalar_one_or_none()
 
-    def link_collection_entry(self, entry_id: int, card_id: int) -> None:
-        """Set card_id on a user_collection entry."""
-        with Session(self.engine) as session:
-            entry = session.get(UserCollectionRow, entry_id)
+    def link_collection_entry(
+        self,
+        entry_id: int,
+        card_id: int,
+        *,
+        session: Session | None = None,
+    ) -> None:
+        """Set card_id on a user_collection entry.
+
+        If *session* is provided, uses it without committing.
+        """
+
+        def _do(s: Session) -> None:
+            entry = s.get(UserCollectionRow, entry_id)
             if entry:
                 entry.card_id = card_id
-                session.commit()
+
+        if session is not None:
+            _do(session)
+            return
+        with Session(self.engine) as own_session:
+            _do(own_session)
+            own_session.commit()
 
     def get_all_collection_entries(self) -> list[UserCollectionRow]:
         """Return all user_collection rows (all users). READ-ONLY helper
@@ -1722,15 +1822,46 @@ class Repository:
                 select(ExchangeRateRow).where(ExchangeRateRow.rate_date == rate_date)
             ).scalar_one_or_none()
 
-    def get_closest_rate(self, target_date: date) -> ExchangeRateRow | None:
-        """Get the closest exchange rate on or before target_date."""
+    def get_closest_rate(
+        self, target_date: date, *, max_gap_days: int = 7
+    ) -> ExchangeRateRow | None:
+        """Get the closest exchange rate within *max_gap_days* of target_date.
+
+        Looks on or before target_date first. If none found within the gap,
+        looks after target_date (for dates before the earliest stored rate).
+        Returns None if no rate exists within the gap in either direction.
+        """
         with Session(self.engine) as session:
-            return session.execute(
+            # Try on or before target_date
+            row = session.execute(
                 select(ExchangeRateRow)
                 .where(ExchangeRateRow.rate_date <= target_date)
                 .order_by(ExchangeRateRow.rate_date.desc())
                 .limit(1)
             ).scalar_one_or_none()
+
+            if row is not None:
+                gap = (target_date - row.rate_date).days
+                if gap <= max_gap_days:
+                    # Detach from session before returning
+                    session.expunge(row)
+                    return row
+
+            # Try after target_date (within max_gap_days)
+            upper_bound = target_date + timedelta(days=max_gap_days)
+            row = session.execute(
+                select(ExchangeRateRow)
+                .where(
+                    ExchangeRateRow.rate_date > target_date,
+                    ExchangeRateRow.rate_date <= upper_bound,
+                )
+                .order_by(ExchangeRateRow.rate_date.asc())
+                .limit(1)
+            ).scalar_one_or_none()
+
+            if row is not None:
+                session.expunge(row)
+            return row
 
     def get_latest_rate(self) -> ExchangeRateRow | None:
         """Get the most recent exchange rate."""
