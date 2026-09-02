@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   fetchEvaluations,
   deleteEvaluation,
   promoteEvaluation,
 } from "../api/evaluations";
+import { EmptyState } from "../components/EmptyState";
 import type { EvalEntry } from "../api/evaluations";
 
 export function Evaluations() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [entries, setEntries] = useState<EvalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,17 +111,19 @@ export function Evaluations() {
       {loading ? (
         <div className="text-slate-400">{t("common.loading")}</div>
       ) : entries.length === 0 ? (
-        <div
-          className="text-center py-12 text-slate-400"
-          data-testid="eval-empty"
-        >
-          <p className="text-lg mb-2">{t("evaluations.empty")}</p>
-          <Link
-            to="/cards"
-            className="text-cyan-400 hover:underline text-sm"
-          >
-            {t("nav.exploreCards")}
-          </Link>
+        <div data-testid="eval-empty">
+          <EmptyState
+            icon={
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            }
+            title={t("evaluations.empty")}
+            description={t("onboarding.evalEmptyDesc")}
+            actions={[
+              { label: t("nav.exploreCards"), onClick: () => navigate("/cards") },
+            ]}
+          />
         </div>
       ) : (
         <div className="overflow-x-auto">
