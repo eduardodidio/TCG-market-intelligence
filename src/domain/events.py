@@ -26,6 +26,9 @@ class ScanEvent:
     cards_total: int = 0
     cards_failed: int = 0
     observations_saved: int = 0
+    # Error breakdown (populated on scan_complete)
+    not_found_count: int = 0
+    rate_limited_count: int = 0
 
     def to_sse_json(self) -> str:
         """Serialize to a JSON string suitable for SSE ``data:`` lines.

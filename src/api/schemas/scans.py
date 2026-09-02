@@ -31,6 +31,10 @@ class ScanRunResponse(BaseModel):
     started_at: str | None = None
     finished_at: str | None = None
     created_at: str
+    # Computed summary fields (derived from error_summary JSON)
+    not_found_count: int = 0
+    rate_limited_count: int = 0
+    priced_count: int = 0
 
 
 class ScanListResponse(BaseModel):
