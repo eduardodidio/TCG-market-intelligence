@@ -107,13 +107,14 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Non-admin primary: Dashboard, My Collection, Explore Cards, Settings (no Admin)
-    expect(links).toHaveLength(4);
+    // Non-admin primary: Dashboard, My Collection, Explore Cards, Card Catalog, Settings (no Admin)
+    expect(links).toHaveLength(5);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
+    expect(linkTexts).toContain("Card Catalog");
     expect(linkTexts).toContain("Settings");
     expect(linkTexts).not.toContain("Admin");
   });
@@ -123,8 +124,8 @@ describe("Layout", () => {
     expandBeta();
 
     const linkTexts = getNavLinkTexts();
-    // Primary (4) + Beta (8) = 12
-    expect(linkTexts).toHaveLength(12);
+    // Primary (5) + Beta (8) = 13
+    expect(linkTexts).toHaveLength(13);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
@@ -156,12 +157,13 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Only public primary items: Dashboard, Explore Cards
-    expect(links).toHaveLength(2);
+    // Only public primary items: Dashboard, Explore Cards, Card Catalog
+    expect(links).toHaveLength(3);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("Explore Cards");
+    expect(linkTexts).toContain("Card Catalog");
     expect(linkTexts).not.toContain("My Collection");
     expect(linkTexts).not.toContain("Settings");
   });
@@ -377,9 +379,9 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Admin sees 5 primary (Dashboard, My Collection, Explore Cards, Settings, Admin)
-    // + 8 beta = 13 total
-    expect(links).toHaveLength(13);
+    // Admin sees 6 primary (Dashboard, My Collection, Explore Cards, Card Catalog, Settings, Admin)
+    // + 8 beta = 14 total
+    expect(links).toHaveLength(14);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Admin");

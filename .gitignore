@@ -17,6 +17,9 @@ build/
 .claude/worktrees/
 backups/
 
+# Scryfall bulk data (large JSON files)
+data/catalog/*.json
+
 # Batch scripts (contain API keys)
 push-all.bat
 push-db.bat

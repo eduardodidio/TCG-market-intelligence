@@ -88,6 +88,29 @@ class Repository:
                 with self.engine.begin() as conn:
                     sql = "ALTER TABLE user_collection ADD COLUMN notes VARCHAR(500)"
                     conn.execute(text(sql))
+        if "cards" in insp.get_table_names():
+            columns = {col["name"] for col in insp.get_columns("cards")}
+            new_card_columns = {
+                "rarity": "VARCHAR(5)",
+                "color_identity": "VARCHAR(20)",
+                "mana_cost": "VARCHAR(50)",
+                "type_line": "VARCHAR(200)",
+                "image_uri": "VARCHAR(500)",
+            }
+            for col_name, col_type in new_card_columns.items():
+                if col_name not in columns:
+                    with self.engine.begin() as conn:
+                        sql = f"ALTER TABLE cards ADD COLUMN {col_name} {col_type}"
+                        conn.execute(text(sql))
+            # Ensure indexes exist for new filter columns
+            with self.engine.begin() as conn:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_card_rarity ON cards (rarity)"))
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS"
+                        " ix_card_color_identity ON cards (color_identity)"
+                    )
+                )
         if "credit_balances" in insp.get_table_names():
             columns = {col["name"] for col in insp.get_columns("credit_balances")}
             if "last_monthly_grant_at" not in columns:
@@ -1784,6 +1807,85 @@ class Repository:
                     "set_code": r.set_code,
                     "collector_number": r.collector_number,
                     "extras": r.extras,
+                }
+                for r in rows
+            ]
+
+    def get_catalog_cards_for_liga_scan(
+        self,
+        set_codes: list[str] | None = None,
+        max_age_days: int = 7,
+        limit: int | None = None,
+    ) -> list[dict]:
+        """Return catalog cards (cards + source_cards) eligible for Liga scanning.
+
+        Unlike get_cards_for_liga_scan, this queries the cards/source_cards tables
+        instead of user_collection, allowing price sweeps for cards not in any
+        user's collection.
+
+        Args:
+            set_codes: Only include cards from these set codes (recommended).
+            max_age_days: Exclude cards with a Liga price observation newer than N days.
+            limit: Max cards to return.
+
+        Returns:
+            List of dicts compatible with _fetch_liga_price:
+            {card_id, name_en, name_pt, set_code, collector_number, extras}.
+        """
+        with Session(self.engine) as session:
+            stmt = (
+                select(
+                    CardRow.id.label("card_id"),
+                    CardRow.name_en,
+                    CardRow.name_pt,
+                    CardRow.set_code,
+                    CardRow.collector_number,
+                    SourceCardRow.external_id,
+                )
+                .join(SourceCardRow, SourceCardRow.card_id == CardRow.id)
+                .where(
+                    CardRow.game == "magic",
+                    SourceCardRow.source == "liga",
+                )
+            )
+
+            if set_codes:
+                stmt = stmt.where(CardRow.set_code.in_(set_codes))
+
+            if max_age_days is not None:
+                cutoff = date.today() - timedelta(days=max_age_days)
+                recent_liga = (
+                    select(PriceObservationRow.external_id)
+                    .where(
+                        PriceObservationRow.source == "liga",
+                        PriceObservationRow.observed_at >= cutoff,
+                    )
+                    .distinct()
+                    .subquery()
+                )
+                # Exclude cards whose liga external_id already has a recent observation
+                from sqlalchemy import String as SAString
+                from sqlalchemy import cast as sa_cast
+
+                liga_ext_id = func.concat("liga_", sa_cast(CardRow.id, SAString))
+                stmt = stmt.where(
+                    liga_ext_id.notin_(select(recent_liga.c.external_id)),
+                )
+
+            stmt = stmt.order_by(CardRow.id.asc())
+
+            if limit:
+                stmt = stmt.limit(limit)
+
+            rows = session.execute(stmt).all()
+            return [
+                {
+                    "card_id": r.card_id,
+                    "name_en": r.name_en,
+                    "name_pt": r.name_pt,
+                    "set_code": r.set_code,
+                    "collector_number": r.collector_number,
+                    "extras": None,
                 }
                 for r in rows
             ]
