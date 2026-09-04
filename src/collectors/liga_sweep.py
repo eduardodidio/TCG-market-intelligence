@@ -79,6 +79,7 @@ async def run_liga_sweep(
     limit: int | None = None,
     dry_run: bool = False,
     set_filter: str | None = None,
+    collection_only: bool = True,
 ) -> LigaSweepResult:
     """Sweep all eligible collection cards through LigaMagic.
 
@@ -91,6 +92,8 @@ async def run_liga_sweep(
         limit: Max total cards to process (None = all).
         dry_run: If True, return counts without fetching.
         set_filter: Only sweep cards from this set code.
+        collection_only: When True (default), sweep user collection cards.
+            When False, sweep catalog cards (cards + source_cards tables).
 
     Returns:
         LigaSweepResult with aggregated counts.
@@ -98,18 +101,27 @@ async def run_liga_sweep(
     db_url = db_url or get_db_url()
     repo = Repository(db_url)
 
-    # Build scan filter
-    scan_filter_obj = ScanFilter(
-        scan_type=ScanType.LIGA_FULL,
-        set_codes=[set_filter] if set_filter else None,
-        limit=limit,
-    )
+    if collection_only:
+        # Build scan filter
+        scan_filter_obj = ScanFilter(
+            scan_type=ScanType.LIGA_FULL,
+            set_codes=[set_filter] if set_filter else None,
+            limit=limit,
+        )
 
-    # Get eligible cards
-    entries = repo.get_cards_for_liga_scan(
-        scan_filter=scan_filter_obj,
-        max_age_days=max_age_days,
-    )
+        # Get eligible cards from user collection
+        entries = repo.get_cards_for_liga_scan(
+            scan_filter=scan_filter_obj,
+            max_age_days=max_age_days,
+        )
+    else:
+        # Get eligible cards from catalog (cards + source_cards)
+        set_codes = [set_filter] if set_filter else None
+        entries = repo.get_catalog_cards_for_liga_scan(
+            set_codes=set_codes,
+            max_age_days=max_age_days,
+            limit=limit,
+        )
     total_eligible = len(entries)
 
     if dry_run:

@@ -1772,5 +1772,203 @@ def serve(host, port, production):
     run_server(host=host, port=port, production=production)
 
 
+# ---------------------------------------------------------------------------
+# catalog command group
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def catalog():
+    """Manage the offline card catalog (Scryfall bulk data + Liga prices)."""
+    pass
+
+
+@catalog.command("seed")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--skip-download", is_flag=True, help="Use existing bulk file instead of downloading")
+@click.option("--batch-size", default=500, type=int, help="Batch size for DB inserts")
+@click.option("--dry-run", is_flag=True, help="Count cards without inserting")
+def catalog_seed(db, skip_download, batch_size, dry_run):
+    """Download Scryfall bulk data and seed the card catalog."""
+    from pathlib import Path
+
+    from src.catalog.scryfall import download_bulk_data, parse_bulk_cards
+    from src.catalog.seeder import seed_catalog
+
+    catalog_dir = Path("data/catalog")
+
+    if skip_download:
+        # Find most recent bulk file
+        files = sorted(
+            catalog_dir.glob("scryfall-default-cards-*.json"),
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
+        if not files:
+            click.echo("No bulk data files found in data/catalog/. Run without --skip-download.")
+            raise SystemExit(1)
+        bulk_path = files[0]
+        click.echo(f"Using existing file: {bulk_path}")
+    else:
+        click.echo("Downloading Scryfall bulk data...")
+        bulk_path = download_bulk_data(str(catalog_dir))
+        click.echo(f"Downloaded: {bulk_path}")
+
+    if dry_run:
+        click.echo("Counting cards (dry-run)...")
+        count = sum(1 for _ in parse_bulk_cards(bulk_path))
+        click.echo(f"\n  [DRY RUN] Found {count:,} paper/English cards in bulk data.")
+        click.echo("  No database changes made.\n")
+        return
+
+    click.echo(f"Seeding catalog (batch_size={batch_size})...")
+    result = seed_catalog(db_url=db, bulk_path=bulk_path, batch_size=batch_size)
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  CATALOG SEED SUMMARY")
+    click.echo(f"  Cards inserted:          {result.cards_inserted:,}")
+    click.echo(f"  Cards updated:           {result.cards_updated:,}")
+    click.echo(f"  Cards skipped:           {result.cards_skipped:,}")
+    click.echo(f"  Source cards created:     {result.source_cards_created:,}")
+    click.echo(f"  Errors:                  {len(result.errors)}")
+    click.echo(f"  Elapsed:                 {result.elapsed_seconds:.1f}s")
+    click.echo("=" * 60)
+    click.echo("")
+
+
+@catalog.command("scan")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--set", "set_code", required=True, help="Set code to scan (e.g. 'mh3')")
+@click.option("--limit", default=None, type=int, help="Max cards to scan")
+@click.option("--delay", default=5.0, type=float, help="Seconds between requests")
+@click.option("--batch-size", default=20, type=int, help="Cards per batch")
+@click.option("--batch-pause", default=60, type=int, help="Seconds between batches")
+@click.option("--max-age-days", default=7, type=int, help="Skip cards with price newer than N days")
+@click.option("--dry-run", is_flag=True, help="Show eligible count without scanning")
+def catalog_scan(db, set_code, limit, delay, batch_size, batch_pause, max_age_days, dry_run):
+    """Scan Liga prices for catalog cards in a specific set."""
+    from src.collectors.liga_sweep import run_liga_sweep
+
+    click.echo(f"Catalog scan: set={set_code}, limit={limit}, delay={delay}s")
+
+    result = asyncio.run(
+        run_liga_sweep(
+            db_url=db,
+            batch_size=batch_size,
+            batch_pause=batch_pause,
+            delay=delay,
+            max_age_days=max_age_days,
+            limit=limit,
+            dry_run=dry_run,
+            set_filter=set_code,
+            collection_only=False,
+        )
+    )
+    _print_liga_sweep_summary(result)
+
+
+@catalog.command("stats")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+def catalog_stats(db):
+    """Show catalog statistics: card counts, price coverage, top sets."""
+    from sqlalchemy import create_engine, func, select, text
+    from sqlalchemy.orm import Session
+
+    from src.database.models import CardRow, PriceObservationRow, SourceCardRow
+
+    engine = create_engine(db, echo=False)
+
+    with Session(engine) as session:
+        # Total catalog cards
+        total = (
+            session.execute(
+                select(func.count()).select_from(CardRow).where(CardRow.game == "magic")
+            ).scalar()
+            or 0
+        )
+
+        # Cards with Liga price (distinct card_id from source_cards that have observations)
+        with_price = (
+            session.execute(
+                select(func.count(func.distinct(SourceCardRow.card_id))).where(
+                    SourceCardRow.source == "liga",
+                    SourceCardRow.external_id.like("liga_catalog_%"),
+                    SourceCardRow.external_id.in_(
+                        select(PriceObservationRow.external_id).where(
+                            PriceObservationRow.source == "liga"
+                        )
+                    ),
+                )
+            ).scalar()
+            or 0
+        )
+
+        without_price = total - with_price
+
+        # Top 10 sets by card count
+        top_sets = session.execute(
+            select(CardRow.set_code, func.count().label("cnt"))
+            .where(CardRow.game == "magic")
+            .group_by(CardRow.set_code)
+            .order_by(text("cnt DESC"))
+            .limit(10)
+        ).all()
+
+        # Last seed date (most recent card creation)
+        last_seed_row = session.execute(
+            select(func.max(SourceCardRow.id)).where(
+                SourceCardRow.external_id.like("liga_catalog_%")
+            )
+        ).scalar()
+
+    engine.dispose()
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  CATALOG STATISTICS")
+    click.echo("=" * 60)
+    click.echo(f"  Total catalog cards:     {total:,}")
+    click.echo(f"  Cards with Liga price:   {with_price:,}")
+    click.echo(f"  Cards without price:     {without_price:,}")
+    if total > 0:
+        coverage = (with_price / total) * 100
+        click.echo(f"  Price coverage:          {coverage:.1f}%")
+    click.echo("")
+    click.echo("  TOP 10 SETS BY CARD COUNT")
+    click.echo("  " + "-" * 40)
+    click.echo(f"  {'Set':<12} {'Cards':>10}")
+    click.echo("  " + "-" * 40)
+    for set_code, cnt in top_sets:
+        click.echo(f"  {set_code:<12} {cnt:>10,}")
+    click.echo("  " + "-" * 40)
+    if last_seed_row:
+        click.echo(f"\n  Catalog seeded: yes (latest source_card id: {last_seed_row})")
+    else:
+        click.echo("\n  Catalog seeded: no")
+    click.echo("")
+
+
 if __name__ == "__main__":
     cli()

@@ -30,6 +30,11 @@ class CardRow(Base):
     name_pt: Mapped[str | None] = mapped_column(String(500))
     set_code: Mapped[str | None] = mapped_column(String(20))
     collector_number: Mapped[str | None] = mapped_column(String(20))
+    rarity: Mapped[str | None] = mapped_column(String(5))
+    color_identity: Mapped[str | None] = mapped_column(String(20))
+    mana_cost: Mapped[str | None] = mapped_column(String(50))
+    type_line: Mapped[str | None] = mapped_column(String(200))
+    image_uri: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now
@@ -39,6 +44,8 @@ class CardRow(Base):
         UniqueConstraint("game", "set_code", "collector_number", name="uq_card_identity"),
         Index("ix_card_game_set", "game", "set_code"),
         Index("ix_card_name_en", "name_en"),
+        Index("ix_card_rarity", "rarity"),
+        Index("ix_card_color_identity", "color_identity"),
     )
 
 

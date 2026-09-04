@@ -49,7 +49,25 @@
     "ligaStatus": "Liga Status",
     "marketplace": "Marketplace",
     "evaluations": "Evaluations",
+    "catalog": "Card Catalog",
     "betaTest": "Beta Test"
+  },
+  "catalog": {
+    "title": "Card Catalog",
+    "searchPlaceholder": "Search cards by name...",
+    "filters": "Filters",
+    "setFilter": "Set",
+    "rarityFilter": "Rarity",
+    "colorFilter": "Color Identity",
+    "priceFilter": "Price",
+    "hasPrice": "Has Price",
+    "noPrice": "No Price",
+    "loadMore": "Load More",
+    "statsLine": "{{cards}} cards \u2022 {{sets}} sets \u2022 {{priced}} with price",
+    "resultsCount": "{{count}} results",
+    "emptyTitle": "No cards found",
+    "emptyDescription": "The catalog is empty. Import cards via the Scryfall bulk data.",
+    "emptyFiltered": "No cards match the current filters. Try adjusting your search."
   },
   "admin": {
     "title": "Admin Panel",

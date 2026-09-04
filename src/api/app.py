@@ -236,6 +236,7 @@ def create_app() -> FastAPI:
     from src.api.routers.banlist import router as banlist_router
     from src.api.routers.card_search import router as card_search_router
     from src.api.routers.cards import router as cards_router
+    from src.api.routers.catalog import router as catalog_router
     from src.api.routers.collect import router as collect_router
     from src.api.routers.collection import router as collection_router
     from src.api.routers.credits import router as credits_router
@@ -268,6 +269,7 @@ def create_app() -> FastAPI:
     app.include_router(exchange_rates_router, prefix="/api/v1")
     app.include_router(banlist_router, prefix="/api/v1")
     app.include_router(schedules_router, prefix="/api/v1")
+    app.include_router(catalog_router, prefix="/api/v1")
 
     # Health check (outside /api/v1)
     @app.get("/health")

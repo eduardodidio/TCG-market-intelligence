@@ -49,7 +49,25 @@
     "ligaStatus": "Status Liga",
     "marketplace": "Marketplace",
     "evaluations": "Avaliacoes",
+    "catalog": "Catalogo de Cartas",
     "betaTest": "Beta Test"
+  },
+  "catalog": {
+    "title": "Catalogo de Cartas",
+    "searchPlaceholder": "Buscar cartas por nome...",
+    "filters": "Filtros",
+    "setFilter": "Colecao",
+    "rarityFilter": "Raridade",
+    "colorFilter": "Identidade de Cor",
+    "priceFilter": "Preco",
+    "hasPrice": "Com Preco",
+    "noPrice": "Sem Preco",
+    "loadMore": "Carregar Mais",
+    "statsLine": "{{cards}} cartas \u2022 {{sets}} colecoes \u2022 {{priced}} com preco",
+    "resultsCount": "{{count}} resultados",
+    "emptyTitle": "Nenhuma carta encontrada",
+    "emptyDescription": "O catalogo esta vazio. Importe cartas via Scryfall bulk data.",
+    "emptyFiltered": "Nenhuma carta corresponde aos filtros atuais. Tente ajustar sua busca."
   },
   "admin": {
     "title": "Painel Admin",
