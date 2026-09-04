@@ -6,9 +6,11 @@ into CatalogCard domain objects, filtering for paper-only English cards.
 
 from __future__ import annotations
 
+import gzip
 import json
 from dataclasses import dataclass
 from datetime import date
+from io import BytesIO
 from pathlib import Path
 from typing import Iterator
 
@@ -64,8 +66,11 @@ def _get_download_url() -> tuple[str, int]:
 
     for entry in data.get("data", []):
         if entry.get("type") == "default_cards":
-            uri = entry["download_uri"]
-            size = entry.get("size", 0)
+            # Scryfall may offer download_uri (JSON) or jsonl_download_uri (JSONL)
+            uri = entry.get("download_uri") or entry.get("jsonl_download_uri")
+            if not uri:
+                raise RuntimeError("default_cards entry has no download URI")
+            size = entry.get("size") or entry.get("compressed_size") or 0
             log.info("scryfall.found_bulk_dataset", uri=uri, size_mb=round(size / 1e6, 1))
             return uri, size
 
@@ -74,8 +79,10 @@ def _get_download_url() -> tuple[str, int]:
 
 def _cleanup_old_files(dest_dir: Path) -> None:
     """Remove old bulk data files, keeping the most recent ones."""
+    json_files = list(dest_dir.glob("scryfall-default-cards-*.json"))
+    jsonl_files = list(dest_dir.glob("scryfall-default-cards-*.jsonl"))
     files = sorted(
-        dest_dir.glob("scryfall-default-cards-*.json"),
+        json_files + jsonl_files,
         key=lambda f: f.stat().st_mtime,
         reverse=True,
     )
@@ -103,26 +110,39 @@ def download_bulk_data(dest_dir: str | Path) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     today = date.today().isoformat()
-    dest_file = dest_dir / f"scryfall-default-cards-{today}.json"
+    # Check both .json and .jsonl extensions (Scryfall migrated to JSONL)
+    dest_file_json = dest_dir / f"scryfall-default-cards-{today}.json"
+    dest_file_jsonl = dest_dir / f"scryfall-default-cards-{today}.jsonl"
+    dest_file = dest_file_jsonl  # default to JSONL
 
-    # Skip if file already exists today and is non-empty
-    if dest_file.exists() and dest_file.stat().st_size > 0:
-        log.info("scryfall.skip_download", path=str(dest_file), reason="file_exists_today")
-        return dest_file
+    # Skip if file already exists today and is non-empty (either extension)
+    for candidate in (dest_file_jsonl, dest_file_json):
+        if candidate.exists() and candidate.stat().st_size > 0:
+            log.info("scryfall.skip_download", path=str(candidate), reason="file_exists_today")
+            return candidate
 
     url, _expected_size = _get_download_url()
+
+    # Detect if URL is gzipped — we'll decompress on the fly
+    is_gzipped = url.endswith(".gz")
+    # Always save as .jsonl (we decompress gzip during download)
+    is_jsonl_url = url.endswith(".jsonl") or url.endswith(".jsonl.gz")
+    dest_file = dest_file_jsonl if is_jsonl_url else dest_file_json
 
     last_error: Exception | None = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            log.info("scryfall.downloading", attempt=attempt, url=url)
+            log.info("scryfall.downloading", attempt=attempt, url=url, gzipped=is_gzipped)
             with httpx.stream("GET", url, timeout=DOWNLOAD_TIMEOUT, follow_redirects=True) as resp:
                 resp.raise_for_status()
                 total = int(resp.headers.get("content-length", 0))
                 downloaded = 0
-                with open(dest_file, "wb") as f:
+
+                if is_gzipped:
+                    # Download to memory then decompress
+                    buf = BytesIO()
                     for chunk in resp.iter_bytes(chunk_size=1024 * 64):
-                        f.write(chunk)
+                        buf.write(chunk)
                         downloaded += len(chunk)
                         if total and downloaded % (10 * 1024 * 1024) < len(chunk):
                             pct = round(downloaded / total * 100, 1)
@@ -132,6 +152,23 @@ def download_bulk_data(dest_dir: str | Path) -> Path:
                                 total_mb=round(total / 1e6, 1),
                                 pct=pct,
                             )
+                    log.info("scryfall.decompressing", compressed_mb=round(downloaded / 1e6, 1))
+                    buf.seek(0)
+                    with open(dest_file, "wb") as f:
+                        f.write(gzip.decompress(buf.read()))
+                else:
+                    with open(dest_file, "wb") as f:
+                        for chunk in resp.iter_bytes(chunk_size=1024 * 64):
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total and downloaded % (10 * 1024 * 1024) < len(chunk):
+                                pct = round(downloaded / total * 100, 1)
+                                log.info(
+                                    "scryfall.download_progress",
+                                    downloaded_mb=round(downloaded / 1e6, 1),
+                                    total_mb=round(total / 1e6, 1),
+                                    pct=pct,
+                                )
 
             # Verify file was written
             size = dest_file.stat().st_size
@@ -194,35 +231,54 @@ def _parse_card(raw: dict) -> CatalogCard | None:
 
 
 def parse_bulk_cards(path: Path) -> Iterator[CatalogCard]:
-    """Parse a Scryfall bulk data JSON file into CatalogCard objects.
+    """Parse a Scryfall bulk data file into CatalogCard objects.
 
-    Attempts to use ijson for memory-efficient streaming. Falls back to
-    json.load() if ijson is not available (with a warning about RAM usage).
+    Supports both JSONL (one JSON object per line, preferred) and JSON
+    array format. JSONL is naturally streaming and memory-efficient.
+    For JSON arrays, attempts ijson for streaming, falls back to json.load().
 
     Args:
-        path: Path to the Scryfall bulk data JSON file.
+        path: Path to the Scryfall bulk data file (.jsonl or .json).
 
     Yields:
         CatalogCard objects for each paper/English card in the file.
     """
-    try:
-        import ijson
+    is_jsonl = str(path).endswith(".jsonl")
 
-        log.info("scryfall.parse_start", path=str(path), parser="ijson_streaming")
-        with open(path, "rb") as f:
-            for raw in ijson.items(f, "item"):
+    if is_jsonl:
+        log.info("scryfall.parse_start", path=str(path), parser="jsonl_streaming")
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
                 card = _parse_card(raw)
                 if card is not None:
                     yield card
-    except ImportError:
-        log.warning(
-            "scryfall.ijson_not_available",
-            msg="ijson not installed, falling back to json.load() — this will use ~500MB RAM",
-        )
-        log.info("scryfall.parse_start", path=str(path), parser="json_load")
-        with open(path, encoding="utf-8") as f:
-            cards = json.load(f)
-        for raw in cards:
-            card = _parse_card(raw)
-            if card is not None:
-                yield card
+    else:
+        # Legacy JSON array format
+        try:
+            import ijson
+
+            log.info("scryfall.parse_start", path=str(path), parser="ijson_streaming")
+            with open(path, "rb") as f:
+                for raw in ijson.items(f, "item"):
+                    card = _parse_card(raw)
+                    if card is not None:
+                        yield card
+        except ImportError:
+            log.warning(
+                "scryfall.ijson_not_available",
+                msg="ijson not installed, falling back to json.load()",
+            )
+            log.info("scryfall.parse_start", path=str(path), parser="json_load")
+            with open(path, encoding="utf-8") as f:
+                cards = json.load(f)
+            for raw in cards:
+                card = _parse_card(raw)
+                if card is not None:
+                    yield card

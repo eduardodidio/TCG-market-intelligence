@@ -1806,8 +1806,10 @@ def catalog_seed(db, skip_download, batch_size, dry_run):
 
     if skip_download:
         # Find most recent bulk file
+        json_files = list(catalog_dir.glob("scryfall-default-cards-*.json"))
+        jsonl_files = list(catalog_dir.glob("scryfall-default-cards-*.jsonl"))
         files = sorted(
-            catalog_dir.glob("scryfall-default-cards-*.json"),
+            json_files + jsonl_files,
             key=lambda f: f.stat().st_mtime,
             reverse=True,
         )
