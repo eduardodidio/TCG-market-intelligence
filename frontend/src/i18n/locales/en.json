@@ -50,6 +50,7 @@
     "marketplace": "Marketplace",
     "evaluations": "Evaluations",
     "catalog": "Card Catalog",
+    "alerts": "Price Alerts",
     "betaTest": "Beta Test"
   },
   "catalog": {
@@ -266,7 +267,10 @@
     "noMatchingCards": "No cards match your filters.",
     "deleteUndoMessage": "\"{{name}}\" deleted",
     "deleteUndo": "Undo",
-    "deleteUndone": "Deletion cancelled"
+    "deleteUndone": "Deletion cancelled",
+    "setCompletion": "Set Completion",
+    "setCompletionOf": "{{owned}} of {{total}}",
+    "setComplete": "Complete!"
   },
   "market": {
     "title": "Market Movers",
@@ -914,5 +918,65 @@
     "removed": "Card removed from evaluation",
     "limitReached": "Evaluation list limit reached (50)",
     "addSuccess": "Added to eval"
+  },
+  "trend": {
+    "up": "Trending up",
+    "down": "Trending down",
+    "flat": "No change"
+  },
+  "arbitrage": {
+    "best": "Best: {{source}} -{{gap}}%",
+    "sourceOnly": "{{source}} only",
+    "tooltip": "Liga: {{liga}} | TCG: {{tcg}}"
+  },
+  "alerts": {
+    "title": "Price Alerts",
+    "priceAlerts": "Price Alerts",
+    "setAlert": "Set Price Alert",
+    "setAlertTitle": "Set Price Alert",
+    "setAlertDescription": "Get notified when the price of {{cardName}} reaches your target.",
+    "setAlertButton": "Set Alert",
+    "setSuccess": "Alert set! We'll notify you when the price goes {{direction}} R$ {{price}}.",
+    "directionLabel": "Alert when price goes...",
+    "direction_below": "Below",
+    "direction_above": "Above",
+    "targetPriceLabel": "Target Price",
+    "invalidPrice": "Please enter a valid price greater than 0",
+    "existingAlerts": "Active alerts for this card",
+    "bellLabel": "Price alert notifications",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications yet",
+    "markAllRead": "Mark all read",
+    "viewAll": "View all alerts",
+    "justNow": "just now",
+    "minutesAgo": "{{count}} min ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago",
+    "tabActive": "Active",
+    "tabTriggered": "Triggered",
+    "emptyActiveTitle": "No active alerts",
+    "emptyActiveDescription": "Set a price alert on any card to get notified when it hits your target price.",
+    "emptyTriggeredTitle": "No triggered alerts",
+    "emptyTriggeredDescription": "Your triggered alerts will appear here when a card reaches your target price.",
+    "createdAt": "Created",
+    "triggeredAt": "Triggered",
+    "dismiss": "Dismiss",
+    "loginRequired": "Please sign in to manage your price alerts."
+  },
+  "portfolio": {
+    "title": "Portfolio & Investment",
+    "totalInvested": "Total Invested",
+    "currentValue": "Current Value",
+    "totalPnl": "Total P&L",
+    "pnlPct": "P&L %",
+    "valueOverTime": "Portfolio Value Over Time",
+    "exportPnl": "Export P&L",
+    "noInvestmentData": "No acquisition prices set yet. Edit cards in your collection to track investments.",
+    "investmentInfo": "Investment Tracking",
+    "acquisitionPrice": "Acquisition Price",
+    "acquiredAt": "Acquired On",
+    "unrealizedPnl": "Unrealized P&L",
+    "pnlTooltip": "Unrealized profit/loss based on acquisition price",
+    "invalidPrice": "Enter a valid price greater than 0"
   }
 }

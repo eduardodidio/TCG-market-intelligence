@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useGauchoEasterEgg } from "../hooks/useGauchoEasterEgg";
 import { usePendingDelete } from "../hooks/usePendingDelete";
+import { AlertBell } from "./AlertBell";
 import { ChimarraoIcon } from "./ChimarraoIcon";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { ExchangeRateBanner } from "./ExchangeRateBanner";
@@ -25,6 +26,7 @@ const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
   { to: "/catalog", labelKey: "nav.catalog", requiresAuth: false },
+  { to: "/alerts", labelKey: "nav.alerts", requiresAuth: true },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
   { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
 ];
@@ -173,6 +175,13 @@ export function Layout() {
         {isAuthenticated && (
           <div className="border-b border-slate-600 py-1" data-testid="treasure-balance-section">
             <TreasureBalance />
+          </div>
+        )}
+        {/* Alert bell */}
+        {isAuthenticated && (
+          <div className="flex items-center gap-2 px-6 py-2 border-b border-slate-600" data-testid="alert-bell-section">
+            <AlertBell />
+            <span className="text-sm text-slate-400">{t("alerts.priceAlerts")}</span>
           </div>
         )}
         {/* Currency toggle */}

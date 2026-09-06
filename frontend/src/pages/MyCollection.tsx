@@ -33,11 +33,16 @@ import { useCurrency } from "../hooks/useCurrency";
 import { CostBadge } from "../components/CostBadge";
 import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { MaxAgeDaysSelect } from "../components/MaxAgeDaysSelect";
+import { PortfolioDashboard } from "../components/PortfolioDashboard";
 import { fetchScanPreview } from "../api/scans";
 import { fetchSharingStatus, toggleSharing as apiToggleSharing } from "../api/marketplace";
 import { ValuationBadge } from "../components/ValuationBadge";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { CardImage } from "../components/CardImage";
+import { SetCompletionBar } from "../components/SetCompletionBar";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { fetchSetCompletion, type SetCompletionEntry } from "../api/collection";
 import { BatchAddModal } from "../components/BatchAddModal";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { BulkActionsToolbar } from "../components/BulkActionsToolbar";
@@ -64,8 +69,6 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
-  const [imgError, setImgError] = useState(false);
-  const [fallbackError, setFallbackError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
   const { balance, isAdmin, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
@@ -74,8 +77,6 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   // Fallback: Scryfall by exact card name
   const primaryUrl = card.image_url || scryfallImageUrl(card.set_code, card.collector_number);
   const fallbackUrl = card.name_en ? scryfallImageByName(card.name_en) : null;
-  const currentUrl = imgError && fallbackUrl ? fallbackUrl : primaryUrl;
-  const showImage = !(imgError && (fallbackError || !fallbackUrl));
 
   const inner = (
     <div
@@ -105,38 +106,13 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
         </span>
       )}
 
-      {/* Card image */}
+      {/* Card image with skeleton loading */}
       <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden relative">
-        {showImage ? (
-          <img
-            src={currentUrl}
-            alt={displayName}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={() => {
-              if (!imgError) {
-                setImgError(true);
-              } else {
-                setFallbackError(true);
-              }
-            }}
-          />
-        ) : (
-          <svg
-            className="h-12 w-12 text-slate-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1}
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-        )}
+        <CardImage
+          src={primaryUrl}
+          fallbackSrc={fallbackUrl}
+          alt={displayName}
+        />
 
         {/* Foil badge overlay */}
         {card.is_foil && (
@@ -285,6 +261,8 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
 export function MyCollection() {
   const { t } = useTranslation();
 
+  useScrollRestoration("collection");
+
   useEffect(() => {
     document.title = `${t("collection.title")} | TCG Market`;
   }, [t]);
@@ -320,6 +298,10 @@ export function MyCollection() {
   const [previewSkipped, setPreviewSkipped] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
   const { balance: creditBalance, isAdmin: creditIsAdmin, bonusEligible: creditBonusEligible, claimBonus: creditClaimBonus, refetch: creditRefetch } = useCredits();
+
+  // Set completion
+  const [setCompletionData, setSetCompletionData] = useState<SetCompletionEntry[]>([]);
+  const [showSetCompletion, setShowSetCompletion] = useState(() => localStorage.getItem("show_set_completion") !== "0");
 
   // Batch add modal state
   const [batchAddOpen, setBatchAddOpen] = useState(false);
@@ -542,6 +524,9 @@ export function MyCollection() {
         setHealthStatus(res.data.status);
       }
     });
+    fetchSetCompletion().then((res) => {
+      if (res.data) setSetCompletionData(res.data);
+    }).catch(() => {});
   }, [currency, refreshKey]);
 
   // Sync URL params
@@ -708,6 +693,9 @@ export function MyCollection() {
         </div>
       )}
 
+      {/* Portfolio Investment Dashboard */}
+      <PortfolioDashboard />
+
       {/* Ban alert banner */}
       {summary && !banDismissed && (summary.banned_count > 0 || (bannedCards.length > 0)) && (
         <div className="mb-6">
@@ -720,8 +708,43 @@ export function MyCollection() {
         </div>
       )}
 
-      {/* Search, sort, and filters */}
-      <div className="space-y-4 mb-6">
+      {/* Set Completion Section */}
+      {setCompletionData.length > 0 && (
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={() => {
+              setShowSetCompletion((v) => {
+                localStorage.setItem("show_set_completion", v ? "0" : "1");
+                return !v;
+              });
+            }}
+            className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition-colors mb-2"
+            data-testid="toggle-set-completion"
+          >
+            <svg className={`h-4 w-4 transition-transform ${showSetCompletion ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            {t("collection.setCompletion", { defaultValue: "Set Completion" })}
+          </button>
+          {showSetCompletion && (
+            <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 max-h-60 overflow-y-auto" data-testid="set-completion-section">
+              {setCompletionData.map((entry) => (
+                <SetCompletionBar
+                  key={entry.set_code}
+                  setCode={entry.set_code}
+                  setName={entry.set_name}
+                  owned={entry.owned}
+                  total={entry.total}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Search, sort, and filters — sticky bar */}
+      <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm pb-4 pt-2 -mx-6 px-6 border-b border-slate-700/50 space-y-4 mb-6" data-testid="sticky-filter-bar">
         <div className="flex gap-3 items-center">
           <div className="flex-1">
             <SearchBar value={searchTerm} onChange={setSearchTerm} />

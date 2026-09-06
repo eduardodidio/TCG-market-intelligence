@@ -133,6 +133,13 @@ async def lifespan(app: FastAPI):
             trending_svc = get_trending_service(repo)
         trending_hook = make_trending_invalidation_hook(trending_svc)
         default_registry.register(trending_hook)
+
+        # Register alert checker hook (F106)
+        from src.services.alert_checker import make_alert_checker_hook
+
+        alert_repo = Repository(db_url=get_db_url())
+        alert_hook = make_alert_checker_hook(alert_repo)
+        default_registry.register(alert_hook)
     except Exception:
         import structlog
 
@@ -232,6 +239,7 @@ def create_app() -> FastAPI:
 
     # Include routers under /api/v1
     from src.api.routers.admin import router as admin_router
+    from src.api.routers.alerts import router as alerts_router
     from src.api.routers.auth import router as auth_router
     from src.api.routers.banlist import router as banlist_router
     from src.api.routers.card_search import router as card_search_router
@@ -270,6 +278,7 @@ def create_app() -> FastAPI:
     app.include_router(banlist_router, prefix="/api/v1")
     app.include_router(schedules_router, prefix="/api/v1")
     app.include_router(catalog_router, prefix="/api/v1")
+    app.include_router(alerts_router, prefix="/api/v1")
 
     # Health check (outside /api/v1)
     @app.get("/health")

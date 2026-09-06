@@ -128,6 +128,21 @@ export interface CollectionCard {
   price_source?: string | null;
   currency?: string;
   image_url: string | null;
+  acquisition_price: number | null;
+  acquired_at: string | null;
+}
+
+export interface PortfolioSummary {
+  total_invested: number;
+  total_current_value: number;
+  total_pnl: number;
+  total_pnl_pct: number | null;
+  invested_card_count: number;
+}
+
+export interface PortfolioHistoryPoint {
+  date: string;
+  value: number;
 }
 
 export interface CollectionCardDetail extends CollectionCard {

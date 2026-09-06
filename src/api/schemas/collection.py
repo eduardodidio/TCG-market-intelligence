@@ -26,6 +26,8 @@ class CollectionCard(BaseModel):
     price_source: str | None = None
     currency: str = "BRL"
     image_url: str | None = None
+    acquisition_price: float | None = None
+    acquired_at: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -158,6 +160,36 @@ VALID_QUALITY_CODES = {"M", "NM", "SP", "MP", "HP", "D"}
 VALID_LANGUAGE_CODES = {"BR", "EN", "DE", "ES", "FR", "IT", "JP", "KO", "RU", "TW"}
 
 
+class PortfolioSummary(BaseModel):
+    """Portfolio investment summary."""
+
+    total_invested: float
+    total_current_value: float
+    total_pnl: float
+    total_pnl_pct: float | None = None
+    invested_card_count: int = 0
+
+
+class PortfolioHistoryPoint(BaseModel):
+    """A single point in portfolio value history."""
+
+    date: str
+    value: float
+
+
+class PnlExportRow(BaseModel):
+    """A single row in the P&L CSV export."""
+
+    card_name: str
+    set_code: str
+    quantity: int
+    acquisition_price: float | None = None
+    acquired_at: str | None = None
+    current_price: float | None = None
+    pnl: float | None = None
+    pnl_pct: float | None = None
+
+
 class CollectionUpdateRequest(BaseModel):
     """Partial update for a collection entry."""
 
@@ -165,6 +197,8 @@ class CollectionUpdateRequest(BaseModel):
     quality: str | None = Field(None, pattern=r"^(M|NM|SP|MP|HP|D)$")
     language: str | None = Field(None, pattern=r"^(BR|EN|DE|ES|FR|IT|JP|KO|RU|TW)$")
     extras: str | None = None
+    acquisition_price: float | None = None
+    acquired_at: str | None = None
 
     @field_validator("quantity")
     @classmethod
@@ -172,6 +206,30 @@ class CollectionUpdateRequest(BaseModel):
         if v is not None and v < 1:
             msg = "quantity must be >= 1"
             raise ValueError(msg)
+        return v
+
+    @field_validator("acquisition_price")
+    @classmethod
+    def acquisition_price_must_be_positive(cls, v: float | None) -> float | None:
+        if v is not None and v <= 0:
+            msg = "acquisition_price must be a positive number"
+            raise ValueError(msg)
+        if v is not None and v > 99999.99:
+            msg = "acquisition_price must not exceed 99999.99"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("acquired_at")
+    @classmethod
+    def acquired_at_must_be_valid_date(cls, v: str | None) -> str | None:
+        if v is not None:
+            from datetime import date as date_type
+
+            try:
+                date_type.fromisoformat(v)
+            except ValueError:
+                msg = "acquired_at must be a valid ISO date (YYYY-MM-DD)"
+                raise ValueError(msg)
         return v
 
 

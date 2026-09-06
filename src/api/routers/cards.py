@@ -93,6 +93,53 @@ def list_cards(
     return paginated_response(data=data, cursor=next_cursor, total=total)
 
 
+@router.get("/price-trends")
+def get_price_trends(
+    card_ids: str = Query(..., description="Comma-separated card IDs (max 50)"),
+    days: int = Query(default=7, ge=1, le=30),
+    repo: Repository = Depends(get_db),
+):
+    """Batch fetch mini price history for multiple cards.
+
+    Returns a dict of card_id -> { prices: [...], change_pct: float | None }.
+    Used by sparkline charts in card list views.
+    """
+    raw_ids = [s.strip() for s in card_ids.split(",") if s.strip()]
+    try:
+        parsed_ids = [int(x) for x in raw_ids]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="card_ids must be comma-separated integers")
+
+    if len(parsed_ids) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 card_ids per request")
+
+    if not parsed_ids:
+        return success_response(data={"trends": {}})
+
+    series = repo.get_price_series_batch(parsed_ids, days=days)
+
+    trends: dict[str, dict] = {}
+    for card_id in parsed_ids:
+        history = series.get(card_id, [])
+        prices = [float(hp.median_price) for hp in history if hp.median_price is not None]
+
+        change_pct = None
+        if len(prices) >= 2:
+            first_val = prices[0]
+            last_val = prices[-1]
+            if first_val != 0:
+                change_pct = round(((last_val - first_val) / first_val) * 100, 1)
+            else:
+                change_pct = 0.0
+
+        trends[str(card_id)] = {
+            "prices": prices,
+            "change_pct": change_pct,
+        }
+
+    return success_response(data={"trends": trends})
+
+
 @router.get("/{card_id}", response_model=ApiResponse[CardDetail])
 def get_card(
     card_id: int,

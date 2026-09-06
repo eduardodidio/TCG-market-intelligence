@@ -1,4 +1,4 @@
-import type { ApiResponse, BulkCanonizeResult, CollectionCard, CollectionCardDetail, CollectionSummary, ImportResult, PriceHistoryResponse } from "../types/api";
+import type { ApiResponse, BulkCanonizeResult, CollectionCard, CollectionCardDetail, CollectionSummary, ImportResult, PortfolioHistoryPoint, PortfolioSummary, PriceHistoryResponse } from "../types/api";
 import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 
 export function fetchCollection(
@@ -117,9 +117,35 @@ export function fetchValuation(
 
 export function patchCollectionEntry(
   id: number,
-  updates: { quantity?: number; quality?: string; language?: string; extras?: string },
+  updates: { quantity?: number; quality?: string; language?: string; extras?: string; acquisition_price?: number; acquired_at?: string },
 ): Promise<ApiResponse<CollectionCard>> {
   return apiPatch<CollectionCard>(`/api/v1/collection/${id}`, updates);
+}
+
+export function fetchPortfolioSummary(): Promise<ApiResponse<PortfolioSummary>> {
+  return apiGet<PortfolioSummary>("/api/v1/collection/portfolio-summary");
+}
+
+export function fetchPortfolioHistory(
+  days: number = 90,
+): Promise<ApiResponse<PortfolioHistoryPoint[]>> {
+  return apiGet<PortfolioHistoryPoint[]>("/api/v1/collection/portfolio-history", { days: String(days) });
+}
+
+export function exportPnlCsv(): void {
+  const token = localStorage.getItem("tcg_access_token");
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  fetch("/api/v1/collection/export-pnl", { headers })
+    .then((res) => res.blob())
+    .then((blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "portfolio-pnl.csv";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
 }
 
 export async function deleteCollectionEntry(id: number): Promise<void> {
@@ -130,6 +156,19 @@ export function fetchCollectionSets(): Promise<
   ApiResponse<{ set_code: string; set_name: string | null; count: number }[]>
 > {
   return apiGet("/api/v1/collection/sets");
+}
+
+// --- Set completion ---
+
+export interface SetCompletionEntry {
+  set_code: string;
+  set_name: string;
+  owned: number;
+  total: number;
+}
+
+export function fetchSetCompletion(): Promise<ApiResponse<SetCompletionEntry[]>> {
+  return apiGet<SetCompletionEntry[]>("/api/v1/collection/set-completion");
 }
 
 // --- Batch operations ---

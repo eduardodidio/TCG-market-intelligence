@@ -25,6 +25,26 @@ export function fetchCardHistory(
   return apiGet<PriceHistoryResponse>(`/api/v1/cards/${id}/history`, params);
 }
 
+// T01: Batch price trends for sparkline charts
+export interface PriceTrendEntry {
+  prices: number[];
+  change_pct: number | null;
+}
+
+export interface PriceTrendsResponse {
+  trends: Record<string, PriceTrendEntry>;
+}
+
+export function fetchPriceTrends(
+  cardIds: number[],
+  days: number = 7,
+): Promise<ApiResponse<PriceTrendsResponse>> {
+  return apiGet<PriceTrendsResponse>("/api/v1/cards/price-trends", {
+    card_ids: cardIds.join(","),
+    days: String(days),
+  });
+}
+
 export function searchCardsWeb(
   query: string,
 ): Promise<ApiResponse<WebSearchResult[]>> {

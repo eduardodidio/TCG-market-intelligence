@@ -79,6 +79,9 @@ const Evaluations = lazy(() =>
 const CatalogPage = lazy(() =>
   import("./pages/CatalogPage").then((m) => ({ default: m.CatalogPage })),
 );
+const AlertsPage = lazy(() =>
+  import("./pages/AlertsPage").then((m) => ({ default: m.AlertsPage })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -352,6 +355,18 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <Evaluations />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/alerts"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <AlertsPage />
                     </ProtectedRoute>
                   </Suspense>
                 }

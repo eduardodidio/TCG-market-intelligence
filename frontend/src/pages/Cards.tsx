@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { fetchCards, searchCardsWeb } from "../api/cards";
@@ -16,6 +16,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useCurrency } from "../hooks/useCurrency";
 import { useDebounce } from "../hooks/useDebounce";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
+import { usePriceTrends } from "../hooks/usePriceTrends";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import type { CardSummary, SetSummary, WebSearchResult } from "../types/api";
 import { DEFAULT_PAGE_LIMIT } from "../utils/constants";
 
@@ -63,8 +65,14 @@ export function Cards() {
   const [evalAddingIdx, setEvalAddingIdx] = useState<number | null>(null);
   const [evalAddedIdxs, setEvalAddedIdxs] = useState<Set<number>>(new Set());
 
+  useScrollRestoration("cards");
+
   const debouncedSearch = useDebounce(searchTerm, 300);
   const fetchIdRef = useRef(0);
+
+  // Price trends for sparklines
+  const cardIds = useMemo(() => cards.map((c) => c.id), [cards]);
+  const { trends } = usePriceTrends(cardIds);
 
   // Load sets on mount
   useEffect(() => {
@@ -302,8 +310,8 @@ export function Cards() {
       {/* ===== LOCAL MODE ===== */}
       {mode === "local" && (
         <>
-          {/* Search and filters */}
-          <div className="space-y-4 mb-6">
+          {/* Search and filters — sticky bar */}
+          <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm pb-4 pt-2 -mx-6 px-6 border-b border-slate-700/50 space-y-4 mb-6" data-testid="sticky-filter-bar">
             <div className="flex gap-3 items-center">
               <div className="flex-1">
                 <SearchBar value={searchTerm} onChange={setSearchTerm} />
@@ -367,7 +375,7 @@ export function Cards() {
                 data-testid="cards-grid"
               >
                 {cards.map((card) => (
-                  <CardTile key={card.id} card={card} />
+                  <CardTile key={card.id} card={card} trend={trends[String(card.id)]} />
                 ))}
               </div>
 

@@ -10,6 +10,7 @@ import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl } from "../utils/scryfall";
+import { AcquisitionPriceInput } from "../components/AcquisitionPriceInput";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { BanEventCard } from "../components/BanEventCard";
 import { CostBadge } from "../components/CostBadge";
@@ -21,6 +22,7 @@ import { LegalityPanel } from "../components/LegalityPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ManualPriceInput } from "../components/ManualPriceInput";
 import { MetricsPanel } from "../components/MetricsPanel";
+import { PnlBadge } from "../components/PnlBadge";
 import { PriceChart } from "../components/PriceChart";
 import { FoilBadge } from "../components/FoilBadge";
 import { PriceSourceBadge } from "../components/PriceSourceBadge";
@@ -406,6 +408,37 @@ export function CollectionCardDetail() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Investment tracking — acquisition price & date */}
+          <div className="mb-6" data-testid="investment-tracking">
+            <p className="text-sm text-slate-400 mb-3">{t("portfolio.investmentInfo")}</p>
+            <AcquisitionPriceInput
+              entryId={entryId}
+              acquisitionPrice={entry.acquisition_price}
+              acquiredAt={entry.acquired_at}
+              currency={currency}
+              onSaved={(price, acqDate) => {
+                setEntry({
+                  ...entry,
+                  acquisition_price: price,
+                  acquired_at: acqDate,
+                });
+              }}
+            />
+            {/* P&L badge */}
+            {entry.acquisition_price != null && entry.latest_price != null && (
+              <div className="mt-3 flex items-center gap-2" data-testid="card-pnl">
+                <span className="text-xs text-slate-500 uppercase tracking-wider">
+                  {t("portfolio.unrealizedPnl")}
+                </span>
+                <PnlBadge
+                  acquisitionPrice={entry.acquisition_price}
+                  currentPrice={entry.latest_price}
+                  currency={currency}
+                />
+              </div>
+            )}
           </div>
 
           {/* Latest price */}
