@@ -88,6 +88,11 @@ const AchievementsPage = lazy(() =>
     default: m.AchievementsPage,
   })),
 );
+const SharedCollectionPage = lazy(() =>
+  import("./pages/SharedCollectionPage").then((m) => ({
+    default: m.SharedCollectionPage,
+  })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -329,6 +334,16 @@ export default function App() {
               <Route
                 path="/schedules"
                 element={<Navigate to="/admin" replace />}
+              />
+              <Route
+                path="/marketplace/share/:code"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <SharedCollectionPage />
+                  </Suspense>
+                }
               />
               <Route
                 path="/marketplace/my-trades"

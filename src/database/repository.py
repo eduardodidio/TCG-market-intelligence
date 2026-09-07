@@ -3402,6 +3402,37 @@ class Repository:
                 session.expunge(row)
             return row
 
+    def get_shared_collection_stats(self, user_id: int) -> dict:
+        """Return collection stats for a shared collection owner.
+
+        Returns dict with total_cards (int) and sets (list[str]).
+        """
+        with Session(self.engine) as session:
+            total = (
+                session.execute(
+                    select(func.coalesce(func.sum(UserCollectionRow.quantity), 0)).where(
+                        UserCollectionRow.user_id == str(user_id)
+                    )
+                ).scalar()
+                or 0
+            )
+
+            set_rows = (
+                session.execute(
+                    select(UserCollectionRow.set_code)
+                    .where(UserCollectionRow.user_id == str(user_id))
+                    .group_by(UserCollectionRow.set_code)
+                    .order_by(UserCollectionRow.set_code)
+                )
+                .scalars()
+                .all()
+            )
+
+            return {
+                "total_cards": int(total),
+                "sets": list(set_rows),
+            }
+
     def create_trade_interest(
         self,
         buyer_user_id: int,
