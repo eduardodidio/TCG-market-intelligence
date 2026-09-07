@@ -189,7 +189,11 @@ class TestSearchWebInsufficientCredits:
 
         resp = client.get("/cards/search-web", params={"q": "Test"})
         assert resp.status_code == 402
-        assert "Insufficient" in resp.json()["detail"]
+        detail = resp.json()["detail"]
+        if isinstance(detail, dict):
+            assert detail["code"] == "CREDIT_INSUFFICIENT"
+        else:
+            assert "Insufficient" in detail
 
 
 class TestSearchWebLigaUnavailable:
@@ -201,7 +205,11 @@ class TestSearchWebLigaUnavailable:
 
         resp = client.get("/cards/search-web", params={"q": "Test"})
         assert resp.status_code == 503
-        assert "unavailable" in resp.json()["detail"].lower()
+        detail = resp.json()["detail"]
+        if isinstance(detail, dict):
+            assert detail["code"] == "EXTERNAL_PROVIDER_UNAVAILABLE"
+        else:
+            assert "unavailable" in detail.lower()
 
 
 class TestSearchWebEmptyQuery:
@@ -254,7 +262,11 @@ class TestSearchWebLigaError:
 
         resp = client.get("/cards/search-web", params={"q": "Test"})
         assert resp.status_code == 502
-        assert "failed" in resp.json()["detail"].lower()
+        detail = resp.json()["detail"]
+        if isinstance(detail, dict):
+            assert detail["code"] == "EXTERNAL_FAILURE"
+        else:
+            assert "failed" in detail.lower()
 
 
 class TestSearchWebMypFallback:
@@ -366,7 +378,11 @@ class TestSearchWebMypFallback:
 
         resp = client.get("/cards/search-web", params={"q": "Test"})
         assert resp.status_code == 502
-        assert "myp" in resp.json()["detail"].lower()
+        detail = resp.json()["detail"]
+        if isinstance(detail, dict):
+            assert detail["code"] == "EXTERNAL_FAILURE"
+        else:
+            assert "myp" in detail.lower()
 
     def test_liga_preferred_over_myp_when_both_available(self):
         """When both Liga and MYP are registered, Liga should be used."""
@@ -396,7 +412,11 @@ class TestSearchWebMypFallback:
 
         resp = client.get("/cards/search-web", params={"q": "Test"})
         assert resp.status_code == 503
-        assert "unavailable" in resp.json()["detail"].lower()
+        detail = resp.json()["detail"]
+        if isinstance(detail, dict):
+            assert detail["code"] == "EXTERNAL_PROVIDER_UNAVAILABLE"
+        else:
+            assert "unavailable" in detail.lower()
 
     def test_myp_fallback_includes_image_url(self):
         mock_repo = MagicMock()

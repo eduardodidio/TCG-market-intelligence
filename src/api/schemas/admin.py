@@ -51,6 +51,12 @@ class AdminDashboardResponse(BaseModel):
     total_scans: int
 
 
+class ResetPasswordResponse(BaseModel):
+    user_id: int
+    email: str
+    temporary_password: str
+
+
 class ErrorLogEntry(BaseModel):
     id: str
     timestamp: datetime

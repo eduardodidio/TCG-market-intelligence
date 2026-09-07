@@ -90,6 +90,19 @@ export function adjustUserCredits(
   );
 }
 
+export interface ResetPasswordResult {
+  user_id: number;
+  email: string;
+  temporary_password: string;
+}
+
+export function resetUserPassword(userId: number) {
+  return apiPost<ResetPasswordResult>(
+    `/api/v1/admin/users/${userId}/reset-password`,
+    {},
+  );
+}
+
 export function fetchAdminDashboard() {
   return apiGet<AdminDashboard>("/api/v1/admin/dashboard");
 }

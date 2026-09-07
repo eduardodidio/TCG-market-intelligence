@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 
 from src.api.deps import get_current_user, get_db
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.auth import (
     AuthTokens,
     ChangePasswordRequest,
@@ -33,7 +34,7 @@ def register(
     """Register a new user with email and password."""
     existing = repo.get_user_by_email(body.email)
     if existing:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise api_error(409, ErrorCode.AUTH_EMAIL_TAKEN, "Email already registered")
 
     pw_hash = hash_password(body.password)
     user = repo.create_user(
@@ -59,13 +60,13 @@ def login(
     """Authenticate with email and password."""
     user = repo.get_user_by_email(body.email)
     if not user or not user.password_hash:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise api_error(401, ErrorCode.AUTH_INVALID_CREDENTIALS, "Invalid credentials")
 
     if not verify_password(body.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise api_error(401, ErrorCode.AUTH_INVALID_CREDENTIALS, "Invalid credentials")
 
     if not user.is_active:
-        raise HTTPException(status_code=401, detail="Account is inactive")
+        raise api_error(401, ErrorCode.AUTH_ACCOUNT_INACTIVE, "Account is inactive")
 
     # Check password expiration (admin-created users with temporary passwords)
     password_expires_at = getattr(user, "password_expires_at", None)
@@ -136,11 +137,11 @@ def update_preferences(
         updates["preferred_language"] = body.preferred_language
 
     if not updates:
-        raise HTTPException(status_code=422, detail="No preferences provided")
+        raise api_error(422, ErrorCode.VALIDATION_EMPTY_UPDATE, "No preferences provided")
 
     updated = repo.update_user(user.id, **updates)
     if not updated:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "User not found")
 
     profile = UserProfile(
         id=updated.id,
@@ -165,10 +166,10 @@ def change_password(
     """Change the current user's password. Clears password expiration."""
     db_user = repo.get_user_by_id(user.id)
     if not db_user or not db_user.password_hash:
-        raise HTTPException(status_code=400, detail="Password change not available")
+        raise api_error(400, ErrorCode.AUTH_PASSWORD_UNAVAILABLE, "Password change not available")
 
     if not verify_password(body.current_password, db_user.password_hash):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
+        raise api_error(400, ErrorCode.AUTH_PASSWORD_MISMATCH, "Current password is incorrect")
 
     new_hash = hash_password(body.new_password)
     repo.update_user(user.id, password_hash=new_hash, password_expires_at=None)
@@ -188,12 +189,13 @@ def oauth_redirect(provider: str):
     try:
         config = get_oauth_config(provider)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Unknown OAuth provider: {provider}")
+        raise api_error(400, ErrorCode.RESOURCE_NOT_FOUND, f"Unknown OAuth provider: {provider}")
 
     if not config["client_id"]:
-        raise HTTPException(
-            status_code=501,
-            detail=f"OAuth provider {provider} is not configured",
+        raise api_error(
+            501,
+            ErrorCode.AUTH_OAUTH_NOT_CONFIGURED,
+            f"OAuth provider {provider} is not configured",
         )
 
     # Build authorization URL
@@ -217,13 +219,14 @@ def oauth_callback(
 ):
     """Handle OAuth callback (placeholder — full flow requires authlib setup)."""
     if not code:
-        raise HTTPException(status_code=400, detail="Missing authorization code")
+        raise api_error(400, ErrorCode.AUTH_MISSING_AUTH_CODE, "Missing authorization code")
 
     # In a full implementation, exchange code for tokens via authlib
     # For now, return a 501 indicating the flow is not yet implemented
-    raise HTTPException(
-        status_code=501,
-        detail="OAuth callback flow not yet implemented. Use email/password login.",
+    raise api_error(
+        501,
+        ErrorCode.AUTH_OAUTH_NOT_IMPLEMENTED,
+        "OAuth callback flow not yet implemented. Use email/password login.",
     )
 
 
@@ -238,15 +241,15 @@ def refresh_token(
     try:
         payload = decode_token(body.refresh_token)
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+        raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "Invalid or expired refresh token")
 
     if payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="Invalid token type")
+        raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "Invalid token type")
 
     user_id = int(payload["sub"])
     user = repo.get_user_by_id(user_id)
     if not user or not user.is_active:
-        raise HTTPException(status_code=401, detail="User not found or inactive")
+        raise api_error(401, ErrorCode.AUTH_ACCOUNT_INACTIVE, "User not found or inactive")
 
     tokens = AuthTokens(
         access_token=create_access_token(user.id, user.email),

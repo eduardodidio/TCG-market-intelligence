@@ -4,7 +4,6 @@ import base64
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.exceptions import HTTPException
 
 from src.analytics.aggregation import (
     PERIOD_MAP,
@@ -12,6 +11,7 @@ from src.analytics.aggregation import (
     compute_price_change_summary,
 )
 from src.api.deps import get_currency_converter_dep, get_db, get_optional_user
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.cards import (
     CardDetail,
     CardSummary,
@@ -108,10 +108,12 @@ def get_price_trends(
     try:
         parsed_ids = [int(x) for x in raw_ids]
     except ValueError:
-        raise HTTPException(status_code=400, detail="card_ids must be comma-separated integers")
+        raise api_error(
+            400, ErrorCode.VALIDATION_ERROR, "card_ids must be comma-separated integers"
+        )
 
     if len(parsed_ids) > 50:
-        raise HTTPException(status_code=400, detail="Maximum 50 card_ids per request")
+        raise api_error(400, ErrorCode.VALIDATION_LIMIT_EXCEEDED, "Maximum 50 card_ids per request")
 
     if not parsed_ids:
         return success_response(data={"trends": {}})
@@ -150,7 +152,7 @@ def get_card(
 ):
     card = repo.get_card_by_id(card_id)
     if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
 
     source_cards = repo.get_source_cards_for_card(card_id)
     latest_prices = repo.get_latest_prices_batch([card_id])
@@ -195,14 +197,15 @@ def get_history(
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
     if period not in PERIOD_MAP:
-        raise HTTPException(
-            status_code=422,
-            detail=("Invalid period. Must be one of: " + ", ".join(PERIOD_MAP.keys())),
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid period. Must be one of: " + ", ".join(PERIOD_MAP.keys()),
         )
 
     card = repo.get_card_by_id(card_id)
     if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
 
     source_cards = repo.get_source_cards_for_card(card_id)
     if not source_cards:

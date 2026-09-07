@@ -458,7 +458,9 @@ class TestRefreshLigaNoName:
         resp = client.post("/collection/1/refresh-liga")
 
         assert resp.status_code == 422
-        assert "name" in resp.json()["detail"].lower()
+        detail = resp.json()["detail"]
+        detail_str = detail["message"].lower() if isinstance(detail, dict) else detail.lower()
+        assert "name" in detail_str
 
 
 class TestRefreshLigaProviderErrors:

@@ -7,9 +7,10 @@ from decimal import Decimal
 from urllib.parse import quote_plus
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from src.api.deps import get_credit_service, get_current_user, get_db
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.card_search import WebSearchResult
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.credits.exceptions import InsufficientCreditsError
@@ -58,7 +59,7 @@ async def search_web(
     try:
         credit_svc.deduct(user.id, 1, "web_search", reference_id=q[:100])
     except InsufficientCreditsError:
-        raise HTTPException(status_code=402, detail="Insufficient credits")
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Insufficient credits")
 
     # 2. Get search provider from registry (Liga preferred, MYP fallback)
     registry = getattr(request.app.state, "provider_registry", None)
@@ -84,9 +85,10 @@ async def search_web(
         return await _search_via_myp(myp_provider, q, repo)
 
     # Neither provider available
-    raise HTTPException(
-        status_code=503,
-        detail="Card search is unavailable on this deployment",
+    raise api_error(
+        503,
+        ErrorCode.EXTERNAL_PROVIDER_UNAVAILABLE,
+        "Card search is unavailable on this deployment",
     )
 
 
@@ -103,10 +105,10 @@ async def _search_via_liga(
         )
     except asyncio.TimeoutError:
         log.warning("web_search_timeout", query=q)
-        raise HTTPException(status_code=504, detail="Liga search timed out")
+        raise api_error(504, ErrorCode.EXTERNAL_TIMEOUT, "Liga search timed out")
     except Exception as e:
         log.warning("web_search_error", query=q, error=str(e))
-        raise HTTPException(status_code=502, detail="Liga search failed")
+        raise api_error(502, ErrorCode.EXTERNAL_FAILURE, "Liga search failed")
 
     normal = prices.get("normal", {})
     foil = prices.get("foil", {})
@@ -149,10 +151,10 @@ async def _search_via_myp(
         )
     except asyncio.TimeoutError:
         log.warning("web_search_myp_timeout", query=q)
-        raise HTTPException(status_code=504, detail="MYP search timed out")
+        raise api_error(504, ErrorCode.EXTERNAL_TIMEOUT, "MYP search timed out")
     except Exception as e:
         log.warning("web_search_myp_error", query=q, error=str(e))
-        raise HTTPException(status_code=502, detail="MYP search failed")
+        raise api_error(502, ErrorCode.EXTERNAL_FAILURE, "MYP search failed")
 
     if not myp_results:
         return success_response(data=[])

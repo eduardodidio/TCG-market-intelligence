@@ -148,7 +148,9 @@ class TestDeleteUser:
         client = TestClient(_make_app(mock_repo, admin))
         resp = client.delete("/api/v1/admin/users/1")
         assert resp.status_code == 400
-        assert "yourself" in resp.json()["detail"].lower()
+        detail = resp.json()["detail"]
+        detail_str = detail["message"].lower() if isinstance(detail, dict) else detail.lower()
+        assert "yourself" in detail_str
 
     def test_delete_nonexistent_returns_404(self):
         mock_repo = MagicMock()
@@ -157,4 +159,42 @@ class TestDeleteUser:
         admin = _admin_user(id=1)
         client = TestClient(_make_app(mock_repo, admin))
         resp = client.delete("/api/v1/admin/users/999")
+        assert resp.status_code == 404
+
+
+class TestResetPassword:
+    def test_resets_password_returns_temp_password(self):
+        mock_repo = MagicMock()
+        target = _mock_user_row(id=2, email="user@test.com")
+        mock_repo.get_user_by_id.return_value = target
+
+        admin = _admin_user(id=1)
+        client = TestClient(_make_app(mock_repo, admin))
+        resp = client.post("/api/v1/admin/users/2/reset-password")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["user_id"] == 2
+        assert body["data"]["email"] == "user@test.com"
+        assert "temporary_password" in body["data"]
+        assert len(body["data"]["temporary_password"]) > 0
+        # Verify update_user was called with password_hash and password_expires_at
+        mock_repo.update_user.assert_called_once()
+        call_kwargs = mock_repo.update_user.call_args
+        assert call_kwargs[0][0] == 2  # user_id
+        assert "password_hash" in call_kwargs[1]
+        assert "password_expires_at" in call_kwargs[1]
+
+    def test_cannot_reset_own_password(self):
+        mock_repo = MagicMock()
+        admin = _admin_user(id=1)
+        client = TestClient(_make_app(mock_repo, admin))
+        resp = client.post("/api/v1/admin/users/1/reset-password")
+        assert resp.status_code == 400
+
+    def test_reset_nonexistent_returns_404(self):
+        mock_repo = MagicMock()
+        mock_repo.get_user_by_id.return_value = None
+        admin = _admin_user(id=1)
+        client = TestClient(_make_app(mock_repo, admin))
+        resp = client.post("/api/v1/admin/users/999/reset-password")
         assert resp.status_code == 404

@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { UserProfile } from "../api/auth";
 import {
   clearTokens,
@@ -18,6 +19,7 @@ import {
   register as apiRegister,
   changePassword as apiChangePassword,
 } from "../api/auth";
+import { getErrorMessage } from "../utils/errorCodes";
 
 export interface AuthContextValue {
   user: UserProfile | null;
@@ -48,6 +50,7 @@ export const AuthContext = createContext<AuthContextValue>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMustChangePassword(false);
     const resp = await apiLogin(email, password);
     if (resp.errors.length > 0) {
-      const msg = resp.errors[0].message;
+      const err = resp.errors[0];
+      const msg = getErrorMessage(err.code, err.message, t);
       setError(msg);
       return msg;
     }
@@ -140,14 +144,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(meResp.data);
     }
     return null;
-  }, []);
+  }, [t]);
 
   const register = useCallback(
     async (email: string, password: string, displayName?: string) => {
       setError(null);
       const resp = await apiRegister(email, password, displayName);
       if (resp.errors.length > 0) {
-        const msg = resp.errors[0].message;
+        const err = resp.errors[0];
+        const msg = getErrorMessage(err.code, err.message, t);
         setError(msg);
         return msg;
       }
@@ -157,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return null;
     },
-    [],
+    [t],
   );
 
   const changePassword = useCallback(
@@ -165,7 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const resp = await apiChangePassword(currentPassword, newPassword);
       if (resp.errors.length > 0) {
-        const msg = resp.errors[0].message;
+        const err = resp.errors[0];
+        const msg = getErrorMessage(err.code, err.message, t);
         setError(msg);
         return msg;
       }
@@ -177,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return null;
     },
-    [],
+    [t],
   );
 
   const logout = useCallback(async () => {

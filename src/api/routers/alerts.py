@@ -7,12 +7,12 @@ from decimal import Decimal
 
 import structlog
 from fastapi import APIRouter, Depends, Query
-from fastapi.exceptions import HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.api.deps import get_current_user, get_db
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.database.models import AlertNotificationRow, CardRow, PriceAlertRow
 from src.database.repository import Repository
@@ -74,7 +74,7 @@ def create_alert(
         # Check card exists
         card = session.get(CardRow, request.card_id)
         if card is None:
-            raise HTTPException(status_code=404, detail="Card not found")
+            raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
 
         # Check max active alerts
         active_count = session.scalar(
@@ -84,9 +84,10 @@ def create_alert(
             )
         )
         if active_count >= MAX_ACTIVE_ALERTS_PER_USER:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Maximum {MAX_ACTIVE_ALERTS_PER_USER} active alerts allowed",
+            raise api_error(
+                409,
+                ErrorCode.VALIDATION_LIMIT_EXCEEDED,
+                f"Maximum {MAX_ACTIVE_ALERTS_PER_USER} active alerts allowed",
             )
 
         alert = PriceAlertRow(
@@ -223,9 +224,9 @@ def delete_alert(
     with Session(repo.engine) as session:
         alert = session.get(PriceAlertRow, alert_id)
         if alert is None:
-            raise HTTPException(status_code=404, detail="Alert not found")
+            raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Alert not found")
         if alert.user_id != user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this alert")
+            raise api_error(403, ErrorCode.AUTHZ_FORBIDDEN, "Not authorized to delete this alert")
 
         session.delete(alert)
         session.commit()

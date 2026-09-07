@@ -10,7 +10,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.background import BackgroundTask
 
 from src.api.deps import get_audit_service, get_db, require_admin
-from src.api.schemas.admin import CreateUserRequest, CreateUserResponse, CreditAdjustRequest
+from src.api.error_codes import ErrorCode, api_error
+from src.api.schemas.admin import (
+    CreateUserRequest,
+    CreateUserResponse,
+    CreditAdjustRequest,
+    ResetPasswordResponse,
+)
 from src.api.schemas.envelope import success_response
 from src.auth.passwords import hash_password
 from src.credits.service import CreditService
@@ -40,7 +46,7 @@ def create_user(
     """
     existing = repo.get_user_by_email(body.email)
     if existing:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise api_error(409, ErrorCode.AUTH_EMAIL_TAKEN, "Email already registered")
 
     temp_password = secrets.token_urlsafe(12)
     pw_hash = hash_password(temp_password)
@@ -88,11 +94,11 @@ def delete_user(
 ):
     """Soft-delete a user (sets is_active=0). Admin only. Cannot delete self."""
     if user_id == admin.id:
-        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+        raise api_error(400, ErrorCode.AUTHZ_FORBIDDEN, "Cannot delete yourself")
 
     target = repo.get_user_by_id(user_id)
     if not target:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "User not found")
 
     repo.update_user(user_id, is_active=0)
 
@@ -106,6 +112,38 @@ def delete_user(
     )
 
     return success_response(data={"user_id": user_id, "deleted": True})
+
+
+@router.post("/users/{user_id}/reset-password")
+def reset_password(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+):
+    """Reset a user's password (admin only).
+
+    Generates a new temporary password that expires immediately,
+    forcing the user to change it on next login.
+    """
+    if user_id == admin.id:
+        raise api_error(400, ErrorCode.AUTHZ_FORBIDDEN, "Cannot reset your own password via admin")
+
+    target = repo.get_user_by_id(user_id)
+    if not target:
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "User not found")
+
+    temp_password = secrets.token_urlsafe(12)
+    pw_hash = hash_password(temp_password)
+
+    repo.update_user(user_id, password_hash=pw_hash, password_expires_at=datetime.now())
+
+    return success_response(
+        data=ResetPasswordResponse(
+            user_id=user_id,
+            email=target.email,
+            temporary_password=temp_password,
+        ).model_dump()
+    )
 
 
 @router.get("/users")
@@ -137,7 +175,7 @@ def adjust_credits(
     # Verify target user exists
     target = repo.get_user_by_id(user_id)
     if not target:
-        raise HTTPException(404, "User not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "User not found")
 
     svc = CreditService(repo)
     reason = body.reason or "admin_adjust"
@@ -228,7 +266,7 @@ def get_error(
 
     error = repo.get_error_log(error_id)
     if error is None:
-        raise HTTPException(status_code=404, detail="Error not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Error not found")
 
     # Parse JSON string fields into dicts
     if isinstance(error.get("request_params"), str):

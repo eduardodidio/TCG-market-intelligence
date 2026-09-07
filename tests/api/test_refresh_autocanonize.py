@@ -201,7 +201,9 @@ class TestRefreshAutoCanonize:
 
         resp = client.post("/collection/1/refresh")
         assert resp.status_code == 422
-        assert "auto-match failed" in resp.json()["detail"]
+        detail = resp.json()["detail"]
+        detail_str = detail["message"] if isinstance(detail, dict) else detail
+        assert "auto-match failed" in detail_str
 
         mock_provider.close.assert_awaited_once()
 
@@ -230,8 +232,10 @@ class TestRefreshAutoCanonize:
 
         resp = client.post("/collection/1/refresh")
         assert resp.status_code == 422
-        assert "auto-canonize failed" in resp.json()["detail"]
-        assert "MYP timeout" in resp.json()["detail"]
+        detail = resp.json()["detail"]
+        detail_str = detail["message"] if isinstance(detail, dict) else detail
+        assert "auto-canonize failed" in detail_str
+        assert "MYP timeout" in detail_str
 
         mock_provider.close.assert_awaited_once()
 
@@ -272,7 +276,9 @@ class TestRefreshAutoCanonize:
 
         resp = client.post("/collection/1/refresh")
         assert resp.status_code == 422
-        assert resp.json()["detail"] == "Card not linked to a price source"
+        detail = resp.json()["detail"]
+        detail_str = detail["message"] if isinstance(detail, dict) else detail
+        assert detail_str == "Card not linked to a price source"
 
     @patch(_PATCH_PROVIDER)
     @patch(_PATCH_MATCHER)
@@ -390,7 +396,9 @@ class TestRefreshAutoCanonize:
 
         resp = client.post("/collection/1/refresh")
         assert resp.status_code == 422
-        assert "auto-canonize failed" in resp.json()["detail"]
+        detail = resp.json()["detail"]
+        detail_str = detail["message"] if isinstance(detail, dict) else detail
+        assert "auto-canonize failed" in detail_str
 
         # upsert_card should NOT have been called since details was None
         mock_repo.upsert_card.assert_not_called()

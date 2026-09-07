@@ -257,7 +257,9 @@ class TestManualPriceEndpointHappyPath:
             json={"price": 10.0, "currency": "USD"},
         )
         assert resp.status_code == 422
-        assert "Exchange rate" in resp.json()["detail"]
+        detail = resp.json()["detail"]
+        detail_str = detail["message"] if isinstance(detail, dict) else detail
+        assert "Exchange rate" in detail_str
 
 
 class TestManualPriceAutoCreateCard:

@@ -3,8 +3,9 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, Header, Request
 
+from src.api.error_codes import ErrorCode, api_error
 from src.config import get_db_url, is_liga_disabled
 from src.database.repository import Repository
 
@@ -18,7 +19,7 @@ def verify_api_key(x_api_key: str | None = Header(None)) -> None:
     if expected is None:
         return  # No key configured — dev mode
     if x_api_key is None or x_api_key != expected:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+        raise api_error(401, ErrorCode.AUTHZ_API_KEY_INVALID, "Invalid or missing API key")
 
 
 def get_db() -> Generator[Repository, None, None]:
@@ -111,5 +112,5 @@ from src.domain.models import User  # noqa: E402
 def require_admin(user: User = Depends(get_current_user)) -> User:
     """Require the current user to be an admin. Raises 403 if not."""
     if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+        raise api_error(403, ErrorCode.AUTHZ_ADMIN_REQUIRED, "Admin access required")
     return user

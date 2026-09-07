@@ -123,7 +123,9 @@ class TestCreateEvaluation:
             json={"card_name": "Card 51"},
         )
         assert resp.status_code == 400
-        assert "limit" in resp.json()["detail"].lower()
+        detail = resp.json()["detail"]
+        detail_str = detail["message"].lower() if isinstance(detail, dict) else detail.lower()
+        assert "limit" in detail_str
 
     def test_limit_does_not_count_other_users(self) -> None:
         repo = _make_repo()
