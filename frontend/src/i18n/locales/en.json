@@ -52,7 +52,9 @@
     "catalog": "Card Catalog",
     "alerts": "Price Alerts",
     "achievements": "Achievements",
-    "betaTest": "Beta Test"
+    "betaTest": "Beta Test",
+    "wishlist": "Wishlist",
+    "tradeMatches": "Trade Matches"
   },
   "catalog": {
     "title": "Card Catalog",
@@ -1045,5 +1047,45 @@
       "title": "Early Adopter",
       "description": "Account created before official launch"
     }
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "loginRequired": "Sign in to manage your wishlist.",
+    "searchPlaceholder": "Search wishlist...",
+    "tabs": {
+      "wanted": "Wanted",
+      "acquired": "Acquired"
+    },
+    "emptyWanted": "No cards in your wishlist",
+    "emptyWantedDesc": "Browse the catalog and add cards you want.",
+    "emptyAcquired": "No acquired cards",
+    "emptyAcquiredDesc": "Cards you mark as acquired will appear here.",
+    "browseCatalog": "Browse Catalog",
+    "maxPrice": "Max price",
+    "notes": "Notes",
+    "markAcquired": "Mark as acquired",
+    "addToWishlist": "Add to wishlist",
+    "removeFromWishlist": "Remove from wishlist",
+    "addSuccess": "Added to wishlist",
+    "removeSuccess": "Removed from wishlist"
+  },
+  "tradeMatch": {
+    "title": "Trade Matches",
+    "loginRequired": "Sign in to find trade matches.",
+    "duplicates": "My Duplicates",
+    "theyHave": "They Have What I Want",
+    "theyWant": "They Want What I Have",
+    "matchingCards": "{{count}} matching cards",
+    "matchingCards_one": "{{count}} matching card",
+    "surplus": "Available",
+    "noMatches": "No trade matches found",
+    "noMatchesDesc": "Add cards to your wishlist to find trade partners.",
+    "noReverseMatches": "No reverse matches found",
+    "noDuplicates": "No duplicates found",
+    "noDuplicatesDesc": "Cards with quantity > 1 in your collection appear here.",
+    "anonymous": "Anonymous",
+    "viewCollection": "View collection",
+    "goToWishlist": "Go to Wishlist",
+    "shareToMatch": "Share your collection and have duplicates to appear in matches."
   }
 }

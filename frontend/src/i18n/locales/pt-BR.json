@@ -52,7 +52,9 @@
     "catalog": "Catalogo de Cartas",
     "alerts": "Alertas de Preco",
     "achievements": "Conquistas",
-    "betaTest": "Beta Test"
+    "betaTest": "Beta Test",
+    "wishlist": "Lista de Desejos",
+    "tradeMatches": "Trocas"
   },
   "catalog": {
     "title": "Catalogo de Cartas",
@@ -1045,5 +1047,45 @@
       "title": "Pioneiro",
       "description": "Conta criada antes do lancamento oficial"
     }
+  },
+  "wishlist": {
+    "title": "Lista de Desejos",
+    "loginRequired": "Entre para gerenciar sua lista de desejos.",
+    "searchPlaceholder": "Buscar na lista...",
+    "tabs": {
+      "wanted": "Desejados",
+      "acquired": "Adquiridos"
+    },
+    "emptyWanted": "Nenhuma carta na lista de desejos",
+    "emptyWantedDesc": "Explore o catalogo e adicione cartas que voce quer.",
+    "emptyAcquired": "Nenhuma carta adquirida",
+    "emptyAcquiredDesc": "Cartas marcadas como adquiridas aparecerao aqui.",
+    "browseCatalog": "Explorar Catalogo",
+    "maxPrice": "Preco maximo",
+    "notes": "Notas",
+    "markAcquired": "Marcar como adquirida",
+    "addToWishlist": "Adicionar a lista de desejos",
+    "removeFromWishlist": "Remover da lista de desejos",
+    "addSuccess": "Adicionada a lista de desejos",
+    "removeSuccess": "Removida da lista de desejos"
+  },
+  "tradeMatch": {
+    "title": "Trocas",
+    "loginRequired": "Entre para encontrar parceiros de troca.",
+    "duplicates": "Minhas Duplicatas",
+    "theyHave": "Eles Tem o Que Eu Quero",
+    "theyWant": "Eles Querem o Que Eu Tenho",
+    "matchingCards": "{{count}} cartas em comum",
+    "matchingCards_one": "{{count}} carta em comum",
+    "surplus": "Disponivel",
+    "noMatches": "Nenhuma troca encontrada",
+    "noMatchesDesc": "Adicione cartas a sua lista de desejos para encontrar parceiros.",
+    "noReverseMatches": "Nenhuma troca reversa encontrada",
+    "noDuplicates": "Nenhuma duplicata encontrada",
+    "noDuplicatesDesc": "Cartas com quantidade > 1 na sua colecao aparecem aqui.",
+    "anonymous": "Anonimo",
+    "viewCollection": "Ver colecao",
+    "goToWishlist": "Ir para Lista de Desejos",
+    "shareToMatch": "Compartilhe sua colecao e tenha duplicatas para aparecer em trocas."
   }
 }
