@@ -113,7 +113,32 @@
       "ligaStatus": "Status Liga",
       "schedules": "Agendamentos",
       "scans": "Scans de Preco",
-      "errors": "Erros da Aplicacao"
+      "operations": "Operacoes",
+      "errors": "Erros da Aplicacao",
+      "auditLog": "Log de Auditoria"
+    },
+    "ops": {
+      "ligaScan": "Scan Liga Colecao",
+      "runLigaScan": "Executar Scan Liga",
+      "maxAgeDays": "Idade max (dias)",
+      "catalogSweep": "Varredura Set Catalogo",
+      "sweepSet": "Varrer Set",
+      "setCode": "Codigo do set",
+      "delay": "Atraso (s)",
+      "dbBackup": "Backup do Banco",
+      "downloadBackup": "Baixar Backup",
+      "jobStarted": "Job iniciado",
+      "scanId": "ID do Scan"
+    },
+    "audit": {
+      "actor": "Ator",
+      "action": "Acao",
+      "target": "Alvo",
+      "details": "Detalhes",
+      "allActions": "Todas as acoes",
+      "noEntries": "Nenhuma entrada no log",
+      "dateFrom": "De",
+      "dateTo": "Ate"
     },
     "errors": {
       "level": "Nivel",

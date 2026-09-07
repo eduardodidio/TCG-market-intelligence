@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from src.database.models import (
     AlertNotificationRow,  # noqa: F401 (needed for create_all)
+    AuditLogRow,
     Base,
     CardLegalityRow,
     CardRow,
@@ -4007,3 +4008,92 @@ class Repository:
             )
             session.commit()
             return (result.rowcount or 0) > 0
+
+    # ── Audit log methods (F100) ─────────────────────────────────────
+
+    def log_audit(
+        self,
+        actor_id: int,
+        actor_email: str,
+        action: str,
+        target_type: str | None = None,
+        target_id: str | None = None,
+        details: dict | None = None,
+        ip_address: str | None = None,
+    ) -> int:
+        """Insert a new audit log entry. Returns the row id."""
+        import json
+
+        with Session(self.engine) as session:
+            row = AuditLogRow(
+                actor_id=actor_id,
+                actor_email=actor_email,
+                action=action,
+                target_type=target_type,
+                target_id=target_id,
+                details_json=json.dumps(details) if details else None,
+                ip_address=ip_address,
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return row.id
+
+    def list_audit_logs(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        action: str | None = None,
+        actor_id: int | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> tuple[list[dict], int]:
+        """Return paginated audit logs with optional filters.
+
+        Returns (list_of_dicts, total_count).
+        """
+        with Session(self.engine) as session:
+            base = select(AuditLogRow)
+            count_base = select(func.count()).select_from(AuditLogRow)
+
+            if action:
+                base = base.where(AuditLogRow.action == action)
+                count_base = count_base.where(AuditLogRow.action == action)
+            if actor_id is not None:
+                base = base.where(AuditLogRow.actor_id == actor_id)
+                count_base = count_base.where(AuditLogRow.actor_id == actor_id)
+            if date_from:
+                base = base.where(AuditLogRow.timestamp >= date_from)
+                count_base = count_base.where(AuditLogRow.timestamp >= date_from)
+            if date_to:
+                base = base.where(AuditLogRow.timestamp <= date_to)
+                count_base = count_base.where(AuditLogRow.timestamp <= date_to)
+
+            total = session.execute(count_base).scalar() or 0
+
+            rows = (
+                session.execute(
+                    base.order_by(AuditLogRow.timestamp.desc()).limit(limit).offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+
+            results = []
+            for row in rows:
+                results.append(
+                    {
+                        "id": row.id,
+                        "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+                        "actor_id": row.actor_id,
+                        "actor_email": row.actor_email,
+                        "action": row.action,
+                        "target_type": row.target_type,
+                        "target_id": row.target_id,
+                        "details_json": row.details_json,
+                        "ip_address": row.ip_address,
+                    }
+                )
+
+            return results, total

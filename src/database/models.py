@@ -509,6 +509,26 @@ class AchievementRow(Base):
     )
 
 
+class AuditLogRow(Base):
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    actor_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    target_type: Mapped[str | None] = mapped_column(String(50))
+    target_id: Mapped[str | None] = mapped_column(String(100))
+    details_json: Mapped[str | None] = mapped_column(Text)
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+
+    __table_args__ = (
+        Index("ix_audit_log_timestamp", "timestamp"),
+        Index("ix_audit_log_actor", "actor_id"),
+        Index("ix_audit_log_action", "action"),
+    )
+
+
 class ErrorLogRow(Base):
     __tablename__ = "error_log"
 

@@ -91,6 +91,13 @@ def get_credit_service(repo: Repository = Depends(get_db)):
     return CreditService(repo)
 
 
+def get_audit_service(repo: Repository = Depends(get_db)):
+    """FastAPI dependency that yields an AuditService."""
+    from src.services.audit import AuditService
+
+    return AuditService(repo)
+
+
 # Re-export auth dependencies for convenience
 from src.auth.dependencies import (  # noqa: E402, F401
     get_current_user,

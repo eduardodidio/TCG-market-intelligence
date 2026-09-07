@@ -136,3 +136,70 @@ export function fetchAdminErrors(params: {
 export function fetchAdminErrorDetail(errorId: string) {
   return apiGet<ErrorLogDetail>(`/api/v1/admin/errors/${errorId}`);
 }
+
+// ── F100: Job triggers ──────────────────────────────────────────────
+
+export interface JobTriggerResult {
+  scan_id: number;
+  status: string;
+  set_code?: string;
+}
+
+export function triggerLigaScan(maxAgeDays = 1) {
+  return apiPost<JobTriggerResult>(
+    `/api/v1/admin/jobs/liga-scan?max_age_days=${maxAgeDays}`,
+    {},
+  );
+}
+
+export function triggerCatalogScan(setCode: string, delay = 2.0) {
+  return apiPost<JobTriggerResult>(
+    `/api/v1/admin/jobs/catalog-scan?set_code=${encodeURIComponent(setCode)}&delay=${delay}`,
+    {},
+  );
+}
+
+export function fetchJobStatus(limit = 10) {
+  return apiGet<Record<string, unknown>[]>("/api/v1/admin/jobs/status", {
+    limit: String(limit),
+  });
+}
+
+export function downloadBackup(): void {
+  const token = localStorage.getItem("tcg_access_token");
+  const url = new URL("/api/v1/admin/backup", API_BASE_URL || window.location.origin);
+  if (token) url.searchParams.set("token", token);
+  window.open(url.toString(), "_blank");
+}
+
+// ── F100: Audit log ─────────────────────────────────────────────────
+
+export interface AuditLogEntry {
+  id: number;
+  timestamp: string;
+  actor_id: number;
+  actor_email: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  details_json: string | null;
+  ip_address: string | null;
+}
+
+export function fetchAuditLog(params: {
+  action?: string;
+  actor_id?: number;
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const query: Record<string, string> = {};
+  if (params.action) query.action = params.action;
+  if (params.actor_id !== undefined) query.actor_id = String(params.actor_id);
+  if (params.date_from) query.date_from = params.date_from;
+  if (params.date_to) query.date_to = params.date_to;
+  if (params.limit !== undefined) query.limit = String(params.limit);
+  if (params.offset !== undefined) query.offset = String(params.offset);
+  return apiGet<AuditLogEntry[]>("/api/v1/admin/audit-log", query);
+}
