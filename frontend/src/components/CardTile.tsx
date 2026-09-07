@@ -2,16 +2,20 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { CardSummary } from "../types/api";
+import type { PriceTrendEntry } from "../api/cards";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { PriceSparkline } from "./PriceSparkline";
+import { TrendBadge } from "./TrendBadge";
 
-interface CardTileProps {
+export interface CardTileProps {
   card: CardSummary;
+  trend?: PriceTrendEntry;
 }
 
-export function CardTile({ card }: CardTileProps) {
+export function CardTile({ card, trend }: CardTileProps) {
   const { t } = useTranslation();
   const { currency } = useCurrency();
   const { getCardName } = useCardName();
@@ -97,18 +101,28 @@ export function CardTile({ card }: CardTileProps) {
           )}
         </div>
 
-        {(() => {
-          const formattedPrice = formatPriceOrFallback(card.latest_price, currency);
-          return formattedPrice ? (
-            <p className="mt-2 text-sm font-bold text-cyan-400" data-testid="card-price">
-              {formattedPrice}
-            </p>
-          ) : (
-            <p className="mt-2 text-sm text-gray-400 dark:text-slate-500" data-testid="card-price">
-              {t("common.noPriceData")}
-            </p>
-          );
-        })()}
+        <div className="flex items-center gap-2 mt-2">
+          {(() => {
+            const formattedPrice = formatPriceOrFallback(card.latest_price, currency);
+            return formattedPrice ? (
+              <span className="text-sm font-bold text-cyan-400" data-testid="card-price">
+                {formattedPrice}
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400 dark:text-slate-500" data-testid="card-price">
+                {t("common.noPriceData")}
+              </span>
+            );
+          })()}
+          {trend && trend.change_pct !== null && (
+            <TrendBadge changePct={trend.change_pct} />
+          )}
+        </div>
+        {trend && trend.prices.length > 1 && (
+          <div className="mt-1" data-testid="card-sparkline">
+            <PriceSparkline prices={trend.prices} height={24} />
+          </div>
+        )}
       </div>
     </Link>
   );
