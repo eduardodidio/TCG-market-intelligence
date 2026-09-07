@@ -305,6 +305,7 @@ class TestCatalogStats:
                 )
             session.commit()
 
+            # Catalog source_cards use "liga_catalog_{set}_{num}" external_id
             for i in range(2):
                 session.add(
                     SourceCardRow(
@@ -317,13 +318,27 @@ class TestCatalogStats:
                         collector_number=str(i),
                     )
                 )
+            # Liga sweep source_cards use "liga_{card_id}" external_id
+            for i in range(2):
+                session.add(
+                    SourceCardRow(
+                        source="liga",
+                        external_id=f"liga_{i + 1}",
+                        card_id=i + 1,
+                        url=f"https://liga.example.com/card/{i}",
+                        name_en=f"Card {i}",
+                        set_code="mh3",
+                        collector_number=str(i),
+                    )
+                )
             session.commit()
 
+            # Price observations reference the sweep external_id, not catalog
             for i in range(2):
                 session.add(
                     PriceObservationRow(
                         source="liga",
-                        external_id=f"liga_catalog_mh3_{i}",
+                        external_id=f"liga_{i + 1}",
                         observed_at=date.today(),
                         median_price=10.0 + i,
                         currency="BRL",
@@ -342,6 +357,93 @@ class TestCatalogStats:
         assert "Cards with Liga price:" in result.output
         assert "mh3" in result.output
         assert "neo" in result.output
+
+    def test_stats_cards_with_price_uses_card_id_join(self, tmp_path):
+        """Cards with price count must work when price observation external_id
+        differs from catalog source_card external_id (the real-world pattern).
+
+        Catalog source_cards: external_id = "liga_catalog_{set}_{num}"
+        Sweep source_cards:   external_id = "liga_{card_id}"
+        Price observations:   external_id = "liga_{card_id}"
+
+        The query must link through card_id, not external_id string matching.
+        """
+        runner = CliRunner()
+
+        from datetime import date
+
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import Session
+
+        from src.database.models import Base, CardRow, PriceObservationRow, SourceCardRow
+
+        db_path = tmp_path / "test_stats_price_join.db"
+        db_url = f"sqlite:///{db_path}"
+        engine = create_engine(db_url)
+        Base.metadata.create_all(engine)
+
+        with Session(engine) as session:
+            # 3 catalog cards
+            for i in range(3):
+                session.add(
+                    CardRow(
+                        game="magic",
+                        name_en=f"Card {i}",
+                        set_code="mh3",
+                        collector_number=str(i),
+                    )
+                )
+            session.commit()
+
+            # Catalog source_cards for all 3
+            for i in range(3):
+                session.add(
+                    SourceCardRow(
+                        source="liga",
+                        external_id=f"liga_catalog_mh3_{i}",
+                        card_id=i + 1,
+                        url=f"https://liga.example.com/card/{i}",
+                        name_en=f"Card {i}",
+                        set_code="mh3",
+                        collector_number=str(i),
+                    )
+                )
+            # Sweep source_cards for only 2 of 3 (card_id 1 and 2)
+            for i in range(2):
+                session.add(
+                    SourceCardRow(
+                        source="liga",
+                        external_id=f"liga_{i + 1}",
+                        card_id=i + 1,
+                        url=f"https://liga.example.com/card/{i}",
+                        name_en=f"Card {i}",
+                        set_code="mh3",
+                        collector_number=str(i),
+                    )
+                )
+            session.commit()
+
+            # Price observations only for card_id 1 and 2 (via sweep ext_id)
+            for i in range(2):
+                session.add(
+                    PriceObservationRow(
+                        source="liga",
+                        external_id=f"liga_{i + 1}",
+                        observed_at=date.today(),
+                        median_price=10.0 + i,
+                        currency="BRL",
+                    )
+                )
+            session.commit()
+
+        engine.dispose()
+
+        result = runner.invoke(cli, ["catalog", "stats", "--db", db_url])
+
+        assert result.exit_code == 0, result.output
+        # Exactly 2 of 3 cards have prices
+        assert "Cards with Liga price:   2" in result.output
+        assert "Cards without price:     1" in result.output
 
     def test_stats_empty_database(self, tmp_path):
         """catalog stats on empty DB shows zeros."""

@@ -182,6 +182,15 @@ def list_collection(
     next_cursor = _encode_cursor(rows[-1].id) if has_next and rows else None
     total = repo.count_collection(user_id, name_search=name, set_code=set)
 
+    # Log when an authenticated user's collection appears empty (no filters)
+    if total == 0 and not name and not set:
+        log.warning(
+            "collection_empty_for_user",
+            user_id=user_id,
+            message="Collection query returned 0 entries with no filters. "
+            "This may indicate data loss after a DB restore or user_id mismatch.",
+        )
+
     # Compute next_offset for offset-based pagination
     next_offset = None
     if offset is not None and has_next:

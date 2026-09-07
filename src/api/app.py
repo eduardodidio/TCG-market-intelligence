@@ -226,15 +226,19 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-API-Key", "Accept"],
+        expose_headers=["X-DB-Version", "X-Request-ID"],
     )
 
-    # Request ID middleware
+    # Request ID + DB Version middleware
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
+        from src.api.routers.db_sync import get_db_version
+
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
+        response.headers["X-DB-Version"] = str(get_db_version())
         return response
 
     # Include routers under /api/v1

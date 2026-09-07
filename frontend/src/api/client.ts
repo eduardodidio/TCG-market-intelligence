@@ -4,6 +4,39 @@ import { tryRefreshToken, forceLogout } from "./authRefresh";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+const DB_VERSION_KEY = "tcg_db_version";
+
+/**
+ * Detect backend DB restore by comparing the X-DB-Version header.
+ *
+ * After a push-db / restore, the backend increments its DB version counter.
+ * When the frontend sees a new version for the first time it clears auth
+ * tokens and reloads the page so stale React Query caches are flushed.
+ */
+function checkDbVersion(response: Response): void {
+  try {
+    const version = response.headers?.get("X-DB-Version");
+    if (!version) return;
+
+    const stored = localStorage.getItem(DB_VERSION_KEY);
+    if (stored === null) {
+      // First time seeing the header — just store it, no reload
+      localStorage.setItem(DB_VERSION_KEY, version);
+      return;
+    }
+
+    if (stored !== version) {
+      // DB was restored — clear tokens and force a full page reload
+      localStorage.setItem(DB_VERSION_KEY, version);
+      localStorage.removeItem("tcg_access_token");
+      localStorage.removeItem("tcg_refresh_token");
+      window.location.reload();
+    }
+  } catch {
+    // Never let DB version checking break the main request flow
+  }
+}
+
 /** Path suffix used by the refresh endpoint — never retry on this. */
 const REFRESH_PATH = "/api/v1/auth/refresh";
 
@@ -51,6 +84,7 @@ export async function apiGet<T>(
     });
 
     clearTimeout(timeoutId);
+    checkDbVersion(response);
 
     if (!response.ok) {
       if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {
@@ -139,6 +173,7 @@ export async function apiPost<T>(
     });
 
     clearTimeout(timeoutId);
+    checkDbVersion(response);
 
     if (!response.ok) {
       if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {
@@ -224,6 +259,7 @@ export async function apiPatch<T>(
     });
 
     clearTimeout(timeoutId);
+    checkDbVersion(response);
 
     if (!response.ok) {
       if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {
@@ -306,6 +342,7 @@ export async function apiDelete(
     });
 
     clearTimeout(timeoutId);
+    checkDbVersion(response);
 
     if (!response.ok && response.status !== 204) {
       if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {

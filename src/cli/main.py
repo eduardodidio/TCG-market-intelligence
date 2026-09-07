@@ -1911,17 +1911,24 @@ def catalog_stats(db):
             or 0
         )
 
-        # Cards with Liga price (distinct card_id from source_cards that have observations)
+        # Cards with Liga price: catalog cards whose card_id also has
+        # a source_card entry with a matching price observation.
+        # Catalog source_cards use external_id="liga_catalog_...", but
+        # price observations use external_id="liga_{card_id}" from sweep,
+        # so we join through card_id instead of external_id.
+        priced_source = select(SourceCardRow.card_id).where(
+            SourceCardRow.source == "liga",
+            SourceCardRow.card_id.isnot(None),
+            SourceCardRow.external_id.in_(
+                select(PriceObservationRow.external_id).where(PriceObservationRow.source == "liga")
+            ),
+        )
         with_price = (
             session.execute(
                 select(func.count(func.distinct(SourceCardRow.card_id))).where(
                     SourceCardRow.source == "liga",
                     SourceCardRow.external_id.like("liga_catalog_%"),
-                    SourceCardRow.external_id.in_(
-                        select(PriceObservationRow.external_id).where(
-                            PriceObservationRow.source == "liga"
-                        )
-                    ),
+                    SourceCardRow.card_id.in_(priced_source),
                 )
             ).scalar()
             or 0
