@@ -16,6 +16,8 @@ import { AdminLigaSection } from "../components/admin/AdminLigaSection";
 import { AdminSchedulesSection } from "../components/admin/AdminSchedulesSection";
 import { AdminScansSection } from "../components/admin/AdminScansSection";
 import { AdminErrorsSection } from "../components/admin/AdminErrorsSection";
+import { AdminOperationsSection } from "../components/admin/AdminOperationsSection";
+import { AdminAuditLogSection } from "../components/admin/AdminAuditLogSection";
 
 const LIMIT = 50;
 
@@ -601,6 +603,15 @@ export function AdminPanel() {
         <AdminScansSection isOpen={openSection === "scans"} />
       </AccordionSection>
 
+      {/* Operations Section (F100) */}
+      <AccordionSection
+        title={t("admin.section.operations")}
+        isOpen={openSection === "operations"}
+        onToggle={() => toggleSection("operations")}
+      >
+        <AdminOperationsSection isOpen={openSection === "operations"} />
+      </AccordionSection>
+
       {/* Errors Section */}
       <AccordionSection
         title={t("admin.section.errors")}
@@ -608,6 +619,15 @@ export function AdminPanel() {
         onToggle={() => toggleSection("errors")}
       >
         <AdminErrorsSection isOpen={openSection === "errors"} />
+      </AccordionSection>
+
+      {/* Audit Log Section (F100) */}
+      <AccordionSection
+        title={t("admin.section.auditLog")}
+        isOpen={openSection === "audit-log"}
+        onToggle={() => toggleSection("audit-log")}
+      >
+        <AdminAuditLogSection isOpen={openSection === "audit-log"} />
       </AccordionSection>
     </div>
   );

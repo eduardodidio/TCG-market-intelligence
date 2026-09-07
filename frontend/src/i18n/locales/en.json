@@ -113,7 +113,32 @@
       "ligaStatus": "Liga Status",
       "schedules": "Schedules",
       "scans": "Price Scans",
-      "errors": "Application Errors"
+      "operations": "Operations",
+      "errors": "Application Errors",
+      "auditLog": "Audit Log"
+    },
+    "ops": {
+      "ligaScan": "Liga Collection Scan",
+      "runLigaScan": "Run Liga Scan",
+      "maxAgeDays": "Max age (days)",
+      "catalogSweep": "Catalog Set Sweep",
+      "sweepSet": "Sweep Set",
+      "setCode": "Set code",
+      "delay": "Delay (s)",
+      "dbBackup": "Database Backup",
+      "downloadBackup": "Download Backup",
+      "jobStarted": "Job started",
+      "scanId": "Scan ID"
+    },
+    "audit": {
+      "actor": "Actor",
+      "action": "Action",
+      "target": "Target",
+      "details": "Details",
+      "allActions": "All actions",
+      "noEntries": "No audit log entries",
+      "dateFrom": "From",
+      "dateTo": "To"
     },
     "errors": {
       "level": "Level",
