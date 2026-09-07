@@ -4,7 +4,6 @@ import logging
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.exceptions import HTTPException
 
 from src.api.deps import (
     get_currency_converter_dep,
@@ -12,6 +11,7 @@ from src.api.deps import (
     get_market_data_service,
     get_optional_user,
 )
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.api.schemas.market import (
     MarketStats,
@@ -71,9 +71,10 @@ def get_movers(
     service: MarketDataService = Depends(get_market_data_service),
 ):
     if period not in MOVERS_PERIOD_MAP:
-        raise HTTPException(
-            status_code=422,
-            detail=(f"Invalid period. Must be one of: {', '.join(MOVERS_PERIOD_MAP.keys())}"),
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            f"Invalid period. Must be one of: {', '.join(MOVERS_PERIOD_MAP.keys())}",
         )
 
     result = service.get_top_movers(period=period, limit=limit, currency=currency)
@@ -140,9 +141,10 @@ def get_trending_gainers(
     user: User | None = Depends(get_optional_user),
 ):
     if period not in TRENDING_PERIOD_MAP:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
         )
     days = TRENDING_PERIOD_MAP[period]
     user_id = user.id if collection_only and user else None
@@ -162,9 +164,10 @@ def get_trending_losers(
     user: User | None = Depends(get_optional_user),
 ):
     if period not in TRENDING_PERIOD_MAP:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
         )
     days = TRENDING_PERIOD_MAP[period]
     user_id = user.id if collection_only and user else None
@@ -186,9 +189,10 @@ def get_summary(
     repo: Repository = Depends(get_db),
 ):
     if period not in MOVERS_PERIOD_MAP:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid period. Must be one of: {', '.join(MOVERS_PERIOD_MAP.keys())}",
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            f"Invalid period. Must be one of: {', '.join(MOVERS_PERIOD_MAP.keys())}",
         )
 
     cache_key = f"summary:{period}:{currency}"
@@ -257,9 +261,10 @@ def get_volatile(
     repo: Repository = Depends(get_db),
 ):
     if period not in TRENDING_PERIOD_MAP:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            f"Invalid period. Must be one of: {', '.join(TRENDING_PERIOD_MAP.keys())}",
         )
 
     cache_key = f"volatile:{period}:{currency}:{limit}"

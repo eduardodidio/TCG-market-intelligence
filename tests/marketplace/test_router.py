@@ -388,9 +388,9 @@ class TestFullTradeFlow:
         body = resp.json()
         # May use custom error envelope or raw detail
         if "detail" in body:
-            assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
+            assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
         else:
-            assert any("INSUFFICIENT_CREDITS" in str(e) for e in body.get("errors", []))
+            assert any("CREDIT_INSUFFICIENT" in str(e) for e in body.get("errors", []))
 
     def test_reject_ends_trade(self, repo, seller_client, buyer_client, seller):
         """Rejected trade cannot be confirmed."""

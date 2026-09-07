@@ -208,14 +208,100 @@ async def lifespan(app: FastAPI):
         pass
 
 
+_OPENAPI_TAGS = [
+    {
+        "name": "auth",
+        "description": "Authentication -- register, login, token refresh, password management.",
+    },
+    {
+        "name": "admin",
+        "description": "Admin operations -- user management, system health, error logs.",
+    },
+    {
+        "name": "cards",
+        "description": "Card lookup, search, price history, and batch operations.",
+    },
+    {
+        "name": "collection",
+        "description": "User card collection -- add, remove, import, sync, portfolio.",
+    },
+    {
+        "name": "decks",
+        "description": "Deck management -- create, edit, card list, legality check.",
+    },
+    {
+        "name": "credits",
+        "description": "Credit balance, transactions, and bonus claiming.",
+    },
+    {
+        "name": "market",
+        "description": "Market analytics -- top movers, trending cards, arbitrage.",
+    },
+    {
+        "name": "scans",
+        "description": "Price scan execution and history.",
+    },
+    {
+        "name": "schedules",
+        "description": "Scheduled scan management (CRON-based).",
+    },
+    {
+        "name": "catalog",
+        "description": "Offline card catalog -- Scryfall-seeded card database with filters.",
+    },
+    {
+        "name": "alerts",
+        "description": "Price alerts and notifications.",
+    },
+    {
+        "name": "achievements",
+        "description": "User achievements and gamification.",
+    },
+    {
+        "name": "marketplace",
+        "description": "Shared collections and trade matching.",
+    },
+    {
+        "name": "evaluations",
+        "description": "Card evaluation watchlist for buy decisions.",
+    },
+    {
+        "name": "banlist",
+        "description": "Format legality and ban list tracking.",
+    },
+    {
+        "name": "prices",
+        "description": "Price data ingestion and manual entry.",
+    },
+    {
+        "name": "exchange-rates",
+        "description": "Currency exchange rates (USD/BRL).",
+    },
+    {
+        "name": "database",
+        "description": "Database backup, restore, and sync operations.",
+    },
+    {
+        "name": "sets",
+        "description": "MTG set listing.",
+    },
+]
+
+
 def create_app() -> FastAPI:
     """FastAPI application factory."""
     app = FastAPI(
         title="TEDHC Market API",
-        version="0.1.0",
+        description=(
+            "REST API for TCG market intelligence -- price tracking, "
+            "collection management, portfolio analysis, and trading for "
+            "Magic: The Gathering cards in the Brazilian market."
+        ),
+        version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
         lifespan=lifespan,
+        openapi_tags=_OPENAPI_TAGS,
     )
 
     # CORS middleware
@@ -362,10 +448,19 @@ def create_app() -> FastAPI:
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
-        error = ErrorDetail(
-            code=f"HTTP_{exc.status_code}",
-            message=str(exc.detail),
-        )
+
+        # Structured error codes: api_error() stores a dict in exc.detail
+        if isinstance(exc.detail, dict) and "code" in exc.detail:
+            error = ErrorDetail(
+                code=exc.detail["code"],
+                message=exc.detail.get("message", str(exc.detail)),
+                field=exc.detail.get("field"),
+            )
+        else:
+            error = ErrorDetail(
+                code=f"HTTP_{exc.status_code}",
+                message=str(exc.detail),
+            )
 
         # Capture server errors (5xx) in error logger
         if exc.status_code >= 500:

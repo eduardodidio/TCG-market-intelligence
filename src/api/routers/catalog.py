@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from enum import Enum
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.api.deps import get_db
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.database.repository import Repository
 
@@ -242,7 +243,7 @@ def get_catalog_card(
         row = session.execute(text(query), {"card_id": card_id}).fetchone()
 
     if row is None:
-        raise HTTPException(status_code=404, detail="Card not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
 
     liga_price = float(row.liga_price) if row.liga_price is not None else None
     liga_price_date = str(row.liga_price_date) if row.liga_price_date is not None else None

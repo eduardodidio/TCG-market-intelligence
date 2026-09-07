@@ -189,9 +189,7 @@ class TestRefreshMypCreditGuard:
         resp = client.post("/collection/1/refresh")
         assert resp.status_code == 402
         body = resp.json()
-        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
-        assert body["detail"]["balance"] == 0
-        assert body["detail"]["cost"] == CARD_REFRESH_COST
+        assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
 
     def test_admin_with_zero_balance_gets_402(self) -> None:
         """Admin user with 0 balance gets 402 (admin bypass removed in F81)."""
@@ -207,7 +205,7 @@ class TestRefreshMypCreditGuard:
         resp = client.post("/collection/1/refresh")
         assert resp.status_code == 402
         body = resp.json()
-        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
+        assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
 
     def test_non_admin_with_credits_passes_guard(self) -> None:
         """Non-admin with sufficient credits passes the guard (gets 404 for missing entry)."""
@@ -248,9 +246,7 @@ class TestRefreshLigaCreditGuard:
         resp = client.post("/collection/1/refresh-liga")
         assert resp.status_code == 402
         body = resp.json()
-        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
-        assert body["detail"]["balance"] == 0
-        assert body["detail"]["cost"] == CARD_REFRESH_COST
+        assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
         provider.search_card.assert_not_called()
 
     def test_admin_with_zero_balance_gets_402(self) -> None:
@@ -268,7 +264,7 @@ class TestRefreshLigaCreditGuard:
         resp = client.post("/collection/1/refresh-liga")
         assert resp.status_code == 402
         body = resp.json()
-        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
+        assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
         provider.search_card.assert_not_called()
 
     def test_successful_refresh_deducts_credit(self) -> None:
@@ -374,9 +370,7 @@ class TestScanCreditGuard:
         resp = client.post("/scans", json={"scan_type": "collection"})
         assert resp.status_code == 402
         body = resp.json()
-        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
-        assert body["detail"]["balance"] == 3
-        assert body["detail"]["cost"] == 5  # 5 cards * CARD_REFRESH_COST
+        assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
         mock_thread_cls.assert_not_called()
 
     @patch("src.api.routers.scans.threading.Thread")
@@ -398,7 +392,7 @@ class TestScanCreditGuard:
         resp = client.post("/scans", json={"scan_type": "collection"})
         assert resp.status_code == 402
         body = resp.json()
-        assert body["detail"]["code"] == "INSUFFICIENT_CREDITS"
+        assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
         mock_thread_cls.assert_not_called()
 
     @patch("src.api.routers.scans.threading.Thread")
@@ -489,7 +483,5 @@ class TestCreditErrorFormat:
         resp = client.post("/scans", json={"scan_type": "collection"})
         assert resp.status_code == 402
         detail = resp.json()["detail"]
-        assert detail["code"] == "INSUFFICIENT_CREDITS"
-        assert detail["balance"] == 2
-        assert detail["cost"] == 5  # 5 cards * 1 credit each
+        assert detail["code"] == "CREDIT_INSUFFICIENT"
         assert "message" in detail

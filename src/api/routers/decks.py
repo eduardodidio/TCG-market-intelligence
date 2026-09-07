@@ -6,9 +6,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 
 from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.deck_ranking import (
     DeckRankingEntry,
     DeckRankingResponse,
@@ -280,9 +281,9 @@ def get_deck_value(
     """Get detailed value history for a single deck."""
     deck = repo.get_deck(deck_id)
     if not deck:
-        raise HTTPException(status_code=404, detail="Deck not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
     if deck.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Deck not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
 
     period_days = _PERIOD_DAYS.get(period, 30)
     deck_cards = repo.get_deck_cards(deck_id)
@@ -342,9 +343,9 @@ def get_deck(
     """Get a deck with full detail including ownership and prices."""
     deck = repo.get_deck(deck_id)
     if not deck:
-        raise HTTPException(status_code=404, detail="Deck not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
     if deck.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Deck not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
 
     cards_with_ownership = repo.get_deck_cards_with_ownership(deck_id, user_id)
     summary = repo.get_deck_summary(deck_id, user_id)
@@ -406,5 +407,5 @@ def delete_deck(
     """Delete a deck."""
     deleted = repo.delete_deck(deck_id, user_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Deck not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
     return Response(status_code=204)

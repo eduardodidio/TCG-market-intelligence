@@ -163,4 +163,8 @@ class TestImportRejectsNonCsv:
             files={"file": ("data.json", io.BytesIO(b"{}"), "application/json")},
         )
         assert resp.status_code == 400
-        assert "CSV" in resp.json()["detail"]
+        detail = resp.json()["detail"]
+        if isinstance(detail, dict):
+            assert "CSV" in detail["message"]
+        else:
+            assert "CSV" in detail

@@ -847,6 +847,60 @@ def seed_users(db):
     click.echo("\nSeed users done.")
 
 
+@cli.command("reset-password")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--email", required=True, help="Email of the user to reset")
+@click.option(
+    "--password",
+    default=None,
+    help="Custom temporary password (default: auto-generated)",
+)
+@click.option(
+    "--expires-hours",
+    default=24,
+    type=int,
+    help="Hours until temporary password expires (default: 24)",
+)
+def reset_password(db, email, password, expires_hours):
+    """Reset a user's password (admin operation).
+
+    Generates (or sets) a temporary password and forces the user to
+    change it on next login by setting password_expires_at.
+    """
+    import secrets
+    from datetime import datetime, timedelta
+
+    from src.auth.passwords import hash_password
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+
+    # Look up user
+    user = repo.get_user_by_email(email)
+    if not user:
+        click.echo(f"Error: User not found: {email}", err=True)
+        raise SystemExit(1)
+
+    # Generate or use provided password
+    temp_password = password if password else secrets.token_urlsafe(9)
+    pw_hash = hash_password(temp_password)
+    expires_at = datetime.now() + timedelta(hours=expires_hours)
+
+    repo.reset_user_password(email, pw_hash, expires_at)
+
+    click.echo(f"Password reset for {email}")
+    click.echo(f"Temporary password: {temp_password}")
+    click.echo(f"Expires at: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    click.echo("User must change password on next login.")
+
+
 @cli.command("banlist-sync")
 @click.option(
     "--db",

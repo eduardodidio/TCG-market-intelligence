@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, Depends
-from fastapi.exceptions import HTTPException
 
 from src.api.deps import get_current_user, get_db
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.api.schemas.evaluations import (
     EvalCreateRequest,
@@ -55,7 +55,9 @@ def create_evaluation(
     """Add a card to the evaluation list. Max 50 per user."""
     count = repo.count_evaluation_entries(user.id)
     if count >= MAX_EVALUATION_ENTRIES:
-        raise HTTPException(status_code=400, detail="Evaluation list limit reached (50)")
+        raise api_error(
+            400, ErrorCode.VALIDATION_LIMIT_EXCEEDED, "Evaluation list limit reached (50)"
+        )
 
     entry_id = repo.create_evaluation_entry(
         user_id=user.id,
@@ -69,7 +71,7 @@ def create_evaluation(
     )
     entry = repo.get_evaluation_entry(entry_id)
     if entry is None:
-        raise HTTPException(status_code=500, detail="Failed to create evaluation entry")
+        raise api_error(500, ErrorCode.INTERNAL_ERROR, "Failed to create evaluation entry")
 
     log.info("evaluation_entry_created", entry_id=entry_id, user_id=user.id)
     return success_response(data=_to_response(entry))
@@ -94,9 +96,9 @@ def delete_evaluation(
     """Remove an evaluation entry (hard delete). IDOR check enforced."""
     entry = repo.get_evaluation_entry(entry_id)
     if entry is None:
-        raise HTTPException(status_code=404, detail="Evaluation entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Evaluation entry not found")
     if entry["user_id"] != user.id:
-        raise HTTPException(status_code=404, detail="Evaluation entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Evaluation entry not found")
 
     repo.delete_evaluation_entry(entry_id)
     log.info("evaluation_entry_deleted", entry_id=entry_id, user_id=user.id)
@@ -112,9 +114,9 @@ def promote_evaluation(
     """Promote an evaluation entry to the user's collection, then delete it."""
     entry = repo.get_evaluation_entry(entry_id)
     if entry is None:
-        raise HTTPException(status_code=404, detail="Evaluation entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Evaluation entry not found")
     if entry["user_id"] != user.id:
-        raise HTTPException(status_code=404, detail="Evaluation entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Evaluation entry not found")
 
     # Create collection entry via batch_add (reuses existing logic)
     from sqlalchemy.orm import Session
@@ -138,9 +140,10 @@ def promote_evaluation(
             raise
 
     if result.added == 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Failed to add card to collection",
+        raise api_error(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            "Failed to add card to collection",
         )
 
     # Delete the evaluation entry

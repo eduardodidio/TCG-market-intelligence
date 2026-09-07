@@ -2083,6 +2083,29 @@ class Repository:
             session.expunge(user)
             return user
 
+    def reset_user_password(
+        self,
+        email: str,
+        password_hash: str,
+        expires_at,
+    ):
+        """Reset a user's password by email.
+
+        Looks up the user by email, sets the new password hash and
+        expiration timestamp.  Returns the updated UserRow.
+
+        Raises ValueError if the user is not found.
+        """
+        user = self.get_user_by_email(email)
+        if user is None:
+            raise ValueError(f"User not found: {email}")
+        updated = self.update_user(
+            user.id,
+            password_hash=password_hash,
+            password_expires_at=expires_at,
+        )
+        return updated
+
     def migrate_collection_user(self, old_user_id: str, new_user_id: str) -> int:
         """Migrate collection entries from old_user_id to new_user_id.
 

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 
 from src.api.deps import get_current_user_id
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.api.schemas.schedules import (
     ScheduleCreateRequest,
@@ -74,16 +75,17 @@ async def create_schedule(
     try:
         validate_cron(body.cron_expression)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise api_error(422, ErrorCode.VALIDATION_ERROR, str(e))
 
     repo = Repository(_get_db_url())
 
     # Enforce per-user limit
     count = repo.count_scheduled_scans(user_id)
     if count >= MAX_SCHEDULES_PER_USER:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Maximum {MAX_SCHEDULES_PER_USER} schedules per user",
+        raise api_error(
+            400,
+            ErrorCode.VALIDATION_LIMIT_EXCEEDED,
+            f"Maximum {MAX_SCHEDULES_PER_USER} schedules per user",
         )
 
     schedule_id = repo.create_scheduled_scan(
@@ -137,7 +139,7 @@ async def get_schedule(
     repo = Repository(_get_db_url())
     row = repo.get_scheduled_scan(schedule_id)
     if row is None or row["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Schedule not found")
     return success_response(_row_to_response(row))
 
 
@@ -152,7 +154,7 @@ async def update_schedule(
     repo = Repository(_get_db_url())
     existing = repo.get_scheduled_scan(schedule_id)
     if existing is None or existing["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Schedule not found")
 
     updates = body.model_dump(exclude_none=True)
     if not updates:
@@ -163,7 +165,7 @@ async def update_schedule(
         try:
             validate_cron(updates["cron_expression"])
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise api_error(422, ErrorCode.VALIDATION_ERROR, str(e))
 
     repo.update_scheduled_scan(schedule_id, **updates)
 
@@ -194,7 +196,7 @@ async def delete_schedule(
     repo = Repository(_get_db_url())
     existing = repo.get_scheduled_scan(schedule_id)
     if existing is None or existing["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Schedule not found")
 
     # Remove from APScheduler
     scheduler = _get_scheduler(request)
@@ -215,11 +217,11 @@ async def trigger_schedule(
     repo = Repository(_get_db_url())
     existing = repo.get_scheduled_scan(schedule_id)
     if existing is None or existing["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Schedule not found")
 
     scheduler = _get_scheduler(request)
     if scheduler is None:
-        raise HTTPException(status_code=503, detail="Scheduler not available")
+        raise api_error(503, ErrorCode.EXTERNAL_PROVIDER_UNAVAILABLE, "Scheduler not available")
 
     scan_id = scheduler.trigger_now(schedule_id)
     return success_response(

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import structlog
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Request
 from jose import JWTError
 
 from src.api.deps import get_db
+from src.api.error_codes import ErrorCode, api_error
 from src.auth.jwt import decode_token
 from src.database.repository import Repository
 from src.domain.models import User
@@ -35,23 +36,23 @@ def get_current_user(
     """
     token = _extract_token(request)
     if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "Not authenticated")
 
     try:
         payload = decode_token(token)
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "Invalid or expired token")
 
     user_id = payload.get("sub")
     if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
+        raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "Invalid token payload")
 
     user_row = repo.get_user_by_id(int(user_id))
     if user_row is None:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "User not found")
 
     if not user_row.is_active:
-        raise HTTPException(status_code=401, detail="User account is inactive")
+        raise api_error(401, ErrorCode.AUTH_ACCOUNT_INACTIVE, "User account is inactive")
 
     return User(
         id=user_row.id,
@@ -148,4 +149,4 @@ def require_auth_or_api_key(
         _log.warning("dev_mode_auth_bypass", path=str(request.url.path))
         return "api_key_user"
 
-    raise HTTPException(status_code=401, detail="Authentication required")
+    raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "Authentication required")

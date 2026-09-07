@@ -8,11 +8,12 @@ import threading
 from collections.abc import AsyncGenerator
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from jose import JWTError
 from starlette.responses import StreamingResponse
 
 from src.api.deps import get_credit_service, get_current_user
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.scans import (
     ScanListResponse,
     ScanPreviewResponse,
@@ -144,7 +145,7 @@ def _validate_stream_auth(
     if expected is None and not token:
         return "api_key_user"
 
-    raise HTTPException(status_code=401, detail="Authentication required")
+    raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "Authentication required")
 
 
 @router.get("/preview", response_model=ScanPreviewResponse)
@@ -200,16 +201,7 @@ async def trigger_scan(
     )
     cost = len(eligible) * CARD_REFRESH_COST
     if not credit_svc.check_sufficient(user.id, cost):
-        balance = credit_svc.get_balance(user.id)
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "code": "INSUFFICIENT_CREDITS",
-                "balance": balance.balance,
-                "cost": cost,
-                "message": "Not enough treasure tokens.",
-            },
-        )
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
     credit_svc.deduct(user.id, cost, "bulk_scan", reference_id="scan")
 
     # Encode provider and max_age_days in filters_json for traceability
@@ -291,7 +283,7 @@ async def stream_scan(
     repo = Repository(_get_db_url())
     run = repo.get_scan_run(scan_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Scan run not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Scan run not found")
 
     # If the scan is already finished, return a single final event and close
     if run["status"] in ("completed", "failed"):
@@ -362,5 +354,5 @@ async def get_scan(scan_id: int):
     repo = Repository(_get_db_url())
     run = repo.get_scan_run(scan_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Scan run not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Scan run not found")
     return _row_to_response(run)

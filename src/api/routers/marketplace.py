@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from src.api.deps import get_credit_service, get_current_user, get_db, get_optional_user
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.marketplace import (
     SharingToggle,
     TradeInterestRequest,
@@ -78,7 +79,7 @@ def get_shared_collection(
     """View cards from a specific shared collection (anonymized)."""
     shared = repo.get_shared_collection_by_code(share_code)
     if shared is None:
-        raise HTTPException(status_code=404, detail="Shared collection not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Shared collection not found")
 
     listings = repo.list_marketplace_entries(
         limit=limit,
@@ -105,10 +106,10 @@ def express_interest(
         )
         return result
     except ValueError as e:
-        status = 400
-        if "not found" in str(e).lower():
-            status = 404
-        raise HTTPException(status_code=status, detail=str(e))
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, msg)
+        raise api_error(400, ErrorCode.VALIDATION_ERROR, msg)
 
 
 @router.get("/my-trades")
@@ -134,9 +135,11 @@ def respond_to_interest(
     try:
         return svc.respond_to_interest(interest_id, user.id, body.action)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Only the seller can respond to this interest")
+        raise api_error(
+            403, ErrorCode.AUTHZ_FORBIDDEN, "Only the seller can respond to this interest"
+        )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise api_error(400, ErrorCode.VALIDATION_ERROR, str(e))
 
 
 @router.post("/agree/{interest_id}")
@@ -152,15 +155,8 @@ def confirm_agreement(
     try:
         return svc.confirm_agreement(interest_id, user.id)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="You are not a participant in this trade")
-    except InsufficientCreditsError as e:
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "code": "INSUFFICIENT_CREDITS",
-                "balance": e.balance,
-                "cost": e.cost,
-            },
-        )
+        raise api_error(403, ErrorCode.AUTHZ_FORBIDDEN, "You are not a participant in this trade")
+    except InsufficientCreditsError:
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise api_error(400, ErrorCode.VALIDATION_ERROR, str(e))

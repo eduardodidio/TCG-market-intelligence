@@ -6,9 +6,10 @@ import asyncio
 import threading
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from src.api.deps import get_db, require_auth_or_api_key
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.banlist import (
     BanImpactSchema,
     BanListEntry,
@@ -113,7 +114,7 @@ def get_card_ban_history(card_id: int, db: Repository = Depends(get_db)):
     """Get full ban history timeline for a specific card."""
     card = db.get_card_by_id(card_id)
     if card is None:
-        raise HTTPException(status_code=404, detail="Card not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
 
     history = db.get_card_ban_history(card_id)
     entries = [
@@ -185,7 +186,7 @@ def get_ban_impact(
     """Get price impact analysis for ban events (stub — returns data_available=False)."""
     card = db.get_card_by_id(card_id)
     if card is None:
-        raise HTTPException(status_code=404, detail="Card not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
 
     events = db.get_ban_events_for_impact(card_id)
     impacts = [

@@ -148,7 +148,9 @@ class TestChangePassword:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 400
-        assert "incorrect" in resp.json()["detail"].lower()
+        detail = resp.json()["detail"]
+        detail_str = detail["message"].lower() if isinstance(detail, dict) else detail.lower()
+        assert "incorrect" in detail_str
 
     def test_change_password_too_short(self):
         mock_repo = MagicMock()

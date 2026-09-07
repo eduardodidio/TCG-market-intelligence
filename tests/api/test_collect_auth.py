@@ -33,7 +33,7 @@ class TestVerifyApiKeyUnit:
         with pytest.raises(HTTPException) as exc_info:
             verify_api_key(None)
         assert exc_info.value.status_code == 401
-        assert "Invalid or missing API key" in exc_info.value.detail
+        assert "Invalid or missing API key" in str(exc_info.value.detail)
 
     def test_wrong_key_raises_401(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When TCG_API_KEY is set and header has wrong value, 401 is raised."""

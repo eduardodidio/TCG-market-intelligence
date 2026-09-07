@@ -22,6 +22,7 @@ from src.api.deps import (
     get_db,
     require_auth_or_api_key,
 )
+from src.api.error_codes import ErrorCode, api_error
 from src.api.jobs import job_tracker
 from src.api.schemas.ban_engine import BannedCollectionCard, CardLegalityWithChange
 from src.api.schemas.cards import PriceObservation, SourceCardSchema
@@ -574,14 +575,14 @@ def bulk_update_collection(
     """Bulk update multiple collection entries (atomic)."""
     updates = request.updates.model_dump(exclude_unset=True)
     if not updates:
-        raise HTTPException(status_code=422, detail="No fields to update")
+        raise api_error(422, ErrorCode.VALIDATION_EMPTY_UPDATE, "No fields to update")
     try:
         affected = repo.bulk_update_collection_entries(request.ids, user_id, updates)
     except ValueError as exc:
         detail = str(exc)
         if "Not authorized" in detail:
-            raise HTTPException(status_code=403, detail=detail) from exc
-        raise HTTPException(status_code=404, detail=detail) from exc
+            raise api_error(403, ErrorCode.AUTHZ_FORBIDDEN, detail) from exc
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, detail) from exc
     log.info("bulk_update_collection", ids=request.ids, affected=affected)
     return success_response(data=BulkUpdateResponse(affected=affected))
 
@@ -601,8 +602,8 @@ def bulk_delete_collection(
     except ValueError as exc:
         detail = str(exc)
         if "Not authorized" in detail:
-            raise HTTPException(status_code=403, detail=detail) from exc
-        raise HTTPException(status_code=404, detail=detail) from exc
+            raise api_error(403, ErrorCode.AUTHZ_FORBIDDEN, detail) from exc
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, detail) from exc
     log.info("bulk_delete_collection", ids=request.ids, deleted=deleted)
     return success_response(data=BulkDeleteResponse(deleted=deleted))
 
@@ -617,7 +618,7 @@ def update_collection_entry(
     """Update a single collection entry (partial)."""
     updates = request.model_dump(exclude_unset=True)
     if not updates:
-        raise HTTPException(status_code=422, detail="No fields to update")
+        raise api_error(422, ErrorCode.VALIDATION_EMPTY_UPDATE, "No fields to update")
     # Convert acquired_at string to date object
     if "acquired_at" in updates and updates["acquired_at"] is not None:
         updates["acquired_at"] = date.fromisoformat(updates["acquired_at"])
@@ -627,9 +628,9 @@ def update_collection_entry(
     try:
         row = repo.update_collection_entry(entry_id, user_id, updates)
     except ValueError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise api_error(403, ErrorCode.AUTHZ_FORBIDDEN, str(exc)) from exc
     if row is None:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
     log.info("update_collection_entry", entry_id=entry_id, updates=updates)
     data = CollectionCard(
         id=row.id,
@@ -664,9 +665,9 @@ def delete_collection_entry(
     try:
         deleted = repo.delete_collection_entry(entry_id, user_id)
     except ValueError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise api_error(403, ErrorCode.AUTHZ_FORBIDDEN, str(exc)) from exc
     if not deleted:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
     log.info("delete_collection_entry", entry_id=entry_id)
     return None
 
@@ -689,10 +690,10 @@ def get_card_metrics(
     """Get analytics metrics for a collection entry's card."""
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
 
     if entry.card_id is None:
-        raise HTTPException(status_code=422, detail="Card not linked to a price source")
+        raise api_error(422, ErrorCode.VALIDATION_ERROR, "Card not linked to a price source")
 
     source_cards = repo.get_source_cards_for_card(entry.card_id)
     if not source_cards:
@@ -875,14 +876,15 @@ def get_collection_history(
 ):
     """Get price history for a collection entry."""
     if period not in PERIOD_MAP:
-        raise HTTPException(
-            status_code=422,
-            detail="Invalid period. Must be one of: " + ", ".join(PERIOD_MAP.keys()),
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid period. Must be one of: " + ", ".join(PERIOD_MAP.keys()),
         )
 
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
 
     if entry.card_id is None:
         return success_response(data=CollectionHistoryResponse(observations=[], summary=None))
@@ -936,7 +938,7 @@ def get_entry_legality(
     """Get format legality for a collection entry, with recent change info."""
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
 
     if entry.card_id is None:
         return success_response(data=[])
@@ -957,17 +959,17 @@ def set_manual_price(
     """Set a manual price for a collection entry."""
     entry = repo.get_collection_entry(entry_id)
     if not entry:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
     if entry.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized to modify this entry")
+        raise api_error(403, ErrorCode.AUTHZ_FORBIDDEN, "Not authorized to modify this entry")
 
     # Convert price to BRL for storage
     price_brl = Decimal(str(request.price))
     if request.currency == "USD":
         rate = converter.get_display_rate(date.today())
         if rate is None:
-            raise HTTPException(
-                status_code=422, detail="Exchange rate unavailable for USD conversion"
+            raise api_error(
+                422, ErrorCode.VALIDATION_ERROR, "Exchange rate unavailable for USD conversion"
             )
         price_brl = (price_brl * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     # PILA is 1:1 with BRL, no conversion needed
@@ -987,7 +989,7 @@ def set_manual_price(
     # Reload entry to get card_id (may have been auto-created above)
     entry = repo.get_collection_entry(entry_id)
     if entry is None or entry.card_id is None:
-        raise HTTPException(status_code=422, detail="Failed to link collection entry to card")
+        raise api_error(422, ErrorCode.VALIDATION_ERROR, "Failed to link collection entry to card")
     repo.upsert_manual_price(entry.card_id, price_brl, date.today())
     log.info(
         "manual_price_set",
@@ -1033,7 +1035,7 @@ async def canonize_card(
 
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
 
     # Allow re-canonize when card_id exists but has no MYP source cards
     already_canonical = entry.card_id is not None
@@ -1041,7 +1043,7 @@ async def canonize_card(
         source_cards = repo.get_source_cards_for_card(entry.card_id)
         has_myp_source = any(sc.source == "myp" for sc in source_cards)
         if has_myp_source:
-            raise HTTPException(status_code=422, detail="Card is already canonical")
+            raise api_error(422, ErrorCode.RESOURCE_CONFLICT, "Card is already canonical")
         card_id = entry.card_id
     else:
         # Step 1: Create canonical CardRow from collection data
@@ -1149,23 +1151,14 @@ async def refresh_card_price(
 
     # Credit guard — all users pay
     if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
-        balance = credit_svc.get_balance(user.id)
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "code": "INSUFFICIENT_CREDITS",
-                "balance": balance.balance,
-                "cost": CARD_REFRESH_COST,
-                "message": "Not enough treasure tokens.",
-            },
-        )
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
 
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
 
     if entry.card_id is None:
-        raise HTTPException(status_code=422, detail="Card not linked to a price source")
+        raise api_error(422, ErrorCode.VALIDATION_ERROR, "Card not linked to a price source")
 
     source_cards = repo.get_source_cards_for_card(entry.card_id)
     myp_sources = [sc for sc in source_cards if sc.source == "myp"]
@@ -1187,9 +1180,10 @@ async def refresh_card_price(
             match = match_collection_card(ce, search_results)
 
             if match.status != "matched" or not match.myp_result:
-                raise HTTPException(
-                    status_code=422,
-                    detail="No MYP source card linked and auto-match failed",
+                raise api_error(
+                    422,
+                    ErrorCode.VALIDATION_ERROR,
+                    "No MYP source card linked and auto-match failed",
                 )
 
             myp = match.myp_result
@@ -1209,9 +1203,10 @@ async def refresh_card_price(
             source_cards = repo.get_source_cards_for_card(entry.card_id)
             myp_sources = [sc for sc in source_cards if sc.source == "myp"]
             if not myp_sources:
-                raise HTTPException(
-                    status_code=422,
-                    detail="No MYP source card linked and auto-canonize failed",
+                raise api_error(
+                    422,
+                    ErrorCode.VALIDATION_ERROR,
+                    "No MYP source card linked and auto-canonize failed",
                 )
 
             log.info(
@@ -1228,9 +1223,10 @@ async def refresh_card_price(
                 entry_id=entry_id,
                 error=str(exc),
             )
-            raise HTTPException(
-                status_code=422,
-                detail=f"No MYP source card linked and auto-canonize failed: {exc}",
+            raise api_error(
+                422,
+                ErrorCode.VALIDATION_ERROR,
+                f"No MYP source card linked and auto-canonize failed: {exc}",
             )
         finally:
             await provider.close()
@@ -1291,26 +1287,18 @@ async def refresh_card_price_liga(
 
     # Credit guard — all users pay
     if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
-        balance = credit_svc.get_balance(user.id)
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "code": "INSUFFICIENT_CREDITS",
-                "balance": balance.balance,
-                "cost": CARD_REFRESH_COST,
-                "message": "Not enough treasure tokens.",
-            },
-        )
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
 
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
 
     card_name = entry.name_en or entry.name_pt
     if not card_name:
-        raise HTTPException(
-            status_code=422,
-            detail="Card has no name (name_en or name_pt required for LigaMagic search)",
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            "Card has no name (name_en or name_pt required for LigaMagic search)",
         )
 
     # Reuse singleton provider from registry (avoids Playwright resource conflicts)
@@ -1548,7 +1536,7 @@ def _build_collection_detail(
     """Build a CollectionCardDetail response for an entry. Shared by GET and refresh."""
     entry = repo.get_collection_entry(entry_id)
     if not entry or entry.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Collection entry not found")
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
 
     image_url = _scryfall_image_url(entry.set_code, entry.collector_number)
     latest_price = None
@@ -1683,7 +1671,7 @@ def import_collection(
     from src.collection.importer import import_collection_csv
 
     if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
+        raise api_error(400, ErrorCode.VALIDATION_ERROR, "Only CSV files are accepted")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
         tmp.write(file.file.read())

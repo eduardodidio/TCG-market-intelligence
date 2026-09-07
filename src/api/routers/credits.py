@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from src.api.deps import get_current_user, get_db
+from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import success_response
 from src.credits.constants import ADMIN_MONTHLY_GRANT, BONUS_AMOUNT
 from src.credits.service import CreditService
@@ -95,12 +96,5 @@ def claim_bonus(
     svc = CreditService(repo)
     balance, claimed = svc.claim_bonus(user.id)
     if not claimed:
-        eligibility = svc.get_bonus_eligibility(user.id)
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "code": "BONUS_NOT_READY",
-                "next_eligible_at": str(eligibility["next_eligible_at"]),
-            },
-        )
+        raise api_error(429, ErrorCode.VALIDATION_ERROR, "Bonus not ready yet")
     return success_response(data={"balance": balance.balance, "credited": BONUS_AMOUNT})

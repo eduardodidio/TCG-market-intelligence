@@ -6,8 +6,9 @@ import {
   adjustUserCredits,
   createUser,
   deleteUser,
+  resetUserPassword,
 } from "../api/admin";
-import type { AdminUser, AdminDashboard, CreateUserResult } from "../api/admin";
+import type { AdminUser, AdminDashboard, CreateUserResult, ResetPasswordResult } from "../api/admin";
 import type { ApiResponse } from "../types/api";
 import { useAuth } from "../hooks/useAuth";
 import { AccordionSection } from "../components/AccordionSection";
@@ -188,8 +189,24 @@ function AdjustCreditsRow({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<ResetPasswordResult | null>(null);
 
   const isSelf = user.id === currentUserId;
+
+  const handleResetPassword = async () => {
+    setResetting(true);
+    setError(null);
+    const resp = await resetUserPassword(user.id);
+    setResetting(false);
+    if (resp.errors.length > 0) {
+      setError(resp.errors.map((e) => e.message).join("; "));
+    } else if (resp.data) {
+      setResetResult(resp.data);
+      setConfirmReset(false);
+    }
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -301,43 +318,104 @@ function AdjustCreditsRow({
         )}
       </td>
       <td className="px-4 py-2">
-        {!isSelf && user.is_active && (
-          <>
-            {!confirmDelete ? (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="px-3 py-1 text-sm bg-red-800 hover:bg-red-700 text-white rounded"
-                data-testid={`delete-btn-${user.id}`}
-              >
-                {t("admin.deleteUser")}
-              </button>
-            ) : (
-              <div className="flex gap-1 items-center" data-testid={`delete-confirm-${user.id}`}>
-                <span className="text-xs text-red-400 mr-1">{t("admin.deleteConfirm")}</span>
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="px-2 py-1 text-xs bg-red-700 hover:bg-red-600 text-white rounded"
-                  data-testid={`delete-yes-${user.id}`}
+        <div className="flex flex-col gap-2">
+          {/* Reset password result */}
+          {resetResult && (
+            <div
+              className="p-2 rounded-md bg-green-900/30 border border-green-700/50"
+              data-testid={`reset-result-${user.id}`}
+            >
+              <p className="text-green-400 text-xs font-medium mb-1">
+                {t("admin.resetPasswordSuccess")}
+              </p>
+              <p className="text-white text-xs">
+                {t("admin.newTemporaryPassword")}:{" "}
+                <code
+                  className="bg-slate-900 px-2 py-0.5 rounded font-mono text-cyan-300 select-all"
+                  data-testid={`reset-temp-password-${user.id}`}
                 >
-                  {deleting ? "..." : t("common.yes")}
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded"
-                  data-testid={`delete-no-${user.id}`}
-                >
-                  {t("common.no")}
-                </button>
-              </div>
+                  {resetResult.temporary_password}
+                </code>
+              </p>
+              <p className="text-amber-400 text-xs mt-1">
+                {t("admin.passwordWarning")}
+              </p>
+            </div>
+          )}
+          <div className="flex gap-1 items-center flex-wrap">
+            {/* Reset password button */}
+            {!isSelf && user.is_active && (
+              <>
+                {!confirmReset ? (
+                  <button
+                    onClick={() => setConfirmReset(true)}
+                    className="px-3 py-1 text-sm bg-amber-700 hover:bg-amber-600 text-white rounded"
+                    data-testid={`reset-pwd-btn-${user.id}`}
+                  >
+                    {t("admin.resetPassword")}
+                  </button>
+                ) : (
+                  <div className="flex gap-1 items-center" data-testid={`reset-confirm-${user.id}`}>
+                    <span className="text-xs text-amber-400 mr-1">{t("admin.resetPasswordConfirm")}</span>
+                    <button
+                      onClick={handleResetPassword}
+                      disabled={resetting}
+                      className="px-2 py-1 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded"
+                      data-testid={`reset-yes-${user.id}`}
+                    >
+                      {resetting ? "..." : t("common.yes")}
+                    </button>
+                    <button
+                      onClick={() => setConfirmReset(false)}
+                      className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded"
+                      data-testid={`reset-no-${user.id}`}
+                    >
+                      {t("common.no")}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
-        {!user.is_active && (
-          <span className="text-xs text-red-400" data-testid={`inactive-badge-${user.id}`}>
-            {t("admin.inactive")}
-          </span>
-        )}
+            {/* Delete button */}
+            {!isSelf && user.is_active && (
+              <>
+                {!confirmDelete ? (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="px-3 py-1 text-sm bg-red-800 hover:bg-red-700 text-white rounded"
+                    data-testid={`delete-btn-${user.id}`}
+                  >
+                    {t("admin.deleteUser")}
+                  </button>
+                ) : (
+                  <div className="flex gap-1 items-center" data-testid={`delete-confirm-${user.id}`}>
+                    <span className="text-xs text-red-400 mr-1">{t("admin.deleteConfirm")}</span>
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="px-2 py-1 text-xs bg-red-700 hover:bg-red-600 text-white rounded"
+                      data-testid={`delete-yes-${user.id}`}
+                    >
+                      {deleting ? "..." : t("common.yes")}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded"
+                      data-testid={`delete-no-${user.id}`}
+                    >
+                      {t("common.no")}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {!user.is_active && (
+              <span className="text-xs text-red-400" data-testid={`inactive-badge-${user.id}`}>
+                {t("admin.inactive")}
+              </span>
+            )}
+          </div>
+        </div>
       </td>
     </tr>
   );

@@ -251,7 +251,9 @@ class TestSearchWebMalformedData:
         with patch("src.api.routers.card_search._SEARCH_TIMEOUT_SECONDS", 0.001):
             resp = client.get("/cards/search-web", params={"q": "Test"})
             assert resp.status_code == 504
-            assert "timed out" in resp.json()["detail"].lower()
+            detail = resp.json()["detail"]
+            detail_str = detail["message"].lower() if isinstance(detail, dict) else detail.lower()
+            assert "timed out" in detail_str
 
 
 # ── T06: Duplicate card names in evaluation list ──
@@ -338,7 +340,9 @@ class TestPromoteFailsWhenBatchAddReturnsZero:
         ):
             resp = client.post(f"/api/v1/evaluations/{entry_id}/promote")
             assert resp.status_code == 400
-            assert "Failed" in resp.json()["detail"]
+            detail = resp.json()["detail"]
+            detail_str = detail["message"] if isinstance(detail, dict) else detail
+            assert "Failed" in detail_str
 
         # Verify the eval entry was NOT deleted (since add failed)
         with Session(repo.engine) as session:
