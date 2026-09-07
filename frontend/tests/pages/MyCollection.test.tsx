@@ -58,6 +58,26 @@ function createMockFetch(cards: CollectionCard[], total?: number) {
           ),
       });
     }
+    if (urlStr.includes("/collection/portfolio-summary")) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(envelope({
+          total_invested: 0, total_current_value: 0, total_pnl: 0, total_pnl_pct: null, invested_card_count: 0,
+        })),
+      });
+    }
+    if (urlStr.includes("/collection/portfolio-history")) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(envelope([])),
+      });
+    }
+    if (urlStr.includes("/collection/set-completion")) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(envelope([])),
+      });
+    }
     if (urlStr.includes("/collection")) {
       return Promise.resolve({
         ok: true,
@@ -448,7 +468,7 @@ describe("MyCollection -- sort dropdown", () => {
 
     // The initial fetch should include offset=0
     const collectionCalls = mockFetch.mock.calls.filter(
-      (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets") && !String(c[0]).includes("/banned"),
+      (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets") && !String(c[0]).includes("/banned") && !String(c[0]).includes("/portfolio") && !String(c[0]).includes("/set-completion"),
     );
     const firstCall = String(collectionCalls[0][0]);
     expect(firstCall).toContain("offset=0");
@@ -528,7 +548,7 @@ describe("MyCollection -- sort dropdown", () => {
     await waitFor(() => {
       // After changing to non-default sort, verify the API call includes sort params
       const collectionCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets") && !String(c[0]).includes("/banned"),
+        (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets") && !String(c[0]).includes("/banned") && !String(c[0]).includes("/portfolio") && !String(c[0]).includes("/set-completion"),
       );
       const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
       expect(lastCall).toContain("sort_by=name");

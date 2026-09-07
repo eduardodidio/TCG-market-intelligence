@@ -119,6 +119,8 @@ class UserCollectionRow(Base):
     rarity: Mapped[str | None] = mapped_column(String(5))
     color: Mapped[str | None] = mapped_column(String(10))
     extras: Mapped[str | None] = mapped_column(String(200))
+    acquisition_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    acquired_at: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     __table_args__ = (
@@ -449,6 +451,61 @@ class EvaluationEntryRow(Base):
     __table_args__ = (
         Index("ix_evaluation_entries_user", "user_id"),
         Index("ix_evaluation_entries_card", "card_id"),
+    )
+
+
+class PriceAlertRow(Base):
+    __tablename__ = "price_alerts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    card_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False
+    )
+    target_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)  # "below" or "above"
+    is_active: Mapped[int] = mapped_column(Integer, default=1)
+    triggered_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        Index("ix_price_alerts_user", "user_id"),
+        Index("ix_price_alerts_card_active", "card_id", "is_active"),
+        Index("ix_price_alerts_user_active", "user_id", "is_active"),
+    )
+
+
+class AlertNotificationRow(Base):
+    __tablename__ = "alert_notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    alert_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("price_alerts.id", ondelete="CASCADE"), nullable=False
+    )
+    card_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    old_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    new_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    is_read: Mapped[int] = mapped_column(Integer, default=0)
+    notified_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (Index("ix_alert_notifications_alert", "alert_id"),)
+
+
+class AchievementRow(Base):
+    __tablename__ = "achievements"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    achievement_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    unlocked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "achievement_key", name="uq_user_achievement"),
+        Index("ix_achievements_user", "user_id"),
     )
 
 

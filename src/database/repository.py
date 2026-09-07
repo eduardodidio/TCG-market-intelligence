@@ -9,6 +9,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from src.database.models import (
+    AlertNotificationRow,  # noqa: F401 (needed for create_all)
     Base,
     CardLegalityRow,
     CardRow,
@@ -22,6 +23,7 @@ from src.database.models import (
     ExchangeRateRow,
     LegalityHistoryRow,
     PortfolioSnapshotRow,
+    PriceAlertRow,  # noqa: F401 (needed for create_all)
     PriceObservationRow,
     ScanRunRow,
     ScheduledScanRow,
@@ -87,6 +89,14 @@ class Repository:
             if "notes" not in columns:
                 with self.engine.begin() as conn:
                     sql = "ALTER TABLE user_collection ADD COLUMN notes VARCHAR(500)"
+                    conn.execute(text(sql))
+            if "acquisition_price" not in columns:
+                with self.engine.begin() as conn:
+                    sql = "ALTER TABLE user_collection ADD COLUMN acquisition_price NUMERIC(12,2)"
+                    conn.execute(text(sql))
+            if "acquired_at" not in columns:
+                with self.engine.begin() as conn:
+                    sql = "ALTER TABLE user_collection ADD COLUMN acquired_at DATE"
                     conn.execute(text(sql))
         if "cards" in insp.get_table_names():
             columns = {col["name"] for col in insp.get_columns("cards")}
@@ -1173,7 +1183,14 @@ class Repository:
                 select(UserCollectionRow).where(UserCollectionRow.id == entry_id)
             ).scalar_one_or_none()
 
-    _EDITABLE_COLLECTION_FIELDS = {"quantity", "quality", "language", "extras"}
+    _EDITABLE_COLLECTION_FIELDS = {
+        "quantity",
+        "quality",
+        "language",
+        "extras",
+        "acquisition_price",
+        "acquired_at",
+    }
 
     def update_collection_entry(
         self,
@@ -3708,6 +3725,36 @@ class Repository:
                 .order_by(PortfolioSnapshotRow.snapshot_date.desc())
             )
             return list(session.execute(stmt).scalars().all())
+
+    def get_portfolio_invested_total(self, user_id: str) -> tuple[Decimal, int]:
+        """Return (total_invested, count) for entries that have acquisition_price set.
+
+        total_invested = SUM(acquisition_price * quantity).
+        """
+        with Session(self.engine) as session:
+            stmt = select(
+                func.sum(UserCollectionRow.acquisition_price * UserCollectionRow.quantity),
+                func.count(),
+            ).where(
+                UserCollectionRow.user_id == user_id,
+                UserCollectionRow.acquisition_price.isnot(None),
+            )
+            row = session.execute(stmt).one()
+            total = row[0] or Decimal("0")
+            count = row[1] or 0
+            return (Decimal(str(total)), count)
+
+    def get_collection_entries_with_acquisition(self, user_id: str) -> list[UserCollectionRow]:
+        """Return collection entries that have acquisition_price set."""
+        with Session(self.engine) as session:
+            stmt = select(UserCollectionRow).where(
+                UserCollectionRow.user_id == user_id,
+                UserCollectionRow.acquisition_price.isnot(None),
+            )
+            rows = list(session.execute(stmt).scalars().all())
+            for row in rows:
+                session.expunge(row)
+            return rows
 
     def delete_all_price_observations(self, source: str | None = None) -> int:
         """Delete price observations, optionally filtered by source.

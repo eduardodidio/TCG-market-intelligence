@@ -32,14 +32,14 @@ export function CardTile({ card }: CardTileProps) {
   return (
     <Link
       to={`/cards/${card.id}`}
-      className="group block bg-slate-800 rounded-lg overflow-hidden
-        border border-slate-600 hover:border-cyan-400/50
+      className="group block bg-white dark:bg-slate-800 rounded-lg overflow-hidden
+        border border-gray-200 dark:border-slate-600 hover:border-cyan-400/50
         transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
       data-testid={`card-tile-${card.id}`}
     >
       {/* Card image */}
       <div
-        className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800
+        className="aspect-[5/7] bg-gradient-to-br from-gray-200 dark:from-slate-700 to-gray-300 dark:to-slate-800
           flex items-center justify-center overflow-hidden"
         data-testid="card-image-placeholder"
       >
@@ -78,7 +78,7 @@ export function CardTile({ card }: CardTileProps) {
       {/* Card info */}
       <div className="p-3">
         <h3
-          className="text-sm font-semibold text-white truncate group-hover:text-cyan-400 transition-colors"
+          className="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-cyan-400 transition-colors"
           title={displayName}
         >
           {displayName}
@@ -86,12 +86,12 @@ export function CardTile({ card }: CardTileProps) {
 
         <div className="flex items-center gap-2 mt-1">
           {card.set_code && (
-            <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-400 rounded">
+            <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded">
               {card.set_code}
             </span>
           )}
           {card.collector_number && (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-gray-400 dark:text-slate-500">
               #{card.collector_number}
             </span>
           )}
@@ -104,7 +104,7 @@ export function CardTile({ card }: CardTileProps) {
               {formattedPrice}
             </p>
           ) : (
-            <p className="mt-2 text-sm text-slate-500" data-testid="card-price">
+            <p className="mt-2 text-sm text-gray-400 dark:text-slate-500" data-testid="card-price">
               {t("common.noPriceData")}
             </p>
           );

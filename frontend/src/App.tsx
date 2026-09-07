@@ -7,6 +7,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CurrencyProvider } from "./contexts/CurrencyContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { PendingDeleteProvider } from "./hooks/usePendingDelete";
 import type { SupportedLanguage } from "./contexts/LanguageContext";
 import { useAuth } from "./hooks/useAuth";
@@ -79,6 +80,14 @@ const Evaluations = lazy(() =>
 const CatalogPage = lazy(() =>
   import("./pages/CatalogPage").then((m) => ({ default: m.CatalogPage })),
 );
+const AlertsPage = lazy(() =>
+  import("./pages/AlertsPage").then((m) => ({ default: m.AlertsPage })),
+);
+const AchievementsPage = lazy(() =>
+  import("./pages/AchievementsPage").then((m) => ({
+    default: m.AchievementsPage,
+  })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -111,6 +120,7 @@ function LanguageSyncEffect() {
 export default function App() {
   return (
     <LanguageProvider>
+    <ThemeProvider>
     <AuthProvider>
       <LanguageSyncEffect />
       <CurrencyProvider>
@@ -357,6 +367,30 @@ export default function App() {
                 }
               />
               <Route
+                path="/alerts"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <AlertsPage />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/achievements"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <AchievementsPage />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
                 path="/admin"
                 element={
                   <Suspense
@@ -390,6 +424,7 @@ export default function App() {
         </BrowserRouter>
       </CurrencyProvider>
     </AuthProvider>
+    </ThemeProvider>
     </LanguageProvider>
   );
 }

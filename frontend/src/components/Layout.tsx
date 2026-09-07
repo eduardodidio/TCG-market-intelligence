@@ -4,14 +4,19 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useGauchoEasterEgg } from "../hooks/useGauchoEasterEgg";
 import { usePendingDelete } from "../hooks/usePendingDelete";
+import { AlertBell } from "./AlertBell";
 import { ChimarraoIcon } from "./ChimarraoIcon";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { ExchangeRateBanner } from "./ExchangeRateBanner";
 import { GauchoDialog } from "./GauchoDialog";
+import { InstallPrompt } from "./InstallPrompt";
 import { LanguageSelector } from "./LanguageSelector";
 import { MarketTicker } from "./MarketTicker";
+import { OfflineBanner } from "./OfflineBanner";
+import { ThemeToggle } from "./ThemeToggle";
 import { TreasureBalance } from "./TreasureBalance";
 import { UndoToast } from "./UndoToast";
+import { UpdatePrompt } from "./UpdatePrompt";
 
 interface NavItem {
   to: string;
@@ -25,6 +30,8 @@ const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
   { to: "/catalog", labelKey: "nav.catalog", requiresAuth: false },
+  { to: "/alerts", labelKey: "nav.alerts", requiresAuth: true },
+  { to: "/achievements", labelKey: "nav.achievements", requiresAuth: true },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
   { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
 ];
@@ -105,7 +112,7 @@ export function Layout() {
   const gaucho = useGauchoEasterEgg(location.pathname);
 
   return (
-    <div className="flex h-screen bg-slate-900 text-slate-100">
+    <div className="flex h-screen bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100">
       {/* Mobile overlay -- close on outside click */}
       {sidebarOpen && (
         <div
@@ -118,21 +125,21 @@ export function Layout() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-30 w-64 bg-slate-800 border-r border-slate-600
+          fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-600
           transform transition-transform duration-200 ease-in-out
           md:relative md:translate-x-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
         data-testid="sidebar"
       >
-        <div className="flex items-center h-16 px-6 border-b border-slate-600">
+        <div className="flex items-center h-16 px-6 border-b border-gray-200 dark:border-slate-600">
           <Link to="/" className="no-underline">
             <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent cursor-pointer">TEDHC Market</h1>
           </Link>
         </div>
         {/* User avatar / sign-in */}
         <div
-          className="flex items-center gap-3 px-6 py-4 border-b border-slate-600"
+          className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 dark:border-slate-600"
           data-testid="user-section"
         >
           {isAuthenticated ? (
@@ -141,7 +148,7 @@ export function Layout() {
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {displayName}
                 </p>
                 <button
@@ -149,7 +156,7 @@ export function Layout() {
                     await logout();
                     navigate("/");
                   }}
-                  className="text-xs text-slate-400 hover:text-red-400 transition-colors"
+                  className="text-xs text-gray-500 dark:text-slate-400 hover:text-red-400 transition-colors"
                   data-testid="logout-button"
                 >
                   {t("nav.signOut")}
@@ -159,10 +166,10 @@ export function Layout() {
           ) : (
             <Link
               to="/login"
-              className="flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-purple-400 transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-indigo-500 dark:text-indigo-400 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
               data-testid="sign-in-link"
             >
-              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-700 text-slate-400 text-sm font-bold">
+              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-slate-400 text-sm font-bold">
                 ?
               </div>
               <span>{t("nav.signIn")}</span>
@@ -171,17 +178,28 @@ export function Layout() {
         </div>
         {/* Treasure token balance */}
         {isAuthenticated && (
-          <div className="border-b border-slate-600 py-1" data-testid="treasure-balance-section">
+          <div className="border-b border-gray-200 dark:border-slate-600 py-1" data-testid="treasure-balance-section">
             <TreasureBalance />
           </div>
         )}
+        {/* Alert bell */}
+        {isAuthenticated && (
+          <div className="flex items-center gap-2 px-6 py-2 border-b border-gray-200 dark:border-slate-600" data-testid="alert-bell-section">
+            <AlertBell />
+            <span className="text-sm text-gray-500 dark:text-slate-400">{t("alerts.priceAlerts")}</span>
+          </div>
+        )}
         {/* Currency toggle */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-600">
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-slate-600">
           <CurrencyToggle />
         </div>
         {/* Language selector */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-600" data-testid="sidebar-language-selector">
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-slate-600" data-testid="sidebar-language-selector">
           <LanguageSelector variant="compact" />
+        </div>
+        {/* Theme toggle */}
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-200 dark:border-slate-600" data-testid="sidebar-theme-toggle">
+          <ThemeToggle />
         </div>
         <nav className="mt-4 px-3" data-testid="sidebar-nav">
           {visiblePrimaryItems.map((item) => {
@@ -196,7 +214,7 @@ export function Layout() {
                   ${
                     isActive
                       ? "bg-indigo-500 text-white shadow-md"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white"
                   }
                 `}
               >
@@ -210,7 +228,7 @@ export function Layout() {
             <div className="mt-2">
               <button
                 onClick={toggleBeta}
-                className="flex items-center w-full px-3 py-2 mb-1 rounded-md text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                className="flex items-center w-full px-3 py-2 mb-1 rounded-md text-sm font-medium text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 data-testid="beta-nav-toggle"
                 aria-expanded={betaOpen}
               >
@@ -253,15 +271,19 @@ export function Layout() {
             </div>
           )}
         </nav>
+        {/* Install PWA prompt */}
+        <div className="mt-auto">
+          <InstallPrompt />
+        </div>
       </aside>
 
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar with hamburger */}
-        <header className="flex items-center h-16 px-4 bg-slate-800 border-b border-slate-600 md:hidden">
+        <header className="flex items-center h-16 px-4 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-600 md:hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="p-2 rounded-md text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             aria-label={t("nav.toggleNav")}
             data-testid="hamburger-button"
           >
@@ -285,6 +307,8 @@ export function Layout() {
           </Link>
         </header>
 
+        {/* Offline banner */}
+        <OfflineBanner />
         {/* Exchange rate banner */}
         <ExchangeRateBanner />
         <MarketTicker />
@@ -307,6 +331,9 @@ export function Layout() {
           onDismiss={gaucho.dismissDialog}
         />
       )}
+
+      {/* PWA update prompt */}
+      <UpdatePrompt />
 
       {/* Undo delete toast -- survives page navigation */}
       {pendingDelete && (

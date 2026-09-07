@@ -50,6 +50,8 @@
     "marketplace": "Marketplace",
     "evaluations": "Avaliacoes",
     "catalog": "Catalogo de Cartas",
+    "alerts": "Alertas de Preco",
+    "achievements": "Conquistas",
     "betaTest": "Beta Test"
   },
   "catalog": {
@@ -266,7 +268,10 @@
     "noMatchingCards": "Nenhuma carta corresponde aos filtros.",
     "deleteUndoMessage": "\"{{name}}\" excluido",
     "deleteUndo": "Desfazer",
-    "deleteUndone": "Exclusao cancelada"
+    "deleteUndone": "Exclusao cancelada",
+    "setCompletion": "Completude por Colecao",
+    "setCompletionOf": "{{owned}} de {{total}}",
+    "setComplete": "Completo!"
   },
   "market": {
     "title": "Movimentacao de Mercado",
@@ -425,6 +430,12 @@
   },
   "language": {
     "selector": "Seletor de idioma"
+  },
+  "theme": {
+    "selector": "Seletor de tema",
+    "dark": "Escuro",
+    "light": "Claro",
+    "system": "Sistema"
   },
   "gridSize": {
     "label": "Tamanho do grid",
@@ -914,5 +925,125 @@
     "removed": "Card removido da avaliacao",
     "limitReached": "Limite da lista de avaliacao atingido (50)",
     "addSuccess": "Adicionado a avaliacao"
+  },
+  "trend": {
+    "up": "Em alta",
+    "down": "Em baixa",
+    "flat": "Sem alteracao"
+  },
+  "arbitrage": {
+    "best": "Melhor: {{source}} -{{gap}}%",
+    "sourceOnly": "Apenas {{source}}",
+    "tooltip": "Liga: {{liga}} | TCG: {{tcg}}"
+  },
+  "alerts": {
+    "title": "Alertas de Preco",
+    "priceAlerts": "Alertas de Preco",
+    "setAlert": "Definir Alerta de Preco",
+    "setAlertTitle": "Definir Alerta de Preco",
+    "setAlertDescription": "Receba uma notificacao quando o preco de {{cardName}} atingir seu alvo.",
+    "setAlertButton": "Definir Alerta",
+    "setSuccess": "Alerta definido! Voce sera notificado quando o preco ficar {{direction}} R$ {{price}}.",
+    "directionLabel": "Alertar quando o preco ficar...",
+    "direction_below": "Abaixo de",
+    "direction_above": "Acima de",
+    "targetPriceLabel": "Preco Alvo",
+    "invalidPrice": "Insira um preco valido maior que 0",
+    "existingAlerts": "Alertas ativos para esta carta",
+    "bellLabel": "Notificacoes de alerta de preco",
+    "notifications": "Notificacoes",
+    "noNotifications": "Nenhuma notificacao ainda",
+    "markAllRead": "Marcar todas como lidas",
+    "viewAll": "Ver todos os alertas",
+    "justNow": "agora",
+    "minutesAgo": "{{count}} min atras",
+    "hoursAgo": "{{count}}h atras",
+    "daysAgo": "{{count}}d atras",
+    "tabActive": "Ativos",
+    "tabTriggered": "Disparados",
+    "emptyActiveTitle": "Nenhum alerta ativo",
+    "emptyActiveDescription": "Defina um alerta de preco em qualquer carta para ser notificado quando atingir seu preco alvo.",
+    "emptyTriggeredTitle": "Nenhum alerta disparado",
+    "emptyTriggeredDescription": "Seus alertas disparados aparecerão aqui quando uma carta atingir seu preco alvo.",
+    "createdAt": "Criado",
+    "triggeredAt": "Disparado",
+    "dismiss": "Dispensar",
+    "loginRequired": "Entre para gerenciar seus alertas de preco."
+  },
+  "pwa": {
+    "updateAvailable": "Uma nova versao esta disponivel!",
+    "update": "Atualizar",
+    "dismiss": "Dispensar",
+    "offlineMessage": "Modo offline -- os dados podem estar desatualizados",
+    "installMessage": "Instale o TEDHC Market para uma experiencia melhor",
+    "install": "Instalar"
+  },
+  "portfolio": {
+    "title": "Portfolio & Investimento",
+    "totalInvested": "Total Investido",
+    "currentValue": "Valor Atual",
+    "totalPnl": "Lucro/Prejuizo Total",
+    "pnlPct": "L/P %",
+    "valueOverTime": "Valor do Portfolio ao Longo do Tempo",
+    "exportPnl": "Exportar L/P",
+    "noInvestmentData": "Nenhum preco de aquisicao definido. Edite cards na colecao para rastrear investimentos.",
+    "investmentInfo": "Rastreamento de Investimento",
+    "acquisitionPrice": "Preco de Aquisicao",
+    "acquiredAt": "Data de Aquisicao",
+    "unrealizedPnl": "L/P Nao Realizado",
+    "pnlTooltip": "Lucro/prejuizo nao realizado baseado no preco de aquisicao",
+    "invalidPrice": "Insira um preco valido maior que 0"
+  },
+  "achievements": {
+    "pageTitle": "Conquistas",
+    "progress": "{{unlocked}} / {{total}} conquistas desbloqueadas",
+    "unlocked": "Desbloqueada",
+    "locked": "Continue jogando para desbloquear",
+    "unlockedAt": "Desbloqueada em {{date}}",
+    "toastTitle": "Conquista Desbloqueada!",
+    "first_card": {
+      "title": "Primeira Carta",
+      "description": "Adicione sua primeira carta a colecao"
+    },
+    "deck_builder": {
+      "title": "Construtor de Decks",
+      "description": "Crie seu primeiro deck"
+    },
+    "scanner": {
+      "title": "Scanner",
+      "description": "Complete seu primeiro scan de precos"
+    },
+    "collector_10": {
+      "title": "Colecionador",
+      "description": "Tenha 10 cartas unicas"
+    },
+    "collector_50": {
+      "title": "Colecionador Avido",
+      "description": "Tenha 50 cartas unicas"
+    },
+    "collector_100": {
+      "title": "Colecionador Serio",
+      "description": "Tenha 100 cartas unicas"
+    },
+    "collector_500": {
+      "title": "Mestre Colecionador",
+      "description": "Tenha 500 cartas unicas"
+    },
+    "set_master": {
+      "title": "Mestre do Set",
+      "description": "Complete um set inteiro"
+    },
+    "price_watcher": {
+      "title": "Observador de Precos",
+      "description": "Crie seu primeiro alerta de preco"
+    },
+    "treasure_hunter": {
+      "title": "Cacador de Tesouros",
+      "description": "Resgate o bonus 5 vezes"
+    },
+    "early_adopter": {
+      "title": "Pioneiro",
+      "description": "Conta criada antes do lancamento oficial"
+    }
   }
 }

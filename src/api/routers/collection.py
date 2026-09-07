@@ -46,6 +46,8 @@ from src.api.schemas.collection import (
     LigaStatusResponse,
     ManualPriceRequest,
     ParsedLineResponse,
+    PortfolioHistoryPoint,
+    PortfolioSummary,
     SnapshotRequest,
     SyncRequest,
     ValuationResponse,
@@ -281,6 +283,143 @@ def collection_valuation(
     return success_response(data=data)
 
 
+@router.get("/portfolio-summary", response_model=ApiResponse[PortfolioSummary])
+def portfolio_summary(
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Return portfolio investment summary: invested, current value, P&L."""
+    total_invested, invested_count = repo.get_portfolio_invested_total(user_id)
+
+    if invested_count == 0:
+        return success_response(
+            data=PortfolioSummary(
+                total_invested=0.0,
+                total_current_value=0.0,
+                total_pnl=0.0,
+                total_pnl_pct=None,
+                invested_card_count=0,
+            )
+        )
+
+    # Get entries with acquisition_price and calculate current value
+    entries = repo.get_collection_entries_with_acquisition(user_id)
+    total_current_value = Decimal("0")
+
+    # Batch-fetch all card_ids
+    card_ids = [e.card_id for e in entries if e.card_id is not None]
+    prices_map = repo.get_latest_prices_batch(card_ids) if card_ids else {}
+
+    for entry in entries:
+        if entry.card_id is not None:
+            obs = prices_map.get(entry.card_id)
+            if obs is not None:
+                price = obs.median_price or obs.tcg_price or obs.last_sold_price
+                if price is not None:
+                    total_current_value += Decimal(str(price)) * entry.quantity
+
+    total_pnl = float(total_current_value) - float(total_invested)
+    total_pnl_pct = None
+    if float(total_invested) > 0:
+        total_pnl_pct = round((total_pnl / float(total_invested)) * 100, 2)
+
+    return success_response(
+        data=PortfolioSummary(
+            total_invested=round(float(total_invested), 2),
+            total_current_value=round(float(total_current_value), 2),
+            total_pnl=round(total_pnl, 2),
+            total_pnl_pct=total_pnl_pct,
+            invested_card_count=invested_count,
+        )
+    )
+
+
+@router.get("/portfolio-history", response_model=ApiResponse[list[PortfolioHistoryPoint]])
+def portfolio_history(
+    days: int = Query(default=90, ge=1, le=365),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Return portfolio value time series from snapshots."""
+    snapshots = repo.get_portfolio_snapshots(user_id, days=days)
+    points = [
+        PortfolioHistoryPoint(
+            date=str(s.snapshot_date),
+            value=round(float(s.total_value_brl), 2),
+        )
+        for s in reversed(snapshots)  # chronological order
+    ]
+    return success_response(data=points)
+
+
+@router.get("/export-pnl")
+def export_pnl_csv(
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Export P&L data as CSV for tax/IR purposes."""
+    import csv
+    import io
+
+    from starlette.responses import StreamingResponse
+
+    entries = repo.get_collection_entries_with_acquisition(user_id)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "card_name",
+            "set_code",
+            "quantity",
+            "acquisition_price",
+            "acquired_at",
+            "current_price",
+            "pnl",
+            "pnl_pct",
+        ]
+    )
+
+    # Batch-fetch prices
+    card_ids = [e.card_id for e in entries if e.card_id is not None]
+    prices_map = repo.get_latest_prices_batch(card_ids) if card_ids else {}
+
+    for entry in entries:
+        current_price = None
+        pnl = None
+        pnl_pct = None
+
+        if entry.card_id is not None:
+            obs = prices_map.get(entry.card_id)
+            if obs is not None:
+                current_price = obs.median_price or obs.tcg_price or obs.last_sold_price
+
+        if current_price is not None and entry.acquisition_price is not None:
+            pnl = round(float(current_price) - float(entry.acquisition_price), 2)
+            if float(entry.acquisition_price) > 0:
+                pnl_pct = round((pnl / float(entry.acquisition_price)) * 100, 2)
+
+        writer.writerow(
+            [
+                entry.name_en or "",
+                entry.set_code,
+                entry.quantity,
+                float(entry.acquisition_price) if entry.acquisition_price else "",
+                str(entry.acquired_at) if entry.acquired_at else "",
+                float(current_price) if current_price is not None else "",
+                pnl if pnl is not None else "",
+                pnl_pct if pnl_pct is not None else "",
+            ]
+        )
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=portfolio-pnl.csv"},
+    )
+
+
 @router.get("/sets")
 def collection_sets(
     repo: Repository = Depends(get_db),
@@ -288,6 +427,46 @@ def collection_sets(
 ):
     sets = repo.get_collection_sets(user_id)
     data = [{"set_code": s[0], "set_name": s[1], "count": s[2]} for s in sets]
+    return success_response(data=data)
+
+
+@router.get("/set-completion")
+def set_completion(
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Return set completion data: owned vs total cards per set."""
+    from sqlalchemy import func as sqla_func
+    from sqlalchemy import select as sa_select
+    from sqlalchemy.orm import Session as SaSession
+
+    from src.database.models import CardRow
+
+    # Get owned counts per set from collection
+    collection_sets = repo.get_collection_sets(user_id)
+
+    # Get total cards per set from the catalog (cards table)
+    with SaSession(repo.engine) as session:
+        totals_rows = session.execute(
+            sa_select(CardRow.set_code, sqla_func.count(CardRow.id))
+            .where(CardRow.set_code.isnot(None))
+            .group_by(CardRow.set_code)
+        ).all()
+        totals_by_set: dict[str, int] = {r[0]: r[1] for r in totals_rows}
+
+    data = []
+    for set_code, set_name, owned_count in collection_sets:
+        total = totals_by_set.get(set_code, 0)
+        data.append(
+            {
+                "set_code": set_code,
+                "set_name": set_name or set_code,
+                "owned": owned_count,
+                "total": max(total, owned_count),
+            }
+        )
+
+    data.sort(key=lambda x: x["owned"] / max(x["total"], 1), reverse=True)
     return success_response(data=data)
 
 
@@ -439,6 +618,12 @@ def update_collection_entry(
     updates = request.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=422, detail="No fields to update")
+    # Convert acquired_at string to date object
+    if "acquired_at" in updates and updates["acquired_at"] is not None:
+        updates["acquired_at"] = date.fromisoformat(updates["acquired_at"])
+    # Convert acquisition_price to Decimal
+    if "acquisition_price" in updates and updates["acquisition_price"] is not None:
+        updates["acquisition_price"] = Decimal(str(updates["acquisition_price"]))
     try:
         row = repo.update_collection_entry(entry_id, user_id, updates)
     except ValueError as exc:
@@ -461,6 +646,10 @@ def update_collection_entry(
         color=row.color,
         extras=row.extras,
         is_foil=is_foil_entry(row.extras),
+        acquisition_price=(
+            float(row.acquisition_price) if row.acquisition_price is not None else None
+        ),
+        acquired_at=(str(row.acquired_at) if row.acquired_at is not None else None),
     )
     return success_response(data=data)
 

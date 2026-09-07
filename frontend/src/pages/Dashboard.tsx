@@ -71,10 +71,10 @@ export function Dashboard() {
     return (
       <div data-testid="page-dashboard">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {t("landing.heroTitle")}
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
             {t("landing.heroSubtitle")}
           </p>
           {freshnessIndicator && (
@@ -111,10 +111,10 @@ export function Dashboard() {
     return (
       <div data-testid="page-dashboard">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {t("landing.heroTitle")}
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
             {t("landing.heroSubtitle")}
           </p>
           {freshnessIndicator && (
@@ -143,10 +143,10 @@ export function Dashboard() {
 
       {/* Hero header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {t("landing.heroTitle")}
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
           {t("landing.heroSubtitle")}
         </p>
         {freshnessIndicator && (
@@ -214,22 +214,22 @@ export function Dashboard() {
       {/* Market summary strip */}
       {hasMarketData ? (
         <div
-          className="mb-8 flex flex-wrap items-center gap-6 rounded-lg bg-slate-800 border border-slate-600 px-6 py-4"
+          className="mb-8 flex flex-wrap items-center gap-6 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 px-6 py-4"
           data-testid="market-summary-strip"
         >
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400">{t("landing.cardsTracked")}</span>
-            <span className="text-sm font-semibold text-white">{marketStats?.total_cards ?? 0}</span>
+            <span className="text-sm text-gray-500 dark:text-slate-400">{t("landing.cardsTracked")}</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{marketStats?.total_cards ?? 0}</span>
           </div>
-          <div className="h-4 w-px bg-slate-600" aria-hidden="true" />
+          <div className="h-4 w-px bg-gray-300 dark:bg-slate-600" aria-hidden="true" />
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400">{t("landing.observations")}</span>
-            <span className="text-sm font-semibold text-white">{marketStats?.total_observations ?? 0}</span>
+            <span className="text-sm text-gray-500 dark:text-slate-400">{t("landing.observations")}</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{marketStats?.total_observations ?? 0}</span>
           </div>
-          <div className="h-4 w-px bg-slate-600" aria-hidden="true" />
+          <div className="h-4 w-px bg-gray-300 dark:bg-slate-600" aria-hidden="true" />
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400">{t("landing.avgPrice")}</span>
-            <span className="text-sm font-semibold text-white">
+            <span className="text-sm text-gray-500 dark:text-slate-400">{t("landing.avgPrice")}</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">
               <CurrencyIndicator currency={currency} size={14} />
               {" "}{formatCurrency(marketStats?.avg_price ?? null, currency)}
             </span>
