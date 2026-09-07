@@ -493,6 +493,22 @@ class AlertNotificationRow(Base):
     __table_args__ = (Index("ix_alert_notifications_alert", "alert_id"),)
 
 
+class AchievementRow(Base):
+    __tablename__ = "achievements"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    achievement_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    unlocked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "achievement_key", name="uq_user_achievement"),
+        Index("ix_achievements_user", "user_id"),
+    )
+
+
 class ErrorLogRow(Base):
     __tablename__ = "error_log"
 

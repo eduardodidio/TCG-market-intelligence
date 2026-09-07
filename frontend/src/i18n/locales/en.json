@@ -51,6 +51,7 @@
     "evaluations": "Evaluations",
     "catalog": "Card Catalog",
     "alerts": "Price Alerts",
+    "achievements": "Achievements",
     "betaTest": "Beta Test"
   },
   "catalog": {
@@ -429,6 +430,12 @@
   },
   "language": {
     "selector": "Language selector"
+  },
+  "theme": {
+    "selector": "Theme selector",
+    "dark": "Dark",
+    "light": "Light",
+    "system": "System"
   },
   "gridSize": {
     "label": "Grid size",
@@ -963,6 +970,14 @@
     "dismiss": "Dismiss",
     "loginRequired": "Please sign in to manage your price alerts."
   },
+  "pwa": {
+    "updateAvailable": "A new version is available!",
+    "update": "Update",
+    "dismiss": "Dismiss",
+    "offlineMessage": "Offline mode -- data may be outdated",
+    "installMessage": "Install TEDHC Market for a better experience",
+    "install": "Install"
+  },
   "portfolio": {
     "title": "Portfolio & Investment",
     "totalInvested": "Total Invested",
@@ -978,5 +993,57 @@
     "unrealizedPnl": "Unrealized P&L",
     "pnlTooltip": "Unrealized profit/loss based on acquisition price",
     "invalidPrice": "Enter a valid price greater than 0"
+  },
+  "achievements": {
+    "pageTitle": "Achievements",
+    "progress": "{{unlocked}} / {{total}} achievements unlocked",
+    "unlocked": "Unlocked",
+    "locked": "Keep playing to unlock",
+    "unlockedAt": "Unlocked on {{date}}",
+    "toastTitle": "Achievement Unlocked!",
+    "first_card": {
+      "title": "First Card",
+      "description": "Add your first card to collection"
+    },
+    "deck_builder": {
+      "title": "Deck Builder",
+      "description": "Create your first deck"
+    },
+    "scanner": {
+      "title": "Scanner",
+      "description": "Complete your first price scan"
+    },
+    "collector_10": {
+      "title": "Collector",
+      "description": "Own 10 unique cards"
+    },
+    "collector_50": {
+      "title": "Avid Collector",
+      "description": "Own 50 unique cards"
+    },
+    "collector_100": {
+      "title": "Serious Collector",
+      "description": "Own 100 unique cards"
+    },
+    "collector_500": {
+      "title": "Master Collector",
+      "description": "Own 500 unique cards"
+    },
+    "set_master": {
+      "title": "Set Master",
+      "description": "Complete an entire set"
+    },
+    "price_watcher": {
+      "title": "Price Watcher",
+      "description": "Set your first price alert"
+    },
+    "treasure_hunter": {
+      "title": "Treasure Hunter",
+      "description": "Claim the bonus 5 times"
+    },
+    "early_adopter": {
+      "title": "Early Adopter",
+      "description": "Account created before official launch"
+    }
   }
 }

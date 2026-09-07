@@ -107,8 +107,8 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Non-admin primary: Dashboard, My Collection, Explore Cards, Card Catalog, Price Alerts, Settings (no Admin)
-    expect(links).toHaveLength(6);
+    // Non-admin primary: Dashboard, My Collection, Explore Cards, Card Catalog, Price Alerts, Achievements, Settings (no Admin)
+    expect(links).toHaveLength(7);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -125,8 +125,8 @@ describe("Layout", () => {
     expandBeta();
 
     const linkTexts = getNavLinkTexts();
-    // Primary (6) + Beta (8) = 14
-    expect(linkTexts).toHaveLength(14);
+    // Primary (7) + Beta (8) = 15
+    expect(linkTexts).toHaveLength(15);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Explore Cards");
@@ -380,9 +380,9 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Admin sees 7 primary (Dashboard, My Collection, Explore Cards, Card Catalog, Price Alerts, Settings, Admin)
-    // + 8 beta = 15 total
-    expect(links).toHaveLength(15);
+    // Admin sees 8 primary (Dashboard, My Collection, Explore Cards, Card Catalog, Price Alerts, Achievements, Settings, Admin)
+    // + 8 beta = 16 total
+    expect(links).toHaveLength(16);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Admin");

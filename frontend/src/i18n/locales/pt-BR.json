@@ -51,6 +51,7 @@
     "evaluations": "Avaliacoes",
     "catalog": "Catalogo de Cartas",
     "alerts": "Alertas de Preco",
+    "achievements": "Conquistas",
     "betaTest": "Beta Test"
   },
   "catalog": {
@@ -429,6 +430,12 @@
   },
   "language": {
     "selector": "Seletor de idioma"
+  },
+  "theme": {
+    "selector": "Seletor de tema",
+    "dark": "Escuro",
+    "light": "Claro",
+    "system": "Sistema"
   },
   "gridSize": {
     "label": "Tamanho do grid",
@@ -963,6 +970,14 @@
     "dismiss": "Dispensar",
     "loginRequired": "Entre para gerenciar seus alertas de preco."
   },
+  "pwa": {
+    "updateAvailable": "Uma nova versao esta disponivel!",
+    "update": "Atualizar",
+    "dismiss": "Dispensar",
+    "offlineMessage": "Modo offline -- os dados podem estar desatualizados",
+    "installMessage": "Instale o TEDHC Market para uma experiencia melhor",
+    "install": "Instalar"
+  },
   "portfolio": {
     "title": "Portfolio & Investimento",
     "totalInvested": "Total Investido",
@@ -978,5 +993,57 @@
     "unrealizedPnl": "L/P Nao Realizado",
     "pnlTooltip": "Lucro/prejuizo nao realizado baseado no preco de aquisicao",
     "invalidPrice": "Insira um preco valido maior que 0"
+  },
+  "achievements": {
+    "pageTitle": "Conquistas",
+    "progress": "{{unlocked}} / {{total}} conquistas desbloqueadas",
+    "unlocked": "Desbloqueada",
+    "locked": "Continue jogando para desbloquear",
+    "unlockedAt": "Desbloqueada em {{date}}",
+    "toastTitle": "Conquista Desbloqueada!",
+    "first_card": {
+      "title": "Primeira Carta",
+      "description": "Adicione sua primeira carta a colecao"
+    },
+    "deck_builder": {
+      "title": "Construtor de Decks",
+      "description": "Crie seu primeiro deck"
+    },
+    "scanner": {
+      "title": "Scanner",
+      "description": "Complete seu primeiro scan de precos"
+    },
+    "collector_10": {
+      "title": "Colecionador",
+      "description": "Tenha 10 cartas unicas"
+    },
+    "collector_50": {
+      "title": "Colecionador Avido",
+      "description": "Tenha 50 cartas unicas"
+    },
+    "collector_100": {
+      "title": "Colecionador Serio",
+      "description": "Tenha 100 cartas unicas"
+    },
+    "collector_500": {
+      "title": "Mestre Colecionador",
+      "description": "Tenha 500 cartas unicas"
+    },
+    "set_master": {
+      "title": "Mestre do Set",
+      "description": "Complete um set inteiro"
+    },
+    "price_watcher": {
+      "title": "Observador de Precos",
+      "description": "Crie seu primeiro alerta de preco"
+    },
+    "treasure_hunter": {
+      "title": "Cacador de Tesouros",
+      "description": "Resgate o bonus 5 vezes"
+    },
+    "early_adopter": {
+      "title": "Pioneiro",
+      "description": "Conta criada antes do lancamento oficial"
+    }
   }
 }

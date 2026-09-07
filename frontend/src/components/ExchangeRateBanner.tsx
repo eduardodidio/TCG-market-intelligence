@@ -48,7 +48,7 @@ export function ExchangeRateBanner() {
   if (error) {
     return (
       <div
-        className="bg-slate-700/50 text-slate-300 text-xs py-1.5 px-4 text-center"
+        className="bg-gray-100 dark:bg-slate-700/50 text-gray-600 dark:text-slate-300 text-xs py-1.5 px-4 text-center"
         data-testid="exchange-rate-banner"
       >
         {t("currency.rateUnavailable")}
@@ -62,7 +62,7 @@ export function ExchangeRateBanner() {
 
   return (
     <div
-      className="bg-slate-700/50 text-slate-300 text-xs py-1.5 px-4 text-center"
+      className="bg-gray-100 dark:bg-slate-700/50 text-gray-600 dark:text-slate-300 text-xs py-1.5 px-4 text-center"
       data-testid="exchange-rate-banner"
     >
       {t("currency.exchangeRate", { rate: formattedRate })}

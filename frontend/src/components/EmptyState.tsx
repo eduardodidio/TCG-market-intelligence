@@ -37,14 +37,14 @@ export function EmptyState({
       className={`flex flex-col items-center justify-center ${compact ? "py-6" : "py-12"} text-center`}
     >
       {icon && (
-        <div className="mb-4 text-slate-500" data-testid="empty-state-icon">
+        <div className="mb-4 text-gray-400 dark:text-slate-500" data-testid="empty-state-icon">
           {icon}
         </div>
       )}
 
       {title && (
         <h3
-          className="text-lg font-bold text-white mb-1"
+          className="text-lg font-bold text-gray-900 dark:text-white mb-1"
           data-testid="empty-state-title"
         >
           {title}
@@ -53,7 +53,7 @@ export function EmptyState({
 
       {description && (
         <p
-          className="text-sm text-slate-400 max-w-md mb-2"
+          className="text-sm text-gray-500 dark:text-slate-400 max-w-md mb-2"
           data-testid="empty-state-description"
         >
           {description}
@@ -62,7 +62,7 @@ export function EmptyState({
 
       {/* Legacy message fallback (backward compat) */}
       {!title && !description && message && (
-        <p className="text-lg text-slate-400">{message}</p>
+        <p className="text-lg text-gray-500 dark:text-slate-400">{message}</p>
       )}
 
       {resolvedActions.length > 0 && (
@@ -72,7 +72,7 @@ export function EmptyState({
               <button
                 key={a.label}
                 onClick={a.onClick}
-                className="rounded-md border border-slate-500 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                className="rounded-md border border-gray-300 dark:border-slate-500 px-4 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 data-testid="empty-state-action"
               >
                 {a.label}

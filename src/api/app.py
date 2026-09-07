@@ -238,6 +238,7 @@ def create_app() -> FastAPI:
         return response
 
     # Include routers under /api/v1
+    from src.api.routers.achievements import router as achievements_router
     from src.api.routers.admin import router as admin_router
     from src.api.routers.alerts import router as alerts_router
     from src.api.routers.auth import router as auth_router
@@ -259,6 +260,7 @@ def create_app() -> FastAPI:
     from src.api.routers.schedules import router as schedules_router
     from src.api.routers.sets import router as sets_router
 
+    app.include_router(achievements_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(card_search_router, prefix="/api/v1")
