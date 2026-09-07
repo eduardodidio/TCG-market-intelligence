@@ -263,6 +263,8 @@ def create_app() -> FastAPI:
     from src.api.routers.scans import router as scans_router
     from src.api.routers.schedules import router as schedules_router
     from src.api.routers.sets import router as sets_router
+    from src.api.routers.trade_match import router as trade_match_router
+    from src.api.routers.wishlist import router as wishlist_router
 
     app.include_router(achievements_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
@@ -285,6 +287,8 @@ def create_app() -> FastAPI:
     app.include_router(schedules_router, prefix="/api/v1")
     app.include_router(catalog_router, prefix="/api/v1")
     app.include_router(alerts_router, prefix="/api/v1")
+    app.include_router(wishlist_router, prefix="/api/v1")
+    app.include_router(trade_match_router, prefix="/api/v1")
 
     # Health check (outside /api/v1)
     @app.get("/health")

@@ -28,6 +28,7 @@ interface NavItem {
 const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/", labelKey: "nav.dashboard", requiresAuth: false },
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true },
+  { to: "/wishlist", labelKey: "nav.wishlist", requiresAuth: true },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
   { to: "/catalog", labelKey: "nav.catalog", requiresAuth: false },
   { to: "/alerts", labelKey: "nav.alerts", requiresAuth: true },
@@ -44,6 +45,8 @@ const BETA_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/banlist/history", labelKey: "nav.banHistory", requiresAuth: false },
   { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true },
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true },
+  { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true },
+  { to: "/trade-matches", labelKey: "nav.tradeMatches", requiresAuth: true },
   { to: "/evaluations", labelKey: "nav.evaluations", requiresAuth: true },
 ];
 

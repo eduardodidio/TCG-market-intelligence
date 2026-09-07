@@ -93,6 +93,16 @@ const SharedCollectionPage = lazy(() =>
     default: m.SharedCollectionPage,
   })),
 );
+const WishlistPage = lazy(() =>
+  import("./pages/WishlistPage").then((m) => ({
+    default: m.WishlistPage,
+  })),
+);
+const TradeMatchesPage = lazy(() =>
+  import("./pages/TradeMatchesPage").then((m) => ({
+    default: m.TradeMatchesPage,
+  })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -365,6 +375,30 @@ export default function App() {
                   >
                     <ProtectedRoute>
                       <Marketplace />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/wishlist"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <WishlistPage />
+                    </ProtectedRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/trade-matches"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ProtectedRoute>
+                      <TradeMatchesPage />
                     </ProtectedRoute>
                   </Suspense>
                 }

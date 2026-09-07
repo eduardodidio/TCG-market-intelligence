@@ -552,3 +552,31 @@ class ErrorLogRow(Base):
         Index("ix_error_log_timestamp", "timestamp"),
         Index("ix_error_log_level", "level"),
     )
+
+
+class WishlistRow(Base):
+    __tablename__ = "wishlist"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    card_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False
+    )
+    name_en: Mapped[str] = mapped_column(String(500), nullable=False)
+    name_pt: Mapped[str | None] = mapped_column(String(500))
+    set_code: Mapped[str | None] = mapped_column(String(20))
+    collector_number: Mapped[str | None] = mapped_column(String(20))
+    notes: Mapped[str | None] = mapped_column(String(500))
+    max_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    is_acquired: Mapped[int] = mapped_column(Integer, default=0)
+    acquired_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "card_id", name="uq_wishlist_user_card"),
+        Index("ix_wishlist_user", "user_id"),
+        Index("ix_wishlist_card", "card_id"),
+        Index("ix_wishlist_user_acquired", "user_id", "is_acquired"),
+    )

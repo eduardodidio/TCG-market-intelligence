@@ -34,6 +34,7 @@ from src.database.models import (
     TradeInterestRow,
     UserCollectionRow,
     UserRow,
+    WishlistRow,  # noqa: F401 (needed for create_all)
 )
 from src.domain.models import (
     CardLegality,
@@ -4128,3 +4129,179 @@ class Repository:
                 )
 
             return results, total
+
+    # --- Wishlist methods (F110) ---
+
+    def add_wishlist_item(
+        self,
+        user_id: int,
+        card_id: int,
+        name_en: str,
+        name_pt: str | None = None,
+        set_code: str | None = None,
+        collector_number: str | None = None,
+        notes: str | None = None,
+        max_price: Decimal | None = None,
+    ) -> WishlistRow | None:
+        """Add a card to the user's wishlist. Returns None if already exists."""
+        with Session(self.engine) as session:
+            existing = session.execute(
+                select(WishlistRow).where(
+                    WishlistRow.user_id == user_id,
+                    WishlistRow.card_id == card_id,
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                return None
+            row = WishlistRow(
+                user_id=user_id,
+                card_id=card_id,
+                name_en=name_en,
+                name_pt=name_pt,
+                set_code=set_code,
+                collector_number=collector_number,
+                notes=notes,
+                max_price=max_price,
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return row
+
+    def remove_wishlist_item(self, user_id: int, card_id: int) -> bool:
+        """Remove a card from the user's wishlist. Returns True if removed."""
+        from sqlalchemy import delete as sa_delete
+
+        with Session(self.engine) as session:
+            result = session.execute(
+                sa_delete(WishlistRow).where(
+                    WishlistRow.user_id == user_id,
+                    WishlistRow.card_id == card_id,
+                )
+            )
+            session.commit()
+            return (result.rowcount or 0) > 0
+
+    def get_wishlist(
+        self,
+        user_id: int,
+        include_acquired: bool = True,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[WishlistRow], int]:
+        """Return the user's wishlist items and total count."""
+        with Session(self.engine) as session:
+            query = select(WishlistRow).where(WishlistRow.user_id == user_id)
+            if not include_acquired:
+                query = query.where(WishlistRow.is_acquired == 0)
+            if search:
+                pattern = f"%{search}%"
+                query = query.where(
+                    WishlistRow.name_en.ilike(pattern) | WishlistRow.name_pt.ilike(pattern)
+                )
+            total = session.scalar(select(func.count()).select_from(query.subquery()))
+            rows = session.scalars(
+                query.order_by(WishlistRow.created_at.desc()).limit(limit).offset(offset)
+            ).all()
+            for row in rows:
+                session.expunge(row)
+            return list(rows), total or 0
+
+    def mark_wishlist_acquired(self, user_id: int, card_id: int) -> bool:
+        """Mark a wishlist item as acquired. Returns True if updated."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(WishlistRow).where(
+                    WishlistRow.user_id == user_id,
+                    WishlistRow.card_id == card_id,
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return False
+            row.is_acquired = 1
+            row.acquired_at = datetime.now()
+            session.commit()
+            return True
+
+    def is_in_wishlist(self, user_id: int, card_id: int) -> bool:
+        """Check if a card is in the user's wishlist."""
+        with Session(self.engine) as session:
+            return (
+                session.execute(
+                    select(WishlistRow.id).where(
+                        WishlistRow.user_id == user_id,
+                        WishlistRow.card_id == card_id,
+                    )
+                ).scalar_one_or_none()
+                is not None
+            )
+
+    def get_wishlist_card_ids(self, user_id: int) -> set[int]:
+        """Return set of card_ids in the user's wishlist."""
+        with Session(self.engine) as session:
+            rows = session.scalars(
+                select(WishlistRow.card_id).where(WishlistRow.user_id == user_id)
+            ).all()
+            return set(rows)
+
+    def get_user_duplicates(
+        self,
+        user_id: int | str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Return collection entries with quantity > 1 and total count."""
+        with Session(self.engine) as session:
+            base = (
+                select(
+                    UserCollectionRow.card_id,
+                    UserCollectionRow.name_en,
+                    UserCollectionRow.name_pt,
+                    UserCollectionRow.set_code,
+                    UserCollectionRow.collector_number,
+                    UserCollectionRow.quantity,
+                    UserCollectionRow.quality,
+                    CardRow.image_uri,
+                    CardRow.rarity,
+                )
+                .outerjoin(CardRow, UserCollectionRow.card_id == CardRow.id)
+                .where(
+                    UserCollectionRow.user_id == str(user_id),
+                    UserCollectionRow.quantity > 1,
+                    UserCollectionRow.card_id.isnot(None),
+                )
+            )
+            total = session.scalar(select(func.count()).select_from(base.subquery()))
+            rows = session.execute(
+                base.order_by(UserCollectionRow.quantity.desc(), UserCollectionRow.name_en)
+                .limit(limit)
+                .offset(offset)
+            ).all()
+            return [
+                {
+                    "card_id": r.card_id,
+                    "name_en": r.name_en,
+                    "name_pt": r.name_pt,
+                    "set_code": r.set_code,
+                    "collector_number": r.collector_number,
+                    "quantity": r.quantity,
+                    "surplus": r.quantity - 1,
+                    "quality": r.quality,
+                    "image_uri": r.image_uri,
+                    "rarity": r.rarity,
+                }
+                for r in rows
+            ], total or 0
+
+    def get_user_duplicate_card_ids(self, user_id: int | str) -> dict[int, int]:
+        """Return {card_id: surplus_quantity} for cards with quantity > 1."""
+        with Session(self.engine) as session:
+            rows = session.execute(
+                select(UserCollectionRow.card_id, UserCollectionRow.quantity).where(
+                    UserCollectionRow.user_id == str(user_id),
+                    UserCollectionRow.quantity > 1,
+                    UserCollectionRow.card_id.isnot(None),
+                )
+            ).all()
+            return {r.card_id: r.quantity - 1 for r in rows}

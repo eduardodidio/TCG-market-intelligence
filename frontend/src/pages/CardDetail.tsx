@@ -9,6 +9,7 @@ import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatDate, formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { AddToWishlistButton } from "../components/AddToWishlistButton";
 import { BatchAddModal } from "../components/BatchAddModal";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { SetAlertModal } from "../components/SetAlertModal";
@@ -173,7 +174,10 @@ export function CardDetail() {
           />
 
           {/* Card name */}
-          <h1 className="text-2xl font-bold text-white mb-1">{getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold text-white">{getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}</h1>
+            <AddToWishlistButton cardId={card.id} />
+          </div>
           {(() => {
             const subtitle = getSubtitleName(card.name_en, card.name_pt, t("common.unknownCard"));
             return subtitle ? (
