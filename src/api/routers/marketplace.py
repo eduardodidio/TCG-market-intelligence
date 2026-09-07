@@ -80,13 +80,25 @@ def get_shared_collection(
     if shared is None:
         raise HTTPException(status_code=404, detail="Shared collection not found")
 
+    stats = repo.get_shared_collection_stats(shared.user_id)
+    collection_info = {
+        "total_cards": stats["total_cards"],
+        "sets": stats["sets"],
+        "shared_at": shared.shared_at.isoformat() if shared.shared_at else None,
+    }
+
     listings = repo.list_marketplace_entries(
         limit=limit,
         offset=offset,
         search=search,
         share_code=share_code,
     )
-    return {"share_code": share_code, "listings": listings, "count": len(listings)}
+    return {
+        "share_code": share_code,
+        "collection_info": collection_info,
+        "listings": listings,
+        "count": len(listings),
+    }
 
 
 @router.post("/interest")

@@ -824,7 +824,15 @@
     "contactEmail": "Contact: {{email}}",
     "feeCharged": "Fee: {{fee}} tokens charged",
     "pendingConfirmation": "Waiting for other party",
-    "insufficientForTrade": "Not enough tokens for this trade"
+    "insufficientForTrade": "Not enough tokens for this trade",
+    "codeCopied": "Copied!",
+    "sharedCollection": "Shared Collection",
+    "collectionNotFound": "Collection not found",
+    "emptyCollection": "This collection has no cards",
+    "totalCards": "{{count}} cards",
+    "sharedSince": "Shared since {{date}}",
+    "copyCode": "Copy Code",
+    "viewCollection": "View Collection"
   },
   "inlineEdit": {
     "edit": "Edit",

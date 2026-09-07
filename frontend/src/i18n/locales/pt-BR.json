@@ -824,7 +824,15 @@
     "contactEmail": "Contato: {{email}}",
     "feeCharged": "Taxa: {{fee}} tokens cobrados",
     "pendingConfirmation": "Aguardando outra parte",
-    "insufficientForTrade": "Tokens insuficientes para esta troca"
+    "insufficientForTrade": "Tokens insuficientes para esta troca",
+    "codeCopied": "Copiado!",
+    "sharedCollection": "Colecao Compartilhada",
+    "collectionNotFound": "Colecao nao encontrada",
+    "emptyCollection": "Esta colecao nao possui cartas",
+    "totalCards": "{{count}} cartas",
+    "sharedSince": "Compartilhada desde {{date}}",
+    "copyCode": "Copiar Codigo",
+    "viewCollection": "Ver Colecao"
   },
   "inlineEdit": {
     "edit": "Editar",

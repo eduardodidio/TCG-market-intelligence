@@ -10,8 +10,14 @@ from datetime import datetime
 from decimal import Decimal
 
 import pytest
+from sqlalchemy.orm import Session
 
-from src.database.models import SharedCollectionRow, TradeAgreementRow, TradeInterestRow
+from src.database.models import (
+    SharedCollectionRow,
+    TradeAgreementRow,
+    TradeInterestRow,
+    UserCollectionRow,
+)
 from src.database.repository import Repository
 
 
@@ -156,6 +162,55 @@ class TestListSharedCollections:
         codes1 = {e["share_code"] for e in page1}
         codes2 = {e["share_code"] for e in page2}
         assert codes1.isdisjoint(codes2)
+
+
+# ── SharedCollection Stats (F101-T1) ──────────────────────────────────
+
+
+class TestGetSharedCollectionStats:
+    def _add_collection_entry(self, repo, user_id, set_code="mh3", name="Card", qty=1):
+        with Session(repo.engine) as session:
+            entry = UserCollectionRow(
+                user_id=str(user_id),
+                name_en=name,
+                set_code=set_code,
+                collector_number="1",
+                quantity=qty,
+            )
+            session.add(entry)
+            session.commit()
+
+    def test_returns_zero_for_empty_collection(self, repo):
+        stats = repo.get_shared_collection_stats(user_id=999)
+        assert stats["total_cards"] == 0
+        assert stats["sets"] == []
+
+    def test_returns_total_cards_count(self, repo):
+        self._add_collection_entry(repo, user_id=1, set_code="mh3", qty=3)
+        self._add_collection_entry(repo, user_id=1, set_code="fdn", qty=2)
+        stats = repo.get_shared_collection_stats(user_id=1)
+        assert stats["total_cards"] == 5
+
+    def test_returns_distinct_sets(self, repo):
+        self._add_collection_entry(repo, user_id=1, set_code="mh3", name="Card A")
+        self._add_collection_entry(repo, user_id=1, set_code="fdn", name="Card B")
+        self._add_collection_entry(repo, user_id=1, set_code="mh3", name="Card C")
+        stats = repo.get_shared_collection_stats(user_id=1)
+        assert sorted(stats["sets"]) == ["fdn", "mh3"]
+
+    def test_does_not_include_other_users_cards(self, repo):
+        self._add_collection_entry(repo, user_id=1, set_code="mh3", qty=5)
+        self._add_collection_entry(repo, user_id=2, set_code="fdn", qty=10)
+        stats = repo.get_shared_collection_stats(user_id=1)
+        assert stats["total_cards"] == 5
+        assert stats["sets"] == ["mh3"]
+
+    def test_sets_are_sorted(self, repo):
+        self._add_collection_entry(repo, user_id=1, set_code="zen", name="A")
+        self._add_collection_entry(repo, user_id=1, set_code="aer", name="B")
+        self._add_collection_entry(repo, user_id=1, set_code="mh3", name="C")
+        stats = repo.get_shared_collection_stats(user_id=1)
+        assert stats["sets"] == ["aer", "mh3", "zen"]
 
 
 # ── TradeInterest CRUD ───────────────────────────────────────────────

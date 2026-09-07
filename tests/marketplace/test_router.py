@@ -101,6 +101,42 @@ class TestListingsEndpoints:
         resp = buyer_client.get("/api/v1/marketplace/listings/nonexistent")
         assert resp.status_code == 404
 
+    def test_shared_collection_includes_collection_info(self, repo, seller_client, seller):
+        """GET /marketplace/listings/{code} returns collection_info with stats."""
+        share_code, _entry_id = _share_and_create_entry(repo, seller_client, seller)
+        resp = seller_client.get(f"/api/v1/marketplace/listings/{share_code}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "collection_info" in data
+        info = data["collection_info"]
+        assert "total_cards" in info
+        assert isinstance(info["total_cards"], int)
+        assert "sets" in info
+        assert isinstance(info["sets"], list)
+        assert "shared_at" in info
+
+    def test_shared_collection_stats_reflect_cards(self, repo, seller_client, seller):
+        """collection_info.total_cards reflects the seller's actual card count."""
+        share_code, _entry_id = _share_and_create_entry(repo, seller_client, seller)
+        # Add a second card
+        create_collection_entry(
+            repo, seller.id, name_en="Dark Ritual", set_code="lea", collector_number="67"
+        )
+        resp = seller_client.get(f"/api/v1/marketplace/listings/{share_code}")
+        info = resp.json()["collection_info"]
+        assert info["total_cards"] >= 2
+        assert "lea" in info["sets"]
+
+    def test_shared_collection_empty_stats(self, repo, seller_client, seller):
+        """collection_info for user with 0 cards returns empty values."""
+        resp = seller_client.patch("/api/v1/marketplace/sharing", json={"is_shared": True})
+        share_code = resp.json()["share_code"]
+        # Don't add any collection entries
+        resp = seller_client.get(f"/api/v1/marketplace/listings/{share_code}")
+        info = resp.json()["collection_info"]
+        assert info["total_cards"] == 0
+        assert info["sets"] == []
+
     def test_browse_excludes_own_cards(self, repo, seller_client, seller):
         """Seller's own cards should not appear in their browse results."""
         _share_and_create_entry(repo, seller_client, seller)

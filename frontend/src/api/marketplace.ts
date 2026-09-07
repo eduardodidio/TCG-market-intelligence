@@ -139,6 +139,19 @@ export interface MyTradesResponse {
   count: number;
 }
 
+export interface CollectionInfo {
+  total_cards: number;
+  sets: string[];
+  shared_at: string | null;
+}
+
+export interface SharedCollectionResponse {
+  share_code: string;
+  collection_info: CollectionInfo;
+  listings: MarketplaceListing[];
+  count: number;
+}
+
 // --- API functions ---
 
 export function fetchSharingStatus(): Promise<SharingStatus> {
@@ -151,6 +164,16 @@ export function toggleSharing(is_shared: boolean): Promise<SharingStatus> {
 
 export function fetchListings(params?: Record<string, string>): Promise<ListingsResponse> {
   return marketplaceGet<ListingsResponse>("/api/v1/marketplace/listings", params);
+}
+
+export function fetchSharedCollection(
+  code: string,
+  params?: Record<string, string>,
+): Promise<SharedCollectionResponse> {
+  return marketplaceGet<SharedCollectionResponse>(
+    `/api/v1/marketplace/listings/${encodeURIComponent(code)}`,
+    params,
+  );
 }
 
 export function expressInterest(

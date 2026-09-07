@@ -1,21 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router-dom";
-import { expressInterest, fetchListings, type MarketplaceListing } from "../api/marketplace";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  expressInterest,
+  fetchSharedCollection,
+  type MarketplaceListing,
+  type CollectionInfo,
+} from "../api/marketplace";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { CopyCodeButton } from "../components/CopyCodeButton";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { TradeInterestModal } from "../components/TradeInterestModal";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
+import { TradeInterestModal } from "../components/TradeInterestModal";
+import { useAuth } from "../hooks/useAuth";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { useDebounce } from "../hooks/useDebounce";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
-function MarketplaceCardTile({
+function SharedCardTile({
   listing,
   onInterest,
 }: {
@@ -38,7 +44,7 @@ function MarketplaceCardTile({
     <div
       className="group block bg-slate-800 rounded-lg overflow-hidden border border-slate-600
         hover:border-cyan-400/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg relative"
-      data-testid={`marketplace-card-${listing.entry_id}`}
+      data-testid={`shared-card-${listing.entry_id}`}
     >
       {listing.quantity > 1 && (
         <span className="absolute top-2 right-2 z-10 bg-indigo-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
@@ -99,55 +105,69 @@ function MarketplaceCardTile({
         >
           {t("marketplace.interested")}
         </button>
-
-        <div className="text-center mt-1">
-          <CopyCodeButton code={listing.share_code} />
-        </div>
       </div>
     </div>
   );
 }
 
-export function Marketplace() {
+export function SharedCollectionPage() {
+  const { code } = useParams<{ code: string }>();
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [collectionInfo, setCollectionInfo] = useState<CollectionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [notFound, setNotFound] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
 
-  const loadListings = useCallback(async (search?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params: Record<string, string> = { limit: "40" };
-      if (search) params.search = search;
-      const resp = await fetchListings(params);
-      setListings(resp.listings);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load listings");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadCollection = useCallback(
+    async (search?: string) => {
+      if (!code) return;
+      setLoading(true);
+      setError(null);
+      setNotFound(false);
+      try {
+        const params: Record<string, string> = { limit: "40" };
+        if (search) params.search = search;
+        const resp = await fetchSharedCollection(code, params);
+        setListings(resp.listings);
+        setCollectionInfo(resp.collection_info);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to load collection";
+        if (msg.includes("not found") || msg.includes("Not Found")) {
+          setNotFound(true);
+        } else {
+          setError(msg);
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [code],
+  );
 
   useEffect(() => {
-    loadListings(debouncedSearch || undefined);
-    if (debouncedSearch) {
-      setSearchParams({ search: debouncedSearch }, { replace: true });
-    } else {
-      setSearchParams({}, { replace: true });
-    }
-  }, [debouncedSearch, loadListings, setSearchParams]);
+    loadCollection(debouncedSearch || undefined);
+  }, [debouncedSearch, loadCollection]);
 
   const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   const [interestSuccess, setInterestSuccess] = useState(false);
 
-  const handleInterest = useCallback((listing: MarketplaceListing) => {
-    setSelectedListing(listing);
-    setInterestSuccess(false);
-  }, []);
+  const handleInterest = useCallback(
+    (listing: MarketplaceListing) => {
+      if (!isAuthenticated) {
+        navigate(`/login?redirect=/marketplace/share/${code}`);
+        return;
+      }
+      setSelectedListing(listing);
+      setInterestSuccess(false);
+    },
+    [isAuthenticated, navigate, code],
+  );
 
   const handleInterestSubmit = useCallback(
     async (message: string | undefined) => {
@@ -164,30 +184,82 @@ export function Marketplace() {
     [selectedListing],
   );
 
+  const formatDate = (iso: string | null) => {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleDateString();
+    } catch {
+      return iso;
+    }
+  };
+
   return (
-    <div data-testid="page-marketplace">
+    <div data-testid="page-shared-collection">
       <Breadcrumb
         items={[
           { label: t("nav.dashboard"), to: "/" },
-          { label: t("nav.marketplace") },
+          { label: t("nav.marketplace"), to: "/marketplace" },
+          { label: code ? `${code.slice(0, 8)}...` : t("marketplace.sharedCollection") },
         ]}
       />
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">{t("marketplace.title")}</h2>
-        <Link
-          to="/marketplace/my-trades"
-          className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
-        >
-          {t("marketplace.myTrades")}
-        </Link>
-      </div>
 
-      <div className="mb-6">
-        <SearchBar value={searchTerm} onChange={setSearchTerm} />
-      </div>
+      {/* Not found */}
+      {notFound && (
+        <EmptyState
+          title={t("marketplace.collectionNotFound")}
+          actions={[
+            {
+              label: t("nav.marketplace"),
+              onClick: () => navigate("/marketplace"),
+            },
+          ]}
+        />
+      )}
 
-      {error && <ErrorBanner message={error} onRetry={() => loadListings(debouncedSearch || undefined)} />}
+      {/* Error */}
+      {error && <ErrorBanner message={error} onRetry={() => loadCollection(debouncedSearch || undefined)} />}
 
+      {/* Header with stats */}
+      {!notFound && !error && collectionInfo && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-2xl font-bold text-white">{t("marketplace.sharedCollection")}</h2>
+            <Link
+              to="/marketplace"
+              className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+              {t("nav.marketplace")}
+            </Link>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400" data-testid="collection-stats">
+            <span data-testid="total-cards">
+              {t("marketplace.totalCards", { count: collectionInfo.total_cards })}
+            </span>
+            {collectionInfo.sets.length > 0 && (
+              <span data-testid="collection-sets">
+                {collectionInfo.sets.map((s) => s.toUpperCase()).join(", ")}
+              </span>
+            )}
+            {collectionInfo.shared_at && (
+              <span data-testid="shared-at">
+                {t("marketplace.sharedSince", { date: formatDate(collectionInfo.shared_at) })}
+              </span>
+            )}
+            {code && (
+              <CopyCodeButton code={code} truncateAt={12} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Search */}
+      {!notFound && (
+        <div className="mb-6">
+          <SearchBar value={searchTerm} onChange={setSearchTerm} />
+        </div>
+      )}
+
+      {/* Loading */}
       {loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -196,14 +268,16 @@ export function Marketplace() {
         </div>
       )}
 
-      {!loading && !error && listings.length === 0 && (
-        <EmptyState message={t("marketplace.noListings")} />
+      {/* Empty collection */}
+      {!loading && !error && !notFound && listings.length === 0 && (
+        <EmptyState message={t("marketplace.emptyCollection")} />
       )}
 
+      {/* Card grid */}
       {!loading && listings.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {listings.map((listing) => (
-            <MarketplaceCardTile
+            <SharedCardTile
               key={`${listing.share_code}-${listing.entry_id}`}
               listing={listing}
               onInterest={handleInterest}
@@ -212,6 +286,7 @@ export function Marketplace() {
         </div>
       )}
 
+      {/* Interest success toast */}
       {interestSuccess && (
         <div
           className="fixed bottom-6 right-6 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm z-40"
@@ -221,6 +296,7 @@ export function Marketplace() {
         </div>
       )}
 
+      {/* Interest modal */}
       {selectedListing && (
         <TradeInterestModal
           listing={selectedListing}

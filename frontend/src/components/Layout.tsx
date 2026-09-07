@@ -32,6 +32,7 @@ const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/catalog", labelKey: "nav.catalog", requiresAuth: false },
   { to: "/alerts", labelKey: "nav.alerts", requiresAuth: true },
   { to: "/achievements", labelKey: "nav.achievements", requiresAuth: true },
+  { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
   { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
 ];
@@ -43,7 +44,6 @@ const BETA_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/banlist/history", labelKey: "nav.banHistory", requiresAuth: false },
   { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true },
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true },
-  { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true },
   { to: "/evaluations", labelKey: "nav.evaluations", requiresAuth: true },
 ];
 
