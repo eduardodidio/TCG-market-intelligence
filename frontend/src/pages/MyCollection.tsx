@@ -566,6 +566,7 @@ export function MyCollection() {
     const currentId = fetchIdRef.current;
 
     setLoading(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setError(null);
     setOffset(0);
     setCards([]);

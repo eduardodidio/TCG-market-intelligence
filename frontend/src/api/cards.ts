@@ -1,5 +1,5 @@
 import type { ApiResponse, CardDetail, CardSummary, PriceHistoryResponse, WebSearchResult } from "../types/api";
-import { apiGet } from "./client";
+import { apiGet, apiPost } from "./client";
 
 export function fetchCards(
   params?: Record<string, string>,
@@ -43,6 +43,12 @@ export function fetchPriceTrends(
     card_ids: cardIds.join(","),
     days: String(days),
   });
+}
+
+export function refreshCardPrice(
+  cardId: number,
+): Promise<ApiResponse<CardSummary>> {
+  return apiPost<CardSummary>(`/api/v1/cards/${cardId}/refresh-price`, {});
 }
 
 export function searchCardsWeb(

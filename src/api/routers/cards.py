@@ -3,14 +3,20 @@ from __future__ import annotations
 import base64
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from src.analytics.aggregation import (
     PERIOD_MAP,
     aggregate_series,
     compute_price_change_summary,
 )
-from src.api.deps import get_currency_converter_dep, get_db, get_optional_user
+from src.api.deps import (
+    get_credit_service,
+    get_currency_converter_dep,
+    get_current_user,
+    get_db,
+    get_optional_user,
+)
 from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.cards import (
     CardDetail,
@@ -24,6 +30,8 @@ from src.api.schemas.envelope import (
     paginated_response,
     success_response,
 )
+from src.credits.constants import CARD_REFRESH_COST
+from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
 from src.services.currency import CurrencyConverter
@@ -241,3 +249,96 @@ def get_history(
     return success_response(
         data=CollectionHistoryResponse(observations=observations, summary=summary)
     )
+
+
+@router.post("/{card_id}/refresh-price", response_model=ApiResponse[CardSummary])
+async def refresh_card_price(
+    card_id: int,
+    request: Request,
+    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user: User = Depends(get_current_user),
+    credit_svc: CreditService = Depends(get_credit_service),
+):
+    """Refresh any card's price from LigaMagic (not limited to collection entries)."""
+
+    from src.domain.models import HistoricalPrice
+    from src.providers.liga.exceptions import (
+        LigaError,
+        LigaNotFoundError,
+        LigaRateLimitError,
+    )
+    from src.providers.liga.provider import LigaMagicProvider
+
+    # Credit guard
+    if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
+
+    card = repo.get_card_by_id(card_id)
+    if not card:
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
+
+    card_name = card.name_en or card.name_pt
+    if not card_name:
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            "Card has no name (name_en or name_pt required for LigaMagic search)",
+        )
+
+    # Get Liga provider from registry
+    registry = getattr(request.app.state, "provider_registry", None)
+    provider = None
+    if registry is not None:
+        provider = next(
+            (p for p in registry.providers if isinstance(p, LigaMagicProvider)),
+            None,
+        )
+    if provider is None:
+        raise api_error(
+            503, ErrorCode.EXTERNAL_PROVIDER_UNAVAILABLE, "LigaMagic provider not available"
+        )
+
+    try:
+        prices = await provider.search_card(card_name)
+    except LigaNotFoundError:
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found on LigaMagic")
+    except LigaRateLimitError:
+        raise api_error(429, ErrorCode.EXTERNAL_FAILURE, "LigaMagic rate limited, try again later")
+    except LigaError as exc:
+        raise api_error(502, ErrorCode.EXTERNAL_FAILURE, f"LigaMagic error: {exc}")
+    except Exception as exc:
+        msg = f"{type(exc).__name__}: {exc}" if str(exc) else f"{type(exc).__name__} (no details)"
+        raise api_error(502, ErrorCode.EXTERNAL_FAILURE, f"LigaMagic error: {msg}")
+
+    # Extract normal price
+    normal = prices.get("normal", {})
+    price = normal.get("low") or normal.get("mid") or normal.get("high")
+
+    if price is not None:
+        ext_id = f"liga_{card_id}"
+        obs = HistoricalPrice(
+            source="liga",
+            external_id=ext_id,
+            observed_at=date.today(),
+            median_price=price,
+        )
+        repo.insert_price_observations([obs])
+
+    # Deduct credit
+    credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(card_id))
+
+    # Return updated card summary
+    converted_price = converter.convert(price, date.today(), currency) if price else None
+    data = CardSummary(
+        id=card.id,
+        game=card.game,
+        name_en=card.name_en,
+        name_pt=card.name_pt,
+        set_code=card.set_code,
+        collector_number=card.collector_number,
+        latest_price=converted_price,
+        currency=currency,
+    )
+    return success_response(data=data)

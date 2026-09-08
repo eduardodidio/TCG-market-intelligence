@@ -1,6 +1,7 @@
 interface FilterOption {
   label: string;
   value: string;
+  icon?: string;
 }
 
 interface FilterChipsProps {
@@ -32,13 +33,22 @@ export function FilterChips({ options, selected, onSelect }: FilterChipsProps) {
           onClick={() =>
             onSelect(option.value === selected ? null : option.value)
           }
-          className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+          className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors flex items-center ${
             selected === option.value
               ? "bg-indigo-500 text-white shadow-md"
               : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
           }`}
           data-testid={`filter-chip-${option.value}`}
         >
+          {option.icon && (
+            <img
+              src={option.icon}
+              className="w-4 h-4 invert brightness-200 inline mr-1"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+              alt=""
+              data-testid={`filter-chip-icon-${option.value}`}
+            />
+          )}
           {option.label}
         </button>
       ))}

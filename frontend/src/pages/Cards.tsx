@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { fetchCards, searchCardsWeb } from "../api/cards";
+import { fetchCards, refreshCardPrice, searchCardsWeb } from "../api/cards";
 import { fetchSets } from "../api/sets";
 import { apiPost } from "../api/client";
 import { createEvaluation } from "../api/evaluations";
 import { CardTile } from "../components/CardTile";
+import { CostBadge } from "../components/CostBadge";
+import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { FilterChips } from "../components/FilterChips";
@@ -13,6 +15,7 @@ import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
 import { SortSelect, EXPLORE_SORT_OPTIONS } from "../components/SortSelect";
 import { useAuth } from "../hooks/useAuth";
+import { useCredits } from "../hooks/useCredits";
 import { useCurrency } from "../hooks/useCurrency";
 import { useDebounce } from "../hooks/useDebounce";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
@@ -20,6 +23,7 @@ import { usePriceTrends } from "../hooks/usePriceTrends";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import type { CardSummary, SetSummary, WebSearchResult } from "../types/api";
 import { DEFAULT_PAGE_LIMIT } from "../utils/constants";
+import { scryfallSetIconUrl } from "../utils/scryfall";
 
 type SearchMode = "local" | "web";
 
@@ -65,6 +69,12 @@ export function Cards() {
   const [evalAddingIdx, setEvalAddingIdx] = useState<number | null>(null);
   const [evalAddedIdxs, setEvalAddedIdxs] = useState<Set<number>>(new Set());
 
+  // Refresh All state
+  const [refreshAllModalOpen, setRefreshAllModalOpen] = useState(false);
+  const [refreshAllProgress, setRefreshAllProgress] = useState<{ current: number; total: number } | null>(null);
+  const refreshAllAbortRef = useRef(false);
+  const { balance: creditBalance, isAdmin: creditIsAdmin, bonusEligible: creditBonusEligible, claimBonus: creditClaimBonus, refetch: creditRefetch } = useCredits();
+
   useScrollRestoration("cards");
 
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -104,6 +114,7 @@ export function Cards() {
     const currentFetchId = fetchIdRef.current;
 
     setLoading(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setError(null);
     setCursor(null);
     setCards([]);
@@ -177,6 +188,7 @@ export function Cards() {
   const setOptions = sets.map((s) => ({
     label: s.set_code,
     value: s.set_code,
+    icon: scryfallSetIconUrl(s.set_code),
   }));
 
   const sentinelRef = useInfiniteScroll(handleLoadMore, {
@@ -192,6 +204,35 @@ export function Cards() {
     setSortBy(newSortBy);
     setSortDir(newSortDir);
   }, []);
+
+  const handlePriceRefreshed = useCallback((cardId: number, newPrice: number | null) => {
+    setCards((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, latest_price: newPrice } : c)),
+    );
+  }, []);
+
+  const handleRefreshAll = useCallback(async () => {
+    setRefreshAllModalOpen(false);
+    refreshAllAbortRef.current = false;
+    const total = cards.length;
+    setRefreshAllProgress({ current: 0, total });
+
+    for (let i = 0; i < cards.length; i++) {
+      if (refreshAllAbortRef.current) break;
+      setRefreshAllProgress({ current: i + 1, total });
+      try {
+        const res = await refreshCardPrice(cards[i].id);
+        if (res.data) {
+          handlePriceRefreshed(cards[i].id, res.data.latest_price);
+        }
+      } catch {
+        // continue with next card
+      }
+    }
+
+    setRefreshAllProgress(null);
+    creditRefetch();
+  }, [cards, handlePriceRefreshed, creditRefetch]);
 
   // Web search handler
   const handleWebSearch = useCallback(async () => {
@@ -323,13 +364,46 @@ export function Cards() {
               />
             </div>
 
-            {setOptions.length > 0 && (
-              <FilterChips
-                options={setOptions}
-                selected={selectedSet}
-                onSelect={setSelectedSet}
-              />
-            )}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 overflow-x-auto">
+                {setOptions.length > 0 && (
+                  <FilterChips
+                    options={setOptions}
+                    selected={selectedSet}
+                    onSelect={setSelectedSet}
+                  />
+                )}
+              </div>
+
+              {/* Refresh All button */}
+              {isAuthenticated && cards.length > 0 && !refreshAllProgress && (
+                <button
+                  type="button"
+                  onClick={() => setRefreshAllModalOpen(true)}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
+                    bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg
+                    transition-colors duration-200"
+                  data-testid="refresh-all-prices-btn"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="hidden sm:inline">{t("cards.refreshAll", "Refresh All")}</span>
+                  <CostBadge cost={cards.length} balance={creditBalance} />
+                </button>
+              )}
+
+              {/* Refresh All progress */}
+              {refreshAllProgress && (
+                <span className="shrink-0 text-sm text-cyan-400" data-testid="refresh-all-progress">
+                  {t("cards.refreshingProgress", {
+                    current: refreshAllProgress.current,
+                    total: refreshAllProgress.total,
+                    defaultValue: `Refreshing ${refreshAllProgress.current}/${refreshAllProgress.total}...`,
+                  })}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Error state */}
@@ -375,7 +449,7 @@ export function Cards() {
                 data-testid="cards-grid"
               >
                 {cards.map((card) => (
-                  <CardTile key={card.id} card={card} trend={trends[String(card.id)]} />
+                  <CardTile key={card.id} card={card} trend={trends[String(card.id)]} onPriceRefreshed={handlePriceRefreshed} />
                 ))}
               </div>
 
@@ -539,6 +613,19 @@ export function Cards() {
           )}
         </div>
       )}
+
+      <CreditConfirmModal
+        isOpen={refreshAllModalOpen}
+        onCancel={() => setRefreshAllModalOpen(false)}
+        onConfirm={handleRefreshAll}
+        cost={cards.length}
+        balance={creditBalance ?? 0}
+        actionLabel={t("cards.refreshAll", "Refresh All Prices")}
+        isAdmin={creditIsAdmin}
+        cardCount={cards.length}
+        bonusEligible={creditBonusEligible}
+        onClaimBonus={async () => { await creditClaimBonus(); creditRefetch(); }}
+      />
     </div>
   );
 }
