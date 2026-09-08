@@ -88,7 +88,7 @@ export function useCatalogCards(filters: CatalogFilters) {
 
     const params = buildParams(0);
 
-    apiGet<CatalogCardsResponse>("/api/catalog/cards", params)
+    apiGet<CatalogCardsResponse>("/api/v1/catalog/cards", params)
       .then((res) => {
         if (currentFetchId !== fetchIdRef.current) return;
         if (res.errors.length > 0) {
@@ -118,7 +118,7 @@ export function useCatalogCards(filters: CatalogFilters) {
 
     const params = buildParams(nextOffset);
 
-    apiGet<CatalogCardsResponse>("/api/catalog/cards", params)
+    apiGet<CatalogCardsResponse>("/api/v1/catalog/cards", params)
       .then((res) => {
         if (res.errors.length > 0) {
           setError(res.errors.map((e) => e.message).join("; "));

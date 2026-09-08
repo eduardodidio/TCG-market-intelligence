@@ -128,6 +128,8 @@ export function CatalogPage() {
     () => new Set(searchParams.get("color")?.split(",").filter(Boolean) ?? []),
   );
   const [hasPrice, setHasPrice] = useState(searchParams.get("has_price") ?? "");
+  const [sortBy, setSortBy] = useState(searchParams.get("sort_by") ?? "name");
+  const [sortDir, setSortDir] = useState(searchParams.get("sort_dir") ?? "asc");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Sync filters to URL search params
@@ -138,8 +140,10 @@ export function CatalogPage() {
     if (selectedRarities.size > 0) params.rarity = [...selectedRarities].join(",");
     if (selectedColors.size > 0) params.color = [...selectedColors].join(",");
     if (hasPrice) params.has_price = hasPrice;
+    if (sortBy && sortBy !== "name") params.sort_by = sortBy;
+    if (sortDir && sortDir !== "asc") params.sort_dir = sortDir;
     setSearchParams(params, { replace: true });
-  }, [searchTerm, selectedSet, selectedRarities, selectedColors, hasPrice, setSearchParams]);
+  }, [searchTerm, selectedSet, selectedRarities, selectedColors, hasPrice, sortBy, sortDir, setSearchParams]);
 
   const filters = {
     name: searchTerm,
@@ -149,8 +153,8 @@ export function CatalogPage() {
     has_price: hasPrice,
     min_price: "",
     max_price: "",
-    sort_by: "name",
-    sort_dir: "asc",
+    sort_by: sortBy,
+    sort_dir: sortDir,
   };
 
   const { cards, total, loading, loadingMore, error, hasMore, loadMore } = useCatalogCards(filters);
@@ -187,6 +191,8 @@ export function CatalogPage() {
     setSelectedRarities(new Set());
     setSelectedColors(new Set());
     setHasPrice("");
+    setSortBy("name");
+    setSortDir("asc");
   }, []);
 
   const hasActiveFilters =
@@ -356,6 +362,34 @@ export function CatalogPage() {
                 >
                   {t("catalog.noPrice")}
                 </button>
+              </div>
+            </div>
+
+            {/* Sort options */}
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                {t("catalog.sortBy")}
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-slate-700 text-white border border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  data-testid="sort-by-select"
+                >
+                  <option value="name">{t("catalog.sortName")}</option>
+                  <option value="set_code">{t("catalog.sortSet")}</option>
+                  <option value="price">{t("catalog.sortPrice")}</option>
+                </select>
+                <select
+                  value={sortDir}
+                  onChange={(e) => setSortDir(e.target.value)}
+                  className="bg-slate-700 text-white border border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  data-testid="sort-dir-select"
+                >
+                  <option value="asc">{t("catalog.sortAsc")}</option>
+                  <option value="desc">{t("catalog.sortDesc")}</option>
+                </select>
               </div>
             </div>
 

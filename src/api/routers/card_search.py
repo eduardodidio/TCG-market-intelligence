@@ -33,6 +33,39 @@ def _find_local_card(repo: Repository, card_name: str) -> int | None:
     return None
 
 
+def _find_alternate_name(repo: Repository, query: str) -> str | None:
+    """Look up the alternate-language name for a card in the local catalog.
+
+    If *query* matches name_pt, return name_en (and vice-versa).
+    Returns ``None`` when no match is found.
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import Session
+
+    from src.database.models import CardRow
+
+    q_lower = query.strip().lower()
+    with Session(repo.engine) as session:
+        row = session.execute(
+            select(CardRow.name_en, CardRow.name_pt)
+            .where(
+                (func.lower(CardRow.name_pt) == q_lower) | (func.lower(CardRow.name_en) == q_lower)
+            )
+            .limit(1)
+        ).first()
+
+    if row is None:
+        return None
+
+    name_en, name_pt = row
+    # If the query matched the PT name, return EN; otherwise return PT
+    if name_pt and name_pt.lower() == q_lower:
+        return name_en
+    if name_en and name_en.lower() == q_lower:
+        return name_pt
+    return None
+
+
 def _decimal_to_float(val: Decimal | None) -> float | None:
     if val is None:
         return None
@@ -116,7 +149,26 @@ async def _search_via_liga(
     has_foil = any(v is not None for v in foil.values())
 
     if not has_normal and not has_foil:
-        return success_response(data=[])
+        # Retry with alternate-language name from local catalog
+        alt_name = _find_alternate_name(repo, q)
+        if alt_name:
+            log.info("web_search_liga_lang_fallback", original=q, alternate=alt_name)
+            try:
+                prices = await asyncio.wait_for(
+                    liga_provider.search_card(alt_name.strip()),
+                    timeout=_SEARCH_TIMEOUT_SECONDS,
+                )
+            except (asyncio.TimeoutError, Exception):
+                # If retry also fails, return empty — don't raise
+                return success_response(data=[])
+            normal = prices.get("normal", {})
+            foil = prices.get("foil", {})
+            has_normal = any(v is not None for v in normal.values())
+            has_foil = any(v is not None for v in foil.values())
+            if not has_normal and not has_foil:
+                return success_response(data=[])
+        else:
+            return success_response(data=[])
 
     card_name = prices.get("card_name", q.strip())
     local_card_id = _find_local_card(repo, card_name)
@@ -157,7 +209,19 @@ async def _search_via_myp(
         raise api_error(502, ErrorCode.EXTERNAL_FAILURE, "MYP search failed")
 
     if not myp_results:
-        return success_response(data=[])
+        # Retry with alternate-language name from local catalog
+        alt_name = _find_alternate_name(repo, q)
+        if alt_name:
+            log.info("web_search_myp_lang_fallback", original=q, alternate=alt_name)
+            try:
+                myp_results = await asyncio.wait_for(
+                    myp_provider.search_card(alt_name.strip()),
+                    timeout=_SEARCH_TIMEOUT_SECONDS,
+                )
+            except (asyncio.TimeoutError, Exception):
+                return success_response(data=[])
+        if not myp_results:
+            return success_response(data=[])
 
     results: list[WebSearchResult] = []
     for item in myp_results:

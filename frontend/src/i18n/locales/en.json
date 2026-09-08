@@ -71,7 +71,13 @@
     "resultsCount": "{{count}} results",
     "emptyTitle": "No cards found",
     "emptyDescription": "The catalog is empty. Import cards via the Scryfall bulk data.",
-    "emptyFiltered": "No cards match the current filters. Try adjusting your search."
+    "emptyFiltered": "No cards match the current filters. Try adjusting your search.",
+    "sortBy": "Sort By",
+    "sortName": "Name",
+    "sortSet": "Set",
+    "sortPrice": "Price",
+    "sortAsc": "Ascending",
+    "sortDesc": "Descending"
   },
   "admin": {
     "title": "Admin Panel",

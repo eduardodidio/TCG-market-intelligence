@@ -71,7 +71,13 @@
     "resultsCount": "{{count}} resultados",
     "emptyTitle": "Nenhuma carta encontrada",
     "emptyDescription": "O catalogo esta vazio. Importe cartas via Scryfall bulk data.",
-    "emptyFiltered": "Nenhuma carta corresponde aos filtros atuais. Tente ajustar sua busca."
+    "emptyFiltered": "Nenhuma carta corresponde aos filtros atuais. Tente ajustar sua busca.",
+    "sortBy": "Ordenar Por",
+    "sortName": "Nome",
+    "sortSet": "Colecao",
+    "sortPrice": "Preco",
+    "sortAsc": "Crescente",
+    "sortDesc": "Decrescente"
   },
   "admin": {
     "title": "Painel Admin",

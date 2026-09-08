@@ -14,7 +14,7 @@ export function useCatalogStats() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiGet<CatalogStats>("/api/catalog/stats")
+    apiGet<CatalogStats>("/api/v1/catalog/stats")
       .then((res) => {
         if (res.errors.length > 0) {
           setError(res.errors.map((e) => e.message).join("; "));

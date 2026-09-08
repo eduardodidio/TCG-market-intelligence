@@ -129,8 +129,15 @@ def list_catalog_cards(
         params["set_code"] = set_code
 
     if rarity is not None:
-        filters.append("c.rarity = :rarity")
-        params["rarity"] = rarity
+        rarity_values = [r.strip() for r in rarity.split(",") if r.strip()]
+        if len(rarity_values) == 1:
+            filters.append("c.rarity = :rarity")
+            params["rarity"] = rarity_values[0]
+        elif rarity_values:
+            placeholders = ", ".join(f":rarity_{i}" for i in range(len(rarity_values)))
+            filters.append(f"c.rarity IN ({placeholders})")
+            for i, val in enumerate(rarity_values):
+                params[f"rarity_{i}"] = val
 
     if color is not None:
         # Color param may be comma-separated (e.g. "W,U") — each color

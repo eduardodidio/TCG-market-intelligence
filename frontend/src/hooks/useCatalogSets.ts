@@ -13,7 +13,7 @@ export function useCatalogSets() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiGet<CatalogSet[]>("/api/catalog/sets")
+    apiGet<CatalogSet[]>("/api/v1/catalog/sets")
       .then((res) => {
         if (res.errors.length > 0) {
           setError(res.errors.map((e) => e.message).join("; "));
