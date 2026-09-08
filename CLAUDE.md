@@ -6,18 +6,25 @@ Framework: [claude-didio-config](https://github.com/eduardodidio/claude-didio-co
 
 ## Mission
 
-TBD — fill in after kickoff.
+Price intelligence platform for Magic: The Gathering cards in the Brazilian
+market. Collects prices from Liga Magic and MYP Cards, provides portfolio
+tracking, set completion, alerts, and market analytics via a React SPA +
+FastAPI backend.
 
 ## Architecture
 
-No stack assumptions. Edit CLAUDE.md and agents/prompts/*.md to match
-your project conventions.
+- Backend: Python 3.14 + FastAPI + SQLAlchemy + SQLite
+- Frontend: React 19 + TypeScript + Vite + Tailwind CSS
+- Providers: Liga Magic (Playwright), MYP Cards (curl_cffi), Scryfall (bulk data)
+- Deploy: Render (auto-deploy from main branch)
 
 ## Commands
 
-- **Build:** `echo 'configure build command in CLAUDE.md'`
-- **Test:** `echo 'configure test command in CLAUDE.md'`
-- **Run:** `echo 'configure run command in CLAUDE.md'`
+- **Build:** `cd frontend && npm run build`
+- **Test (backend):** `pytest tests/ --cov=src --cov-report=term-missing`
+- **Test (frontend):** `cd frontend && npm test`
+- **Run:** `python -m src.cli.main serve`
+- **Lint:** `ruff check src/`
 
 ## Agent Workflow
 
