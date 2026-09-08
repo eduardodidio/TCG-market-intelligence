@@ -943,12 +943,10 @@ TEDHC Market deploys as a single web service on [Render](https://render.com).
 
 **Gitflow:** development on `homol` branch, production deploys from `main`.
 
-## Future
+## Roadmap
 
-Prepared for but not yet implemented:
-
-- Advanced analytics (correlation, portfolio-level aggregation, alerts)
-- Portfolio tracking (cost basis, P&L, ROI)
-- Opportunity scoring
-- Additional sources (Liga Magic, Scryfall metadata, CardMarket, TCGPlayer)
-- Frontend dashboard
+- **Social & Trade Matching (F110):** wishlist, duplicates, trade matcher
+- **Admin Console Operations (F100):** trigger jobs from admin, DB backup, audit log
+- **Marketplace Completion (F101):** share code detail page, copy code, nav link
+- **Additional Sources:** CardMarket, TCGPlayer (international pricing)
+- **Price Fallback Sources (F21):** deferred
