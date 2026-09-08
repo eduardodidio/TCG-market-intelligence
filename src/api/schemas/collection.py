@@ -375,3 +375,24 @@ class BatchAddResultResponse(BaseModel):
 
     added: int
     errors: list[BatchAddErrorResponse] = []
+
+
+class CollectionMover(BaseModel):
+    """A single card mover entry (gainer or loser)."""
+
+    card_id: int
+    card_name: str
+    set_code: str | None = None
+    image_uri: str | None = None
+    price_start: float
+    price_end: float
+    change_abs: float
+    change_pct: float
+
+
+class CollectionMoversResponse(BaseModel):
+    """Top gainers and losers in the user's collection."""
+
+    gainers: list[CollectionMover] = []
+    losers: list[CollectionMover] = []
+    period_days: int

@@ -148,6 +148,35 @@ export function exportPnlCsv(): void {
     });
 }
 
+// --- Collection Movers ---
+
+export interface CollectionMoverData {
+  card_id: number;
+  card_name: string;
+  set_code: string | null;
+  image_uri: string | null;
+  price_start: number;
+  price_end: number;
+  change_abs: number;
+  change_pct: number;
+}
+
+export interface CollectionMoversData {
+  gainers: CollectionMoverData[];
+  losers: CollectionMoverData[];
+  period_days: number;
+}
+
+export function fetchCollectionMovers(
+  days: number = 7,
+  limit: number = 5,
+): Promise<ApiResponse<CollectionMoversData>> {
+  return apiGet<CollectionMoversData>("/api/v1/collection/movers", {
+    days: String(days),
+    limit: String(limit),
+  });
+}
+
 export async function deleteCollectionEntry(id: number): Promise<void> {
   return apiDelete(`/api/v1/collection/${id}`);
 }

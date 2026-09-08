@@ -2033,5 +2033,166 @@ def catalog_stats(db):
     click.echo("")
 
 
+@cli.command("backfill-portfolio")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option(
+    "--user-id", default=None, help="Backfill for a specific user (default: all active users)"
+)
+@click.option("--days", default=30, type=int, help="Number of days of history to generate")
+@click.option(
+    "--skip-prices",
+    is_flag=True,
+    help="Skip acquisition price backfill (only do snapshots)",
+)
+@click.option("--dry-run", is_flag=True, help="Show what would be done without writing")
+def backfill_portfolio(db, user_id, days, skip_prices, dry_run):
+    """Backfill portfolio history: acquisition prices and synthetic snapshots."""
+    from sqlalchemy import func
+    from sqlalchemy.orm import Session as SaSession
+
+    from src.database.models import PortfolioSnapshotRow, UserCollectionRow, UserRow
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+
+    # Resolve target users
+    if user_id:
+        user_ids = [user_id]
+    else:
+        with SaSession(repo.engine) as session:
+            users = (
+                session.execute(
+                    __import__("sqlalchemy").select(UserRow).where(UserRow.is_active == 1)
+                )
+                .scalars()
+                .all()
+            )
+            user_ids = [str(u.id) for u in users]
+
+    if not user_ids:
+        click.echo("No active users found.")
+        return
+
+    click.echo(f"Backfill portfolio: {len(user_ids)} user(s), {days} days of history")
+    if dry_run:
+        click.echo("DRY RUN — no changes will be written\n")
+
+    results = []
+
+    for uid in user_ids:
+        if dry_run:
+            # Count entries missing acquisition_price
+            with SaSession(repo.engine) as session:
+                from sqlalchemy import select as sa_select
+
+                missing_prices = (
+                    session.execute(
+                        sa_select(func.count())
+                        .select_from(UserCollectionRow)
+                        .where(
+                            UserCollectionRow.user_id == uid,
+                            UserCollectionRow.acquisition_price.is_(None),
+                        )
+                    ).scalar()
+                    or 0
+                )
+                total_entries = (
+                    session.execute(
+                        sa_select(func.count())
+                        .select_from(UserCollectionRow)
+                        .where(UserCollectionRow.user_id == uid)
+                    ).scalar()
+                    or 0
+                )
+
+                from datetime import date, timedelta
+
+                today = date.today()
+                start_date = today - timedelta(days=days)
+                existing_snapshots = (
+                    session.execute(
+                        sa_select(func.count())
+                        .select_from(PortfolioSnapshotRow)
+                        .where(
+                            PortfolioSnapshotRow.user_id == uid,
+                            PortfolioSnapshotRow.snapshot_date >= start_date,
+                            PortfolioSnapshotRow.snapshot_date <= today,
+                        )
+                    ).scalar()
+                    or 0
+                )
+                days_to_fill = days + 1 - existing_snapshots
+
+            price_info = f"{missing_prices}/{total_entries}" if not skip_prices else "skipped"
+            click.echo(
+                f"  User {uid}: prices={price_info}, " f"snapshots={days_to_fill} days to fill"
+            )
+            results.append(
+                {
+                    "user_id": uid,
+                    "prices": price_info,
+                    "snapshots": f"{days_to_fill}/{days + 1}",
+                    "value": "N/A",
+                }
+            )
+        else:
+            from src.collectors.portfolio_backfill import (
+                backfill_acquisition_prices,
+                backfill_portfolio_snapshots,
+            )
+            from src.collectors.portfolio_snapshot import take_snapshot
+
+            # Step 1: acquisition prices
+            if not skip_prices:
+                price_result = backfill_acquisition_prices(repo, uid)
+                price_info = f"{price_result['updated']}/{price_result['total']}"
+            else:
+                price_info = "skipped"
+
+            # Step 2: synthetic snapshots
+            snap_result = backfill_portfolio_snapshots(repo, uid, days)
+            total_days = snap_result["days_filled"] + snap_result["days_skipped"]
+            snap_info = f"{snap_result['days_filled']}/{total_days}"
+
+            # Step 3: today's real snapshot
+            today_result = take_snapshot(uid, repo)
+            value = today_result["value"]
+
+            click.echo(
+                f"  User {uid}: prices={price_info}, "
+                f"snapshots={snap_info}, "
+                f"value=R$ {value:.2f}"
+            )
+            results.append(
+                {
+                    "user_id": uid,
+                    "prices": price_info,
+                    "snapshots": snap_info,
+                    "value": f"R$ {value:.2f}",
+                }
+            )
+
+    # Summary
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo(f"  {'User':<20} {'Prices':>15} {'Snapshots':>15} {'Value':>15}")
+    click.echo("  " + "-" * 56)
+    for r in results:
+        click.echo(f"  {r['user_id']:<20} {r['prices']:>15} {r['snapshots']:>15} {r['value']:>15}")
+    click.echo("=" * 60)
+
+    if dry_run:
+        click.echo("\nDry run complete. No data was written.")
+    else:
+        click.echo(f"\nBackfill complete for {len(results)} user(s).")
+
+
 if __name__ == "__main__":
     cli()

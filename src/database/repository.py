@@ -1057,6 +1057,22 @@ class Repository:
             cards = session.execute(stmt).scalars().all()
             return {c.id: (c.name_en, c.name_pt, c.set_code, c.collector_number) for c in cards}
 
+    def get_card_info_with_image_batch(
+        self, card_ids: list[int]
+    ) -> dict[int, tuple[str, str | None, str | None, str | None]]:
+        """Load card metadata including image_uri for a batch of card IDs.
+
+        Returns dict mapping card_id to (name_en, set_code, collector_number,
+        image_uri).
+        """
+        if not card_ids:
+            return {}
+
+        with Session(self.engine) as session:
+            stmt = select(CardRow).where(CardRow.id.in_(card_ids))
+            cards = session.execute(stmt).scalars().all()
+            return {c.id: (c.name_en, c.set_code, c.collector_number, c.image_uri) for c in cards}
+
     def get_market_stats(self, game: str | None = None) -> dict:
         """Get aggregate market statistics."""
         with Session(self.engine) as session:

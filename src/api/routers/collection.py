@@ -41,6 +41,8 @@ from src.api.schemas.collection import (
     CollectionCard,
     CollectionCardDetail,
     CollectionHistoryResponse,
+    CollectionMover,
+    CollectionMoversResponse,
     CollectionSummary,
     CollectionUpdateRequest,
     ImportResult,
@@ -361,6 +363,67 @@ def portfolio_history(
         for s in reversed(snapshots)  # chronological order
     ]
     return success_response(data=points)
+
+
+@router.get("/movers", response_model=ApiResponse[CollectionMoversResponse])
+def collection_movers(
+    days: int = Query(default=7, ge=1, le=90),
+    limit: int = Query(default=5, ge=1, le=20),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Return top gainers and losers in the user's collection by price change %."""
+    trending = repo.get_trending_price_data_for_user(user_id, days)
+
+    # Compute change for each card that has at least 2 data points
+    changes: list[tuple[int, float, float, float, float]] = []
+    for card_id, series in trending.items():
+        if len(series) < 2:
+            continue
+        price_start = float(series[0][1])
+        price_end = float(series[-1][1])
+        if price_start == 0:
+            continue
+        change_abs = price_end - price_start
+        change_pct = (change_abs / price_start) * 100
+        changes.append((card_id, price_start, price_end, change_abs, change_pct))
+
+    if not changes:
+        return success_response(
+            data=CollectionMoversResponse(gainers=[], losers=[], period_days=days)
+        )
+
+    # Sort for gainers (desc) and losers (asc)
+    sorted_desc = sorted(changes, key=lambda x: x[4], reverse=True)
+    sorted_asc = sorted(changes, key=lambda x: x[4])
+
+    top_gainers_raw = [c for c in sorted_desc[:limit] if c[4] > 0]
+    top_losers_raw = [c for c in sorted_asc[:limit] if c[4] < 0]
+
+    # Batch-fetch card info with image
+    all_card_ids = [c[0] for c in top_gainers_raw + top_losers_raw]
+    card_info = repo.get_card_info_with_image_batch(all_card_ids) if all_card_ids else {}
+
+    def _build_mover(raw: tuple[int, float, float, float, float]) -> CollectionMover:
+        cid, ps, pe, ca, cp = raw
+        info = card_info.get(cid)
+        return CollectionMover(
+            card_id=cid,
+            card_name=info[0] if info else f"Card #{cid}",
+            set_code=info[1] if info else None,
+            image_uri=info[3] if info else None,
+            price_start=round(ps, 2),
+            price_end=round(pe, 2),
+            change_abs=round(ca, 2),
+            change_pct=round(cp, 2),
+        )
+
+    gainers = [_build_mover(c) for c in top_gainers_raw]
+    losers = [_build_mover(c) for c in top_losers_raw]
+
+    return success_response(
+        data=CollectionMoversResponse(gainers=gainers, losers=losers, period_days=days)
+    )
 
 
 @router.get("/export-pnl")

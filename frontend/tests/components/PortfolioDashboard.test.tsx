@@ -41,16 +41,21 @@ vi.mock("recharts", () => ({
 const mockFetchPortfolioSummary = vi.fn();
 const mockFetchPortfolioHistory = vi.fn();
 const mockExportPnlCsv = vi.fn();
+const mockFetchCollectionMovers = vi.fn();
 
 vi.mock("../../src/api/collection", () => ({
   fetchPortfolioSummary: (...args: unknown[]) => mockFetchPortfolioSummary(...args),
   fetchPortfolioHistory: (...args: unknown[]) => mockFetchPortfolioHistory(...args),
   exportPnlCsv: (...args: unknown[]) => mockExportPnlCsv(...args),
+  fetchCollectionMovers: (...args: unknown[]) => mockFetchCollectionMovers(...args),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  mockFetchCollectionMovers.mockResolvedValue({
+    data: { gainers: [], losers: [], period_days: 7 },
+  });
 });
 
 describe("PortfolioDashboard", () => {

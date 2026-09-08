@@ -13,6 +13,13 @@ if TYPE_CHECKING:
     from src.services.market_data import MarketDataService
     from src.services.trending import TrendingService
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from src.collectors.portfolio_snapshot import take_snapshot
+from src.database.models import UserCollectionRow
+from src.database.repository import Repository
+
 log = structlog.get_logger()
 
 # Type alias for hook functions
@@ -81,6 +88,53 @@ def make_trending_invalidation_hook(
             "trending_cache_invalidated_after_scan",
             scan_id=scan_run.id,
             scanned_cards=len(external_ids),
+        )
+
+    return _hook
+
+
+def make_portfolio_snapshot_hook(db_url: str) -> ScanHook:
+    """Create a hook that takes portfolio snapshots after a scan completes.
+
+    Snapshots ALL active users (users with collection entries) since
+    take_snapshot is idempotent (upserts by date) and lightweight.
+
+    Usage:
+        from src.services.scan_hooks import make_portfolio_snapshot_hook
+        hook = make_portfolio_snapshot_hook(db_url)
+        default_registry.register(hook)
+    """
+
+    def _hook(scan_run: ScanRun, external_ids: list[str]) -> None:
+        if not external_ids:
+            return
+
+        repo = Repository(db_url)
+
+        # Get all distinct user_ids that have collection entries
+        with Session(repo.engine) as session:
+            user_ids = session.execute(select(UserCollectionRow.user_id).distinct()).scalars().all()
+
+        if not user_ids:
+            return
+
+        snapshots_taken = 0
+        for user_id in user_ids:
+            try:
+                take_snapshot(user_id, repo)
+                snapshots_taken += 1
+            except Exception:
+                log.exception(
+                    "portfolio_snapshot_hook_user_error",
+                    scan_id=scan_run.id,
+                    user_id=user_id,
+                )
+
+        log.info(
+            "portfolio_snapshots_after_scan",
+            scan_id=scan_run.id,
+            users_snapshotted=snapshots_taken,
+            users_total=len(user_ids),
         )
 
     return _hook

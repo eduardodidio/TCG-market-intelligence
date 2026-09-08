@@ -140,6 +140,12 @@ async def lifespan(app: FastAPI):
         alert_repo = Repository(db_url=get_db_url())
         alert_hook = make_alert_checker_hook(alert_repo)
         default_registry.register(alert_hook)
+
+        # Register portfolio snapshot hook (F112)
+        from src.services.scan_hooks import make_portfolio_snapshot_hook
+
+        portfolio_hook = make_portfolio_snapshot_hook(get_db_url())
+        default_registry.register(portfolio_hook)
     except Exception:
         import structlog
 

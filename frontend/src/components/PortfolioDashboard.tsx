@@ -12,6 +12,7 @@ import {
 import { exportPnlCsv, fetchPortfolioHistory, fetchPortfolioSummary } from "../api/collection";
 import type { PortfolioHistoryPoint, PortfolioSummary } from "../types/api";
 import { formatCurrency } from "../utils/format";
+import { CollectionMovers } from "./CollectionMovers";
 import { KpiCard } from "./KpiCard";
 
 const STORAGE_KEY = "portfolio_dashboard_visible";
@@ -185,6 +186,11 @@ export function PortfolioDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* Collection movers */}
+              <div className="mb-4">
+                <CollectionMovers />
+              </div>
 
               {/* Export button */}
               <div className="flex justify-end">

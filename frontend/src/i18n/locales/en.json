@@ -1033,6 +1033,13 @@
     "pnlTooltip": "Unrealized profit/loss based on acquisition price",
     "invalidPrice": "Enter a valid price greater than 0"
   },
+  "movers": {
+    "title": "Collection Movers",
+    "gainers": "Top Gainers",
+    "losers": "Top Losers",
+    "noData": "Not enough price history yet",
+    "change": "Change"
+  },
   "errorCodes": {
     "authInvalidCredentials": "Invalid email or password.",
     "authTokenExpired": "Your session has expired. Please sign in again.",

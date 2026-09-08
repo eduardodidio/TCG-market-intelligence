@@ -1033,6 +1033,13 @@
     "pnlTooltip": "Lucro/prejuizo nao realizado baseado no preco de aquisicao",
     "invalidPrice": "Insira um preco valido maior que 0"
   },
+  "movers": {
+    "title": "Movimentacao da Colecao",
+    "gainers": "Maiores Altas",
+    "losers": "Maiores Baixas",
+    "noData": "Historico de precos insuficiente",
+    "change": "Variacao"
+  },
   "errorCodes": {
     "authInvalidCredentials": "Email ou senha invalidos.",
     "authTokenExpired": "Sua sessao expirou. Faca login novamente.",
