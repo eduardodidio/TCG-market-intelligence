@@ -187,6 +187,17 @@ export function PortfolioDashboard() {
                 </div>
               )}
 
+              {history.length <= 1 && (
+                <div
+                  className="bg-slate-800/50 border border-dashed border-slate-600 rounded-lg p-6 text-center mb-4"
+                  data-testid="portfolio-no-history"
+                >
+                  <p className="text-sm text-slate-400">
+                    {t("portfolio.noHistory")}
+                  </p>
+                </div>
+              )}
+
               {/* Collection movers */}
               <div className="mb-4">
                 <CollectionMovers />

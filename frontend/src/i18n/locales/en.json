@@ -1037,7 +1037,8 @@
     "acquiredAt": "Acquired On",
     "unrealizedPnl": "Unrealized P&L",
     "pnlTooltip": "Unrealized profit/loss based on acquisition price",
-    "invalidPrice": "Enter a valid price greater than 0"
+    "invalidPrice": "Enter a valid price greater than 0",
+    "noHistory": "No portfolio history yet. Run a price scan to start tracking your collection value over time."
   },
   "movers": {
     "title": "Collection Movers",

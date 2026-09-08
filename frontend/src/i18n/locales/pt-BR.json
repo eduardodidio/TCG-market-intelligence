@@ -1037,7 +1037,8 @@
     "acquiredAt": "Data de Aquisicao",
     "unrealizedPnl": "L/P Nao Realizado",
     "pnlTooltip": "Lucro/prejuizo nao realizado baseado no preco de aquisicao",
-    "invalidPrice": "Insira um preco valido maior que 0"
+    "invalidPrice": "Insira um preco valido maior que 0",
+    "noHistory": "Sem historico de portfolio. Execute um scan de precos para comecar a rastrear o valor da sua colecao."
   },
   "movers": {
     "title": "Movimentacao da Colecao",

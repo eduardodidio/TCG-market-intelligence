@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import create_engine, event, func, inspect, select, text, update
+from sqlalchemy import create_engine, event, func, inspect, or_, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -996,10 +996,16 @@ class Repository:
     def get_trending_price_data_for_user(
         self, user_id: int, period_days: int
     ) -> dict[int, list[tuple[date, Decimal]]]:
-        """Like get_trending_price_data but filtered to user's collection cards."""
+        """Like get_trending_price_data but filtered to user's collection cards.
+
+        Includes prices from both source_cards joins AND direct Liga/manual
+        external_id patterns (``liga_{card_id}``, ``liga_{card_id}_foil``,
+        ``manual_{card_id}``), so Liga-only cards appear in movers.
+        """
         cutoff = date.today() - timedelta(days=period_days)
 
         with Session(self.engine) as session:
+            # 1. Source-cards-based prices (MYP, jsonld_snapshot, etc.)
             stmt = (
                 select(
                     SourceCardRow.card_id,
@@ -1025,11 +1031,51 @@ class Repository:
             )
             rows = session.execute(stmt).all()
 
-        result: dict[int, list[tuple[date, Decimal]]] = {}
-        for card_id, obs_date, median_price in rows:
-            if card_id not in result:
-                result[card_id] = []
-            result[card_id].append((obs_date, Decimal(str(median_price))))
+            result: dict[int, list[tuple[date, Decimal]]] = {}
+            for card_id, obs_date, median_price in rows:
+                if card_id not in result:
+                    result[card_id] = []
+                result[card_id].append((obs_date, Decimal(str(median_price))))
+
+            # 2. Direct Liga/manual pattern prices for user's collection cards
+            user_card_ids = (
+                session.execute(
+                    select(func.distinct(UserCollectionRow.card_id)).where(
+                        UserCollectionRow.user_id == user_id,
+                        UserCollectionRow.card_id.isnot(None),
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
+            if user_card_ids:
+                direct_patterns: dict[str, int] = {}
+                for cid in user_card_ids:
+                    direct_patterns[f"liga_{cid}"] = cid
+                    direct_patterns[f"liga_{cid}_foil"] = cid
+                    direct_patterns[f"manual_{cid}"] = cid
+
+                direct_obs = session.execute(
+                    select(
+                        PriceObservationRow.external_id,
+                        PriceObservationRow.observed_at,
+                        PriceObservationRow.median_price,
+                    )
+                    .where(
+                        PriceObservationRow.external_id.in_(list(direct_patterns.keys())),
+                        PriceObservationRow.observed_at >= cutoff,
+                        PriceObservationRow.median_price.isnot(None),
+                    )
+                    .order_by(PriceObservationRow.observed_at.asc())
+                ).all()
+
+                for ext_id, obs_date, median_price in direct_obs:
+                    cid = direct_patterns.get(ext_id)
+                    if cid is not None:
+                        if cid not in result:
+                            result[cid] = []
+                        result[cid].append((obs_date, Decimal(str(median_price))))
 
         # Deduplicate within each card: same date keeps max price
         for card_id in result:
@@ -1485,7 +1531,8 @@ class Repository:
             # Count linked entries that have at least one price observation
             priced_count = 0
             if linked_count > 0:
-                priced_card_ids = (
+                # Cards priced via source_cards (MYP, jsonld_snapshot, etc.)
+                priced_via_source = (
                     select(func.distinct(SourceCardRow.card_id))
                     .join(
                         PriceObservationRow,
@@ -1494,6 +1541,59 @@ class Repository:
                     )
                     .where(SourceCardRow.card_id.isnot(None))
                 )
+
+                # Cards priced via direct Liga/manual patterns
+                # (liga_{id}, liga_{id}_foil, manual_{id})
+                linked_card_ids_stmt = select(UserCollectionRow.card_id).where(
+                    UserCollectionRow.user_id == user_id,
+                    UserCollectionRow.card_id.isnot(None),
+                )
+                linked_card_ids = [r[0] for r in session.execute(linked_card_ids_stmt).all()]
+                direct_priced_card_ids: set[int] = set()
+                if linked_card_ids:
+                    # Build all possible direct external_id patterns
+                    direct_patterns = []
+                    for cid in set(linked_card_ids):
+                        direct_patterns.extend(
+                            [
+                                f"liga_{cid}",
+                                f"liga_{cid}_foil",
+                                f"manual_{cid}",
+                            ]
+                        )
+                    # Check which patterns have price observations
+                    if direct_patterns:
+                        found_ext_ids = (
+                            session.execute(
+                                select(func.distinct(PriceObservationRow.external_id)).where(
+                                    PriceObservationRow.external_id.in_(direct_patterns)
+                                )
+                            )
+                            .scalars()
+                            .all()
+                        )
+                        for ext_id in found_ext_ids:
+                            # Extract card_id from pattern
+                            parts = (
+                                ext_id.replace("liga_", "")
+                                .replace("manual_", "")
+                                .replace("_foil", "")
+                            )
+                            try:
+                                direct_priced_card_ids.add(int(parts))
+                            except (ValueError, TypeError):
+                                pass
+
+                # Combine: cards priced via source_cards OR direct patterns
+                priced_card_ids = priced_via_source
+                if direct_priced_card_ids:
+                    combined_filter = or_(
+                        UserCollectionRow.card_id.in_(priced_card_ids),
+                        UserCollectionRow.card_id.in_(list(direct_priced_card_ids)),
+                    )
+                else:
+                    combined_filter = UserCollectionRow.card_id.in_(priced_card_ids)
+
                 priced_count = (
                     session.execute(
                         select(func.count())
@@ -1501,7 +1601,7 @@ class Repository:
                         .where(
                             UserCollectionRow.user_id == user_id,
                             UserCollectionRow.card_id.isnot(None),
-                            UserCollectionRow.card_id.in_(priced_card_ids),
+                            combined_filter,
                         )
                     ).scalar()
                     or 0

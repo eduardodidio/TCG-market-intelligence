@@ -15,6 +15,7 @@ import structlog
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
+from src.collection.converter import is_foil_entry
 from src.database.models import (
     PortfolioSnapshotRow,
     PriceObservationRow,
@@ -47,6 +48,7 @@ def _find_nearest_observation(
     session: Session,
     card_id: int,
     target_dt: datetime,
+    is_foil: bool = False,
 ) -> PriceObservationRow | None:
     """Find the price observation closest to *target_dt* for a card.
 
@@ -57,7 +59,8 @@ def _find_nearest_observation(
     ``get_latest_prices_batch`` resolves prices:
     1. source_cards linked to this card_id (catalog entries)
     2. ``liga_{card_id}`` direct pattern (Liga scan convention)
-    3. ``manual_{card_id}`` direct pattern (manual price entries)
+    3. ``liga_{card_id}_foil`` direct pattern (foil Liga prices)
+    4. ``manual_{card_id}`` direct pattern (manual price entries)
     """
     target_date = target_dt.date() if isinstance(target_dt, datetime) else target_dt
 
@@ -71,6 +74,11 @@ def _find_nearest_observation(
 
     # 2. Direct Liga pattern: liga_{card_id}
     search_pairs.append(("liga", f"liga_{card_id}"))
+
+    # 2b. Foil-specific Liga pattern: liga_{card_id}_foil
+    if is_foil:
+        # Insert foil pattern before normal liga so it is checked first
+        search_pairs.insert(-1, ("liga", f"liga_{card_id}_foil"))
 
     # 3. Direct manual pattern: manual_{card_id}
     search_pairs.append(("manual", f"manual_{card_id}"))
@@ -157,7 +165,12 @@ def backfill_acquisition_prices(
                 skipped += 1
                 continue
 
-            obs = _find_nearest_observation(session, entry.card_id, entry.created_at)
+            obs = _find_nearest_observation(
+                session,
+                entry.card_id,
+                entry.created_at,
+                is_foil=is_foil_entry(entry.extras),
+            )
             if obs is None:
                 log.warning(
                     "portfolio_backfill_no_price",
@@ -242,7 +255,12 @@ def backfill_portfolio_snapshots(
             return {"days_filled": 0, "days_skipped": 0}
 
         card_ids = {e.card_id for e in collection_entries if e.card_id is not None}
-        card_external_ids = _load_card_external_ids(session, card_ids)
+        foil_card_ids = {
+            e.card_id
+            for e in collection_entries
+            if e.card_id is not None and is_foil_entry(e.extras)
+        }
+        card_external_ids = _load_card_external_ids(session, card_ids, foil_card_ids)
 
         all_external_ids: set[str] = set()
         for ext_ids in card_external_ids.values():
@@ -331,15 +349,20 @@ def _load_collection_entries(
 def _load_card_external_ids(
     session: Session,
     card_ids: set[int],
+    foil_card_ids: set[int] | None = None,
 ) -> dict[int, list[str]]:
     """Map card_id -> list of external_ids from source_cards + direct patterns.
 
     Includes both source_cards entries and the direct Liga/manual patterns
     (``liga_{card_id}``, ``manual_{card_id}``) to match the lookup logic
     in ``get_latest_prices_batch``.
+
+    For cards in *foil_card_ids*, also adds ``liga_{card_id}_foil`` so that
+    foil-specific Liga prices are included in backfill calculations.
     """
     if not card_ids:
         return {}
+    _foil_ids = foil_card_ids or set()
     stmt = select(SourceCardRow.card_id, SourceCardRow.external_id).where(
         SourceCardRow.card_id.in_(list(card_ids))
     )
@@ -357,6 +380,12 @@ def _load_card_external_ids(
             ext_list.append(liga_ext)
         if manual_ext not in ext_list:
             ext_list.append(manual_ext)
+        # Add foil-specific Liga pattern for foil entries.
+        # Placed first so _find_best_price prefers foil when dates match.
+        if card_id in _foil_ids:
+            liga_foil_ext = f"liga_{card_id}_foil"
+            if liga_foil_ext not in ext_list:
+                ext_list.insert(0, liga_foil_ext)
 
     return result
 
