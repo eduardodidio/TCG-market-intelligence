@@ -32,8 +32,6 @@ const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false },
   { to: "/catalog", labelKey: "nav.catalog", requiresAuth: false },
   { to: "/alerts", labelKey: "nav.alerts", requiresAuth: true },
-  { to: "/achievements", labelKey: "nav.achievements", requiresAuth: true },
-  { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true },
   { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true },
 ];
@@ -47,6 +45,7 @@ const BETA_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true },
   { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true },
   { to: "/trade-matches", labelKey: "nav.tradeMatches", requiresAuth: true },
+  { to: "/achievements", labelKey: "nav.achievements", requiresAuth: true },
   { to: "/evaluations", labelKey: "nav.evaluations", requiresAuth: true },
 ];
 

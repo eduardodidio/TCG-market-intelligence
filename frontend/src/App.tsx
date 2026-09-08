@@ -166,23 +166,41 @@ export default function App() {
               }
             />
 
-            {/* Main layout routes */}
-            <Route element={<Layout />}>
-              {/* Dashboard — protected (redirects to /login) */}
+            {/* Shared collection — public route with Layout (no auth required) */}
+            <Route
+              path="/marketplace/share/:code"
+              element={<Layout />}
+            >
+              <Route
+                index
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <SharedCollectionPage />
+                  </Suspense>
+                }
+              />
+            </Route>
+
+            {/* Main layout routes — all require authentication */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
               <Route
                 path="/"
                 element={
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
+                    <Dashboard />
                   </Suspense>
                 }
               />
-
-              {/* Public routes */}
               <Route
                 path="/cards"
                 element={
@@ -263,17 +281,13 @@ export default function App() {
                   </Suspense>
                 }
               />
-
-              {/* Protected routes */}
               <Route
                 path="/collection"
                 element={
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <MyCollection />
-                    </ProtectedRoute>
+                    <MyCollection />
                   </Suspense>
                 }
               />
@@ -283,9 +297,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <CollectionCardDetail />
-                    </ProtectedRoute>
+                    <CollectionCardDetail />
                   </Suspense>
                 }
               />
@@ -295,9 +307,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <DeckList />
-                    </ProtectedRoute>
+                    <DeckList />
                   </Suspense>
                 }
               />
@@ -307,9 +317,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <TopDecksPage />
-                    </ProtectedRoute>
+                    <TopDecksPage />
                   </Suspense>
                 }
               />
@@ -319,9 +327,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <DeckView />
-                    </ProtectedRoute>
+                    <DeckView />
                   </Suspense>
                 }
               />
@@ -335,9 +341,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <Settings />
-                    </ProtectedRoute>
+                    <Settings />
                   </Suspense>
                 }
               />
@@ -346,24 +350,12 @@ export default function App() {
                 element={<Navigate to="/admin" replace />}
               />
               <Route
-                path="/marketplace/share/:code"
-                element={
-                  <Suspense
-                    fallback={<LoadingSpinner message="Loading page..." />}
-                  >
-                    <SharedCollectionPage />
-                  </Suspense>
-                }
-              />
-              <Route
                 path="/marketplace/my-trades"
                 element={
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <MyTrades />
-                    </ProtectedRoute>
+                    <MyTrades />
                   </Suspense>
                 }
               />
@@ -373,9 +365,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <Marketplace />
-                    </ProtectedRoute>
+                    <Marketplace />
                   </Suspense>
                 }
               />
@@ -385,9 +375,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <WishlistPage />
-                    </ProtectedRoute>
+                    <WishlistPage />
                   </Suspense>
                 }
               />
@@ -397,9 +385,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <TradeMatchesPage />
-                    </ProtectedRoute>
+                    <TradeMatchesPage />
                   </Suspense>
                 }
               />
@@ -409,9 +395,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <Evaluations />
-                    </ProtectedRoute>
+                    <Evaluations />
                   </Suspense>
                 }
               />
@@ -421,9 +405,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <AlertsPage />
-                    </ProtectedRoute>
+                    <AlertsPage />
                   </Suspense>
                 }
               />
@@ -433,9 +415,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <ProtectedRoute>
-                      <AchievementsPage />
-                    </ProtectedRoute>
+                    <AchievementsPage />
                   </Suspense>
                 }
               />
