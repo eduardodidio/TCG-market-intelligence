@@ -53,26 +53,38 @@ def _find_nearest_observation(
     Prefers observations on or before the target date.  If none exist
     before, falls back to the earliest observation after.
 
-    Join path: source_cards.card_id -> price_observations.external_id
-    (matching source_cards.source and source_cards.external_id).
+    Searches multiple external_id patterns to match how
+    ``get_latest_prices_batch`` resolves prices:
+    1. source_cards linked to this card_id (catalog entries)
+    2. ``liga_{card_id}`` direct pattern (Liga scan convention)
+    3. ``manual_{card_id}`` direct pattern (manual price entries)
     """
-    source_cards_stmt = select(SourceCardRow).where(SourceCardRow.card_id == card_id)
-    source_cards = session.execute(source_cards_stmt).scalars().all()
-    if not source_cards:
-        return None
-
     target_date = target_dt.date() if isinstance(target_dt, datetime) else target_dt
+
+    # Collect all (source, external_id) pairs to search
+    search_pairs: list[tuple[str, str]] = []
+
+    # 1. From source_cards table
+    source_cards_stmt = select(SourceCardRow).where(SourceCardRow.card_id == card_id)
+    for sc in session.execute(source_cards_stmt).scalars().all():
+        search_pairs.append((sc.source, sc.external_id))
+
+    # 2. Direct Liga pattern: liga_{card_id}
+    search_pairs.append(("liga", f"liga_{card_id}"))
+
+    # 3. Direct manual pattern: manual_{card_id}
+    search_pairs.append(("manual", f"manual_{card_id}"))
 
     best_obs: PriceObservationRow | None = None
     best_diff: int | None = None
 
-    for sc in source_cards:
+    for source, external_id in search_pairs:
         before_stmt = (
             select(PriceObservationRow)
             .where(
                 and_(
-                    PriceObservationRow.source == sc.source,
-                    PriceObservationRow.external_id == sc.external_id,
+                    PriceObservationRow.source == source,
+                    PriceObservationRow.external_id == external_id,
                     PriceObservationRow.observed_at <= target_date,
                 )
             )
@@ -86,8 +98,8 @@ def _find_nearest_observation(
                 select(PriceObservationRow)
                 .where(
                     and_(
-                        PriceObservationRow.source == sc.source,
-                        PriceObservationRow.external_id == sc.external_id,
+                        PriceObservationRow.source == source,
+                        PriceObservationRow.external_id == external_id,
                         PriceObservationRow.observed_at > target_date,
                     )
                 )
@@ -320,7 +332,12 @@ def _load_card_external_ids(
     session: Session,
     card_ids: set[int],
 ) -> dict[int, list[str]]:
-    """Map card_id -> list of external_ids from the source_cards table."""
+    """Map card_id -> list of external_ids from source_cards + direct patterns.
+
+    Includes both source_cards entries and the direct Liga/manual patterns
+    (``liga_{card_id}``, ``manual_{card_id}``) to match the lookup logic
+    in ``get_latest_prices_batch``.
+    """
     if not card_ids:
         return {}
     stmt = select(SourceCardRow.card_id, SourceCardRow.external_id).where(
@@ -330,6 +347,17 @@ def _load_card_external_ids(
     result: dict[int, list[str]] = {}
     for card_id, external_id in rows:
         result.setdefault(card_id, []).append(external_id)
+
+    # Add direct Liga and manual patterns for all card_ids
+    for card_id in card_ids:
+        ext_list = result.setdefault(card_id, [])
+        liga_ext = f"liga_{card_id}"
+        manual_ext = f"manual_{card_id}"
+        if liga_ext not in ext_list:
+            ext_list.append(liga_ext)
+        if manual_ext not in ext_list:
+            ext_list.append(manual_ext)
+
     return result
 
 
