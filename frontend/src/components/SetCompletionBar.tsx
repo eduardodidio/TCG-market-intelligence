@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { scryfallSetIconUrl } from "../utils/scryfall";
 
 interface SetCompletionBarProps {
   setCode: string;
@@ -7,23 +10,108 @@ interface SetCompletionBarProps {
   total: number;
 }
 
+interface SetCompletionSectionProps {
+  entries: { set_code: string; set_name: string; owned: number; total: number }[];
+}
+
+const LS_KEY = "tcg_set_completion_open";
+
+/**
+ * Collapsible wrapper that shows a summary line and toggles the set list.
+ * Persists expand/collapse preference in localStorage.
+ */
+export function SetCompletionSection({ entries }: SetCompletionSectionProps) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(() => localStorage.getItem(LS_KEY) === "1");
+
+  const toggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(LS_KEY, next ? "1" : "0");
+      return next;
+    });
+  };
+
+  return (
+    <div className="mb-6">
+      <button
+        type="button"
+        onClick={toggle}
+        className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition-colors mb-2"
+        data-testid="toggle-set-completion"
+      >
+        <svg
+          className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        {t("collection.setCompletion", { defaultValue: "Set Completion" })}
+        <span className="text-slate-500 text-xs" data-testid="set-completion-count">
+          ({entries.length})
+        </span>
+      </button>
+      {open && (
+        <div
+          className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 max-h-60 overflow-y-auto"
+          data-testid="set-completion-section"
+        >
+          {entries.map((entry) => (
+            <SetCompletionBar
+              key={entry.set_code}
+              setCode={entry.set_code}
+              setName={entry.set_name}
+              owned={entry.owned}
+              total={entry.total}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Progress bar showing X/Y cards owned per set.
  * Gradient from slate to cyan; gold highlight at 100%.
+ * Displays a Scryfall set icon, and clicking navigates to the filtered collection.
  */
 export function SetCompletionBar({ setCode, setName, owned, total }: SetCompletionBarProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
   const pct = total > 0 ? Math.min((owned / total) * 100, 100) : 0;
   const isComplete = pct >= 100;
 
   return (
     <div
-      className="flex items-center gap-3 py-1.5"
+      className="flex items-center gap-3 py-1.5 cursor-pointer rounded hover:bg-slate-700/40 transition-colors px-1 -mx-1"
       data-testid={`set-completion-${setCode}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/collection?set=${setCode}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate(`/collection?set=${setCode}`);
+        }
+      }}
     >
-      {/* Set code badge */}
-      <span className="inline-block w-12 px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-400 rounded text-center shrink-0">
-        {setCode}
+      {/* Set icon + code badge */}
+      <span className="inline-flex items-center gap-1.5 w-16 px-1.5 py-0.5 text-xs font-mono bg-slate-700 text-slate-400 rounded shrink-0">
+        {imgError ? null : (
+          <img
+            src={scryfallSetIconUrl(setCode)}
+            alt={setCode}
+            className="w-4 h-4 invert brightness-200"
+            onError={() => setImgError(true)}
+            data-testid={`set-icon-${setCode}`}
+          />
+        )}
+        <span className="truncate">{setCode}</span>
       </span>
 
       {/* Set name */}

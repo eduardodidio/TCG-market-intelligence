@@ -40,7 +40,7 @@ import { ValuationBadge } from "../components/ValuationBadge";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { CardImage } from "../components/CardImage";
-import { SetCompletionBar } from "../components/SetCompletionBar";
+import { SetCompletionSection } from "../components/SetCompletionBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { fetchSetCompletion, type SetCompletionEntry } from "../api/collection";
 import { BatchAddModal } from "../components/BatchAddModal";
@@ -301,7 +301,6 @@ export function MyCollection() {
 
   // Set completion
   const [setCompletionData, setSetCompletionData] = useState<SetCompletionEntry[]>([]);
-  const [showSetCompletion, setShowSetCompletion] = useState(() => localStorage.getItem("show_set_completion") !== "0");
 
   // Batch add modal state
   const [batchAddOpen, setBatchAddOpen] = useState(false);
@@ -710,37 +709,7 @@ export function MyCollection() {
 
       {/* Set Completion Section */}
       {setCompletionData.length > 0 && (
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => {
-              setShowSetCompletion((v) => {
-                localStorage.setItem("show_set_completion", v ? "0" : "1");
-                return !v;
-              });
-            }}
-            className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition-colors mb-2"
-            data-testid="toggle-set-completion"
-          >
-            <svg className={`h-4 w-4 transition-transform ${showSetCompletion ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-            {t("collection.setCompletion", { defaultValue: "Set Completion" })}
-          </button>
-          {showSetCompletion && (
-            <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 max-h-60 overflow-y-auto" data-testid="set-completion-section">
-              {setCompletionData.map((entry) => (
-                <SetCompletionBar
-                  key={entry.set_code}
-                  setCode={entry.set_code}
-                  setName={entry.set_name}
-                  owned={entry.owned}
-                  total={entry.total}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <SetCompletionSection entries={setCompletionData} />
       )}
 
       {/* Search, sort, and filters — sticky bar */}
