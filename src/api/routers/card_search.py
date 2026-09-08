@@ -45,19 +45,26 @@ def _find_alternate_name(repo: Repository, query: str) -> str | None:
     from src.database.models import CardRow
 
     q_lower = query.strip().lower()
-    with Session(repo.engine) as session:
-        row = session.execute(
-            select(CardRow.name_en, CardRow.name_pt)
-            .where(
-                (func.lower(CardRow.name_pt) == q_lower) | (func.lower(CardRow.name_en) == q_lower)
-            )
-            .limit(1)
-        ).first()
+    try:
+        with Session(repo.engine) as session:
+            row = session.execute(
+                select(CardRow.name_en, CardRow.name_pt)
+                .where(
+                    (func.lower(CardRow.name_pt) == q_lower)
+                    | (func.lower(CardRow.name_en) == q_lower)
+                )
+                .limit(1)
+            ).first()
+    except Exception:
+        return None
 
     if row is None:
         return None
 
-    name_en, name_pt = row
+    try:
+        name_en, name_pt = row
+    except (ValueError, TypeError):
+        return None
     # If the query matched the PT name, return EN; otherwise return PT
     if name_pt and name_pt.lower() == q_lower:
         return name_en
