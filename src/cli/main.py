@@ -1608,7 +1608,8 @@ async def _push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age
 @click.option(
     "--api-key", envvar="TCG_API_KEY", default=None, help="API key for remote ($TCG_API_KEY)"
 )
-def push_db(db, remote, api_key):
+@click.option("--force", is_flag=True, default=False, help="Skip collection safety check")
+def push_db(db, remote, api_key, force):
     """Upload local SQLite database to the remote deployment.
 
     Use this after a Render restart to restore your collection data.
@@ -1616,6 +1617,8 @@ def push_db(db, remote, api_key):
     Example:
         collector push-db --remote https://tedhc.onrender.com --api-key SECRET
     """
+    import sqlite3 as _sqlite3
+
     import httpx
 
     # Extract file path from sqlite URL
@@ -1625,6 +1628,41 @@ def push_db(db, remote, api_key):
     if not os.path.exists(db_path):
         click.echo(f"Database file not found: {db_path}")
         raise SystemExit(1)
+
+    # Safety check: abort if local DB has 0 collection entries (prevent wiping production)
+    if not force:
+        try:
+            conn = _sqlite3.connect(db_path)
+            c = conn.cursor()
+            tables = {
+                r[0]
+                for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            }
+            local_collection = 0
+            if "user_collection" in tables:
+                local_collection = c.execute("SELECT COUNT(*) FROM user_collection").fetchone()[0]
+            local_cards = 0
+            if "cards" in tables:
+                local_cards = c.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
+            conn.close()
+
+            click.echo(f"Local DB: {local_cards} cards, {local_collection} collection entries")
+
+            if local_collection == 0:
+                click.echo(
+                    click.style(
+                        "ABORT: Local DB has 0 collection entries! "
+                        "This would wipe the production collection.\n"
+                        "Use --force to override, or pull-db first to backup production.",
+                        fg="red",
+                        bold=True,
+                    )
+                )
+                raise SystemExit(1)
+        except SystemExit:
+            raise
+        except Exception as e:
+            click.echo(f"Warning: could not verify local DB ({e}), proceeding anyway...")
 
     size_mb = os.path.getsize(db_path) / (1024 * 1024)
     click.echo(f"Uploading {db_path} ({size_mb:.1f} MB) to {remote}...")
