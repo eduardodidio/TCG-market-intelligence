@@ -366,7 +366,52 @@ describe("MyCollection -- sort dropdown", () => {
     });
   });
 
-  it("does NOT pass sort params to API for price sorting (client-side)", async () => {
+  it("sends sort_by=price and sort_dir=desc to API for default price sorting", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    const mockFetch = createMockFetch([card]);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    // Default sort is price-desc; verify API call includes sort params
+    const collectionCalls = mockFetch.mock.calls.filter(
+      (c: unknown[]) => {
+        const url = String(c[0]);
+        return url.includes("/collection") && url.includes("offset=") && !url.includes("/summary") && !url.includes("/sets");
+      },
+    );
+    expect(collectionCalls.length).toBeGreaterThan(0);
+    const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
+    expect(lastCall).toContain("sort_by=price");
+    expect(lastCall).toContain("sort_dir=desc");
+  });
+
+  it("sends sort_by=price and sort_dir=asc to API for price-asc sorting", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    const mockFetch = createMockFetch([card]);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderMyCollection(["/collection?sort=price&dir=asc"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const collectionCalls = mockFetch.mock.calls.filter(
+      (c: unknown[]) => {
+        const url = String(c[0]);
+        return url.includes("/collection") && url.includes("offset=") && !url.includes("/summary") && !url.includes("/sets");
+      },
+    );
+    expect(collectionCalls.length).toBeGreaterThan(0);
+    const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
+    expect(lastCall).toContain("sort_by=price");
+    expect(lastCall).toContain("sort_dir=asc");
+  });
+
+  it("changing sort to name-asc updates the API call", async () => {
     const card = makeCollectionCard({ id: 1 });
     const mockFetch = createMockFetch([card]);
     globalThis.fetch = mockFetch as unknown as typeof fetch;
@@ -377,83 +422,41 @@ describe("MyCollection -- sort dropdown", () => {
     });
 
     const select = screen.getByTestId("sort-select");
-    fireEvent.change(select, { target: { value: "price-desc" } });
+    fireEvent.change(select, { target: { value: "name-asc" } });
 
     await waitFor(() => {
       const collectionCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets"),
+        (c: unknown[]) => String(c[0]).includes("/collection") && !String(c[0]).includes("/summary") && !String(c[0]).includes("/sets") && !String(c[0]).includes("/banned") && !String(c[0]).includes("/portfolio") && !String(c[0]).includes("/set-completion"),
       );
       const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
-      expect(lastCall).not.toContain("sort_by=price");
+      expect(lastCall).toContain("sort_by=name");
+      expect(lastCall).toContain("sort_dir=asc");
     });
   });
 
-  it("sorts cards by price client-side (high to low)", async () => {
-    const cards = [
-      makeCollectionCard({ id: 1, name_en: "Cheap Card", latest_price: 1.0 }),
-      makeCollectionCard({ id: 2, name_en: "Expensive Card", latest_price: 100.0 }),
-      makeCollectionCard({ id: 3, name_en: "Mid Card", latest_price: 10.0 }),
-    ];
-    globalThis.fetch = createMockFetch(cards) as unknown as typeof fetch;
-    renderMyCollection();
+  it("loads sort from URL params ?sort=name&dir=asc", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    const mockFetch = createMockFetch([card]);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderMyCollection(["/collection?sort=name&dir=asc"]);
 
     await waitFor(() => {
       expect(screen.getByTestId("collection-grid")).toBeDefined();
     });
 
-    const select = screen.getByTestId("sort-select");
-    fireEvent.change(select, { target: { value: "price-desc" } });
+    const select = screen.getByTestId("sort-select") as HTMLSelectElement;
+    expect(select.value).toBe("name-asc");
 
-    await waitFor(() => {
-      const grid = screen.getByTestId("collection-grid");
-      const cardNames = Array.from(grid.querySelectorAll("h3")).map((h) => h.textContent);
-      expect(cardNames).toEqual(["Expensive Card", "Mid Card", "Cheap Card"]);
-    });
-  });
-
-  it("sorts cards by price client-side (low to high)", async () => {
-    const cards = [
-      makeCollectionCard({ id: 1, name_en: "Expensive Card", latest_price: 100.0 }),
-      makeCollectionCard({ id: 2, name_en: "Cheap Card", latest_price: 1.0 }),
-      makeCollectionCard({ id: 3, name_en: "Mid Card", latest_price: 10.0 }),
-    ];
-    globalThis.fetch = createMockFetch(cards) as unknown as typeof fetch;
-    renderMyCollection();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("collection-grid")).toBeDefined();
-    });
-
-    const select = screen.getByTestId("sort-select");
-    fireEvent.change(select, { target: { value: "price-asc" } });
-
-    await waitFor(() => {
-      const grid = screen.getByTestId("collection-grid");
-      const cardNames = Array.from(grid.querySelectorAll("h3")).map((h) => h.textContent);
-      expect(cardNames).toEqual(["Cheap Card", "Mid Card", "Expensive Card"]);
-    });
-  });
-
-  it("pushes null-price cards to the end for price-asc sort", async () => {
-    const cards = [
-      makeCollectionCard({ id: 1, name_en: "No Price", latest_price: null }),
-      makeCollectionCard({ id: 2, name_en: "Has Price", latest_price: 5.0 }),
-    ];
-    globalThis.fetch = createMockFetch(cards) as unknown as typeof fetch;
-    renderMyCollection();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("collection-grid")).toBeDefined();
-    });
-
-    const select = screen.getByTestId("sort-select");
-    fireEvent.change(select, { target: { value: "price-asc" } });
-
-    await waitFor(() => {
-      const grid = screen.getByTestId("collection-grid");
-      const cardNames = Array.from(grid.querySelectorAll("h3")).map((h) => h.textContent);
-      expect(cardNames).toEqual(["Has Price", "No Price"]);
-    });
+    const collectionCalls = mockFetch.mock.calls.filter(
+      (c: unknown[]) => {
+        const url = String(c[0]);
+        return url.includes("/collection") && url.includes("offset=");
+      },
+    );
+    expect(collectionCalls.length).toBeGreaterThan(0);
+    const lastCall = String(collectionCalls[collectionCalls.length - 1][0]);
+    expect(lastCall).toContain("sort_by=name");
+    expect(lastCall).toContain("sort_dir=asc");
   });
 
   it("uses offset-based pagination (offset param in API call)", async () => {

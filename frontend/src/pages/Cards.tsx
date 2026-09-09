@@ -48,8 +48,8 @@ export function Cards() {
   const [selectedSet, setSelectedSet] = useState<string | null>(
     searchParams.get("set") ?? null,
   );
-  const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">((searchParams.get("dir") as "asc" | "desc") ?? "asc");
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "price");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">((searchParams.get("dir") as "asc" | "desc") ?? "desc");
   const [cards, setCards] = useState<CardSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,8 +101,10 @@ export function Cards() {
     const params: Record<string, string> = {};
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
-    if (sortBy !== "name") params.sort = sortBy;
-    if (sortDir !== "asc") params.dir = sortDir;
+    if (sortBy !== "price" || sortDir !== "desc") {
+      params.sort = sortBy;
+      params.dir = sortDir;
+    }
     setSearchParams(params, { replace: true });
   }, [debouncedSearch, selectedSet, sortBy, sortDir, setSearchParams, mode]);
 
@@ -125,10 +127,8 @@ export function Cards() {
     };
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
-    if (sortBy !== "price") {
-      params.sort_by = sortBy;
-      params.sort_dir = sortDir;
-    }
+    params.sort_by = sortBy;
+    params.sort_dir = sortDir;
 
     fetchCards(params)
       .then((res) => {
@@ -163,10 +163,8 @@ export function Cards() {
     };
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
-    if (sortBy !== "price") {
-      params.sort_by = sortBy;
-      params.sort_dir = sortDir;
-    }
+    params.sort_by = sortBy;
+    params.sort_dir = sortDir;
 
     fetchCards(params)
       .then((res) => {
