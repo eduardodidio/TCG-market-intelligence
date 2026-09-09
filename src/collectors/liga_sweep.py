@@ -49,14 +49,14 @@ async def _fetch_liga_price(provider, card: dict) -> HistoricalPrice | None:
 
     if is_foil_card:
         foil = prices.get("foil", {})
-        price: Decimal | None = foil.get("low") or foil.get("mid") or foil.get("high")
+        price: Decimal | None = foil.get("mid") or foil.get("low") or foil.get("high")
         if price is None:
             log.warning("liga_sweep_no_foil_prices", card=card_name, card_id=card_id)
             return None
         external_id = f"liga_{card_id}_foil"
     else:
         normal = prices.get("normal", {})
-        price = normal.get("low") or normal.get("mid") or normal.get("high")
+        price = normal.get("mid") or normal.get("low") or normal.get("high")
         if price is None:
             return None
         external_id = f"liga_{card_id}"
