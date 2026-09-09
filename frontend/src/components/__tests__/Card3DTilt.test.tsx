@@ -117,4 +117,24 @@ describe("Card3DTilt", () => {
     expect(props.tiltMaxAngleX).toBe(12);
     expect(props.tiltMaxAngleY).toBe(12);
   });
+
+  it("adds foil-shimmer class when foil is true", () => {
+    render(
+      <Card3DTilt foil>
+        <span>foil card</span>
+      </Card3DTilt>,
+    );
+    const shimmerDiv = screen.getByText("foil card").parentElement;
+    expect(shimmerDiv).toHaveClass("foil-shimmer");
+  });
+
+  it("does NOT add foil-shimmer class when foil is false", () => {
+    render(
+      <Card3DTilt>
+        <span>normal card</span>
+      </Card3DTilt>,
+    );
+    const parent = screen.getByText("normal card").parentElement;
+    expect(parent).not.toHaveClass("foil-shimmer");
+  });
 });

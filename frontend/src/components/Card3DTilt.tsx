@@ -1,5 +1,6 @@
 import Tilt from "react-parallax-tilt";
 import type { ReactNode } from "react";
+import "../styles/foil-shimmer.css";
 
 interface Card3DTiltProps {
   children: ReactNode;
@@ -35,7 +36,7 @@ export function Card3DTilt({
       glarePosition="all"
       className={className}
     >
-      {children}
+      {foil ? <div className="foil-shimmer">{children}</div> : children}
     </Tilt>
   );
 }

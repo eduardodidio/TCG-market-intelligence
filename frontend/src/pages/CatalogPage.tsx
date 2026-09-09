@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -58,11 +59,12 @@ function CatalogCardTile({ card }: { card: CatalogCard }) {
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
 
   return (
+    <Card3DTilt foil={false} className="w-full">
     <Link
       to={`/cards/${card.id}`}
       className="group block bg-slate-800 rounded-lg overflow-hidden
         border border-slate-600 hover:border-cyan-400/50
-        transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
+        transition-all duration-200 hover:shadow-lg"
       data-testid={`catalog-card-${card.id}`}
     >
       {/* Card image with skeleton loading */}
@@ -105,6 +107,7 @@ function CatalogCardTile({ card }: { card: CatalogCard }) {
         )}
       </div>
     </Link>
+    </Card3DTilt>
   );
 }
 
