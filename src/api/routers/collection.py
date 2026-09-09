@@ -4,6 +4,7 @@ import asyncio
 import base64
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+from urllib.parse import quote_plus
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, UploadFile
@@ -1631,11 +1632,12 @@ def _build_collection_detail(
     scryfall_url = None
     ligamagic_url = None
     if name:
-        scryfall_q = name
+        encoded_name = quote_plus(name)
+        scryfall_q = encoded_name
         if entry.set_code:
             scryfall_q += f"+set:{entry.set_code}"
         scryfall_url = f"https://scryfall.com/search?q={scryfall_q}"
-        ligamagic_url = f"https://www.ligamagic.com.br/?view=cards/card&card={name}"
+        ligamagic_url = f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_name}&show=1"
 
     data = CollectionCardDetail(
         id=entry.id,
