@@ -89,35 +89,35 @@ def list_catalog_cards(
     repo: Repository = Depends(get_db),
 ):
     """Paginated card list with filters and optional Liga price."""
-    # Build the base query with latest Liga price via window function
+    # Build the base query with latest Liga price.
+    # Liga sweep stores prices as external_id='liga_{card_id}', so we
+    # join directly via card ID instead of through source_cards.
     base_sql = """
         SELECT c.id, c.name_en, c.name_pt, c.set_code, c.collector_number,
                c.rarity, c.color_identity, c.mana_cost, c.type_line, c.image_uri,
                po.median_price AS liga_price,
                po.observed_at AS liga_price_date
         FROM cards c
-        LEFT JOIN source_cards sc ON sc.card_id = c.id AND sc.source = 'liga'
         LEFT JOIN (
             SELECT external_id, median_price, observed_at,
                    ROW_NUMBER() OVER (
                        PARTITION BY external_id ORDER BY observed_at DESC
                    ) AS rn
             FROM price_observations WHERE source = 'liga'
-        ) po ON po.external_id = sc.external_id AND po.rn = 1
+        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1
         WHERE c.game = 'magic'
     """
 
     count_sql = """
         SELECT COUNT(*)
         FROM cards c
-        LEFT JOIN source_cards sc ON sc.card_id = c.id AND sc.source = 'liga'
         LEFT JOIN (
             SELECT external_id, median_price, observed_at,
                    ROW_NUMBER() OVER (
                        PARTITION BY external_id ORDER BY observed_at DESC
                    ) AS rn
             FROM price_observations WHERE source = 'liga'
-        ) po ON po.external_id = sc.external_id AND po.rn = 1
+        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1
         WHERE c.game = 'magic'
     """
 
@@ -235,14 +235,13 @@ def get_catalog_card(
                po.median_price AS liga_price,
                po.observed_at AS liga_price_date
         FROM cards c
-        LEFT JOIN source_cards sc ON sc.card_id = c.id AND sc.source = 'liga'
         LEFT JOIN (
             SELECT external_id, median_price, observed_at,
                    ROW_NUMBER() OVER (
                        PARTITION BY external_id ORDER BY observed_at DESC
                    ) AS rn
             FROM price_observations WHERE source = 'liga'
-        ) po ON po.external_id = sc.external_id AND po.rn = 1
+        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1
         WHERE c.game = 'magic' AND c.id = :card_id
     """
 
@@ -282,14 +281,13 @@ def list_catalog_sets(
                COUNT(*) AS card_count,
                COUNT(po.median_price) AS priced_count
         FROM cards c
-        LEFT JOIN source_cards sc ON sc.card_id = c.id AND sc.source = 'liga'
         LEFT JOIN (
             SELECT external_id, median_price,
                    ROW_NUMBER() OVER (
                        PARTITION BY external_id ORDER BY observed_at DESC
                    ) AS rn
             FROM price_observations WHERE source = 'liga'
-        ) po ON po.external_id = sc.external_id AND po.rn = 1
+        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1
         WHERE c.game = 'magic' AND c.set_code IS NOT NULL
         GROUP BY c.set_code
         ORDER BY c.set_code ASC
@@ -320,14 +318,13 @@ def get_catalog_stats(
             COUNT(DISTINCT c.set_code) AS total_sets,
             COUNT(po.median_price) AS cards_with_price
         FROM cards c
-        LEFT JOIN source_cards sc ON sc.card_id = c.id AND sc.source = 'liga'
         LEFT JOIN (
             SELECT external_id, median_price,
                    ROW_NUMBER() OVER (
                        PARTITION BY external_id ORDER BY observed_at DESC
                    ) AS rn
             FROM price_observations WHERE source = 'liga'
-        ) po ON po.external_id = sc.external_id AND po.rn = 1
+        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1
         WHERE c.game = 'magic'
     """
 
