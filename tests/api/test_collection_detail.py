@@ -194,17 +194,15 @@ class TestGetCollectionEntry:
 
         assert data["scryfall_url"] is not None
         assert "scryfall.com" in data["scryfall_url"]
-        assert "Lightning Bolt" in data["scryfall_url"]
+        assert "Lightning+Bolt" in data["scryfall_url"]
 
         assert data["ligamagic_url"] is not None
         assert "ligamagic.com.br" in data["ligamagic_url"]
-        assert "Lightning Bolt" in data["ligamagic_url"]
+        assert "Lightning+Bolt" in data["ligamagic_url"]
+        assert "&show=1" in data["ligamagic_url"]
 
     def test_external_links_with_special_chars_in_name(self) -> None:
-        """Card names with spaces and special chars appear in URLs.
-
-        This documents that scryfall_url is NOT url-encoded (known MINOR issue).
-        """
+        """Card names with spaces and special chars are URL-encoded."""
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row(
             name_en="Jace, the Mind Sculptor",
@@ -219,12 +217,13 @@ class TestGetCollectionEntry:
         resp = client.get("/collection/1")
         data = resp.json()["data"]
 
-        # Scryfall URL includes the name with space and comma (not encoded)
+        # Scryfall URL should be URL-encoded
         assert data["scryfall_url"] is not None
-        assert "Jace, the Mind Sculptor" in data["scryfall_url"]
-        # LigaMagic URL also includes unencoded name
+        assert "Jace%2C+the+Mind+Sculptor" in data["scryfall_url"]
+        # LigaMagic URL should be URL-encoded and include &show=1
         assert data["ligamagic_url"] is not None
-        assert "Jace, the Mind Sculptor" in data["ligamagic_url"]
+        assert "Jace%2C+the+Mind+Sculptor" in data["ligamagic_url"]
+        assert "&show=1" in data["ligamagic_url"]
 
     def test_no_external_links_when_name_is_empty(self) -> None:
         """Entry with no name_en and no name_pt produces null external links."""

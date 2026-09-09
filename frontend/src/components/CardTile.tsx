@@ -16,9 +16,11 @@ export interface CardTileProps {
   card: CardSummary;
   trend?: PriceTrendEntry;
   onPriceRefreshed?: (cardId: number, newPrice: number | null) => void;
+  /** Override the default navigation target (`/cards/{id}`). */
+  linkTo?: string;
 }
 
-export function CardTile({ card, trend, onPriceRefreshed }: CardTileProps) {
+export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProps) {
   const { t } = useTranslation();
   const { currency } = useCurrency();
   const { getCardName } = useCardName();
@@ -62,7 +64,7 @@ export function CardTile({ card, trend, onPriceRefreshed }: CardTileProps) {
 
   return (
     <Link
-      to={`/cards/${card.id}`}
+      to={linkTo ?? `/cards/${card.id}`}
       className="group block bg-white dark:bg-slate-800 rounded-lg overflow-hidden
         border border-gray-200 dark:border-slate-600 hover:border-cyan-400/50
         transition-all duration-200 hover:scale-[1.02] hover:shadow-lg relative"

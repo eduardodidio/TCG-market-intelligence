@@ -176,4 +176,16 @@ describe("CardTile", () => {
     const link = screen.getByTestId("card-tile-42");
     expect(link).toHaveAttribute("href", "/cards/42");
   });
+
+  it("uses linkTo prop when provided", () => {
+    renderTile({ linkTo: "/collection/99" });
+    const link = screen.getByTestId("card-tile-42");
+    expect(link).toHaveAttribute("href", "/collection/99");
+  });
+
+  it("falls back to /cards/{id} when linkTo is not provided", () => {
+    renderTile({ linkTo: undefined });
+    const link = screen.getByTestId("card-tile-42");
+    expect(link).toHaveAttribute("href", "/cards/42");
+  });
 });
