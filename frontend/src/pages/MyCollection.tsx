@@ -533,8 +533,10 @@ export function MyCollection() {
     const params: Record<string, string> = {};
     if (debouncedSearch) params.name = debouncedSearch;
     if (selectedSet) params.set = selectedSet;
-    if (sortBy !== "price") params.sort = sortBy;
-    if (sortDir !== "desc") params.dir = sortDir;
+    if (sortBy !== "price" || sortDir !== "desc") {
+      params.sort = sortBy;
+      params.dir = sortDir;
+    }
     setSearchParams(params, { replace: true });
   }, [debouncedSearch, selectedSet, sortBy, sortDir, setSearchParams]);
 
@@ -547,11 +549,8 @@ export function MyCollection() {
       };
       if (debouncedSearch) params.name = debouncedSearch;
       if (selectedSet) params.set = selectedSet;
-      // For price sorting, sort client-side — don't pass sort params to API
-      if (sortBy !== "price") {
-        params.sort_by = sortBy;
-        params.sort_dir = sortDir;
-      }
+      params.sort_by = sortBy;
+      params.sort_dir = sortDir;
       if (currency !== "BRL") {
         params.currency = currency;
       }
@@ -646,15 +645,6 @@ export function MyCollection() {
     }
   }, [currency]);
 
-  // Client-side price sorting
-  const sortedCards = useMemo(() => {
-    if (sortBy !== "price") return cards;
-    return [...cards].sort((a, b) => {
-      const pa = a.latest_price ?? (sortDir === "asc" ? Infinity : -Infinity);
-      const pb = b.latest_price ?? (sortDir === "asc" ? Infinity : -Infinity);
-      return sortDir === "asc" ? pa - pb : pb - pa;
-    });
-  }, [cards, sortBy, sortDir]);
 
   return (
     <div data-testid="page-collection">
@@ -899,7 +889,7 @@ export function MyCollection() {
             className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses}`}
             data-testid="collection-grid"
           >
-            {sortedCards.map((card) => {
+            {cards.map((card) => {
               // Check if this card was recently scanned (match by name_en)
               let highlightColor: "green" | "amber" | undefined;
               for (const [, val] of recentlyScanned) {
