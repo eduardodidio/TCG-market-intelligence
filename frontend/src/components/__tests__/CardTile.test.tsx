@@ -43,6 +43,22 @@ vi.mock("../../utils/scryfall", () => ({
     `https://scryfall.com/named/${name}.jpg`,
 }));
 
+vi.mock("react-parallax-tilt", () => ({
+  default: ({
+    children,
+    className,
+    ...props
+  }: {
+    children: React.ReactNode;
+    className?: string;
+    [key: string]: unknown;
+  }) => (
+    <div data-testid="tilt-wrapper" className={className} data-props={JSON.stringify(props)}>
+      {children}
+    </div>
+  ),
+}));
+
 const baseCard: CardSummary = {
   id: 42,
   name_en: "Lightning Bolt",
@@ -175,5 +191,10 @@ describe("CardTile", () => {
     renderTile();
     const link = screen.getByTestId("card-tile-42");
     expect(link).toHaveAttribute("href", "/cards/42");
+  });
+
+  it("renders Card3DTilt wrapper", () => {
+    renderTile();
+    expect(screen.getByTestId("tilt-wrapper")).toBeInTheDocument();
   });
 });

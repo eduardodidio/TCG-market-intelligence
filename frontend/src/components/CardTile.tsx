@@ -9,6 +9,7 @@ import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { Card3DTilt } from "./Card3DTilt";
 import { PriceSparkline } from "./PriceSparkline";
 import { TrendBadge } from "./TrendBadge";
 
@@ -61,11 +62,12 @@ export function CardTile({ card, trend, onPriceRefreshed }: CardTileProps) {
   };
 
   return (
+    <Card3DTilt foil={false} className="w-full">
     <Link
       to={`/cards/${card.id}`}
       className="group block bg-white dark:bg-slate-800 rounded-lg overflow-hidden
         border border-gray-200 dark:border-slate-600 hover:border-cyan-400/50
-        transition-all duration-200 hover:scale-[1.02] hover:shadow-lg relative"
+        transition-all duration-200 hover:shadow-lg relative"
       data-testid={`card-tile-${card.id}`}
     >
       {/* Refresh button overlay */}
@@ -182,5 +184,6 @@ export function CardTile({ card, trend, onPriceRefreshed }: CardTileProps) {
         )}
       </div>
     </Link>
+    </Card3DTilt>
   );
 }

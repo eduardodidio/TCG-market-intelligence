@@ -5,6 +5,7 @@ import type { DeckCard } from "../types/api";
 import { useCardName } from "../hooks/useCardName";
 import { useCredits } from "../hooks/useCredits";
 import { formatBRL } from "../utils/format";
+import { Card3DTilt } from "./Card3DTilt";
 import { CreditConfirmModal } from "./CreditConfirmModal";
 
 interface DeckCardTileProps {
@@ -175,13 +176,15 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
   if (linkTo) {
     return (
       <>
-        <Link to={linkTo} data-testid={`deck-card-link-${card.id}`}>
-          {content}
-        </Link>
+        <Card3DTilt foil={false} className="w-full">
+          <Link to={linkTo} data-testid={`deck-card-link-${card.id}`}>
+            {content}
+          </Link>
+        </Card3DTilt>
         {modal}
       </>
     );
   }
 
-  return <>{content}{modal}</>;
+  return <><Card3DTilt foil={false} className="w-full">{content}</Card3DTilt>{modal}</>;
 }
