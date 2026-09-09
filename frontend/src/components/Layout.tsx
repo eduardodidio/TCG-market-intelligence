@@ -350,6 +350,15 @@ export function Layout() {
           }}
         />
       )}
+
+      {/* Version toggle — try new V2 UI */}
+      <Link
+        to="/v2"
+        className="fixed bottom-4 right-4 z-50 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-3 py-2 text-sm font-medium shadow-lg transition-all"
+        data-testid="try-new-ui"
+      >
+        Try New UI
+      </Link>
     </div>
   );
 }

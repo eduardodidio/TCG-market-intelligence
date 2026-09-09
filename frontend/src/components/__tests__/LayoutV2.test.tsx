@@ -42,14 +42,14 @@ vi.mock("../../hooks/useAuth", () => ({
   useAuth: () => mockAuthValue,
 }));
 
-function renderLayout(initialRoute = "/") {
+function renderLayout(initialRoute = "/v2") {
   return render(
     <MemoryRouter initialEntries={[initialRoute]}>
       <ThemeProvider>
         <Routes>
           <Route element={<LayoutV2 />}>
-            <Route path="/" element={<div data-testid="dashboard-page">Dashboard</div>} />
-            <Route path="/collection" element={<div data-testid="collection-page">Collection</div>} />
+            <Route path="/v2" element={<div data-testid="dashboard-page">Dashboard</div>} />
+            <Route path="/v2/collection" element={<div data-testid="collection-page">Collection</div>} />
             <Route path="/cards" element={<div data-testid="cards-page">Explore</div>} />
             <Route path="/catalog" element={<div data-testid="catalog-page">Catalog</div>} />
             <Route path="/alerts" element={<div data-testid="alerts-page">Alerts</div>} />
@@ -95,13 +95,13 @@ describe("LayoutV2", () => {
   });
 
   it("renders Outlet content", () => {
-    renderLayout("/");
+    renderLayout("/v2");
     expect(screen.getByTestId("v2-main-content")).toBeInTheDocument();
     expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
   });
 
   it("renders routed page through Outlet", () => {
-    renderLayout("/collection");
+    renderLayout("/v2/collection");
     expect(screen.getByTestId("collection-page")).toBeInTheDocument();
   });
 

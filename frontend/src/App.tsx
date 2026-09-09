@@ -107,6 +107,13 @@ const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
 
+// V2 UI prototype (lazy-loaded, code-split)
+const LayoutV2 = lazy(() =>
+  import("./components/LayoutV2").then((m) => ({ default: m.LayoutV2 })),
+);
+const DashboardV2 = lazy(() => import("./pages/DashboardV2"));
+const CollectionV2 = lazy(() => import("./pages/CollectionV2"));
+
 /**
  * Syncs user's preferred_language from their profile to the LanguageContext
  * whenever the user changes (login, session restore).
@@ -434,6 +441,40 @@ export default function App() {
               <Route
                 path="/admin/liga-status"
                 element={<Navigate to="/admin" replace />}
+              />
+            </Route>
+
+            {/* V2 UI prototype routes */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <LayoutV2 />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            >
+              <Route
+                path="/v2"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <DashboardV2 />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/collection"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <CollectionV2 />
+                  </Suspense>
+                }
               />
             </Route>
 

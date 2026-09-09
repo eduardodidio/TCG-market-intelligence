@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { ThemeToggle } from "./ThemeToggle";
@@ -12,7 +12,7 @@ interface V2NavItem {
 
 const NAV_ITEMS: ReadonlyArray<V2NavItem> = [
   {
-    to: "/",
+    to: "/v2",
     labelKey: "nav.dashboard",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
@@ -21,7 +21,7 @@ const NAV_ITEMS: ReadonlyArray<V2NavItem> = [
     ),
   },
   {
-    to: "/collection",
+    to: "/v2/collection",
     labelKey: "nav.myCollection",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
@@ -108,7 +108,7 @@ export function LayoutV2() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
-            <NavLink to="/" className="no-underline shrink-0" data-testid="v2-logo">
+            <NavLink to="/v2" className="no-underline shrink-0" data-testid="v2-logo">
               <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">
                 TEDHC Market
               </span>
@@ -120,7 +120,7 @@ export function LayoutV2() {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.to === "/"}
+                  end={item.to === "/v2"}
                   className={navLinkClasses}
                   data-testid={`v2-nav-${item.labelKey}`}
                 >
@@ -192,7 +192,7 @@ export function LayoutV2() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === "/"}
+                end={item.to === "/v2"}
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
                   `block px-3 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -230,7 +230,7 @@ export function LayoutV2() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === "/"}
+            end={item.to === "/v2"}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] font-medium transition-colors ${
                 isActive ? "text-v2-accent" : "text-v2-muted"
@@ -251,6 +251,15 @@ export function LayoutV2() {
       >
         <Outlet />
       </main>
+
+      {/* Version toggle — back to classic UI */}
+      <Link
+        to="/"
+        className="fixed bottom-16 right-4 md:bottom-4 z-50 bg-v2-surface border border-v2-border rounded-v2 px-3 py-2 text-sm text-v2-muted hover:text-white hover:bg-v2-surface-hover shadow-v2-card transition-all"
+        data-testid="v2-back-to-classic"
+      >
+        &larr; Back to Classic
+      </Link>
     </div>
   );
 }
