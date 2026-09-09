@@ -12,6 +12,7 @@ import { formatCurrency } from "../utils/format";
 import { KpiCard } from "../components/KpiCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { TrendingSection } from "../components/TrendingSection";
+import { CollectionMovers } from "../components/CollectionMovers";
 import { EmptyState } from "../components/EmptyState";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -155,45 +156,68 @@ export function Dashboard() {
       </div>
 
       {/* Collection KPIs */}
-      {!collectionSummary.loading && !collectionSummary.error && summaryData ? (
-        <div
-          className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4"
-          data-testid="collection-kpis"
-        >
-          <KpiCard
-            title={t("dashboard.collectionCards")}
-            value={String(summaryData.total_unique)}
-            subtitle={t("dashboard.uniqueCards")}
-          />
-          <KpiCard
-            title={t("dashboard.totalCopies")}
-            value={String(summaryData.total_cards)}
-            subtitle={t("dashboard.totalQuantity")}
-          />
-          <KpiCard
-            title={t("dashboard.estCollectionValue")}
-            value={formatCurrency(summaryData.total_value, currency)}
-            subtitle={t("dashboard.basedOnLatestPrices")}
-            icon={<CurrencyIndicator currency={currency} size={20} />}
-            extra={<ValuationBadge days={7} currency={currency} />}
-          />
-          <div data-testid="coverage-breakdown">
+      {collectionSummary.loading ? (
+        null
+      ) : summaryData && summaryData.total_unique > 0 ? (
+        <>
+          <div
+            className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4"
+            data-testid="collection-kpis"
+          >
             <KpiCard
-              title={t("dashboard.coverage")}
-              value={`${linkedPct}%`}
-              subtitle={t("dashboard.coverageSubtitle", { linked: summaryData.linked_count, priced: summaryData.priced_count, pricedPct })}
+              title={t("dashboard.collectionCards")}
+              value={String(summaryData.total_unique)}
+              subtitle={t("dashboard.uniqueCards")}
             />
-            {lowCoverage && (
-              <p
-                className="mt-2 text-xs text-amber-400"
-                data-testid="low-coverage-hint"
-              >
-                {t("dashboard.lowCoverageHint")}
-              </p>
-            )}
+            <KpiCard
+              title={t("dashboard.totalCopies")}
+              value={String(summaryData.total_cards)}
+              subtitle={t("dashboard.totalQuantity")}
+            />
+            <KpiCard
+              title={t("dashboard.estCollectionValue")}
+              value={formatCurrency(summaryData.total_value, currency)}
+              subtitle={t("dashboard.basedOnLatestPrices")}
+              icon={<CurrencyIndicator currency={currency} size={20} />}
+              extra={<ValuationBadge days={7} currency={currency} />}
+            />
+            <div data-testid="coverage-breakdown">
+              <KpiCard
+                title={t("dashboard.coverage")}
+                value={`${linkedPct}%`}
+                subtitle={t("dashboard.coverageSubtitle", { linked: summaryData.linked_count, priced: summaryData.priced_count, pricedPct })}
+              />
+              {lowCoverage && (
+                <p
+                  className="mt-2 text-xs text-amber-400"
+                  data-testid="low-coverage-hint"
+                >
+                  {t("dashboard.lowCoverageHint")}
+                </p>
+              )}
+            </div>
           </div>
+          {/* Collection movers (gainers/losers) */}
+          <div className="mb-8" data-testid="dashboard-movers">
+            <CollectionMovers days={7} limit={3} />
+          </div>
+        </>
+      ) : collectionSummary.error && !summaryData ? (
+        <div className="mb-8" data-testid="collection-error">
+          <EmptyState
+            icon={
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            }
+            title={t("dashboard.collectionErrorTitle")}
+            description={t("dashboard.collectionErrorDesc")}
+            actions={[
+              { label: t("common.retry"), onClick: () => collectionSummary.refetch(), variant: "primary" },
+            ]}
+          />
         </div>
-      ) : !collectionSummary.loading ? (
+      ) : (
         <div className="mb-8" data-testid="collection-empty">
           <EmptyState
             icon={
@@ -209,7 +233,7 @@ export function Dashboard() {
             ]}
           />
         </div>
-      ) : null}
+      )}
 
       {/* Market summary strip */}
       {hasMarketData ? (

@@ -207,7 +207,9 @@
     "emptyMarket": "Import your collection and sync with MYP to see market data here.",
     "emptyMovers": "Not enough price history for movers. Run a sync and check back.",
     "topGainers": "Top Gainers",
-    "topLosers": "Top Losers"
+    "topLosers": "Top Losers",
+    "collectionErrorTitle": "Could not load collection",
+    "collectionErrorDesc": "There was a problem loading your collection data. This may happen after a server update — try again or re-login."
   },
   "cards": {
     "title": "Explore Cards",

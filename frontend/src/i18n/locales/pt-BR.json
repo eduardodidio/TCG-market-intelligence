@@ -207,7 +207,9 @@
     "emptyMarket": "Importe sua colecao e sincronize com o MYP para ver dados de mercado aqui.",
     "emptyMovers": "Historico de precos insuficiente para movimentacoes. Execute uma sincronizacao e volte depois.",
     "topGainers": "Maiores Altas",
-    "topLosers": "Maiores Baixas"
+    "topLosers": "Maiores Baixas",
+    "collectionErrorTitle": "Nao foi possivel carregar a colecao",
+    "collectionErrorDesc": "Houve um problema ao carregar os dados da sua colecao. Isso pode ocorrer apos uma atualizacao do servidor — tente novamente ou faca login novamente."
   },
   "cards": {
     "title": "Explorar Cartas",
