@@ -31,6 +31,15 @@ vi.mock("../../src/components/TrendingSection", () => ({
   ),
 }));
 
+// Mock CollectionMovers — it fetches its own data internally
+vi.mock("../../src/components/CollectionMovers", () => ({
+  CollectionMovers: ({ days, limit }: { days?: number; limit?: number }) => (
+    <div data-testid="collection-movers-mock" data-days={days} data-limit={limit}>
+      CollectionMovers
+    </div>
+  ),
+}));
+
 function renderDashboard() {
   return render(
     <MemoryRouter>
@@ -203,16 +212,22 @@ describe("Dashboard", () => {
     expect(losersSection.getAttribute("data-limit")).toBe("10");
   });
 
-  it("does NOT render MoversPreview", async () => {
+  it("renders CollectionMovers when collection has cards", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByTestId("market-summary-strip")).toBeDefined();
+      expect(screen.getByTestId("collection-kpis")).toBeDefined();
     });
 
-    // MoversPreview is gone — no movers-preview test ID
-    expect(screen.queryByTestId("movers-preview")).toBeNull();
+    // CollectionMovers should be rendered after KPIs
+    const moversSection = screen.getByTestId("dashboard-movers");
+    expect(moversSection).toBeDefined();
+
+    const moversMock = screen.getByTestId("collection-movers-mock");
+    expect(moversMock).toBeDefined();
+    expect(moversMock.getAttribute("data-days")).toBe("7");
+    expect(moversMock.getAttribute("data-limit")).toBe("3");
   });
 
   it("shows error banner when API call fails", async () => {
@@ -338,7 +353,7 @@ describe("Dashboard", () => {
     expect(screen.queryByTestId("freshness-indicator")).toBeNull();
   });
 
-  it("renders gracefully when collection summary returns zero values", async () => {
+  it("renders empty collection state when summary returns zero values", async () => {
     const statsResponse = mockMarketStats();
     const healthResponse = mockCollectionHealth();
     const emptySummary = mockCollectionSummary({
@@ -384,12 +399,9 @@ describe("Dashboard", () => {
       expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
     });
 
-    // Collection KPIs still render with zero values
-    expect(screen.getByTestId("collection-kpis")).toBeDefined();
-    expect(screen.getByText("Collection Cards")).toBeDefined();
-
-    // Coverage should be 0% when total_unique is 0
-    expect(screen.getByText("0%")).toBeDefined();
+    // With total_unique=0, user genuinely has no cards — show import CTA
+    expect(screen.getByTestId("collection-empty")).toBeDefined();
+    expect(screen.getByText("Your collection is empty")).toBeDefined();
 
     // Market summary strip still visible
     expect(screen.getByTestId("market-summary-strip")).toBeDefined();
@@ -514,7 +526,7 @@ describe("Dashboard", () => {
     expect(screen.getByTestId("landing-trending-down")).toBeDefined();
   });
 
-  it("shows collection empty state when summary endpoint fails", async () => {
+  it("shows error state with retry when collection summary endpoint fails", async () => {
     const statsResponse = mockMarketStats();
     const healthResponse = mockCollectionHealth();
     const summaryError = mockApiError("SERVER_ERROR", "Collection unavailable");
@@ -555,12 +567,15 @@ describe("Dashboard", () => {
       expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
     });
 
-    // Collection section should show empty state
-    expect(screen.getByTestId("collection-empty")).toBeDefined();
-    // Now uses enhanced EmptyState with title
-    expect(
-      screen.getByText("Your collection is empty"),
-    ).toBeDefined();
+    // Collection section should show ERROR state (not import CTA)
+    expect(screen.getByTestId("collection-error")).toBeDefined();
+    expect(screen.getByText("Could not load collection")).toBeDefined();
+
+    // Should NOT show the import CTA
+    expect(screen.queryByTestId("collection-empty")).toBeNull();
+
+    // Retry button should be present
+    expect(screen.getByText("Retry")).toBeDefined();
 
     // Market section still works
     expect(screen.getByTestId("market-summary-strip")).toBeDefined();
@@ -615,5 +630,119 @@ describe("Dashboard", () => {
     // Both sections are inside the grid
     expect(grid.querySelector('[data-testid="landing-trending-up"]')).toBeTruthy();
     expect(grid.querySelector('[data-testid="landing-trending-down"]')).toBeTruthy();
+  });
+
+  it("does not render CollectionMovers when collection is empty", async () => {
+    const statsResponse = mockMarketStats();
+    const healthResponse = mockCollectionHealth();
+    const emptySummary = mockCollectionSummary({
+      total_unique: 0,
+      total_cards: 0,
+      total_value: null,
+      linked_count: 0,
+      priced_count: 0,
+      sets_count: 0,
+    });
+
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string | URL) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/market/stats")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(statsResponse),
+          });
+        }
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(healthResponse),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(emptySummary),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
+      },
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-empty")).toBeDefined();
+    });
+
+    // CollectionMovers should NOT be present when collection is empty
+    expect(screen.queryByTestId("dashboard-movers")).toBeNull();
+    expect(screen.queryByTestId("collection-movers-mock")).toBeNull();
+  });
+
+  it("retries collection summary fetch when retry button is clicked on error", async () => {
+    const statsResponse = mockMarketStats();
+    const healthResponse = mockCollectionHealth();
+    const summaryError = mockApiError("SERVER_ERROR", "Collection unavailable");
+    const summaryResponse = mockCollectionSummary();
+
+    let callCount = 0;
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string | URL) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/market/stats")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(statsResponse),
+          });
+        }
+        if (urlStr.includes("/collect/health")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(healthResponse),
+          });
+        }
+        if (urlStr.includes("/collection/summary")) {
+          callCount++;
+          if (callCount <= 1) {
+            return Promise.resolve({
+              ok: false,
+              status: 401,
+              statusText: "Unauthorized",
+              json: () => Promise.resolve(summaryError),
+            });
+          }
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(summaryResponse),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
+      },
+    );
+
+    renderDashboard();
+
+    // First: error state
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-error")).toBeDefined();
+    });
+
+    // Click retry
+    fireEvent.click(screen.getByText("Retry"));
+
+    // After retry: KPIs should appear
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-kpis")).toBeDefined();
+    });
+
+    // Error state should be gone
+    expect(screen.queryByTestId("collection-error")).toBeNull();
   });
 });
