@@ -1664,6 +1664,34 @@ def push_db(db, remote, api_key, force):
         except Exception as e:
             click.echo(f"Warning: could not verify local DB ({e}), proceeding anyway...")
 
+    # Ensure all model-defined indexes exist (table-rebuild may drop them)
+    try:
+        conn = _sqlite3.connect(db_path)
+        c = conn.cursor()
+        _REQUIRED_INDEXES = [
+            ("ix_source_card_sku", "source_cards", "(sku)"),
+            ("ix_source_card_cardid_source", "source_cards", "(card_id, source)"),
+            ("ix_user_collection_user", "user_collection", "(user_id)"),
+            ("ix_user_collection_card", "user_collection", "(card_id)"),
+            ("ix_user_collection_user_card", "user_collection", "(user_id, card_id)"),
+            ("ix_price_obs_extid_date", "price_observations", "(external_id, observed_at)"),
+        ]
+        existing = {
+            r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='index'").fetchall()
+        }
+        created = []
+        for idx_name, table, cols in _REQUIRED_INDEXES:
+            if idx_name not in existing:
+                c.execute(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} {cols}")
+                created.append(idx_name)
+        if created:
+            c.execute("ANALYZE")
+            conn.commit()
+            click.echo(f"Created {len(created)} missing indexes: {', '.join(created)}")
+        conn.close()
+    except Exception as e:
+        click.echo(f"Warning: index check failed ({e}), proceeding anyway...")
+
     size_mb = os.path.getsize(db_path) / (1024 * 1024)
     click.echo(f"Uploading {db_path} ({size_mb:.1f} MB) to {remote}...")
 

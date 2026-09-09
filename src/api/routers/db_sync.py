@@ -148,6 +148,14 @@ async def restore_db(
                 message="Collection entries were lost during restore! Check timestamped backup.",
             )
 
+    # Remove stale WAL/SHM files — they reference the OLD database and
+    # will corrupt connections to the newly restored file.
+    for suffix in (".db-wal", ".db-shm"):
+        stale = db_file.with_suffix(suffix)
+        if stale.exists():
+            stale.unlink()
+            log.info("db_stale_file_removed", path=str(stale))
+
     # Invalidate cached singletons so new requests use the restored DB
     _invalidate_db_caches()
 
