@@ -217,6 +217,13 @@ def _parse_card(raw: dict) -> CatalogCard | None:
     image_uris = raw.get("image_uris") or {}
     image_uri = image_uris.get("normal")
 
+    # Fallback for double-faced cards (modal DFCs, transform, adventure)
+    if not image_uri:
+        card_faces = raw.get("card_faces") or []
+        if card_faces:
+            face_uris = card_faces[0].get("image_uris") or {}
+            image_uri = face_uris.get("normal")
+
     return CatalogCard(
         name_en=raw.get("name", ""),
         set_code=raw.get("set", ""),
