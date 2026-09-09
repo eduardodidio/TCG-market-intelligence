@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import create_engine, event, func, inspect, or_, select, text, update
+from sqlalchemy import case, create_engine, event, func, inspect, or_, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -626,10 +626,15 @@ class Repository:
         name_search: str | None = None,
         after_id: int | None = None,
         limit: int = 50,
+        sort_by: str = "name",
+        sort_dir: str = "asc",
     ) -> list[CardRow]:
-        """List cards with optional filters and cursor pagination."""
+        """List cards with optional filters, sorting, and cursor pagination."""
+        from sqlalchemy import String as SAString
+        from sqlalchemy import cast as sa_cast
+
         with Session(self.engine) as session:
-            stmt = select(CardRow).order_by(CardRow.id.asc())
+            stmt = select(CardRow)
             if game:
                 stmt = stmt.where(CardRow.game == game)
             if set_code:
@@ -638,6 +643,22 @@ class Repository:
                 stmt = stmt.where(CardRow.name_en.ilike(f"%{name_search}%"))
             if after_id:
                 stmt = stmt.where(CardRow.id > after_id)
+
+            if sort_by == "price":
+                latest = self._latest_price_subquery()
+                liga_ext = func.concat("liga_", sa_cast(CardRow.id, SAString))
+                stmt = stmt.outerjoin(latest, liga_ext == latest.c.external_id)
+                null_flag = case((latest.c.median_price.is_(None), 1), else_=0)
+                if sort_dir == "desc":
+                    price_order = latest.c.median_price.desc()
+                else:
+                    price_order = latest.c.median_price.asc()
+                stmt = stmt.order_by(null_flag, price_order, CardRow.id.asc())
+            else:
+                col = getattr(CardRow, "name_en") if sort_by == "name" else CardRow.id
+                sort_expr = col.desc() if sort_dir == "desc" else col.asc()
+                stmt = stmt.order_by(sort_expr, CardRow.id.asc())
+
             stmt = stmt.limit(limit + 1)
             return list(session.execute(stmt).scalars().all())
 
@@ -1422,7 +1443,38 @@ class Repository:
         "set": "set_code",
         "number": "collector_number",
         "added": "created_at",
+        # "price" handled specially via subquery — see list_collection()
     }
+
+    def _latest_price_subquery(self):
+        """Subquery returning the latest median_price per card_id.
+
+        Uses the liga external_id pattern ``liga_{card_id}`` and picks the
+        most recent observation per card via ROW_NUMBER().
+        """
+        ranked = (
+            select(
+                PriceObservationRow.external_id,
+                PriceObservationRow.median_price,
+                func.row_number()
+                .over(
+                    partition_by=PriceObservationRow.external_id,
+                    order_by=PriceObservationRow.observed_at.desc(),
+                )
+                .label("rn"),
+            )
+            .where(PriceObservationRow.source == "liga")
+            .subquery("ranked_prices")
+        )
+        latest = (
+            select(
+                ranked.c.external_id,
+                ranked.c.median_price,
+            )
+            .where(ranked.c.rn == 1)
+            .subquery("latest_prices")
+        )
+        return latest
 
     def list_collection(
         self,
@@ -1435,6 +1487,9 @@ class Repository:
         limit: int = 50,
         after_id: int | None = None,
     ) -> list[UserCollectionRow]:
+        from sqlalchemy import String as SAString
+        from sqlalchemy import cast as sa_cast
+
         with Session(self.engine) as session:
             stmt = select(UserCollectionRow).where(UserCollectionRow.user_id == user_id)
             if name_search:
@@ -1447,18 +1502,30 @@ class Repository:
                 stmt = stmt.where(UserCollectionRow.set_code == set_code)
 
             # Sorting
-            col_name = self._COLLECTION_SORT_COLUMNS.get(sort_by, "name_en")
-            col = getattr(UserCollectionRow, col_name)
-            # Handle NULLs: coalesce nullable string columns to '' so they sort last
-            if col_name in ("name_en",):
-                sort_expr = func.coalesce(col, "")
+            if sort_by == "price":
+                latest = self._latest_price_subquery()
+                liga_ext = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
+                stmt = stmt.outerjoin(latest, liga_ext == latest.c.external_id)
+                # Push NULLs to end regardless of direction
+                null_flag = case((latest.c.median_price.is_(None), 1), else_=0)
+                if sort_dir == "desc":
+                    sort_expr = latest.c.median_price.desc()
+                else:
+                    sort_expr = latest.c.median_price.asc()
+                stmt = stmt.order_by(null_flag, sort_expr, UserCollectionRow.id.asc())
             else:
-                sort_expr = col
-            if sort_dir == "desc":
-                sort_expr = sort_expr.desc()
-            else:
-                sort_expr = sort_expr.asc()
-            stmt = stmt.order_by(sort_expr, UserCollectionRow.id.asc())
+                col_name = self._COLLECTION_SORT_COLUMNS.get(sort_by, "name_en")
+                col = getattr(UserCollectionRow, col_name)
+                # Handle NULLs: coalesce nullable string columns to '' so they sort last
+                if col_name in ("name_en",):
+                    sort_expr = func.coalesce(col, "")
+                else:
+                    sort_expr = col
+                if sort_dir == "desc":
+                    sort_expr = sort_expr.desc()
+                else:
+                    sort_expr = sort_expr.asc()
+                stmt = stmt.order_by(sort_expr, UserCollectionRow.id.asc())
 
             # Pagination: cursor-based (after_id) takes precedence over offset
             if after_id is not None:

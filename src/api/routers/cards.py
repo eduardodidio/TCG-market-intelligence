@@ -56,6 +56,8 @@ def list_cards(
     set: str | None = Query(None, alias="set"),
     name: str | None = None,
     cursor: str | None = None,
+    sort_by: str = Query(default="name", pattern="^(name|price)$"),
+    sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
     limit: int = Query(default=50, ge=1, le=200),
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
@@ -68,6 +70,8 @@ def list_cards(
         name_search=name,
         after_id=after_id,
         limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
 
     has_next = len(rows) > limit
