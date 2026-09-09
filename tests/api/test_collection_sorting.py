@@ -8,15 +8,17 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.api.deps import get_db
+from src.api.deps import get_db, require_auth_or_api_key
 from src.api.routers.collection import router
 from src.database.models import UserCollectionRow
+
+_TEST_USER = "test-user"
 
 
 def _make_row(**overrides) -> MagicMock:
     defaults = {
         "id": 1,
-        "user_id": "eduardo",
+        "user_id": _TEST_USER,
         "card_id": None,
         "set_code": "DMR",
         "collector_number": "123",
@@ -42,11 +44,12 @@ def _make_app(mock_repo: MagicMock) -> FastAPI:
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_db] = lambda: mock_repo
+    app.dependency_overrides[require_auth_or_api_key] = lambda: _TEST_USER
     return app
 
 
 class TestSortQueryParams:
-    def test_sort_by_name_asc_default(self):
+    def test_sort_by_price_desc_default(self):
         mock_repo = MagicMock()
         mock_repo.list_collection.return_value = [_make_row()]
         mock_repo.count_collection.return_value = 1
@@ -56,7 +59,21 @@ class TestSortQueryParams:
         resp = client.get("/api/v1/collection")
         assert resp.status_code == 200
 
-        # Verify sort params passed to repo
+        # Verify default sort params: price desc
+        call_kwargs = mock_repo.list_collection.call_args.kwargs
+        assert call_kwargs["sort_by"] == "price"
+        assert call_kwargs["sort_dir"] == "desc"
+
+    def test_sort_by_name_asc_explicit(self):
+        mock_repo = MagicMock()
+        mock_repo.list_collection.return_value = [_make_row()]
+        mock_repo.count_collection.return_value = 1
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/api/v1/collection?sort_by=name&sort_dir=asc")
+        assert resp.status_code == 200
+
         call_kwargs = mock_repo.list_collection.call_args.kwargs
         assert call_kwargs["sort_by"] == "name"
         assert call_kwargs["sort_dir"] == "asc"
@@ -101,10 +118,24 @@ class TestSortQueryParams:
         call_kwargs = mock_repo.list_collection.call_args.kwargs
         assert call_kwargs["sort_by"] == "added"
 
+    def test_sort_by_price_returns_200(self):
+        mock_repo = MagicMock()
+        mock_repo.list_collection.return_value = [_make_row(card_id=10)]
+        mock_repo.count_collection.return_value = 1
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/api/v1/collection?sort_by=price&sort_dir=desc")
+        assert resp.status_code == 200
+
+        call_kwargs = mock_repo.list_collection.call_args.kwargs
+        assert call_kwargs["sort_by"] == "price"
+        assert call_kwargs["sort_dir"] == "desc"
+
     def test_invalid_sort_by_returns_422(self):
         mock_repo = MagicMock()
         client = TestClient(_make_app(mock_repo))
-        resp = client.get("/api/v1/collection?sort_by=price")
+        resp = client.get("/api/v1/collection?sort_by=invalid_field")
         assert resp.status_code == 422
 
     def test_invalid_sort_dir_returns_422(self):
