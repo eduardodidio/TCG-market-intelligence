@@ -41,3 +41,22 @@
     animation: none;
   }
 }
+
+/* V2 Design System */
+@layer components {
+  .v2-card {
+    @apply bg-v2-surface border border-v2-border rounded-v2 shadow-v2-card transition-all duration-200;
+  }
+  .v2-card:hover {
+    @apply bg-v2-surface-hover shadow-v2-glow;
+  }
+  .v2-heading {
+    @apply font-figtree font-semibold text-white tracking-tight;
+  }
+  .v2-body {
+    @apply font-figtree text-v2-muted;
+  }
+  .v2-accent {
+    @apply text-v2-accent font-medium;
+  }
+}
