@@ -56,6 +56,7 @@ class Repository:
                     "pool_size": 5,
                     "max_overflow": 10,
                     "pool_pre_ping": True,
+                    "connect_args": {"connect_timeout": 30},
                 }
             )
         self.engine = create_engine(db_url, **kwargs)
