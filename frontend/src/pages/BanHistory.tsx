@@ -5,6 +5,7 @@ import { fetchBanHistoryPaginated, fetchFormats } from "../api/banlist";
 import { useApi } from "../hooks/useApi";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { BanEventCard } from "../components/BanEventCard";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { scryfallImageUrl } from "../utils/scryfall";
 import type { LegalityHistoryEntry } from "../types/banlist";
 
@@ -42,6 +43,7 @@ function formatMonthYear(key: string, locale: string): string {
 
 export function BanHistory() {
   const { t, i18n } = useTranslation();
+  const prefix = useRoutePrefix();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const selectedFormat = searchParams.get("format") || "";
@@ -136,7 +138,7 @@ export function BanHistory() {
     <div data-testid="page-ban-history">
       <Breadcrumb
         items={[
-          { label: t("nav.banlist"), to: "/banlist" },
+          { label: t("nav.banlist"), to: `${prefix}/banlist` },
           { label: t("nav.banHistory") },
         ]}
       />

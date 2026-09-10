@@ -6,12 +6,14 @@ import { deleteAlert, fetchAlerts, fetchNotifications, markAllNotificationsRead 
 import { Breadcrumb } from "../components/Breadcrumb";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type { AlertResponse, AlertNotificationResponse } from "../types/alerts";
 
 type Tab = "active" | "triggered";
 
 export function AlertsPage() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("active");
 
@@ -76,7 +78,7 @@ export function AlertsPage() {
   }
 
   const breadcrumbs = [
-    { label: t("nav.dashboard"), to: "/" },
+    { label: t("nav.dashboard"), to: `${prefix}/` },
     { label: t("alerts.title") },
   ];
 

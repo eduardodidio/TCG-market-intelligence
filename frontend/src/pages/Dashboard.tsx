@@ -19,6 +19,7 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { SkeletonKpi } from "../components/Skeleton";
 import { ValuationBadge } from "../components/ValuationBadge";
 import { WelcomeBanner } from "../components/WelcomeBanner";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type {
   CollectionHealth,
   CollectionSummary,
@@ -27,6 +28,7 @@ import type {
 
 export function Dashboard() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
 
   useEffect(() => {
     document.title = `${t("nav.dashboard")} | TCG Market`;
@@ -228,8 +230,8 @@ export function Dashboard() {
             title={t("onboarding.dashboardCollectionTitle")}
             description={t("onboarding.dashboardCollectionDesc")}
             actions={[
-              { label: t("onboarding.importCollection"), onClick: () => navigate("/collection"), variant: "primary" },
-              { label: t("onboarding.exploreCards"), onClick: () => navigate("/cards"), variant: "secondary" },
+              { label: t("onboarding.importCollection"), onClick: () => navigate(`${prefix}/collection`), variant: "primary" },
+              { label: t("onboarding.exploreCards"), onClick: () => navigate(`${prefix}/cards`), variant: "secondary" },
             ]}
           />
         </div>
@@ -270,7 +272,7 @@ export function Dashboard() {
             title={t("onboarding.dashboardMarketTitle")}
             description={t("onboarding.dashboardMarketDesc")}
             actions={[
-              { label: t("onboarding.runScan"), onClick: () => navigate("/scans"), variant: "primary" },
+              { label: t("onboarding.runScan"), onClick: () => navigate(`${prefix}/scans`), variant: "primary" },
             ]}
           />
         </div>
@@ -303,7 +305,7 @@ export function Dashboard() {
       {/* View All link */}
       <div className="text-center" data-testid="trending-view-all">
         <Link
-          to="/market/trending"
+          to={`${prefix}/market/trending`}
           className="inline-flex items-center gap-1 text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors"
         >
           {t("common.viewAll")}

@@ -12,11 +12,13 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { CollectionCard, CollectionSummary } from "../types/api";
 import { DEFAULT_PAGE_LIMIT } from "../utils/constants";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
 export default function CollectionV2() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const { currency } = useCurrency();
   const { getCardName } = useCardName();
 
@@ -270,7 +272,7 @@ export default function CollectionV2() {
               return (
                 <Link
                   key={card.id}
-                  to={`/collection/${card.id}`}
+                  to={`${prefix}/collection/${card.id}`}
                   className="group no-underline"
                   data-testid={`v2-card-${card.id}`}
                 >

@@ -17,6 +17,7 @@ import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PriceChart } from "../components/PriceChart";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type { CardDetail as CardDetailType } from "../types/api";
 
 function sourceLabel(source: string): string {
@@ -28,6 +29,7 @@ function sourceLabel(source: string): string {
 
 export function CardDetail() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const { id } = useParams<{ id: string }>();
   const cardId = Number(id);
 
@@ -119,7 +121,7 @@ export function CardDetail() {
               {t("cardDetail.notFoundMessage")}
             </p>
             <Link
-              to="/cards"
+              to={`${prefix}/cards`}
               className="inline-block rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
               {t("cardDetail.backToCards")}
@@ -142,7 +144,7 @@ export function CardDetail() {
         <div data-testid="card-not-found" className="text-center py-12">
           <h2 className="text-2xl font-bold text-white mb-4">{t("cardDetail.notFoundTitle")}</h2>
           <Link
-            to="/cards"
+            to={`${prefix}/cards`}
             className="inline-block rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             {t("cardDetail.backToCards")}
@@ -156,7 +158,7 @@ export function CardDetail() {
     <div data-testid="page-card-detail">
       <Breadcrumb
         items={[
-          { label: t("cardDetail.breadcrumbCards"), to: "/cards" },
+          { label: t("cardDetail.breadcrumbCards"), to: `${prefix}/cards` },
           { label: getCardName(card.name_en, card.name_pt, t("common.unknownCard")) },
         ]}
       />

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { fetchAchievements } from "../api/achievements";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type { AchievementItem } from "../types/achievements";
 
 const ICON_MAP: Record<string, string> = {
@@ -49,6 +50,7 @@ function formatDate(isoDate: string): string {
 
 export function AchievementsPage() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const [achievements, setAchievements] = useState<AchievementItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +97,7 @@ export function AchievementsPage() {
     <div data-testid="achievements-page">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.dashboard"), to: `${prefix}/` },
           { label: t("achievements.pageTitle") },
         ]}
       />

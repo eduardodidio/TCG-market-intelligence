@@ -12,6 +12,7 @@ import { SkeletonCard } from "../components/Skeleton";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { useDebounce } from "../hooks/useDebounce";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
@@ -110,6 +111,7 @@ function MarketplaceCardTile({
 
 export function Marketplace() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const [searchParams, setSearchParams] = useSearchParams();
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,14 +170,14 @@ export function Marketplace() {
     <div data-testid="page-marketplace">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.dashboard"), to: `${prefix}/` },
           { label: t("nav.marketplace") },
         ]}
       />
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-white">{t("marketplace.title")}</h2>
         <Link
-          to="/marketplace/my-trades"
+          to={`${prefix}/marketplace/my-trades`}
           className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
         >
           {t("marketplace.myTrades")}

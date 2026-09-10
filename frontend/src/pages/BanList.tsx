@@ -5,6 +5,7 @@ import { useApi } from "../hooks/useApi";
 import { useCardName } from "../hooks/useCardName";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { LegalityBadge } from "../components/LegalityBadge";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { scryfallImageUrl } from "../utils/scryfall";
 import type { BanListEntry } from "../types/banlist";
 
@@ -15,6 +16,7 @@ const PAGE_SIZE = 50;
 
 export function BanList() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const { getCardName } = useCardName();
 
   // Format list
@@ -98,7 +100,7 @@ export function BanList() {
     <div data-testid="page-banlist">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.dashboard"), to: `${prefix}/` },
           { label: t("nav.banlist") },
         ]}
       />

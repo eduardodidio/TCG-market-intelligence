@@ -13,6 +13,7 @@ import type { CatalogCard } from "../hooks/useCatalogCards";
 import { useCatalogSets } from "../hooks/useCatalogSets";
 import { useCatalogStats } from "../hooks/useCatalogStats";
 import { useCardName } from "../hooks/useCardName";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 
 const RARITY_OPTIONS = [
@@ -55,13 +56,14 @@ function RarityBadge({ rarity }: { rarity: string | null }) {
 
 function CatalogCardTile({ card }: { card: CatalogCard }) {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
 
   return (
     <Card3DTilt foil={false} className="w-full">
     <Link
-      to={`/cards/${card.id}`}
+      to={`${prefix}/cards/${card.id}`}
       className="group block bg-slate-800 rounded-lg overflow-hidden
         border border-slate-600 hover:border-cyan-400/50
         transition-all duration-200 hover:shadow-lg"
@@ -113,6 +115,7 @@ function CatalogCardTile({ card }: { card: CatalogCard }) {
 
 export function CatalogPage() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useScrollRestoration("catalog");
@@ -214,7 +217,7 @@ export function CatalogPage() {
     <div data-testid="page-catalog">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.dashboard"), to: `${prefix}/` },
           { label: t("catalog.title") },
         ]}
       />

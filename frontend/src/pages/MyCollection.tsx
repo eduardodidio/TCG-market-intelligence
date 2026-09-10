@@ -41,6 +41,7 @@ import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { CardImage } from "../components/CardImage";
 import { SetCompletionSection } from "../components/SetCompletionBar";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { fetchSetCompletion, type SetCompletionEntry } from "../api/collection";
 import { BatchAddModal } from "../components/BatchAddModal";
@@ -67,6 +68,7 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
 
 function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor, banStatus, banRecentlyChanged }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber"; banStatus?: "banned" | "restricted"; banRecentlyChanged?: boolean }) {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const [refreshing, setRefreshing] = useState(false);
@@ -230,7 +232,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   // All collection cards link to the collection detail page
   return (
     <>
-      <Link to={`/collection/${card.id}`}>{inner}</Link>
+      <Link to={`${prefix}/collection/${card.id}`}>{inner}</Link>
       <CreditConfirmModal
         isOpen={creditModalOpen}
         onCancel={() => setCreditModalOpen(false)}

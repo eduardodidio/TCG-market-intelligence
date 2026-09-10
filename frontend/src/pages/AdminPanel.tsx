@@ -13,6 +13,7 @@ import type { ApiResponse } from "../types/api";
 import { useAuth } from "../hooks/useAuth";
 import { AccordionSection } from "../components/AccordionSection";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { AdminLigaSection } from "../components/admin/AdminLigaSection";
 import { AdminSchedulesSection } from "../components/admin/AdminSchedulesSection";
 import { AdminScansSection } from "../components/admin/AdminScansSection";
@@ -425,6 +426,7 @@ function AdjustCreditsRow({
 
 export function AdminPanel() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const { user: currentUser } = useAuth();
   const [openSection, setOpenSection] = useState<string | null>("users");
 
@@ -500,7 +502,7 @@ export function AdminPanel() {
     <div data-testid="page-admin-panel">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: "/" },
+          { label: t("nav.dashboard"), to: `${prefix}/` },
           { label: t("nav.admin") },
         ]}
       />

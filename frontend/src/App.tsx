@@ -9,6 +9,7 @@ import { CurrencyProvider } from "./contexts/CurrencyContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { PendingDeleteProvider } from "./hooks/usePendingDelete";
+import { RoutePrefixProvider } from "./contexts/RoutePrefixContext";
 import type { SupportedLanguage } from "./contexts/LanguageContext";
 import { useAuth } from "./hooks/useAuth";
 import { useLanguage } from "./hooks/useLanguage";
@@ -194,7 +195,9 @@ export default function App() {
             <Route
               element={
                 <ProtectedRoute>
-                  <Layout />
+                  <RoutePrefixProvider prefix="">
+                    <Layout />
+                  </RoutePrefixProvider>
                 </ProtectedRoute>
               }
             >
@@ -448,11 +451,13 @@ export default function App() {
             <Route
               element={
                 <ProtectedRoute>
-                  <Suspense
-                    fallback={<LoadingSpinner message="Loading page..." />}
-                  >
-                    <LayoutV2 />
-                  </Suspense>
+                  <RoutePrefixProvider prefix="/v2">
+                    <Suspense
+                      fallback={<LoadingSpinner message="Loading page..." />}
+                    >
+                      <LayoutV2 />
+                    </Suspense>
+                  </RoutePrefixProvider>
                 </ProtectedRoute>
               }
             >
@@ -473,6 +478,218 @@ export default function App() {
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
                     <CollectionV2 />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/collection/:id"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <CollectionCardDetail />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/cards"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <Cards />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/cards/:id"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <CardDetail />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/catalog"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <CatalogPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/alerts"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <AlertsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/settings"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <Settings />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/wishlist"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <WishlistPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/market"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <MarketPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/market/movers"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <MarketMovers />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/market/trending"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <Trending />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/banlist"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <BanList />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/banlist/history"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <BanHistory />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/decks"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <DeckList />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/decks/ranking"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <TopDecksPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/decks/:id"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <DeckView />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/marketplace"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <Marketplace />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/marketplace/my-trades"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <MyTrades />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/trade-matches"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <TradeMatchesPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/evaluations"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <Evaluations />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/achievements"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <AchievementsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/v2/admin"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <AdminRoute>
+                      <AdminPanel />
+                    </AdminRoute>
                   </Suspense>
                 }
               />

@@ -28,6 +28,7 @@ import { FoilBadge } from "../components/FoilBadge";
 import { PriceSourceBadge } from "../components/PriceSourceBadge";
 import { QuantityStepper } from "../components/QuantityStepper";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
+import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type { CardBanHistoryEntry } from "../types/banlist";
 import type { CollectionCardDetail as CollectionCardDetailType } from "../types/api";
 
@@ -70,6 +71,7 @@ const LANGUAGE_OPTIONS = [
 
 export function CollectionCardDetail() {
   const { t } = useTranslation();
+  const prefix = useRoutePrefix();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { setPendingDelete } = usePendingDelete();
@@ -237,7 +239,7 @@ export function CollectionCardDetail() {
               {t("collection.entryNotFoundMessage")}
             </p>
             <Link
-              to="/collection"
+              to={`${prefix}/collection`}
               className="inline-block rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
               {t("collection.backToCollection")}
@@ -260,7 +262,7 @@ export function CollectionCardDetail() {
         <div data-testid="entry-not-found" className="text-center py-12">
           <h2 className="text-2xl font-bold text-white mb-4">{t("collection.entryNotFound")}</h2>
           <Link
-            to="/collection"
+            to={`${prefix}/collection`}
             className="inline-block rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             {t("collection.backToCollection")}
@@ -277,7 +279,7 @@ export function CollectionCardDetail() {
     <div data-testid="page-collection-detail">
       <Breadcrumb
         items={[
-          { label: t("collection.breadcrumbCollection"), to: "/collection" },
+          { label: t("collection.breadcrumbCollection"), to: `${prefix}/collection` },
           { label: displayName },
         ]}
       />
@@ -598,7 +600,7 @@ export function CollectionCardDetail() {
               entryName={displayName}
               onConfirm={async () => {
                 setPendingDelete({ entryId, entryName: displayName });
-                navigate("/collection");
+                navigate(`${prefix}/collection`);
               }}
             />
           </div>
