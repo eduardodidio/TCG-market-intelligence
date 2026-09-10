@@ -22,20 +22,27 @@ def verify_api_key(x_api_key: str | None = Header(None)) -> None:
         raise api_error(401, ErrorCode.AUTHZ_API_KEY_INVALID, "Invalid or missing API key")
 
 
+_repo_singleton: Repository | None = None
+
+
+def _get_repo_singleton() -> Repository:
+    """Return a process-wide Repository singleton (avoids create_all per request)."""
+    global _repo_singleton
+    if _repo_singleton is None:
+        _repo_singleton = Repository(db_url=get_db_url())
+    return _repo_singleton
+
+
 def get_db() -> Generator[Repository, None, None]:
     """FastAPI dependency that yields a Repository instance."""
-    db_url = get_db_url()
-    repo = Repository(db_url=db_url)
-    yield repo
+    yield _get_repo_singleton()
 
 
 def get_currency_converter_dep():  # noqa: F811
     """FastAPI dependency that yields a CurrencyConverter."""
     from src.services.currency import CurrencyConverter
 
-    db_url = get_db_url()
-    repo = Repository(db_url=db_url)
-    yield CurrencyConverter(repo)
+    yield CurrencyConverter(_get_repo_singleton())
 
 
 def get_error_logger(request: Request):
@@ -58,8 +65,7 @@ def _create_market_data_service():
         from src.services.currency import CurrencyConverter
         from src.services.market_data import MarketDataService
 
-        db_url = get_db_url()
-        repo = Repository(db_url=db_url)
+        repo = _get_repo_singleton()
         converter = CurrencyConverter(repo)
         cache = AggregateCache()
         _create_market_data_service._instance = MarketDataService(repo, converter, cache)
