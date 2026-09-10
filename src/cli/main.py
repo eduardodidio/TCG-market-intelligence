@@ -1307,12 +1307,13 @@ def reset_prices(db, source, confirm):
     # Delete
     deleted = repo.delete_all_price_observations(source=source)
 
-    # VACUUM to reclaim space
-    from sqlalchemy import text
+    # VACUUM to reclaim space (SQLite only)
+    if db_url.startswith("sqlite"):
+        from sqlalchemy import text
 
-    with repo.engine.connect() as conn:
-        conn.execute(text("VACUUM"))
-        conn.commit()
+        with repo.engine.connect() as conn:
+            conn.execute(text("VACUUM"))
+            conn.commit()
 
     click.echo(f"  Deleted {deleted} price observations.")
     click.echo(f"  Backup saved to: {backup_path}\n")
@@ -1617,6 +1618,13 @@ def push_db(db, remote, api_key, force):
     Example:
         collector push-db --remote https://tedhc.onrender.com --api-key SECRET
     """
+    if not db.startswith("sqlite"):
+        click.echo(
+            "push-db is only needed for SQLite deployments. "
+            "Neon PostgreSQL persists data automatically."
+        )
+        return
+
     import sqlite3 as _sqlite3
 
     import httpx
@@ -1736,6 +1744,16 @@ def pull_db(remote, api_key, output):
     Example:
         collector pull-db --remote https://tedhc.onrender.com --api-key SECRET
     """
+    from src.config import get_db_url as _get_db_url
+
+    _local_db = _get_db_url()
+    if not _local_db.startswith("sqlite"):
+        click.echo(
+            "pull-db is only needed for SQLite deployments. "
+            "Neon PostgreSQL persists data automatically."
+        )
+        return
+
     import httpx
 
     url = remote.rstrip("/") + "/api/v1/db/backup"

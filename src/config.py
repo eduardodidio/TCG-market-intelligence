@@ -7,13 +7,18 @@ _RENDER_DB_URL = "sqlite:////data/tcg_market.db"
 
 
 def get_db_url() -> str:
-    """Return the database URL from TCG_DATABASE_URL env var or a smart default.
+    """Return the database URL from environment or a smart default.
 
-    On Render (persistent disk at /data), auto-uses /data/tcg_market.db.
+    Priority:
+    1. DATABASE_URL (Neon / standard PG convention)
+    2. TCG_DATABASE_URL (legacy)
+    3. Auto-detect Render /data dir (SQLite)
+    4. Local SQLite default
     """
-    explicit = os.environ.get("TCG_DATABASE_URL")
-    if explicit:
-        return explicit
+    for var in ("DATABASE_URL", "TCG_DATABASE_URL"):
+        value = os.environ.get(var)
+        if value:
+            return value
     # Auto-detect Render persistent disk
     if os.path.isdir("/data"):
         return _RENDER_DB_URL

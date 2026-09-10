@@ -17,7 +17,7 @@ class TestExtractDbPath:
         assert extract_db_path("sqlite:////tmp/data.db") == "/tmp/data.db"
 
     def test_unsupported_url(self):
-        with pytest.raises(ValueError, match="Unsupported database URL"):
+        with pytest.raises(ValueError, match="only supported for SQLite"):
             extract_db_path("postgresql://localhost/db")
 
     def test_empty_path(self):

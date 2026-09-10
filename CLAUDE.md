@@ -146,6 +146,14 @@ confirmacao explicita do usuario.
 - Liga sweep armazena `external_id='liga_{card_id}'` — catalog source_cards
   usam formato diferente (`liga_catalog_{set}_{num}`)
 
+**PostgreSQL (Neon) — Production**
+- Production uses Neon PostgreSQL via `DATABASE_URL` env var
+- Data persists across deploys — push-db NOT needed
+- Connection: `postgresql://...?sslmode=require` with pooler endpoint
+- Cold start: ~1-2s after 5min idle (pool_pre_ping handles this)
+- Backups: Neon dashboard (not sqlite3.backup)
+- Local dev still uses SQLite — no DATABASE_URL needed locally
+
 **Quando em duvida: pare e pergunte ao usuario.** O custo de uma pausa e
 baixo; o custo de uma acao destrutiva nao autorizada e alto.
 

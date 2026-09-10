@@ -5,9 +5,9 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import case, create_engine, event, func, inspect, or_, select, text, update
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from src.database.compat import dialect_insert, is_sqlite
 from src.database.models import (
     AlertNotificationRow,  # noqa: F401 (needed for create_all)
     AuditLogRow,
@@ -49,7 +49,16 @@ from src.domain.models import (
 
 class Repository:
     def __init__(self, db_url: str = "sqlite:///tcg_market.db"):
-        self.engine = create_engine(db_url, echo=False)
+        kwargs: dict = {"echo": False}
+        if not db_url.startswith("sqlite"):
+            kwargs.update(
+                {
+                    "pool_size": 5,
+                    "max_overflow": 10,
+                    "pool_pre_ping": True,
+                }
+            )
+        self.engine = create_engine(db_url, **kwargs)
         self._setup_sqlite_pragmas()
         Base.metadata.create_all(self.engine)
         self._ensure_columns()
@@ -57,7 +66,7 @@ class Repository:
 
     def _setup_sqlite_pragmas(self) -> None:
         """Enable PRAGMA foreign_keys=ON for every SQLite connection."""
-        if str(self.engine.url).startswith("sqlite"):
+        if is_sqlite(self.engine):
 
             @event.listens_for(self.engine, "connect")
             def _set_sqlite_pragma(dbapi_connection, connection_record):
@@ -138,7 +147,7 @@ class Repository:
         rename-create-copy-drop pattern. Idempotent -- skips tables that
         already have the expected FKs.
         """
-        if not str(self.engine.url).startswith("sqlite"):
+        if not is_sqlite(self.engine):
             return
 
         insp = inspect(self.engine)
@@ -383,7 +392,7 @@ class Repository:
                 batch = prices[batch_start : batch_start + 500]
                 for p in batch:
                     stmt = (
-                        sqlite_insert(PriceObservationRow)
+                        dialect_insert(self.engine, PriceObservationRow)
                         .values(
                             source=p.source,
                             external_id=p.external_id,
@@ -421,7 +430,7 @@ class Repository:
         external_id = f"manual_{card_id}"
         with Session(self.engine) as session:
             stmt = (
-                sqlite_insert(PriceObservationRow)
+                dialect_insert(self.engine, PriceObservationRow)
                 .values(
                     source="manual",
                     external_id=external_id,
@@ -2098,7 +2107,7 @@ class Repository:
         """Insert or update an exchange rate by rate_date."""
         with Session(self.engine) as session:
             stmt = (
-                sqlite_insert(ExchangeRateRow)
+                dialect_insert(self.engine, ExchangeRateRow)
                 .values(
                     rate_date=rate.rate_date,
                     from_currency=rate.from_currency,
@@ -2502,7 +2511,7 @@ class Repository:
         with Session(self.engine) as session:
             count = 0
             for leg in legalities:
-                stmt = sqlite_insert(CardLegalityRow).values(
+                stmt = dialect_insert(self.engine, CardLegalityRow).values(
                     card_id=leg.card_id,
                     format=leg.format,
                     status=leg.status,
@@ -3924,7 +3933,7 @@ class Repository:
         Returns the row id.
         """
         with Session(self.engine) as session:
-            stmt = sqlite_insert(PortfolioSnapshotRow).values(
+            stmt = dialect_insert(self.engine, PortfolioSnapshotRow).values(
                 user_id=user_id,
                 snapshot_date=snapshot_date,
                 total_value_brl=total_value_brl,

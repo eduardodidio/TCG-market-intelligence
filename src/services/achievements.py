@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import func, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from src.database.compat import dialect_insert
 from src.database.models import (
     AchievementRow,
     CreditTransactionRow,
@@ -256,7 +256,7 @@ def check_achievements(user_id: int, repo: Repository) -> list[str]:
         newly_unlocked: list[str] = []
         for key in earned_keys:
             if key not in existing:
-                stmt = sqlite_insert(AchievementRow).values(
+                stmt = dialect_insert(session.get_bind(), AchievementRow).values(
                     user_id=user_id,
                     achievement_key=key,
                     unlocked_at=datetime.now(),
@@ -278,7 +278,7 @@ def grant_set_master(user_id: int, repo: Repository) -> bool:
     Returns True if newly granted.
     """
     with Session(repo.engine) as session:
-        stmt = sqlite_insert(AchievementRow).values(
+        stmt = dialect_insert(session.get_bind(), AchievementRow).values(
             user_id=user_id,
             achievement_key="set_master",
             unlocked_at=datetime.now(),

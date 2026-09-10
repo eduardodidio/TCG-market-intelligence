@@ -443,6 +443,12 @@ def download_backup(
     from src.config import get_db_url
 
     db_url = get_db_url()
+    if not db_url.startswith("sqlite"):
+        raise HTTPException(
+            400,
+            "Database backup download not available for PostgreSQL. "
+            "Use Neon dashboard for backups.",
+        )
     # Extract file path from sqlite:/// URL
     db_path = db_url.replace("sqlite:///", "")
     if not Path(db_path).exists():

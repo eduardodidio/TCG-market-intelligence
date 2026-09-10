@@ -9,6 +9,7 @@ from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.orm import Session
 
 from src.database.backup import backup_database, extract_db_path
+from src.database.compat import is_sqlite
 from src.database.models import (
     CardLegalityRow,
     CardRow,
@@ -117,11 +118,12 @@ def clear_prices_by_source(
 
     log.info("clear_prices.deleted", source=source, deleted=deleted)
 
-    # VACUUM to reclaim space
-    with repo.engine.connect() as conn:
-        conn.execute(text("VACUUM"))
-        conn.commit()
-    log.info("clear_prices.vacuum_done")
+    # VACUUM to reclaim space (SQLite only)
+    if is_sqlite(repo.engine):
+        with repo.engine.connect() as conn:
+            conn.execute(text("VACUUM"))
+            conn.commit()
+        log.info("clear_prices.vacuum_done")
 
     return ClearPricesResult(deleted=deleted, dry_run=False, backup_path=backup_path)
 
@@ -414,11 +416,12 @@ def cleanup_non_collection_data(
         observations=obs_deleted,
     )
 
-    # VACUUM to reclaim space (must run outside a transaction)
-    with repo.engine.connect() as conn:
-        conn.execute(text("VACUUM"))
-        conn.commit()
-    log.info("cleanup.vacuum_done")
+    # VACUUM to reclaim space (SQLite only, must run outside a transaction)
+    if is_sqlite(repo.engine):
+        with repo.engine.connect() as conn:
+            conn.execute(text("VACUUM"))
+            conn.commit()
+        log.info("cleanup.vacuum_done")
 
     return result
 
@@ -633,11 +636,12 @@ def reset_database(
         source_cards=result.source_cards_deleted,
     )
 
-    # VACUUM to reclaim space (must run outside a transaction)
-    with repo.engine.connect() as conn:
-        conn.execute(text("VACUUM"))
-        conn.commit()
-    log.info("reset.vacuum_done")
+    # VACUUM to reclaim space (SQLite only, must run outside a transaction)
+    if is_sqlite(repo.engine):
+        with repo.engine.connect() as conn:
+            conn.execute(text("VACUUM"))
+            conn.commit()
+        log.info("reset.vacuum_done")
 
     return result
 

@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 import structlog
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from src.api.deps import require_auth_or_api_key
@@ -58,6 +58,8 @@ def backup_db(
 
     Returns the raw .db file as an attachment.
     """
+    if not get_db_url().startswith("sqlite"):
+        raise HTTPException(400, "DB file sync not needed — using persistent PostgreSQL database.")
     db_file = _db_path()
     if not db_file.exists():
         return success_response(data={"error": "Database file not found"})
@@ -81,6 +83,8 @@ async def restore_db(
 
     WARNING: This replaces ALL data. Use with caution.
     """
+    if not get_db_url().startswith("sqlite"):
+        raise HTTPException(400, "DB file sync not needed — using persistent PostgreSQL database.")
     db_file = _db_path()
 
     # Write upload to a temp file first (validates it's complete)

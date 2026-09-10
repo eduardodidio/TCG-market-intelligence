@@ -19,7 +19,10 @@ def extract_db_path(db_url: str) -> str:
     """
     prefix = "sqlite:///"
     if not db_url.startswith(prefix):
-        raise ValueError(f"Unsupported database URL: {db_url!r} (expected sqlite:///...)")
+        raise ValueError(
+            "Backup via sqlite3.backup() only supported for SQLite databases. "
+            f"Got: {db_url!r}. For PostgreSQL, use pg_dump or Neon dashboard."
+        )
     return db_url[len(prefix) :]
 
 

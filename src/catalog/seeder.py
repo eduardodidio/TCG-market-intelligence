@@ -14,10 +14,10 @@ from pathlib import Path
 
 import structlog
 from sqlalchemy import create_engine, event, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from src.catalog.scryfall import CatalogCard, parse_bulk_cards
+from src.database.compat import dialect_insert, is_sqlite
 from src.database.models import Base, CardRow, SourceCardRow
 from src.providers.liga.provider import _build_card_url
 
@@ -38,7 +38,7 @@ class SeedResult:
 
 def _setup_sqlite_pragmas(engine) -> None:  # pragma: no cover — same as Repository
     """Enable PRAGMA foreign_keys=ON and WAL mode for SQLite connections."""
-    if str(engine.url).startswith("sqlite"):
+    if is_sqlite(engine):
 
         @event.listens_for(engine, "connect")
         def _set_pragmas(dbapi_conn, _connection_record):
@@ -57,7 +57,7 @@ def _process_card_batch(
     # --- Step 1: INSERT OR IGNORE cards ---
     for card in batch:
         stmt = (
-            sqlite_insert(CardRow)
+            dialect_insert(session.get_bind(), CardRow)
             .values(
                 game="magic",
                 name_en=card.name_en,
@@ -113,7 +113,7 @@ def _process_card_batch(
         url = _build_card_url(card.name_en)
 
         stmt = (
-            sqlite_insert(SourceCardRow)
+            dialect_insert(session.get_bind(), SourceCardRow)
             .values(
                 source="liga",
                 external_id=external_id,
