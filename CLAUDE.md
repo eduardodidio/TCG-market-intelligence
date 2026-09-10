@@ -134,25 +134,24 @@ confirmacao explicita do usuario.
 - Mudancas em estado compartilhado (Slack, PRs, GitHub Issues,
   infraestrutura) exigem confirmacao explicita antes de cada acao
 
-**Deploy & Banco de Dados (Render)**
-- Render free tier NAO tem persistent disk — cada deploy/restart apaga o DB
-- SEMPRE seguir esta ordem: push main → esperar deploy (5+ min) → push-db
-- NUNCA fazer push-db antes do deploy completar (dados serao perdidos)
-- NUNCA fazer deploy (push main) depois de push-db sem refazer push-db
-- Apos push-db, usuario DEVE fazer logout + login (JWT tem user_id antigo)
-- Apos table-rebuild migration, SEMPRE verificar que indexes existem nas
-  tabelas ativas (nao nas `_old`)
+**Deploy & Banco de Dados**
 - Liga sweep usa preco `mid` (mercado), NAO `low` (menor anuncio)
 - Liga sweep armazena `external_id='liga_{card_id}'` — catalog source_cards
   usam formato diferente (`liga_catalog_{set}_{num}`)
 
-**PostgreSQL (Neon) — Production**
-- Production uses Neon PostgreSQL via `DATABASE_URL` env var
-- Data persists across deploys — push-db NOT needed
-- Connection: `postgresql://...?sslmode=require` with pooler endpoint
-- Cold start: ~1-2s after 5min idle (pool_pre_ping handles this)
-- Backups: Neon dashboard (not sqlite3.backup)
-- Local dev still uses SQLite — no DATABASE_URL needed locally
+**PostgreSQL (Neon) — Production & Local**
+- Production e local usam Neon PostgreSQL via `DATABASE_URL` no `.env`
+- `.env` carregado automaticamente pelo `config.py` (gitignored)
+- Data persiste entre deploys — push-db e push-prices NAO sao mais necessarios
+- Connection: `postgresql://...?sslmode=require` com pooler endpoint
+- Cold start: ~1-2s apos 5min idle (pool_pre_ping cuida disso)
+- Backups: Neon dashboard (nao sqlite3.backup)
+
+**Workflow Local → Producao**
+- `push-all.bat` roda `liga-sweep` que escreve direto no Neon
+- Deploy no Render: `git push origin main` → pronto (app le do mesmo Neon)
+- NAO precisa de push-db, push-prices, nem Task Scheduler
+- Para SQLite local (sem .env): comandos usam `sqlite:///tcg_market.db`
 
 **Quando em duvida: pare e pergunte ao usuario.** O custo de uma pausa e
 baixo; o custo de uma acao destrutiva nao autorizada e alto.
