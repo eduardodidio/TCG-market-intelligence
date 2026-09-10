@@ -98,7 +98,7 @@ def _migrate_table(
             if not batch:
                 break
 
-            rows_as_dicts = [row._mapping for row in batch]
+            rows_as_dicts = [dict(row._mapping) for row in batch]
 
             with target_engine.begin() as tgt_conn:
                 stmt = pg_insert(target_table).values(rows_as_dicts)
