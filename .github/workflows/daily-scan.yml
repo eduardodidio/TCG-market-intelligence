@@ -14,7 +14,6 @@ on:
 
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  TCG_SECRET_KEY: ${{ secrets.TCG_SECRET_KEY }}
 
 jobs:
   liga-sweep:
@@ -30,7 +29,10 @@ jobs:
           allow-prereleases: true
 
       - name: Install dependencies
-        run: pip install -e .
+        run: |
+          pip install -e .
+          pip install playwright
+          playwright install chromium --with-deps
 
       - name: Run Liga sweep
         env:
