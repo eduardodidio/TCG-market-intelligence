@@ -33,6 +33,13 @@ async def collection_health(
     last_collection_at: str | None = None
     next_expected_at: str | None = None
     if last_date is not None:
+        # Ensure last_date is a proper date object (SQLite may return a string)
+        from datetime import date as date_type
+
+        if isinstance(last_date, str):
+            last_date = date_type.fromisoformat(last_date)
+        elif isinstance(last_date, datetime):
+            last_date = last_date.date()
         last_collection_at = last_date.isoformat()
         next_dt = datetime.combine(last_date, datetime.min.time()) + timedelta(hours=24)
         next_expected_at = next_dt.date().isoformat()

@@ -1,0 +1,46 @@
+name: Daily Liga Sweep + Portfolio Snapshot
+
+on:
+  schedule:
+    # Run at 06:00 UTC (03:00 BRT) — low traffic window
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    # Allow manual trigger from GitHub Actions UI
+    inputs:
+      max_age_days:
+        description: "Skip cards with Liga price newer than N days"
+        required: false
+        default: "1"
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  TCG_SECRET_KEY: ${{ secrets.TCG_SECRET_KEY }}
+
+jobs:
+  liga-sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          allow-prereleases: true
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Run Liga sweep
+        env:
+          MAX_AGE_DAYS: ${{ github.event.inputs.max_age_days || '1' }}
+        run: |
+          python -m src.cli.main liga-sweep \
+            --max-age-days "$MAX_AGE_DAYS" \
+            --batch-size 20 \
+            --batch-pause 60 \
+            --delay 5
+
+      - name: Take portfolio snapshots
+        run: python -m src.cli.main snapshot-portfolio

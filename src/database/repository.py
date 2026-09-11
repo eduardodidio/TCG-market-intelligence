@@ -728,78 +728,127 @@ class Repository:
         - For card_ids in *foil_card_ids*, also checks ``liga_{card_id}_foil``
           observations and prefers them over normal Liga observations.
           Manual prices still win regardless of foil status.
+
+        Optimized: uses batch queries instead of per-card loops to avoid
+        N+1 query issues on PostgreSQL (network latency per query).
         """
         if not card_ids:
             return {}
         _foil_ids = foil_card_ids or set()
+
         with Session(self.engine) as session:
-            result: dict[int, PriceObservationRow | None] = {}
-            for card_id in card_ids:
-                source_cards = (
-                    session.execute(select(SourceCardRow).where(SourceCardRow.card_id == card_id))
+            # Step 1: Batch-fetch all source_cards for all card_ids
+            source_cards_all = (
+                session.execute(select(SourceCardRow).where(SourceCardRow.card_id.in_(card_ids)))
+                .scalars()
+                .all()
+            )
+
+            # Build mapping: external_id -> set of card_ids, and card_id -> source_card ext_ids
+            ext_id_to_card_ids: dict[str, set[int]] = {}
+            sc_sources: dict[str, set[str]] = {}  # external_id -> set of sources to check
+
+            for sc in source_cards_all:
+                if sc.card_id is None:
+                    continue
+                ext_id_to_card_ids.setdefault(sc.external_id, set()).add(sc.card_id)
+                sc_sources.setdefault(sc.external_id, set()).add(sc.source)
+                sc_sources[sc.external_id].add("jsonld_snapshot")
+
+            # Step 2: Build all direct external_ids (manual, liga, liga_foil)
+            direct_ext_ids: set[str] = set()
+            # Map: direct external_id -> (card_id, type)
+            direct_ext_to_card: dict[str, tuple[int, str]] = {}
+
+            for cid in card_ids:
+                manual_eid = f"manual_{cid}"
+                liga_eid = f"liga_{cid}"
+                direct_ext_ids.add(manual_eid)
+                direct_ext_ids.add(liga_eid)
+                direct_ext_to_card[manual_eid] = (cid, "manual")
+                direct_ext_to_card[liga_eid] = (cid, "liga")
+
+                if cid in _foil_ids:
+                    foil_eid = f"liga_{cid}_foil"
+                    direct_ext_ids.add(foil_eid)
+                    direct_ext_to_card[foil_eid] = (cid, "liga_foil")
+
+            # Step 3: Collect all external_ids we need to query
+            all_ext_ids = set(ext_id_to_card_ids.keys()) | direct_ext_ids
+            if not all_ext_ids:
+                return {cid: None for cid in card_ids}
+
+            # Step 4: Batch-fetch latest observation per (source, external_id)
+            # using a window function to get the latest per external_id+source
+            # Query all observations for our external_ids, ordered by date desc
+            # We batch in chunks to avoid overly large IN clauses
+            all_obs: list[PriceObservationRow] = []
+            ext_id_list = list(all_ext_ids)
+            CHUNK_SIZE = 500
+            for i in range(0, len(ext_id_list), CHUNK_SIZE):
+                chunk = ext_id_list[i : i + CHUNK_SIZE]
+
+                # Use a subquery to get the max observed_at per (source, external_id)
+                latest_dates = (
+                    select(
+                        PriceObservationRow.source,
+                        PriceObservationRow.external_id,
+                        func.max(PriceObservationRow.observed_at).label("max_date"),
+                    )
+                    .where(PriceObservationRow.external_id.in_(chunk))
+                    .group_by(PriceObservationRow.source, PriceObservationRow.external_id)
+                    .subquery()
+                )
+
+                obs_rows = (
+                    session.execute(
+                        select(PriceObservationRow).join(
+                            latest_dates,
+                            (PriceObservationRow.source == latest_dates.c.source)
+                            & (PriceObservationRow.external_id == latest_dates.c.external_id)
+                            & (PriceObservationRow.observed_at == latest_dates.c.max_date),
+                        )
+                    )
                     .scalars()
                     .all()
                 )
+                all_obs.extend(obs_rows)
+
+            # Index observations by (source, external_id)
+            obs_index: dict[tuple[str, str], PriceObservationRow] = {}
+            for obs in all_obs:
+                key = (obs.source, obs.external_id)
+                existing = obs_index.get(key)
+                if existing is None or obs.observed_at > existing.observed_at:
+                    obs_index[key] = obs
+
+            # Step 5: For each card_id, gather candidates and pick winner
+            result: dict[int, PriceObservationRow | None] = {}
+            for card_id in card_ids:
                 candidates: list[PriceObservationRow] = []
 
-                # Gather latest from each source card (MYP, jsonld_snapshot, etc.)
-                for sc in source_cards:
-                    obs = session.execute(
-                        select(PriceObservationRow)
-                        .where(
-                            PriceObservationRow.source.in_([sc.source, "jsonld_snapshot"]),
-                            PriceObservationRow.external_id == sc.external_id,
-                        )
-                        .order_by(PriceObservationRow.observed_at.desc())
-                        .limit(1)
-                    ).scalar_one_or_none()
-                    if obs:
-                        candidates.append(obs)
+                # From source_cards
+                for sc in source_cards_all:
+                    if sc.card_id != card_id:
+                        continue
+                    for src_name in [sc.source, "jsonld_snapshot"]:
+                        obs = obs_index.get((src_name, sc.external_id))
+                        if obs and obs not in candidates:
+                            candidates.append(obs)
 
-                # Also check for manual price observations
-                manual_external_id = f"manual_{card_id}"
-                manual_obs = session.execute(
-                    select(PriceObservationRow)
-                    .where(
-                        PriceObservationRow.source == "manual",
-                        PriceObservationRow.external_id == manual_external_id,
-                    )
-                    .order_by(PriceObservationRow.observed_at.desc())
-                    .limit(1)
-                ).scalar_one_or_none()
+                # Direct patterns: manual
+                manual_obs = obs_index.get(("manual", f"manual_{card_id}"))
                 if manual_obs:
                     candidates.append(manual_obs)
 
-                # Also check for liga price observations
-                # Liga external_ids follow pattern "liga_{card_id}"
-                liga_ext_id = f"liga_{card_id}"
-                liga_match = session.execute(
-                    select(PriceObservationRow)
-                    .where(
-                        PriceObservationRow.source == "liga",
-                        PriceObservationRow.external_id == liga_ext_id,
-                    )
-                    .order_by(PriceObservationRow.observed_at.desc())
-                    .limit(1)
-                ).scalar_one_or_none()
+                # Direct patterns: liga
+                liga_match = obs_index.get(("liga", f"liga_{card_id}"))
                 if liga_match:
                     candidates.append(liga_match)
 
-                # For foil cards, also check for foil-specific Liga observations.
-                # Foil Liga external_ids follow pattern "liga_{card_id}_foil".
-                # When a foil observation exists, it replaces the normal Liga
-                # observation for this card so the foil price takes priority.
+                # Direct patterns: liga foil
                 if card_id in _foil_ids:
-                    liga_foil_ext_id = f"liga_{card_id}_foil"
-                    liga_foil_match = session.execute(
-                        select(PriceObservationRow)
-                        .where(
-                            PriceObservationRow.source == "liga",
-                            PriceObservationRow.external_id == liga_foil_ext_id,
-                        )
-                        .order_by(PriceObservationRow.observed_at.desc())
-                        .limit(1)
-                    ).scalar_one_or_none()
+                    liga_foil_match = obs_index.get(("liga", f"liga_{card_id}_foil"))
                     if liga_foil_match:
                         # Remove normal liga match — foil-specific takes priority
                         if liga_match and liga_match in candidates:
@@ -1175,12 +1224,22 @@ class Repository:
                 )
             ).scalar()
 
+            # Normalize date fields (SQLite may return strings, PG returns date)
+            def _to_date(val):
+                if val is None:
+                    return None
+                if isinstance(val, str):
+                    return date.fromisoformat(val)
+                if hasattr(val, "date"):
+                    return val.date()
+                return val
+
             return {
                 "total_cards": total_cards,
                 "total_observations": total_obs,
                 "avg_price": avg_price,
-                "date_range_start": date_range[0],
-                "date_range_end": date_range[1],
+                "date_range_start": _to_date(date_range[0]),
+                "date_range_end": _to_date(date_range[1]),
             }
 
     def resolve_external_ids_to_card_ids(self, external_ids: list[str]) -> list[int]:

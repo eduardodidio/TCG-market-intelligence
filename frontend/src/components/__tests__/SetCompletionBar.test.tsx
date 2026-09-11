@@ -18,9 +18,9 @@ vi.mock("../../utils/scryfall", () => ({
 const LS_KEY = "tcg_set_completion_open";
 
 const sampleEntries = [
-  { set_code: "mh3", set_name: "Modern Horizons 3", owned: 10, total: 100 },
-  { set_code: "fdn", set_name: "Foundations", owned: 50, total: 50 },
-  { set_code: "cmm", set_name: "Commander Masters", owned: 3, total: 200 },
+  { set_code: "mh3", set_name: "Modern Horizons 3", owned: 10, total: 100, has_catalog: true },
+  { set_code: "fdn", set_name: "Foundations", owned: 50, total: 50, has_catalog: true },
+  { set_code: "cmm", set_name: "Commander Masters", owned: 3, total: 200, has_catalog: true },
 ];
 
 function renderBar(props?: Partial<React.ComponentProps<typeof SetCompletionBar>>) {
@@ -118,20 +118,26 @@ describe("SetCompletionBar", () => {
     expect(screen.getByTestId("set-completion-mh3")).toHaveTextContent("mh3");
   });
 
-  it("navigates to /collection?set=<code> on click", () => {
-    renderBar({ setCode: "fdn" });
+  it("navigates to /catalog?set_code=<code>&owned_view=1 on click when hasCatalog", () => {
+    renderBar({ setCode: "fdn", hasCatalog: true });
     fireEvent.click(screen.getByTestId("set-completion-fdn"));
-    expect(mockNavigate).toHaveBeenCalledWith("/collection?set=fdn");
+    expect(mockNavigate).toHaveBeenCalledWith("/catalog?set_code=fdn&owned_view=1");
   });
 
-  it("navigates on Enter key", () => {
-    renderBar({ setCode: "cmm" });
+  it("navigates to /collection?set=<code> on click when hasCatalog=false", () => {
+    renderBar({ setCode: "promo", setName: "Promo Cards", hasCatalog: false });
+    fireEvent.click(screen.getByTestId("set-completion-promo"));
+    expect(mockNavigate).toHaveBeenCalledWith("/collection?set=promo");
+  });
+
+  it("navigates to /catalog on Enter key when hasCatalog", () => {
+    renderBar({ setCode: "cmm", hasCatalog: true });
     fireEvent.keyDown(screen.getByTestId("set-completion-cmm"), { key: "Enter" });
-    expect(mockNavigate).toHaveBeenCalledWith("/collection?set=cmm");
+    expect(mockNavigate).toHaveBeenCalledWith("/catalog?set_code=cmm&owned_view=1");
   });
 
-  it("navigates on Space key", () => {
-    renderBar({ setCode: "cmm" });
+  it("navigates to /collection on Space key when hasCatalog=false", () => {
+    renderBar({ setCode: "cmm", hasCatalog: false });
     fireEvent.keyDown(screen.getByTestId("set-completion-cmm"), { key: " " });
     expect(mockNavigate).toHaveBeenCalledWith("/collection?set=cmm");
   });
@@ -161,5 +167,29 @@ describe("SetCompletionBar", () => {
   it("has role=button for accessibility", () => {
     renderBar();
     expect(screen.getByTestId("set-completion-mh3")).toHaveAttribute("role", "button");
+  });
+
+  it("shows 'X cards (no catalog)' when hasCatalog is false", () => {
+    renderBar({ setCode: "promo", setName: "Promo", owned: 5, total: 5, hasCatalog: false });
+    const label = screen.getByTestId("completion-label");
+    expect(label).toHaveTextContent("5 cards (no catalog)");
+  });
+
+  it("does not show gold styling when hasCatalog is false even with owned=total", () => {
+    renderBar({ setCode: "promo", setName: "Promo", owned: 5, total: 5, hasCatalog: false });
+    const label = screen.getByTestId("completion-label");
+    expect(label.className).not.toContain("amber");
+    expect(label).not.toHaveTextContent("Complete!");
+  });
+
+  it("does not render progress bar fill when hasCatalog is false", () => {
+    renderBar({ setCode: "promo", setName: "Promo", owned: 3, total: 3, hasCatalog: false });
+    expect(screen.queryByTestId("completion-bar-fill")).not.toBeInTheDocument();
+  });
+
+  it("defaults to catalog navigation when hasCatalog is undefined", () => {
+    renderBar({ setCode: "mh3" });
+    fireEvent.click(screen.getByTestId("set-completion-mh3"));
+    expect(mockNavigate).toHaveBeenCalledWith("/catalog?set_code=mh3&owned_view=1");
   });
 });

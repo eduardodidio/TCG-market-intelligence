@@ -41,7 +41,6 @@ import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { CardImage } from "../components/CardImage";
 import { SetCompletionSection } from "../components/SetCompletionBar";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { fetchSetCompletion, type SetCompletionEntry } from "../api/collection";
 import { BatchAddModal } from "../components/BatchAddModal";
@@ -68,7 +67,6 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
 
 function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor, banStatus, banRecentlyChanged }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber"; banStatus?: "banned" | "restricted"; banRecentlyChanged?: boolean }) {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const [refreshing, setRefreshing] = useState(false);
@@ -232,7 +230,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   // All collection cards link to the collection detail page
   return (
     <>
-      <Link to={`${prefix}/collection/${card.id}`}>{inner}</Link>
+      <Link to={`/collection/${card.id}`}>{inner}</Link>
       <CreditConfirmModal
         isOpen={creditModalOpen}
         onCancel={() => setCreditModalOpen(false)}
@@ -438,12 +436,16 @@ export function MyCollection() {
       setPriceFoundCount((c) => c + 1);
     }
 
-    // Update card price in local state (match by card_id via source card external_id)
+    // Update card price in local state (match by card_id via source card external_id).
+    // NOTE (F122-T02): This in-place update intentionally does NOT re-sort the cards
+    // array. During an active scan, cards may appear out of their sorted order because
+    // prices change without triggering a re-fetch. Re-sorting locally would break
+    // pagination (offset-based pages would shift). When the scan completes,
+    // handleRefreshComplete increments refreshKey, which triggers a full re-fetch from
+    // the backend with correct sort order. This is expected behavior.
     if (priceFound && price != null) {
       setCards((prev) =>
         prev.map((c) => {
-          // CollectionCard doesn't have external_id directly, but we can try name matching
-          // or card_id matching. For now we match by name_en if available.
           if (c.name_en && c.name_en === lastScannedCard.name) {
             return { ...c, latest_price: price };
           }
@@ -685,12 +687,14 @@ export function MyCollection() {
         </div>
       )}
 
-      {/* Portfolio Investment Dashboard */}
-      <PortfolioDashboard />
+      {/* Portfolio Investment Dashboard — min-height prevents CLS when loading */}
+      <div className="min-h-[48px]" data-testid="portfolio-section">
+        <PortfolioDashboard />
+      </div>
 
-      {/* Ban alert banner */}
+      {/* Ban alert banner — min-height prevents CLS when loading */}
       {summary && !banDismissed && (summary.banned_count > 0 || (bannedCards.length > 0)) && (
-        <div className="mb-6">
+        <div className="mb-6 min-h-[56px]" data-testid="ban-alert-section">
           <BanAlertBanner
             bannedCount={summary.banned_count}
             restrictedCount={0}
@@ -700,9 +704,11 @@ export function MyCollection() {
         </div>
       )}
 
-      {/* Set Completion Section */}
+      {/* Set Completion Section — min-height prevents CLS when loading */}
       {setCompletionData.length > 0 && (
-        <SetCompletionSection entries={setCompletionData} />
+        <div className="min-h-[40px]" data-testid="set-completion-section">
+          <SetCompletionSection entries={setCompletionData} />
+        </div>
       )}
 
       {/* Search, sort, and filters — sticky bar */}

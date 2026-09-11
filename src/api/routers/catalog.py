@@ -9,10 +9,11 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from src.api.deps import get_db
+from src.api.deps import get_db, get_optional_user
 from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.database.repository import Repository
+from src.domain.models import User
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -35,6 +36,7 @@ class CatalogCardItem(BaseModel):
     image_uri: str | None = None
     liga_price: float | None = None
     liga_price_date: str | None = None
+    owned: bool | None = None
 
 
 class CatalogCardList(BaseModel):
@@ -82,21 +84,38 @@ def list_catalog_cards(
     has_price: bool | None = None,
     min_price: float | None = None,
     max_price: float | None = None,
+    with_ownership: bool = Query(default=False),
     sort_by: SortByEnum = SortByEnum.name,
     sort_dir: SortDirEnum = SortDirEnum.asc,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     repo: Repository = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ):
     """Paginated card list with filters and optional Liga price."""
+    # Resolve user_id for ownership query (stored as string in user_collection)
+    user_id = str(user.id) if user else None
+
+    # Build ownership JOIN clause when requested
+    ownership_select = ""
+    ownership_join = ""
+    if with_ownership and user_id:
+        ownership_select = (
+            ",\n               CASE WHEN uc.id IS NOT NULL" " THEN 1 ELSE 0 END AS owned"
+        )
+        ownership_join = (
+            "\n        LEFT JOIN user_collection uc"
+            "\n            ON uc.card_id = c.id AND uc.user_id = :owner_user_id"
+        )
+
     # Build the base query with latest Liga price.
     # Liga sweep stores prices as external_id='liga_{card_id}', so we
     # join directly via card ID instead of through source_cards.
-    base_sql = """
+    base_sql = f"""
         SELECT c.id, c.name_en, c.name_pt, c.set_code, c.collector_number,
                c.rarity, c.color_identity, c.mana_cost, c.type_line, c.image_uri,
                po.median_price AS liga_price,
-               po.observed_at AS liga_price_date
+               po.observed_at AS liga_price_date{ownership_select}
         FROM cards c
         LEFT JOIN (
             SELECT external_id, median_price, observed_at,
@@ -104,11 +123,11 @@ def list_catalog_cards(
                        PARTITION BY external_id ORDER BY observed_at DESC
                    ) AS rn
             FROM price_observations WHERE source = 'liga'
-        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1
+        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1{ownership_join}
         WHERE c.game = 'magic'
     """
 
-    count_sql = """
+    count_sql = f"""
         SELECT COUNT(*)
         FROM cards c
         LEFT JOIN (
@@ -117,11 +136,13 @@ def list_catalog_cards(
                        PARTITION BY external_id ORDER BY observed_at DESC
                    ) AS rn
             FROM price_observations WHERE source = 'liga'
-        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1
+        ) po ON po.external_id = ('liga_' || CAST(c.id AS TEXT)) AND po.rn = 1{ownership_join}
         WHERE c.game = 'magic'
     """
 
     params: dict = {}
+    if with_ownership and user_id:
+        params["owner_user_id"] = user_id
     filters = []
 
     if set_code is not None:
@@ -198,10 +219,12 @@ def list_catalog_cards(
         rows = session.execute(text(full_query), params).fetchall()
         total = session.execute(text(full_count), params).scalar() or 0
 
+    include_owned = with_ownership and user_id is not None
     items = []
     for row in rows:
         liga_price = float(row.liga_price) if row.liga_price is not None else None
         liga_price_date = str(row.liga_price_date) if row.liga_price_date is not None else None
+        owned_flag = bool(row.owned) if include_owned else None
         items.append(
             CatalogCardItem(
                 id=row.id,
@@ -216,6 +239,7 @@ def list_catalog_cards(
                 image_uri=row.image_uri,
                 liga_price=liga_price,
                 liga_price_date=liga_price_date,
+                owned=owned_flag,
             )
         )
 

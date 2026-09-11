@@ -634,4 +634,38 @@ describe("MyCollection -- grid size", () => {
     expect(skeleton.className).toContain("grid-cols-2");
     expect(skeleton.className).toContain("xl:grid-cols-6");
   });
+
+  it("skeleton grid and real card grid use the same CSS grid classes", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
+    renderMyCollection();
+
+    // Capture skeleton grid classes while loading
+    const skeletonGrid = screen.getByTestId("skeleton-grid");
+    const skeletonClasses = skeletonGrid.className;
+
+    // Wait for real grid to appear
+    await waitFor(() => {
+      expect(screen.getByTestId("collection-grid")).toBeDefined();
+    });
+
+    const realGrid = screen.getByTestId("collection-grid");
+    const realClasses = realGrid.className;
+
+    // Both grids must use the same CSS grid classes to prevent CLS
+    expect(skeletonClasses).toBe(realClasses);
+  });
+
+  it("portfolio section has a min-height wrapper to prevent CLS", async () => {
+    const card = makeCollectionCard({ id: 1 });
+    globalThis.fetch = createMockFetch([card]) as unknown as typeof fetch;
+    renderMyCollection();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("portfolio-section")).toBeDefined();
+    });
+
+    const section = screen.getByTestId("portfolio-section");
+    expect(section.className).toContain("min-h-");
+  });
 });

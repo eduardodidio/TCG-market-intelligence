@@ -15,6 +15,7 @@ export interface CatalogCard {
   image_uri: string | null;
   liga_price: number | null;
   liga_price_date: string | null;
+  owned: boolean | null;
 }
 
 export interface CatalogCardsResponse {
@@ -34,6 +35,7 @@ export interface CatalogFilters {
   max_price: string;
   sort_by: string;
   sort_dir: string;
+  with_ownership?: string;
 }
 
 const DEFAULT_LIMIT = 50;
@@ -62,6 +64,7 @@ export function useCatalogCards(filters: CatalogFilters) {
       if (filters.max_price) params.max_price = filters.max_price;
       if (filters.sort_by) params.sort_by = filters.sort_by;
       if (filters.sort_dir) params.sort_dir = filters.sort_dir;
+      if (filters.with_ownership) params.with_ownership = filters.with_ownership;
       return params;
     },
     [
@@ -74,6 +77,7 @@ export function useCatalogCards(filters: CatalogFilters) {
       filters.max_price,
       filters.sort_by,
       filters.sort_dir,
+      filters.with_ownership,
     ],
   );
 

@@ -15,7 +15,7 @@ function envelope<T>(data: T): ApiResponse<T> {
   };
 }
 
-function mockCatalogCards(n = 3, offset = 0, total = 3): CatalogCardsResponse {
+function mockCatalogCards(n = 3, offset = 0, total = 3, withOwnership = false): CatalogCardsResponse {
   return {
     items: Array.from({ length: n }, (_, i) => ({
       id: offset + i + 1,
@@ -30,6 +30,7 @@ function mockCatalogCards(n = 3, offset = 0, total = 3): CatalogCardsResponse {
       image_uri: `https://example.com/card-${offset + i + 1}.jpg`,
       liga_price: i === 0 ? 15.5 : null,
       liga_price_date: i === 0 ? "2026-09-01" : null,
+      owned: withOwnership ? (i === 0 ? true : false) : null,
     })),
     total,
     limit: 50,
@@ -388,5 +389,74 @@ describe("CatalogPage", () => {
     });
 
     expect(screen.getByTestId("results-count")).toHaveTextContent("3 results");
+  });
+
+  it("shows owned view banner when owned_view=1 in URL", async () => {
+    const ownedCards = mockCatalogCards(3, 0, 3, true);
+    globalThis.fetch = createMockFetch({ cards: ownedCards }) as unknown as typeof fetch;
+    renderCatalog("/catalog?set_code=DMR&owned_view=1");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("owned-view-banner")).toBeInTheDocument();
+    expect(screen.getByTestId("owned-view-banner")).toHaveTextContent("DMR");
+  });
+
+  it("renders unowned cards with opacity-40 in owned_view mode", async () => {
+    const ownedCards = mockCatalogCards(3, 0, 3, true);
+    globalThis.fetch = createMockFetch({ cards: ownedCards }) as unknown as typeof fetch;
+    renderCatalog("/catalog?set_code=DMR&owned_view=1");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    // Card 1 is owned (index 0), cards 2 and 3 are not
+    const card1 = screen.getByTestId("catalog-card-1");
+    const card2 = screen.getByTestId("catalog-card-2");
+
+    // Owned card should NOT have opacity-40
+    expect(card1.className).not.toContain("opacity-40");
+    // Unowned card should have opacity-40
+    expect(card2.className).toContain("opacity-40");
+  });
+
+  it("shows 'Not owned' badge on unowned cards in owned_view mode", async () => {
+    const ownedCards = mockCatalogCards(3, 0, 3, true);
+    globalThis.fetch = createMockFetch({ cards: ownedCards }) as unknown as typeof fetch;
+    renderCatalog("/catalog?set_code=DMR&owned_view=1");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    const badges = screen.getAllByTestId("not-owned-badge");
+    // 2 of 3 cards are unowned
+    expect(badges.length).toBe(2);
+  });
+
+  it("does not show owned view banner when owned_view is absent", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCatalog("/catalog?set_code=DMR");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("owned-view-banner")).not.toBeInTheDocument();
+  });
+
+  it("passes with_ownership=true in fetch when owned_view=1", async () => {
+    const mockFetch = createMockFetch();
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderCatalog("/catalog?set_code=DMR&owned_view=1");
+
+    await waitFor(() => {
+      const calls = mockFetch.mock.calls.map((c: unknown[]) => String(c[0]));
+      const cardCalls = calls.filter((u: string) => u.includes("/catalog/cards"));
+      expect(cardCalls.some((u: string) => u.includes("with_ownership=true"))).toBe(true);
+    });
   });
 });

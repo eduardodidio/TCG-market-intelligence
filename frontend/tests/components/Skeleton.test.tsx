@@ -26,6 +26,26 @@ describe("Skeleton components", () => {
     expect(pulsingElements.length).toBeGreaterThan(0);
   });
 
+  it("SkeletonCard uses aspect-[5/7] instead of h-40 for CLS-safe sizing", () => {
+    render(<SkeletonCard />);
+    const el = screen.getByTestId("skeleton-card");
+    // The image placeholder should use aspect ratio, not fixed height
+    const imageArea = el.querySelector(".aspect-\\[5\\/7\\]");
+    expect(imageArea).not.toBeNull();
+    // h-40 should NOT be present anywhere in the skeleton
+    const fixedHeight = el.querySelector(".h-40");
+    expect(fixedHeight).toBeNull();
+  });
+
+  it("SkeletonCard has an info section with two pulse bars below image area", () => {
+    render(<SkeletonCard />);
+    const infoSection = screen.getByTestId("skeleton-card-info");
+    expect(infoSection).toBeDefined();
+    // Info section should contain two pulse bars
+    const pulseBars = infoSection.querySelectorAll(".animate-pulse");
+    expect(pulseBars.length).toBe(2);
+  });
+
   it("SkeletonTable renders with animate-pulse class", () => {
     render(<SkeletonTable />);
     const el = screen.getByTestId("skeleton-table");

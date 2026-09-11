@@ -13,7 +13,6 @@ import type { CatalogCard } from "../hooks/useCatalogCards";
 import { useCatalogSets } from "../hooks/useCatalogSets";
 import { useCatalogStats } from "../hooks/useCatalogStats";
 import { useCardName } from "../hooks/useCardName";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 
 const RARITY_OPTIONS = [
@@ -54,19 +53,23 @@ function RarityBadge({ rarity }: { rarity: string | null }) {
   );
 }
 
-function CatalogCardTile({ card }: { card: CatalogCard }) {
+function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedView?: boolean }) {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
+
+  const isUnowned = ownedView && card.owned === false;
 
   return (
     <Card3DTilt foil={false} className="w-full">
     <Link
-      to={`${prefix}/cards/${card.id}`}
-      className="group block bg-slate-800 rounded-lg overflow-hidden
-        border border-slate-600 hover:border-cyan-400/50
-        transition-all duration-200 hover:shadow-lg"
+      to={`/cards/${card.id}`}
+      className={`group block bg-slate-800 rounded-lg overflow-hidden
+        transition-all duration-200 hover:shadow-lg ${
+          isUnowned
+            ? "border border-dashed border-slate-600 opacity-40"
+            : "border border-slate-600 hover:border-cyan-400/50"
+        }`}
       data-testid={`catalog-card-${card.id}`}
     >
       {/* Card image with skeleton loading */}
@@ -98,6 +101,15 @@ function CatalogCardTile({ card }: { card: CatalogCard }) {
           <RarityBadge rarity={card.rarity} />
         </div>
 
+        {isUnowned && (
+          <span
+            className="inline-block mt-1 px-1.5 py-0.5 text-xs font-medium bg-slate-700 text-slate-400 rounded border border-dashed border-slate-500"
+            data-testid="not-owned-badge"
+          >
+            {t("catalog.notOwned", { defaultValue: "Not owned" })}
+          </span>
+        )}
+
         {card.liga_price != null ? (
           <p className="mt-2 text-sm font-bold text-cyan-400" data-testid="card-price">
             R$ {card.liga_price.toFixed(2)}
@@ -115,7 +127,6 @@ function CatalogCardTile({ card }: { card: CatalogCard }) {
 
 export function CatalogPage() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useScrollRestoration("catalog");
@@ -123,6 +134,9 @@ export function CatalogPage() {
   useEffect(() => {
     document.title = `${t("catalog.title")} | TCG Market`;
   }, [t]);
+
+  // Owned view mode (from set completion click)
+  const ownedView = searchParams.get("owned_view") === "1";
 
   // Initialize filters from URL search params
   const [searchTerm, setSearchTerm] = useState(searchParams.get("name") ?? "");
@@ -148,6 +162,7 @@ export function CatalogPage() {
     if (hasPrice) params.has_price = hasPrice;
     if (sortBy && sortBy !== "name") params.sort_by = sortBy;
     if (sortDir && sortDir !== "asc") params.sort_dir = sortDir;
+    if (ownedView) params.owned_view = "1";
     setSearchParams(params, { replace: true });
   }, [searchTerm, selectedSet, selectedRarities, selectedColors, hasPrice, sortBy, sortDir, setSearchParams]);
 
@@ -161,6 +176,7 @@ export function CatalogPage() {
     max_price: "",
     sort_by: sortBy,
     sort_dir: sortDir,
+    with_ownership: ownedView ? "true" : "",
   };
 
   const { cards, total, loading, loadingMore, error, hasMore, loadMore } = useCatalogCards(filters);
@@ -217,7 +233,7 @@ export function CatalogPage() {
     <div data-testid="page-catalog">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: `${prefix}/` },
+          { label: t("nav.dashboard"), to: "/" },
           { label: t("catalog.title") },
         ]}
       />
@@ -413,6 +429,27 @@ export function CatalogPage() {
         )}
       </div>
 
+      {/* Owned view banner */}
+      {ownedView && selectedSet && (
+        <div
+          className="mb-4 px-4 py-2 bg-cyan-900/30 border border-cyan-700/50 rounded-lg flex items-center justify-between"
+          data-testid="owned-view-banner"
+        >
+          <span className="text-sm text-cyan-300">
+            {t("catalog.ownedViewBanner", {
+              set: selectedSet,
+              defaultValue: "Showing set completion view for {{set}} -- owned cards at full opacity, unowned faded",
+            })}
+          </span>
+          <Link
+            to={`/collection?set=${selectedSet}`}
+            className="text-sm text-cyan-400 hover:text-cyan-300 underline ml-4 shrink-0"
+          >
+            {t("catalog.backToCollection", { defaultValue: "Back to collection" })}
+          </Link>
+        </div>
+      )}
+
       {/* Error state */}
       {error && (
         <div className="mb-6">
@@ -464,7 +501,7 @@ export function CatalogPage() {
             data-testid="catalog-grid"
           >
             {cards.map((card) => (
-              <CatalogCardTile key={card.id} card={card} />
+              <CatalogCardTile key={card.id} card={card} ownedView={ownedView} />
             ))}
           </div>
 

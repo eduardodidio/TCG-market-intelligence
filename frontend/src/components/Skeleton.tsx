@@ -17,10 +17,12 @@ export function SkeletonKpi() {
 
 export function SkeletonCard() {
   return (
-    <div data-testid="skeleton-card" className="rounded-lg bg-slate-800 border border-slate-600 p-4">
-      <div className={`${pulseBase} h-40 w-full mb-3`} />
-      <div className={`${pulseBase} h-4 w-3/4 mb-2`} />
-      <div className={`${pulseBase} h-4 w-1/2`} />
+    <div data-testid="skeleton-card" className="rounded-lg bg-slate-800 border border-slate-600 overflow-hidden">
+      <div className={`${pulseBase} aspect-[5/7] w-full`} />
+      <div className="p-3" data-testid="skeleton-card-info">
+        <div className={`${pulseBase} h-4 w-3/4 mb-2`} />
+        <div className={`${pulseBase} h-4 w-1/2`} />
+      </div>
     </div>
   );
 }

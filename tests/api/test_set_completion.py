@@ -106,3 +106,83 @@ class TestSetCompletion:
         # set_name falls back to set_code when null
         for item in data:
             assert item["set_name"] is not None
+
+    def test_has_catalog_true_when_catalog_data_exists(self, completion_app):
+        """Sets with catalog cards should have has_catalog=True."""
+        resp = completion_app.get("/collection/set-completion")
+        data = resp.json()["data"]
+        by_set = {d["set_code"]: d for d in data}
+        assert by_set["SET1"]["has_catalog"] is True
+        assert by_set["SET2"]["has_catalog"] is True
+
+
+@pytest.fixture()
+def completion_no_catalog_app(tmp_path):
+    """App where collection has cards from a set NOT in the catalog."""
+    db_path = tmp_path / "no_catalog.db"
+    repo = Repository(db_url=f"sqlite:///{db_path}")
+
+    with Session(repo.engine) as session:
+        # No catalog cards for "PROMO" set
+        session.add(
+            UserCollectionRow(
+                user_id="user1",
+                set_code="PROMO",
+                collector_number="1",
+                name_en="Promo Card",
+            )
+        )
+        session.add(
+            UserCollectionRow(
+                user_id="user1",
+                set_code="PROMO",
+                collector_number="2",
+                name_en="Promo Card 2",
+            )
+        )
+        # Add one set WITH catalog data for comparison
+        session.add(
+            CardRow(
+                game="magic",
+                name_en="Real Card",
+                set_code="SET1",
+                collector_number="1",
+            )
+        )
+        session.add(
+            UserCollectionRow(
+                user_id="user1",
+                set_code="SET1",
+                collector_number="1",
+                name_en="Real Card",
+            )
+        )
+        session.commit()
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_db] = lambda: repo
+    app.dependency_overrides[require_auth_or_api_key] = lambda: "user1"
+    return TestClient(app)
+
+
+class TestSetCompletionNoCatalog:
+    def test_no_catalog_set_has_catalog_false(self, completion_no_catalog_app):
+        """Sets without catalog data return has_catalog=False."""
+        resp = completion_no_catalog_app.get("/collection/set-completion")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        by_set = {d["set_code"]: d for d in data}
+
+        assert by_set["PROMO"]["has_catalog"] is False
+        # owned == total when no catalog
+        assert by_set["PROMO"]["owned"] == by_set["PROMO"]["total"]
+        assert by_set["PROMO"]["owned"] == 2
+
+    def test_catalog_set_has_catalog_true(self, completion_no_catalog_app):
+        """Sets with catalog data return has_catalog=True."""
+        resp = completion_no_catalog_app.get("/collection/set-completion")
+        data = resp.json()["data"]
+        by_set = {d["set_code"]: d for d in data}
+
+        assert by_set["SET1"]["has_catalog"] is True

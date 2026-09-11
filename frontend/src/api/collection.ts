@@ -194,6 +194,7 @@ export interface SetCompletionEntry {
   set_name: string;
   owned: number;
   total: number;
+  has_catalog: boolean;
 }
 
 export function fetchSetCompletion(): Promise<ApiResponse<SetCompletionEntry[]>> {

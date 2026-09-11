@@ -8,10 +8,11 @@ interface SetCompletionBarProps {
   setName: string;
   owned: number;
   total: number;
+  hasCatalog?: boolean;
 }
 
 interface SetCompletionSectionProps {
-  entries: { set_code: string; set_name: string; owned: number; total: number }[];
+  entries: { set_code: string; set_name: string; owned: number; total: number; has_catalog?: boolean }[];
 }
 
 const LS_KEY = "tcg_set_completion_open";
@@ -66,6 +67,7 @@ export function SetCompletionSection({ entries }: SetCompletionSectionProps) {
               setName={entry.set_name}
               owned={entry.owned}
               total={entry.total}
+              hasCatalog={entry.has_catalog}
             />
           ))}
         </div>
@@ -78,13 +80,26 @@ export function SetCompletionSection({ entries }: SetCompletionSectionProps) {
  * Progress bar showing X/Y cards owned per set.
  * Gradient from slate to cyan; gold highlight at 100%.
  * Displays a Scryfall set icon, and clicking navigates to the filtered collection.
+ *
+ * When hasCatalog is false, shows "X cards (no catalog)" instead of "X of Y"
+ * and does not apply gold 100% styling.
  */
-export function SetCompletionBar({ setCode, setName, owned, total }: SetCompletionBarProps) {
+export function SetCompletionBar({ setCode, setName, owned, total, hasCatalog }: SetCompletionBarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
-  const pct = total > 0 ? Math.min((owned / total) * 100, 100) : 0;
-  const isComplete = pct >= 100;
+
+  const noCatalog = hasCatalog === false;
+  const pct = !noCatalog && total > 0 ? Math.min((owned / total) * 100, 100) : 0;
+  const isComplete = !noCatalog && pct >= 100;
+
+  const handleClick = () => {
+    if (noCatalog) {
+      navigate(`/collection?set=${setCode}`);
+    } else {
+      navigate(`/catalog?set_code=${setCode}&owned_view=1`);
+    }
+  };
 
   return (
     <div
@@ -92,11 +107,11 @@ export function SetCompletionBar({ setCode, setName, owned, total }: SetCompleti
       data-testid={`set-completion-${setCode}`}
       role="button"
       tabIndex={0}
-      onClick={() => navigate(`/collection?set=${setCode}`)}
+      onClick={handleClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          navigate(`/collection?set=${setCode}`);
+          handleClick();
         }
       }}
     >
@@ -121,15 +136,17 @@ export function SetCompletionBar({ setCode, setName, owned, total }: SetCompleti
 
       {/* Progress bar */}
       <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            isComplete
-              ? "bg-gradient-to-r from-amber-400 to-amber-500"
-              : "bg-gradient-to-r from-slate-500 to-cyan-400"
-          }`}
-          style={{ width: `${pct}%` }}
-          data-testid="completion-bar-fill"
-        />
+        {!noCatalog && (
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${
+              isComplete
+                ? "bg-gradient-to-r from-amber-400 to-amber-500"
+                : "bg-gradient-to-r from-slate-500 to-cyan-400"
+            }`}
+            style={{ width: `${pct}%` }}
+            data-testid="completion-bar-fill"
+          />
+        )}
       </div>
 
       {/* Label */}
@@ -139,13 +156,18 @@ export function SetCompletionBar({ setCode, setName, owned, total }: SetCompleti
         }`}
         data-testid="completion-label"
       >
-        {isComplete
-          ? t("collection.setComplete", { defaultValue: "Complete!" })
-          : t("collection.setCompletionOf", {
+        {noCatalog
+          ? t("collection.setNoCatalog", {
               owned,
-              total,
-              defaultValue: "{{owned}} of {{total}}",
-            })}
+              defaultValue: "{{owned}} cards (no catalog)",
+            })
+          : isComplete
+            ? t("collection.setComplete", { defaultValue: "Complete!" })
+            : t("collection.setCompletionOf", {
+                owned,
+                total,
+                defaultValue: "{{owned}} of {{total}}",
+              })}
       </span>
     </div>
   );

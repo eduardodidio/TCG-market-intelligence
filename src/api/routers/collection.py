@@ -147,6 +147,9 @@ def list_collection(
     if overlap_card_ids:
         non_foil_prices = repo.get_latest_prices_batch(list(overlap_card_ids))
 
+    # Currency conversion preserves sort order: all prices are multiplied by
+    # the same exchange rate for the requested date, so relative ordering is
+    # maintained from the DB query. (F122-T02 verified)
     data = []
     for r in rows:
         if r.card_id and r.card_id in overlap_card_ids:
@@ -530,13 +533,15 @@ def set_completion(
 
     data = []
     for set_code, set_name, owned_count in collection_sets:
-        total = totals_by_set.get(set_code, 0)
+        catalog_total = totals_by_set.get(set_code, 0)
+        has_catalog = catalog_total > 0
         data.append(
             {
                 "set_code": set_code,
                 "set_name": set_name or set_code,
                 "owned": owned_count,
-                "total": max(total, owned_count),
+                "total": catalog_total if has_catalog else owned_count,
+                "has_catalog": has_catalog,
             }
         )
 
