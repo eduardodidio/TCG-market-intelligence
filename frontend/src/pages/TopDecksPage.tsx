@@ -5,7 +5,6 @@ import { fetchDeckRanking } from "../api/deckRanking";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckSparkline } from "../components/DeckSparkline";
 import { EmptyState } from "../components/EmptyState";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type { DeckRankingEntry, DeckRankingResponse } from "../types/api";
 
 const SORT_OPTIONS = [
@@ -20,7 +19,6 @@ const PAGE_SIZE = 20;
 
 export function TopDecksPage() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -79,7 +77,7 @@ export function TopDecksPage() {
     <div data-testid="page-top-decks">
       <Breadcrumb
         items={[
-          { label: t("nav.myDecks"), to: `${prefix}/decks` },
+          { label: t("nav.myDecks"), to: "/decks" },
           { label: t("nav.topDecks") },
         ]}
       />
@@ -156,7 +154,7 @@ export function TopDecksPage() {
             title={t("topDecks.noDecks")}
             description={t("topDecks.noDecksHint")}
             actions={[
-              { label: t("decks.importDeck"), onClick: () => navigate(`${prefix}/decks`) },
+              { label: t("decks.importDeck"), onClick: () => navigate("/decks") },
             ]}
           />
         </div>
@@ -168,7 +166,7 @@ export function TopDecksPage() {
           {allDecks.map((deck, idx) => (
             <Link
               key={deck.id}
-              to={`${prefix}/decks/${deck.id}`}
+              to={`/decks/${deck.id}`}
               className="flex items-center gap-4 p-4 rounded-lg bg-slate-800 border border-slate-600 hover:border-cyan-500/50 hover:shadow-lg transition-all duration-200"
               data-testid={`ranking-entry-${deck.id}`}
             >

@@ -6,7 +6,6 @@ import { useAuth } from "../hooks/useAuth";
 import { useOwnedCardIds } from "../hooks/useOwnedCardIds";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { TrendingSection } from "../components/TrendingSection";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 
 const PERIODS = ["7d", "30d", "90d"] as const;
 type Period = (typeof PERIODS)[number];
@@ -19,7 +18,6 @@ function isPeriod(value: string): value is Period {
 
 export function Trending() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const { currency } = useCurrency();
   const { isAuthenticated } = useAuth();
   const ownedCardIds = useOwnedCardIds();
@@ -48,14 +46,14 @@ export function Trending() {
     <div data-testid="page-trending">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: `${prefix}/` },
+          { label: t("nav.dashboard"), to: "/" },
           { label: t("nav.trending") },
         ]}
       />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">{t("trending.title")}</h1>
         <Link
-          to={`${prefix}/market`}
+          to={"/market"}
           className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
           data-testid="back-to-market-link"
         >

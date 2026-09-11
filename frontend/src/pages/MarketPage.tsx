@@ -11,12 +11,10 @@ import { MarketSummaryKpis } from "../components/MarketSummaryKpis";
 import { TrendingSection } from "../components/TrendingSection";
 import { VolatileSection } from "../components/VolatileSection";
 import { TopDecksPreview } from "../components/TopDecksPreview";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type { MarketSummaryResponse } from "../types/api";
 
 export function MarketPage() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const { currency } = useCurrency();
   const ownedCardIds = useOwnedCardIds();
   const [period, setPeriod] = useState("30d");
@@ -34,7 +32,7 @@ export function MarketPage() {
     <div data-testid="page-market">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: `${prefix}/` },
+          { label: t("nav.dashboard"), to: "/" },
           { label: t("nav.market") },
         ]}
       />
@@ -75,7 +73,7 @@ export function MarketPage() {
       {/* View All Trending link */}
       <div className="mb-8 flex justify-end">
         <Link
-          to={`${prefix}/market/trending`}
+          to={"/market/trending"}
           className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
           data-testid="view-all-trending-link"
         >

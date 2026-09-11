@@ -8,12 +8,10 @@ import { deleteDeck, fetchDeck } from "../api/decks";
 import { BatchAddModal } from "../components/BatchAddModal";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckCardTile } from "../components/DeckCardTile";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type { DeckDetail, DeckValueDetail } from "../types/api";
 
 export function DeckView() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [deck, setDeck] = useState<DeckDetail | null>(null);
@@ -55,7 +53,7 @@ export function DeckView() {
     setDeleting(true);
     try {
       await deleteDeck(Number(id));
-      navigate(`${prefix}/decks`);
+      navigate("/decks");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("decks.failedDelete"));
       setDeleting(false);
@@ -113,7 +111,7 @@ export function DeckView() {
     <div data-testid="page-deck-view">
       <Breadcrumb
         items={[
-          { label: t("decks.title"), to: `${prefix}/decks` },
+          { label: t("decks.title"), to: "/decks" },
           { label: deck.name },
         ]}
       />

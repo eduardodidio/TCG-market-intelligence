@@ -13,7 +13,6 @@ import { DuplicatesList } from "../components/DuplicatesList";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { CardImage } from "../components/CardImage";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { scryfallImageByName } from "../utils/scryfall";
 import type { DuplicateCard, TradeMatch, MatchedCard } from "../types/tradeMatch";
 
@@ -21,7 +20,6 @@ type Tab = "duplicates" | "theyHave" | "theyWant";
 
 export function TradeMatchesPage() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("duplicates");
@@ -55,7 +53,7 @@ export function TradeMatchesPage() {
   }
 
   const breadcrumbs = [
-    { label: t("nav.dashboard"), to: `${prefix}/` },
+    { label: t("nav.dashboard"), to: "/" },
     { label: t("tradeMatch.title") },
   ];
 
@@ -110,7 +108,7 @@ export function TradeMatchesPage() {
           emptyDescription={t("tradeMatch.noMatchesDesc")}
           emptyCta={{
             label: t("tradeMatch.goToWishlist"),
-            onClick: () => navigate(`${prefix}/wishlist`),
+            onClick: () => navigate("/wishlist"),
           }}
         />
       )}
@@ -189,7 +187,6 @@ function MatchesTab({
 
 function PartnerCard({ match }: { match: TradeMatch }) {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -211,7 +208,7 @@ function PartnerCard({ match }: { match: TradeMatch }) {
               {match.partner_name}
             </p>
             <Link
-              to={`${prefix}/marketplace`}
+              to={"/marketplace"}
               className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
@@ -256,7 +253,6 @@ function PartnerCard({ match }: { match: TradeMatch }) {
 }
 
 function MatchedCardThumbnail({ card }: { card: MatchedCard }) {
-  const prefix = useRoutePrefix();
   const imgSrc =
     card.image_uri ??
     (card.set_code
@@ -265,7 +261,7 @@ function MatchedCardThumbnail({ card }: { card: MatchedCard }) {
 
   return (
     <Link
-      to={`${prefix}/cards/${card.card_id}`}
+      to={`/cards/${card.card_id}`}
       className="flex flex-col bg-gray-50 dark:bg-slate-700 rounded-md overflow-hidden no-underline"
       data-testid="matched-card"
     >

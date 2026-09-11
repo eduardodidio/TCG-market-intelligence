@@ -12,7 +12,6 @@ import { Breadcrumb } from "../components/Breadcrumb";
 import { CardImage } from "../components/CardImage";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import type { WishlistItem } from "../types/wishlist";
 
@@ -20,7 +19,6 @@ type Tab = "wanted" | "acquired";
 
 export function WishlistPage() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("wanted");
@@ -87,7 +85,7 @@ export function WishlistPage() {
   }
 
   const breadcrumbs = [
-    { label: t("nav.dashboard"), to: `${prefix}/` },
+    { label: t("nav.dashboard"), to: "/" },
     { label: t("wishlist.title") },
   ];
 
@@ -158,7 +156,7 @@ export function WishlistPage() {
               ? [
                   {
                     label: t("wishlist.browseCatalog"),
-                    onClick: () => navigate(`${prefix}/catalog`),
+                    onClick: () => navigate("/catalog"),
                   },
                 ]
               : []

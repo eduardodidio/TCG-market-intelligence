@@ -5,13 +5,11 @@ import { useCurrency } from "../hooks/useCurrency";
 import { useLanguage } from "../hooks/useLanguage";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { CurrencyToggle } from "../components/CurrencyToggle";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import { LanguageSelector } from "../components/LanguageSelector";
 import { apiPatch } from "../api/client";
 
 export function Settings() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const { user } = useAuth();
   const { currency } = useCurrency();
   const { language } = useLanguage();
@@ -40,7 +38,7 @@ export function Settings() {
     <div data-testid="page-settings" className="max-w-2xl">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: `${prefix}/` },
+          { label: t("nav.dashboard"), to: "/" },
           { label: t("nav.settings") },
         ]}
       />

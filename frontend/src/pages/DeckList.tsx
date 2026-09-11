@@ -5,12 +5,10 @@ import { fetchDecks } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckImportModal } from "../components/DeckImportModal";
 import { EmptyState } from "../components/EmptyState";
-import { useRoutePrefix } from "../contexts/RoutePrefixContext";
 import type { DeckSummary } from "../types/api";
 
 export function DeckList() {
   const { t } = useTranslation();
-  const prefix = useRoutePrefix();
   const [decks, setDecks] = useState<DeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +48,7 @@ export function DeckList() {
     <div data-testid="page-decks">
       <Breadcrumb
         items={[
-          { label: t("nav.dashboard"), to: `${prefix}/` },
+          { label: t("nav.dashboard"), to: "/" },
           { label: t("nav.myDecks") },
         ]}
       />
@@ -108,7 +106,7 @@ export function DeckList() {
           {decks.map((deck) => (
             <Link
               key={deck.id}
-              to={`${prefix}/decks/${deck.id}`}
+              to={`/decks/${deck.id}`}
               className="block p-4 rounded-lg bg-slate-800 border border-slate-600 hover:border-indigo-500/50 hover:shadow-lg transition-all duration-200"
               data-testid={`deck-card-${deck.id}`}
             >
