@@ -15,7 +15,7 @@ export function useInfiniteScroll(
       ([entry]) => {
         if (entry.isIntersecting) onLoadMore();
       },
-      { rootMargin: options.rootMargin ?? "200px" },
+      { rootMargin: options.rootMargin ?? "600px" },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();

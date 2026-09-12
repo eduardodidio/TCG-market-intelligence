@@ -209,4 +209,40 @@ describe("CardTile", () => {
     renderTile();
     expect(screen.getByTestId("tilt-wrapper")).toBeInTheDocument();
   });
+
+  it("opens CardPreviewModal when clicking the card image", () => {
+    renderTile();
+    const imagePlaceholder = screen.getByTestId("card-image-placeholder");
+    fireEvent.click(imagePlaceholder);
+    expect(screen.getByTestId("modal-backdrop")).toBeInTheDocument();
+  });
+
+  it("does not open modal when clicking the card name", () => {
+    renderTile();
+    fireEvent.click(screen.getByText("Lightning Bolt"));
+    expect(screen.queryByTestId("modal-backdrop")).not.toBeInTheDocument();
+  });
+
+  it("does not add click handler when card has no image", () => {
+    renderTile({
+      card: {
+        ...baseCard,
+        set_code: null,
+        collector_number: null,
+        name_en: null,
+      },
+    });
+    const imagePlaceholder = screen.getByTestId("card-image-placeholder");
+    fireEvent.click(imagePlaceholder);
+    expect(screen.queryByTestId("modal-backdrop")).not.toBeInTheDocument();
+  });
+
+  it("closes CardPreviewModal when onClose is called", () => {
+    renderTile();
+    fireEvent.click(screen.getByTestId("card-image-placeholder"));
+    expect(screen.getByTestId("modal-backdrop")).toBeInTheDocument();
+    // Click backdrop to close
+    fireEvent.click(screen.getByTestId("modal-backdrop"));
+    expect(screen.queryByTestId("modal-backdrop")).not.toBeInTheDocument();
+  });
 });

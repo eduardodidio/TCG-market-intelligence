@@ -118,7 +118,7 @@ describe("useInfiniteScroll", () => {
     }
   });
 
-  it("uses default rootMargin of 200px", () => {
+  it("uses default rootMargin of 600px", () => {
     const onLoadMore = vi.fn();
     const div = document.createElement("div");
 
@@ -132,7 +132,7 @@ describe("useInfiniteScroll", () => {
     });
 
     if (observerOptions) {
-      expect(observerOptions.rootMargin).toBe("200px");
+      expect(observerOptions.rootMargin).toBe("600px");
     }
   });
 

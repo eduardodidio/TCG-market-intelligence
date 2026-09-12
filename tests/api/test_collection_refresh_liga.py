@@ -18,7 +18,7 @@ from src.api.deps import (
 )
 from src.api.routers.collection import router
 from src.credits.service import CreditService
-from src.database.models import PriceObservationRow, UserCollectionRow
+from src.database.models import CardRow, PriceObservationRow, UserCollectionRow
 from src.domain.models import User
 from src.providers.liga.exceptions import (
     LigaError,
@@ -134,12 +134,27 @@ def _make_app(
     return app
 
 
+def _make_card_row(**overrides) -> MagicMock:
+    defaults = {
+        "id": 42,
+        "name": "Raio",
+        "name_en": "Lightning Bolt",
+        "set_code": "DMR",
+    }
+    defaults.update(overrides)
+    row = MagicMock(spec=CardRow)
+    for k, v in defaults.items():
+        setattr(row, k, v)
+    return row
+
+
 def _mock_repo_for_detail(mock_repo: MagicMock, entry: MagicMock) -> None:
     """Configure mock_repo to support _build_collection_detail after refresh."""
     mock_repo.get_collection_entry.return_value = entry
     price_obs = _make_price_obs()
     mock_repo.get_latest_prices_batch.return_value = {entry.card_id: price_obs}
     mock_repo.get_source_cards_for_card.return_value = []
+    mock_repo.get_card_by_id.return_value = _make_card_row()
 
 
 def _liga_prices(
@@ -583,6 +598,7 @@ class TestRefreshLigaNoRegistry:
         mock_repo.get_collection_entry.return_value = entry
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
+        mock_repo.get_card_by_id.return_value = _make_card_row()
 
         # MYP search returns empty — expect warning, not 503
         mock_myp = MockMypCls.return_value
@@ -605,6 +621,7 @@ class TestRefreshLigaNoRegistry:
         mock_repo.get_collection_entry.return_value = entry
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
+        mock_repo.get_card_by_id.return_value = _make_card_row()
 
         mock_myp = MockMypCls.return_value
         mock_myp.search_card = AsyncMock(return_value=[])
@@ -641,6 +658,7 @@ class TestRefreshLigaAutoCreateCard:
         price_obs = _make_price_obs()
         mock_repo.get_latest_prices_batch.return_value = {99: price_obs}
         mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_card_by_id.return_value = _make_card_row(id=99)
 
         provider = _make_mock_provider()
         provider.search_card.return_value = _liga_prices(mid=Decimal("7.00"))

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SearchBar } from "../components/SearchBar";
@@ -53,9 +54,10 @@ function RarityBadge({ rarity }: { rarity: string | null }) {
   );
 }
 
-function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedView?: boolean }) {
+export function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedView?: boolean }) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
+  const [previewOpen, setPreviewOpen] = useState(false);
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
 
   const isUnowned = ownedView && card.owned === false;
@@ -74,8 +76,17 @@ function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedView?: b
     >
       {/* Card image with skeleton loading */}
       <div
-        className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800
-          flex items-center justify-center overflow-hidden"
+        className={`aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800
+          flex items-center justify-center overflow-hidden${card.image_uri ? " cursor-zoom-in" : ""}`}
+        {...(card.image_uri
+          ? {
+              onClick: (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setPreviewOpen(true);
+              },
+            }
+          : {})}
       >
         <CardImage
           src={card.image_uri}
@@ -121,6 +132,13 @@ function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedView?: b
         )}
       </div>
     </Link>
+    {previewOpen && card.image_uri && (
+      <CardPreviewModal
+        imageUrl={card.image_uri}
+        cardName={displayName}
+        onClose={() => setPreviewOpen(false)}
+      />
+    )}
     </Card3DTilt>
   );
 }

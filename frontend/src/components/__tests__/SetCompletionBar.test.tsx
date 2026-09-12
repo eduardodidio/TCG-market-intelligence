@@ -192,4 +192,13 @@ describe("SetCompletionBar", () => {
     fireEvent.click(screen.getByTestId("set-completion-mh3"));
     expect(mockNavigate).toHaveBeenCalledWith("/catalog?set_code=mh3&owned_view=1");
   });
+
+  it("does not include sort params in /collection link (F123-T05: let MyCollection use price desc default)", () => {
+    renderBar({ setCode: "promo", setName: "Promo Cards", hasCatalog: false });
+    fireEvent.click(screen.getByTestId("set-completion-promo"));
+    const navUrl = mockNavigate.mock.calls[0][0] as string;
+    expect(navUrl).toBe("/collection?set=promo");
+    expect(navUrl).not.toContain("sort=");
+    expect(navUrl).not.toContain("dir=");
+  });
 });

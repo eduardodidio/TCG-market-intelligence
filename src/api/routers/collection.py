@@ -1633,16 +1633,35 @@ def _build_collection_detail(
         source_cards = repo.get_source_cards_for_card(entry.card_id)
         source_cards_data = [SourceCardSchema.model_validate(sc) for sc in source_cards]
 
+    # Use canonical card name from cards table for Liga URL (entry.name_en can be stale)
+    canonical_name = ""
+    if entry.card_id is not None:
+        card_row = repo.get_card_by_id(entry.card_id)
+        if card_row:
+            _cn = card_row.name_en or card_row.name or ""
+            if isinstance(_cn, str):
+                canonical_name = _cn
+    if not canonical_name:
+        canonical_name = entry.name_en or entry.name_pt or ""
+
     name = entry.name_en or entry.name_pt or ""
     scryfall_url = None
     ligamagic_url = None
+    if canonical_name:
+        encoded_liga_name = quote_plus(canonical_name)
+        ligamagic_url = (
+            f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_liga_name}&show=1"
+        )
     if name:
         encoded_name = quote_plus(name)
         scryfall_q = encoded_name
         if entry.set_code:
             scryfall_q += f"+set:{entry.set_code}"
         scryfall_url = f"https://scryfall.com/search?q={scryfall_q}"
-        ligamagic_url = f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_name}&show=1"
+        if not ligamagic_url:
+            ligamagic_url = (
+                f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_name}&show=1"
+            )
 
     data = CollectionCardDetail(
         id=entry.id,

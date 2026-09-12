@@ -3,7 +3,7 @@ export const API_BASE_URL: string =
     import.meta.env?.VITE_API_BASE_URL as string) ||
   "";
 
-export const DEFAULT_PAGE_LIMIT = 24;
+export const DEFAULT_PAGE_LIMIT = 48;
 
 export type GridSize = "sm" | "md" | "lg";
 

@@ -6,6 +6,7 @@ import { useCardName } from "../hooks/useCardName";
 import { useCredits } from "../hooks/useCredits";
 import { formatBRL } from "../utils/format";
 import { Card3DTilt } from "./Card3DTilt";
+import { CardPreviewModal } from "./CardPreviewModal";
 import { CreditConfirmModal } from "./CreditConfirmModal";
 
 interface DeckCardTileProps {
@@ -18,6 +19,7 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
   const { getCardName } = useCardName();
   const [refreshing, setRefreshing] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { balance, isAdmin, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const linkTo = card.in_collection && card.collection_entry_id
@@ -36,7 +38,18 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
       data-testid={`deck-card-tile-${card.id}`}
     >
       {/* Card image */}
-      <div className="aspect-[488/680] bg-slate-700 relative">
+      <div
+        className={`aspect-[488/680] bg-slate-700 relative${card.image_url ? " cursor-zoom-in" : ""}`}
+        {...(card.image_url
+          ? {
+              onClick: (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setPreviewOpen(true);
+              },
+            }
+          : {})}
+      >
         {card.image_url ? (
           <img
             src={card.image_url}
@@ -173,6 +186,14 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
     />
   );
 
+  const previewModal = previewOpen && card.image_url ? (
+    <CardPreviewModal
+      imageUrl={card.image_url}
+      cardName={displayName}
+      onClose={() => setPreviewOpen(false)}
+    />
+  ) : null;
+
   if (linkTo) {
     return (
       <>
@@ -182,9 +203,10 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
           </Link>
         </Card3DTilt>
         {modal}
+        {previewModal}
       </>
     );
   }
 
-  return <><Card3DTilt foil={false} className="w-full">{content}</Card3DTilt>{modal}</>;
+  return <><Card3DTilt foil={false} className="w-full">{content}</Card3DTilt>{modal}{previewModal}</>;
 }

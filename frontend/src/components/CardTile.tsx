@@ -10,6 +10,7 @@ import { useCurrency } from "../hooks/useCurrency";
 import { formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { Card3DTilt } from "./Card3DTilt";
+import { CardPreviewModal } from "./CardPreviewModal";
 import { PriceSparkline } from "./PriceSparkline";
 import { TrendBadge } from "./TrendBadge";
 
@@ -31,6 +32,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
   const [fallbackError, setFallbackError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [displayPrice, setDisplayPrice] = useState<number | null | undefined>(undefined);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // Primary: set/collector_number URL. Fallback: name-based URL.
   const primaryUrl =
@@ -104,9 +106,18 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
 
       {/* Card image */}
       <div
-        className="aspect-[5/7] bg-gradient-to-br from-gray-200 dark:from-slate-700 to-gray-300 dark:to-slate-800
-          flex items-center justify-center overflow-hidden"
+        className={`aspect-[5/7] bg-gradient-to-br from-gray-200 dark:from-slate-700 to-gray-300 dark:to-slate-800
+          flex items-center justify-center overflow-hidden${showImage ? " cursor-zoom-in" : ""}`}
         data-testid="card-image-placeholder"
+        {...(showImage
+          ? {
+              onClick: (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setPreviewOpen(true);
+              },
+            }
+          : {})}
       >
         {showImage ? (
           <img
@@ -186,6 +197,13 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
         )}
       </div>
     </Link>
+    {previewOpen && currentUrl && (
+      <CardPreviewModal
+        imageUrl={currentUrl}
+        cardName={displayName}
+        onClose={() => setPreviewOpen(false)}
+      />
+    )}
     </Card3DTilt>
   );
 }

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from src.api.deps import get_db, require_auth_or_api_key
 from src.api.routers.collection import router
-from src.database.models import PriceObservationRow, SourceCardRow, UserCollectionRow
+from src.database.models import CardRow, PriceObservationRow, SourceCardRow, UserCollectionRow
 
 _TEST_USER_ID = "eduardo"
 
@@ -35,6 +35,21 @@ def _make_collection_row(**overrides) -> MagicMock:
     }
     defaults.update(overrides)
     row = MagicMock(spec=UserCollectionRow)
+    for k, v in defaults.items():
+        setattr(row, k, v)
+    return row
+
+
+def _make_card_row(**overrides) -> MagicMock:
+    """Build a mock CardRow with sensible defaults."""
+    defaults = {
+        "id": 42,
+        "name": "Raio",
+        "name_en": "Lightning Bolt",
+        "set_code": "DMR",
+    }
+    defaults.update(overrides)
+    row = MagicMock(spec=CardRow)
     for k, v in defaults.items():
         setattr(row, k, v)
     return row
@@ -94,6 +109,7 @@ class TestGetCollectionEntry:
     def test_returns_full_entry_data(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row()
         source_card = _make_source_card()
         mock_repo.get_source_cards_for_card.return_value = [source_card]
         price_obs = _make_price_obs()
@@ -132,6 +148,7 @@ class TestGetCollectionEntry:
     def test_linked_entry_includes_image_url_with_mapped_set(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row()
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
         mock_repo.get_price_series.return_value = []
@@ -150,6 +167,7 @@ class TestGetCollectionEntry:
     def test_linked_entry_includes_source_cards(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row()
         source_card = _make_source_card()
         mock_repo.get_source_cards_for_card.return_value = [source_card]
         mock_repo.get_latest_prices_batch.return_value = {42: _make_price_obs()}
@@ -183,6 +201,7 @@ class TestGetCollectionEntry:
     def test_returns_external_links(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row()
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
 
@@ -208,6 +227,9 @@ class TestGetCollectionEntry:
             name_en="Jace, the Mind Sculptor",
             name_pt=None,
         )
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Jace, the Mind Sculptor",
+        )
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
 
@@ -231,6 +253,10 @@ class TestGetCollectionEntry:
         mock_repo.get_collection_entry.return_value = _make_collection_row(
             name_en=None,
             name_pt=None,
+        )
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en=None,
+            name=None,
         )
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
@@ -266,6 +292,7 @@ class TestGetCollectionEntry:
         """Entry with extras='Foil' should have is_foil=True."""
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row(extras="Foil")
+        mock_repo.get_card_by_id.return_value = _make_card_row()
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
         mock_repo.get_price_series.return_value = []
@@ -281,6 +308,7 @@ class TestGetCollectionEntry:
         """Entry with extras='Foil, Signed' should have is_foil=True."""
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row(extras="Foil, Signed")
+        mock_repo.get_card_by_id.return_value = _make_card_row()
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
         mock_repo.get_price_series.return_value = []
@@ -296,6 +324,7 @@ class TestGetCollectionEntry:
         """Entry with extras='Signed' (no foil) should have is_foil=False."""
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row(extras="Signed")
+        mock_repo.get_card_by_id.return_value = _make_card_row()
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
         mock_repo.get_price_series.return_value = []
@@ -311,6 +340,7 @@ class TestGetCollectionEntry:
         """Entry with extras=None should have is_foil=False."""
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row(extras=None)
+        mock_repo.get_card_by_id.return_value = _make_card_row()
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
         mock_repo.get_price_series.return_value = []

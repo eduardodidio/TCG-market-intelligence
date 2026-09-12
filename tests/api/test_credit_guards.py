@@ -29,7 +29,7 @@ from src.api.routers.collection import router as collection_router
 from src.api.routers.scans import router as scans_router
 from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
-from src.database.models import PriceObservationRow, UserCollectionRow
+from src.database.models import CardRow, PriceObservationRow, UserCollectionRow
 from src.domain.models import CreditBalance, User
 from src.providers.liga.provider import LigaMagicProvider
 from src.providers.registry import ProviderRegistry
@@ -127,6 +127,10 @@ def _mock_repo_for_detail(mock_repo: MagicMock, entry: MagicMock) -> None:
     price_obs = _make_price_obs()
     mock_repo.get_latest_prices_batch.return_value = {entry.card_id: price_obs}
     mock_repo.get_source_cards_for_card.return_value = []
+    card_row = MagicMock(spec=CardRow)
+    card_row.name_en = entry.name_en
+    card_row.name = entry.name_pt
+    mock_repo.get_card_by_id.return_value = card_row
 
 
 def _make_collection_app(

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
 from src.api.routers.collection import router
-from src.database.models import PriceObservationRow, UserCollectionRow
+from src.database.models import CardRow, PriceObservationRow, UserCollectionRow
 from src.services.currency import CurrencyConverter
 
 _TEST_USER_ID = "eduardo"
@@ -168,6 +168,12 @@ class TestManualPriceEndpointValidation:
 class TestManualPriceEndpointHappyPath:
     """Happy path for PATCH /collection/{id}/price."""
 
+    def _card_row(self, **kw):
+        row = MagicMock(spec=CardRow)
+        row.name_en = kw.get("name_en", "Lightning Bolt")
+        row.name = kw.get("name", "Raio")
+        return row
+
     def test_creates_manual_price_and_returns_detail(self) -> None:
         mock_repo = MagicMock()
         entry = _make_collection_row()
@@ -177,6 +183,7 @@ class TestManualPriceEndpointHappyPath:
         price_obs = _make_price_obs()
         mock_repo.get_latest_prices_batch.return_value = {42: price_obs}
         mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_card_by_id.return_value = self._card_row()
 
         app = _make_app(mock_repo)
         client = TestClient(app)
@@ -201,6 +208,7 @@ class TestManualPriceEndpointHappyPath:
         mock_repo.upsert_manual_price.return_value = 100
         mock_repo.get_latest_prices_batch.return_value = {42: _make_price_obs()}
         mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_card_by_id.return_value = self._card_row()
 
         converter = MagicMock(spec=CurrencyConverter)
         converter.get_display_rate.return_value = Decimal("5.00")
@@ -227,6 +235,7 @@ class TestManualPriceEndpointHappyPath:
         mock_repo.upsert_manual_price.return_value = 100
         mock_repo.get_latest_prices_batch.return_value = {42: _make_price_obs()}
         mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_card_by_id.return_value = self._card_row()
 
         app = _make_app(mock_repo)
         client = TestClient(app)
@@ -265,6 +274,12 @@ class TestManualPriceEndpointHappyPath:
 class TestManualPriceAutoCreateCard:
     """Auto-creation of CardRow for unlinked entries."""
 
+    def _card_row(self, **kw):
+        row = MagicMock(spec=CardRow)
+        row.name_en = kw.get("name_en", "Lightning Bolt")
+        row.name = kw.get("name", "Raio")
+        return row
+
     def test_auto_creates_card_for_unlinked_entry(self) -> None:
         mock_repo = MagicMock()
         entry = _make_collection_row(card_id=None)
@@ -275,6 +290,7 @@ class TestManualPriceAutoCreateCard:
         mock_repo.upsert_manual_price.return_value = 100
         mock_repo.get_latest_prices_batch.return_value = {99: _make_price_obs()}
         mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_card_by_id.return_value = self._card_row()
 
         app = _make_app(mock_repo)
         client = TestClient(app)
@@ -300,6 +316,7 @@ class TestManualPriceAutoCreateCard:
         mock_repo.upsert_manual_price.return_value = 100
         mock_repo.get_latest_prices_batch.return_value = {42: _make_price_obs()}
         mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_card_by_id.return_value = self._card_row()
 
         app = _make_app(mock_repo)
         client = TestClient(app)

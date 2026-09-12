@@ -11,7 +11,7 @@ vi.mock("../../src/api/client", () => ({
 
 vi.mock("../../src/utils/constants", () => ({
   API_BASE_URL: "http://localhost:8000",
-  DEFAULT_PAGE_LIMIT: 24,
+  DEFAULT_PAGE_LIMIT: 48,
   GRID_SIZE_CONFIG: {},
 }));
 
