@@ -313,7 +313,7 @@ describe("CardDetail page", () => {
 
     const link = screen.getByTestId("ligamagic-link");
     expect(link.getAttribute("href")).toBe(
-      `https://www.ligamagic.com.br/?view=cards/card&card=${encodeURIComponent("Lightning Bolt")}`,
+      "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1",
     );
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");

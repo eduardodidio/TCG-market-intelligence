@@ -13,7 +13,6 @@ import asyncio
 import sys
 import time
 from datetime import datetime
-from urllib.parse import quote_plus
 
 import structlog
 
@@ -27,10 +26,12 @@ from src.providers.liga.exceptions import (
     LigaServerError,
 )
 from src.providers.liga.parser import parse_card_prices
+from src.providers.liga.url import liga_url_for_card_name
 
 log = structlog.get_logger()
 
-BASE_URL = "https://www.ligamagic.com.br"
+# Keep backward-compat alias for any external callers
+_build_card_url = liga_url_for_card_name
 
 # Default browser user-agent to appear as a normal Chrome session
 _USER_AGENT = (
@@ -38,12 +39,6 @@ _USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/120.0.0.0 Safari/537.36"
 )
-
-
-def _build_card_url(card_name: str) -> str:
-    """Build a LigaMagic card search URL from a card name."""
-    encoded = quote_plus(card_name.strip())
-    return f"{BASE_URL}/?view=cards/card&card={encoded}&show=1"
 
 
 class LigaMagicProvider(CardSourceProvider):

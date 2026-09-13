@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from decimal import Decimal
-from urllib.parse import quote_plus
 
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
@@ -17,6 +16,7 @@ from src.credits.exceptions import InsufficientCreditsError
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
+from src.providers.liga.url import liga_url_for_card_name
 
 log = structlog.get_logger()
 
@@ -180,8 +180,7 @@ async def _search_via_liga(
     card_name = prices.get("card_name", q.strip())
     local_card_id = _find_local_card(repo, card_name)
 
-    encoded_name = quote_plus(card_name)
-    liga_url = f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_name}"
+    liga_url = liga_url_for_card_name(card_name)
 
     normal_price = _decimal_to_float(normal.get("low") or normal.get("mid") or normal.get("high"))
     foil_price = _decimal_to_float(foil.get("low") or foil.get("mid") or foil.get("high"))

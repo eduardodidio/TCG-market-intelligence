@@ -195,3 +195,38 @@ class TestLigaMagicLinkFromCardsTable:
 
         # quote_plus encodes apostrophe as %27
         assert "Frodo%27s+Ring" in data["ligamagic_url"]
+
+    def test_split_card_uses_front_face_only(self) -> None:
+        """Split/DFC card name 'Front // Back' should only use front face in URL."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Painter's Studio // Defaced Gallery",
+        )
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/collection/1")
+        data = resp.json()["data"]
+
+        assert "Painter%27s+Studio" in data["ligamagic_url"]
+        assert "Defaced" not in data["ligamagic_url"]
+        assert "&show=1" in data["ligamagic_url"]
+
+    def test_dfc_with_comma_uses_front_face_only(self) -> None:
+        """DFC card with comma in front face name uses only front face."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Beorn, Reluctant Host // Till and Tend",
+        )
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/collection/1")
+        data = resp.json()["data"]
+
+        assert "Beorn%2C+Reluctant+Host" in data["ligamagic_url"]
+        assert "Till" not in data["ligamagic_url"]

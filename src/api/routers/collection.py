@@ -73,6 +73,7 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import CardAnalytics, HistoricalPrice, User
+from src.providers.liga.url import liga_url_for_card_name
 from src.services import ban_analyzer
 from src.services.currency import CurrencyConverter
 from src.utils.set_code_map import map_to_scryfall_set_code
@@ -1648,10 +1649,7 @@ def _build_collection_detail(
     scryfall_url = None
     ligamagic_url = None
     if canonical_name:
-        encoded_liga_name = quote_plus(canonical_name)
-        ligamagic_url = (
-            f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_liga_name}&show=1"
-        )
+        ligamagic_url = liga_url_for_card_name(canonical_name)
     if name:
         encoded_name = quote_plus(name)
         scryfall_q = encoded_name
@@ -1659,9 +1657,7 @@ def _build_collection_detail(
             scryfall_q += f"+set:{entry.set_code}"
         scryfall_url = f"https://scryfall.com/search?q={scryfall_q}"
         if not ligamagic_url:
-            ligamagic_url = (
-                f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_name}&show=1"
-            )
+            ligamagic_url = liga_url_for_card_name(name)
 
     data = CollectionCardDetail(
         id=entry.id,

@@ -128,6 +128,7 @@ class TestSearchWebReturnsResults:
         assert data[0]["foil_price"] == 10.0
         assert data[0]["liga_url"] is not None
         assert "ligamagic" in data[0]["liga_url"]
+        assert "&show=1" in data[0]["liga_url"]
 
     def test_empty_results_when_no_prices(self):
         mock_repo = MagicMock()

@@ -34,6 +34,7 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
+from src.providers.liga.url import liga_url_for_card_name
 from src.services.currency import CurrencyConverter
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -190,6 +191,7 @@ def get_card(
         currency=currency,
         source_cards=[SourceCardSchema.model_validate(sc) for sc in source_cards],
         collection_entry_id=collection_entry_id,
+        ligamagic_url=liga_url_for_card_name(card.name_en) if card.name_en else None,
         created_at=card.created_at,
         updated_at=card.updated_at,
     )
