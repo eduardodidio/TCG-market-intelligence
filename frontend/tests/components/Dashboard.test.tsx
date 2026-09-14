@@ -6,7 +6,6 @@ import {
   mockMarketStats,
   mockCollectionHealth,
   mockCollectionSummary,
-  mockEmptyMarketStats,
   mockApiError,
 } from "../fixtures/api-responses";
 
@@ -173,21 +172,20 @@ describe("Dashboard", () => {
     expect(screen.getByText(/80 priced/)).toBeDefined();
   });
 
-  it("renders market summary strip with compact KPIs", async () => {
+  it("does not render the market summary strip or fetch market stats", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByTestId("market-summary-strip")).toBeDefined();
+      expect(screen.getByTestId("collection-kpis")).toBeDefined();
     });
 
-    expect(screen.getByText("Cards tracked")).toBeDefined();
-    expect(screen.getByText("150")).toBeDefined();
-
-    expect(screen.getByText("Price observations")).toBeDefined();
-    expect(screen.getByText("4500")).toBeDefined();
-
-    expect(screen.getByText("Avg. price")).toBeDefined();
+    expect(screen.queryByTestId("market-summary-strip")).toBeNull();
+    expect(screen.queryByTestId("market-empty")).toBeNull();
+    const calledMarketStats = (fetch as ReturnType<typeof vi.fn>).mock.calls.some(
+      ([url]: [string | URL]) => url.toString().includes("/market/stats"),
+    );
+    expect(calledMarketStats).toBe(false);
   });
 
   it("renders trending sections for gainers and losers", async () => {
@@ -230,33 +228,15 @@ describe("Dashboard", () => {
     expect(moversMock.getAttribute("data-limit")).toBe("3");
   });
 
-  it("shows error banner when API call fails", async () => {
+  it("renders normally (no full-page error) when only the unused market stats endpoint fails", async () => {
     mockFetchError();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByTestId("error-banner")).toBeDefined();
+      expect(screen.getByTestId("collection-kpis")).toBeDefined();
     });
 
-    expect(screen.getByText("Internal server error")).toBeDefined();
-  });
-
-  it("shows retry button that refetches data on error", async () => {
-    mockFetchError();
-    renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("error-banner")).toBeDefined();
-    });
-
-    // Now mock success for retry
-    mockFetchSuccess();
-
-    fireEvent.click(screen.getByText("Retry"));
-
-    await waitFor(() => {
-      expect(screen.queryByTestId("error-banner")).toBeNull();
-    });
+    expect(screen.queryByTestId("error-banner")).toBeNull();
   });
 
   it("renders hero title instead of old 'My Collection' page title", async () => {
@@ -271,12 +251,12 @@ describe("Dashboard", () => {
     // "My Collection" may still appear in collection KPIs subtitle, but not as the page heading
   });
 
-  it("does NOT render Market Overview heading (replaced by summary strip)", async () => {
+  it("does NOT render Market Overview heading", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByTestId("market-summary-strip")).toBeDefined();
+      expect(screen.getByTestId("collection-kpis")).toBeDefined();
     });
 
     // The old "Market Overview" h2 heading is gone
@@ -402,9 +382,6 @@ describe("Dashboard", () => {
     // With total_unique=0, user genuinely has no cards — show import CTA
     expect(screen.getByTestId("collection-empty")).toBeDefined();
     expect(screen.getByText("Your collection is empty")).toBeDefined();
-
-    // Market summary strip still visible
-    expect(screen.getByTestId("market-summary-strip")).toBeDefined();
   });
 
   it("shows low coverage hint when linked percentage is below 50%", async () => {
@@ -472,60 +449,6 @@ describe("Dashboard", () => {
     expect(screen.queryByTestId("low-coverage-hint")).toBeNull();
   });
 
-  it("renders gracefully when market stats returns zero", async () => {
-    const emptyStats = mockEmptyMarketStats();
-    const healthResponse = mockCollectionHealth();
-    const summaryResponse = mockCollectionSummary();
-
-    (fetch as ReturnType<typeof vi.fn>).mockImplementation(
-      (url: string | URL) => {
-        const urlStr = url.toString();
-        if (urlStr.includes("/market/stats")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(emptyStats),
-          });
-        }
-        if (urlStr.includes("/collect/health")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(healthResponse),
-          });
-        }
-        if (urlStr.includes("/collection/summary")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(summaryResponse),
-          });
-        }
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ data: [] }),
-        });
-      },
-    );
-
-    renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.queryByTestId("skeleton-kpi")).toBeNull();
-    });
-
-    // Collection KPIs should still render
-    expect(screen.getByTestId("collection-kpis")).toBeDefined();
-
-    // Market summary strip should show empty state instead
-    expect(screen.getByTestId("market-empty")).toBeDefined();
-    // Now uses enhanced EmptyState with title
-    expect(
-      screen.getByText("No market data yet"),
-    ).toBeDefined();
-
-    // Trending sections are still rendered (they handle their own empty states)
-    expect(screen.getByTestId("landing-trending-up")).toBeDefined();
-    expect(screen.getByTestId("landing-trending-down")).toBeDefined();
-  });
-
   it("shows error state with retry when collection summary endpoint fails", async () => {
     const statsResponse = mockMarketStats();
     const healthResponse = mockCollectionHealth();
@@ -576,9 +499,6 @@ describe("Dashboard", () => {
 
     // Retry button should be present
     expect(screen.getByText("Retry")).toBeDefined();
-
-    // Market section still works
-    expect(screen.getByTestId("market-summary-strip")).toBeDefined();
 
     // Trending sections present
     expect(screen.getByTestId("landing-trending-up")).toBeDefined();

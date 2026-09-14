@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
-import { fetchMarketStats } from "../api/market";
 import { fetchCollectionHealth } from "../api/collect";
 import { fetchCollectionSummary } from "../api/collection";
 import { useCurrency } from "../hooks/useCurrency";
@@ -13,17 +12,13 @@ import { KpiCard } from "../components/KpiCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { TrendingSection } from "../components/TrendingSection";
 import { CollectionMovers } from "../components/CollectionMovers";
+import { DashboardInvestmentSummary } from "../components/DashboardInvestmentSummary";
 import { EmptyState } from "../components/EmptyState";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { SkeletonKpi } from "../components/Skeleton";
 import { ValuationBadge } from "../components/ValuationBadge";
 import { WelcomeBanner } from "../components/WelcomeBanner";
-import type {
-  CollectionHealth,
-  CollectionSummary,
-  MarketStats,
-} from "../types/api";
+import type { CollectionHealth, CollectionSummary } from "../types/api";
 
 export function Dashboard() {
   const { t } = useTranslation();
@@ -37,7 +32,6 @@ export function Dashboard() {
   const { isAuthenticated } = useAuth();
   const { showWelcome, dismiss: dismissWelcome } = useWelcome();
 
-  const stats = useApi<MarketStats>(() => fetchMarketStats({ currency }), [currency], { refetchOnFocus: true });
   const health = useApi<CollectionHealth>(() => fetchCollectionHealth(), [], { refetchOnFocus: true });
   const collectionSummary = useApi<CollectionSummary>(() =>
     fetchCollectionSummary({ currency }),
@@ -45,10 +39,7 @@ export function Dashboard() {
     { refetchOnFocus: true },
   );
 
-  const loading = stats.loading;
-  const error = stats.error;
-
-  // Collection summary is independent — never blocks dashboard rendering
+  const loading = collectionSummary.loading && !collectionSummary.data;
   const summaryData = collectionSummary.data;
   const linkedPct =
     summaryData && summaryData.total_unique > 0
@@ -107,35 +98,6 @@ export function Dashboard() {
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div data-testid="page-dashboard">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {t("landing.heroTitle")}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-            {t("landing.heroSubtitle")}
-          </p>
-          {freshnessIndicator && (
-            <div className="mt-2">{freshnessIndicator}</div>
-          )}
-        </div>
-        <ErrorBanner
-          message={error}
-          variant="full"
-          onRetry={() => {
-            stats.refetch();
-          }}
-        />
-      </div>
-    );
-  }
-
-  const marketStats = stats.data;
-
-  const hasMarketData = (marketStats?.total_cards ?? 0) > 0;
 
   return (
     <div data-testid="page-dashboard">
@@ -197,6 +159,11 @@ export function Dashboard() {
               )}
             </div>
           </div>
+          {isAuthenticated && (
+            <div className="mb-8">
+              <DashboardInvestmentSummary totalUnique={summaryData.total_unique} />
+            </div>
+          )}
           {/* Collection movers (gainers/losers) */}
           <div className="mb-8" data-testid="dashboard-movers">
             <CollectionMovers days={7} limit={3} />
@@ -230,47 +197,6 @@ export function Dashboard() {
             actions={[
               { label: t("onboarding.importCollection"), onClick: () => navigate("/collection"), variant: "primary" },
               { label: t("onboarding.exploreCards"), onClick: () => navigate("/cards"), variant: "secondary" },
-            ]}
-          />
-        </div>
-      )}
-
-      {/* Market summary strip */}
-      {hasMarketData ? (
-        <div
-          className="mb-8 flex flex-wrap items-center gap-6 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 px-6 py-4"
-          data-testid="market-summary-strip"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-slate-400">{t("landing.cardsTracked")}</span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">{marketStats?.total_cards ?? 0}</span>
-          </div>
-          <div className="h-4 w-px bg-gray-300 dark:bg-slate-600" aria-hidden="true" />
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-slate-400">{t("landing.observations")}</span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">{marketStats?.total_observations ?? 0}</span>
-          </div>
-          <div className="h-4 w-px bg-gray-300 dark:bg-slate-600" aria-hidden="true" />
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-slate-400">{t("landing.avgPrice")}</span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">
-              <CurrencyIndicator currency={currency} size={14} />
-              {" "}{formatCurrency(marketStats?.avg_price ?? null, currency)}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="mb-8" data-testid="market-empty">
-          <EmptyState
-            icon={
-              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            }
-            title={t("onboarding.dashboardMarketTitle")}
-            description={t("onboarding.dashboardMarketDesc")}
-            actions={[
-              { label: t("onboarding.runScan"), onClick: () => navigate("/scans"), variant: "primary" },
             ]}
           />
         </div>

@@ -928,6 +928,31 @@ identified 34 gaps. Five features shipped in a single parallel batch:
 
 Full gap analysis: [`docs/gap-analysis-2026-09-02.md`](docs/gap-analysis-2026-09-02.md)
 
+### F124 -- Collection Valuation Panel & Liga Link Fix (2026-09-13)
+
+- **Paid-price quick edit** -- `PaidPriceQuickEdit` component lets users set
+  the acquisition price inline from the collection grid tile
+  (`PATCH /collection/:id`) or from the card detail page
+  (`AcquisitionPriceInput`). List and detail responses now return the paid
+  price alongside the latest market price.
+- **P&L semantics** -- Profit/loss is computed only over priced cards
+  (`unpriced_card_count` reported separately so totals aren't silently
+  diluted by cards with no market price), and is foil-aware (foil and
+  non-foil paid prices tracked independently via
+  `liga_id`/`liga_id_foil`).
+- **Dashboard investment summary** -- `DashboardInvestmentSummary` adds an
+  invested/current-value/P&L KPI block to the Dashboard, fed by
+  `GET /collection/portfolio-summary` (same endpoint used by
+  `PortfolioDashboard` on the collection page). The old market summary
+  strip was removed from `Dashboard.tsx`; `TrendingSection` stays.
+- **Liga link fix (ADR 0012)** -- "Ver na LigaMagic" links on card detail
+  and collection detail now point at the exact page the price was scraped
+  from, not a generic name search. Liga sweep and `refresh-liga` persist
+  the fetched page URL via `liga_url_recorder` (validated by
+  `src/providers/liga/urls.py`) into the new `liga_card_urls` table; the
+  API falls back to a name-based search URL when no stored URL exists yet
+  (it fills in on the next sweep, bounded by `max_age_days`).
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).

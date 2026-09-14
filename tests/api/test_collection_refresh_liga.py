@@ -157,6 +157,9 @@ def _mock_repo_for_detail(mock_repo: MagicMock, entry: MagicMock) -> None:
     mock_repo.get_card_by_id.return_value = _make_card_row()
 
 
+_LIGA_PAGE_URL = "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1"
+
+
 def _liga_prices(
     mid=None,
     low=None,
@@ -164,12 +167,14 @@ def _liga_prices(
     foil_mid=None,
     foil_low=None,
     foil_high=None,
+    page_url=_LIGA_PAGE_URL,
 ) -> dict:
     """Build a LigaMagic price dict matching parse_card_prices structure."""
     return {
         "card_name": "Lightning Bolt",
         "normal": {"low": low, "mid": mid, "high": high},
         "foil": {"low": foil_low, "mid": foil_mid, "high": foil_high},
+        "page_url": page_url,
     }
 
 
@@ -202,6 +207,9 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].external_id == "liga_42"
         assert obs_list[0].median_price == Decimal("5.50")
 
+        # Verify the fetched Liga page URL was recorded alongside the price
+        mock_repo.upsert_liga_card_url.assert_called_once_with("liga_42", _LIGA_PAGE_URL)
+
     def test_returns_detail_with_foil_price(self) -> None:
         """Foil entry stores foil price with _foil suffix on external_id."""
         entry = _make_collection_row(extras="Foil")
@@ -228,6 +236,7 @@ class TestRefreshLigaHappyPath:
         assert obs_list[0].source == "liga"
         assert obs_list[0].external_id == "liga_42_foil"
         assert obs_list[0].median_price == Decimal("8.00")
+        mock_repo.upsert_liga_card_url.assert_called_once_with("liga_42_foil", _LIGA_PAGE_URL)
 
     def test_foil_no_price_returns_warning(self) -> None:
         """Foil entry with no foil prices returns warning, no fallback to normal."""
@@ -407,6 +416,7 @@ class TestRefreshLigaNoPrice:
         assert body["errors"][0]["code"] == "liga_warning"
         assert "normal" in body["errors"][0]["message"].lower()
         mock_repo.insert_price_observations.assert_not_called()
+        mock_repo.upsert_liga_card_url.assert_not_called()
 
     def test_no_foil_price_returns_warning(self) -> None:
         entry = _make_collection_row(extras="Foil")
@@ -426,6 +436,7 @@ class TestRefreshLigaNoPrice:
         assert body["errors"][0]["code"] == "liga_warning"
         assert "foil" in body["errors"][0]["message"].lower()
         mock_repo.insert_price_observations.assert_not_called()
+        mock_repo.upsert_liga_card_url.assert_not_called()
 
 
 class TestRefreshLigaEntryNotFound:
@@ -676,4 +687,27 @@ class TestRefreshLigaAutoCreateCard:
             collector_number="123",
         )
         mock_repo.link_collection_entry.assert_called_once_with(1, 99)
+        mock_repo.insert_price_observations.assert_called_once()
+        mock_repo.upsert_liga_card_url.assert_called_once_with("liga_99", _LIGA_PAGE_URL)
+
+
+class TestRefreshLigaUrlRecording:
+    """URL recording is best-effort and never affects the HTTP response."""
+
+    def test_recorder_failure_still_returns_200_with_price(self) -> None:
+        entry = _make_collection_row(extras=None)
+        mock_repo = MagicMock()
+        _mock_repo_for_detail(mock_repo, entry)
+        mock_repo.upsert_liga_card_url.side_effect = RuntimeError("db down")
+
+        provider = _make_mock_provider()
+        provider.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
+
+        app = _make_app(mock_repo, mock_provider=provider)
+        client = TestClient(app)
+        resp = client.post("/collection/1/refresh-liga")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["errors"] == []
         mock_repo.insert_price_observations.assert_called_once()

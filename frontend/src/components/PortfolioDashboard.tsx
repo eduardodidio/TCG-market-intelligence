@@ -43,7 +43,11 @@ function PortfolioTooltip({ active, payload, label }: ChartTooltipProps) {
   );
 }
 
-export function PortfolioDashboard() {
+interface PortfolioDashboardProps {
+  refreshKey?: number;
+}
+
+export function PortfolioDashboard({ refreshKey = 0 }: PortfolioDashboardProps = {}) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -65,7 +69,7 @@ export function PortfolioDashboard() {
         if (historyRes.data) setHistory(historyRes.data);
       })
       .finally(() => setLoading(false));
-  }, [visible]);
+  }, [visible, refreshKey]);
 
   const toggleVisible = useCallback(() => {
     setVisible((prev) => {

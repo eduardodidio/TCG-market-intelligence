@@ -202,6 +202,7 @@ class TestGetCollectionEntry:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
         mock_repo.get_card_by_id.return_value = _make_card_row()
+        mock_repo.get_liga_card_url.return_value = None
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
 
@@ -230,6 +231,7 @@ class TestGetCollectionEntry:
         mock_repo.get_card_by_id.return_value = _make_card_row(
             name_en="Jace, the Mind Sculptor",
         )
+        mock_repo.get_liga_card_url.return_value = None
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
 
@@ -258,6 +260,7 @@ class TestGetCollectionEntry:
             name_en=None,
             name=None,
         )
+        mock_repo.get_liga_card_url.return_value = None
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
 

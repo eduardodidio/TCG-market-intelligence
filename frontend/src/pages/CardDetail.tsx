@@ -347,7 +347,10 @@ export function CardDetail() {
                 </svg>
               </a>
               <a
-                href={`https://www.ligamagic.com.br/?view=cards/card&card=${encodeURIComponent(card.name_en)}`}
+                href={
+                  card.ligamagic_url ??
+                  `https://www.ligamagic.com.br/?view=cards/card&card=${encodeURIComponent(card.name_en)}`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="ligamagic-link"

@@ -11,6 +11,7 @@ from decimal import Decimal
 
 import structlog
 
+from src.collectors.liga_url_recorder import record_liga_url
 from src.config import get_db_url
 from src.database.repository import Repository
 from src.domain.models import HistoricalPrice, ScanFilter, ScanType
@@ -32,10 +33,12 @@ class LigaSweepResult:
 from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
 
 
-async def _fetch_liga_price(provider, card: dict) -> HistoricalPrice | None:
+async def _fetch_liga_price(
+    provider, card: dict
+) -> tuple[HistoricalPrice, str | None] | None:
     """Fetch price for a single card via the Liga provider.
 
-    Returns a HistoricalPrice observation or None if no price found.
+    Returns a (HistoricalPrice, page_url) tuple or None if no price found.
     Detects foil cards from the extras field and stores foil prices
     with a '_foil' suffix on external_id.
     """
@@ -46,6 +49,7 @@ async def _fetch_liga_price(provider, card: dict) -> HistoricalPrice | None:
 
     is_foil_card = _is_foil(card.get("extras"))
     prices = await provider.search_card(card_name)
+    page_url = prices.get("page_url")
 
     if is_foil_card:
         foil = prices.get("foil", {})
@@ -61,13 +65,14 @@ async def _fetch_liga_price(provider, card: dict) -> HistoricalPrice | None:
             return None
         external_id = f"liga_{card_id}"
 
-    return HistoricalPrice(
+    observation = HistoricalPrice(
         source="liga",
         external_id=external_id,
         observed_at=date.today(),
         median_price=price,
         currency="BRL",
     )
+    return observation, page_url
 
 
 async def run_liga_sweep(
@@ -160,10 +165,12 @@ async def run_liga_sweep(
             for card in batch:
                 card_name = card.get("name_en") or card.get("name_pt", "")
                 try:
-                    observation = await _fetch_liga_price(provider, card)
+                    result = await _fetch_liga_price(provider, card)
 
-                    if observation is not None:
+                    if result is not None:
+                        observation, page_url = result
                         repo.insert_price_observations([observation])
+                        record_liga_url(repo, observation.external_id, page_url)
                         prices_found += 1
                         batch_prices_found += 1
                     else:

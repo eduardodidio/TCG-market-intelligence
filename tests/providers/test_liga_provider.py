@@ -424,6 +424,44 @@ class TestSearchCard:
                 await provider.search_card("Lightning Bolt")
             assert exc_info.value.__cause__ is original
 
+    @pytest.mark.asyncio
+    async def test_page_url_uses_redirected_url_when_valid(self, provider):
+        """A valid redirected page.url wins over the requested URL."""
+        html = _load_html("liga_card_bolt.html")
+        redirected = "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1&extra=1"
+
+        async def fake_fetch(url: str) -> str:
+            provider._last_page_url = redirected
+            return html
+
+        with patch.object(provider, "_fetch_page", new_callable=AsyncMock, side_effect=fake_fetch):
+            result = await provider.search_card("Lightning Bolt")
+
+        assert result["page_url"] == redirected
+
+    @pytest.mark.asyncio
+    async def test_page_url_falls_back_when_last_page_url_none(self, provider):
+        """When _last_page_url is never set, page_url falls back to the requested URL."""
+        html = _load_html("liga_card_bolt.html")
+        with patch.object(provider, "_fetch_page", new_callable=AsyncMock, return_value=html):
+            result = await provider.search_card("Lightning Bolt")
+
+        assert result["page_url"] == _build_card_url("Lightning Bolt")
+
+    @pytest.mark.asyncio
+    async def test_page_url_falls_back_when_last_page_url_foreign(self, provider):
+        """A foreign/invalid page.url is discarded in favor of the requested URL."""
+        html = _load_html("liga_card_bolt.html")
+
+        async def fake_fetch(url: str) -> str:
+            provider._last_page_url = "https://evil.com/?view=cards/card"
+            return html
+
+        with patch.object(provider, "_fetch_page", new_callable=AsyncMock, side_effect=fake_fetch):
+            result = await provider.search_card("Lightning Bolt")
+
+        assert result["page_url"] == _build_card_url("Lightning Bolt")
+
 
 # ---------------------------------------------------------------------------
 # _fetch_page error message improvement

@@ -132,7 +132,13 @@ class TestPatchAcquisitionFields:
 
 
 class TestPortfolioSummary:
-    """GET /collection/portfolio-summary."""
+    """GET /collection/portfolio-summary.
+
+    F124 semantics: total_invested counts all entries with a paid price;
+    total_pnl / total_pnl_pct only consider the subset that also has a
+    current price (unpriced entries are excluded, not treated as a 100%
+    loss); foil entries are valued with the foil price observation.
+    """
 
     def test_empty_portfolio(self) -> None:
         mock_repo = MagicMock()
@@ -145,7 +151,9 @@ class TestPortfolioSummary:
         assert data["total_invested"] == 0.0
         assert data["total_current_value"] == 0.0
         assert data["total_pnl"] == 0.0
+        assert data["total_pnl_pct"] is None
         assert data["invested_card_count"] == 0
+        assert data["unpriced_card_count"] == 0
 
     def test_portfolio_with_entries(self) -> None:
         mock_repo = MagicMock()
@@ -172,6 +180,120 @@ class TestPortfolioSummary:
         assert data["total_pnl"] == 7.00
         assert data["total_pnl_pct"] == 70.0
         assert data["invested_card_count"] == 1
+        assert data["unpriced_card_count"] == 0
+
+    def test_mix_of_priced_and_unpriced_entries(self) -> None:
+        """Entry with paid price but no current price is excluded from P&L."""
+        mock_repo = MagicMock()
+        # invested total covers both entries: 2*10 + 1*20 = 40
+        mock_repo.get_portfolio_invested_total.return_value = (Decimal("40.00"), 2)
+
+        priced_entry = _make_collection_row(
+            id=1,
+            card_id=42,
+            acquisition_price=Decimal("10.00"),
+            quantity=2,
+        )
+        unpriced_entry = _make_collection_row(
+            id=2,
+            card_id=43,
+            acquisition_price=Decimal("20.00"),
+            quantity=1,
+        )
+        mock_repo.get_collection_entries_with_acquisition.return_value = [
+            priced_entry,
+            unpriced_entry,
+        ]
+        mock_repo.get_latest_prices_batch.return_value = {
+            42: _make_price_obs(median_price=Decimal("15.00")),
+            # card 43 has no price observation
+        }
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/collection/portfolio-summary")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["total_invested"] == 40.00
+        # current value = 15 * 2 = 30 (unpriced entry contributes 0)
+        assert data["total_current_value"] == 30.00
+        # invested_priced = 10 * 2 = 20 (only the priced entry)
+        # pnl = 30 - 20 = 10; pct = 10/20*100 = 50.0
+        assert data["total_pnl"] == 10.00
+        assert data["total_pnl_pct"] == 50.0
+        assert data["unpriced_card_count"] == 1
+
+    def test_all_entries_unpriced(self) -> None:
+        mock_repo = MagicMock()
+        mock_repo.get_portfolio_invested_total.return_value = (Decimal("20.00"), 1)
+
+        entry = _make_collection_row(card_id=42, acquisition_price=Decimal("20.00"), quantity=1)
+        mock_repo.get_collection_entries_with_acquisition.return_value = [entry]
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/collection/portfolio-summary")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["total_invested"] == 20.00
+        assert data["total_current_value"] == 0.0
+        assert data["total_pnl"] == 0.0
+        assert data["total_pnl_pct"] is None
+        assert data["unpriced_card_count"] == 1
+
+    def test_entry_with_no_card_id_is_unpriced(self) -> None:
+        mock_repo = MagicMock()
+        mock_repo.get_portfolio_invested_total.return_value = (Decimal("20.00"), 1)
+
+        entry = _make_collection_row(card_id=None, acquisition_price=Decimal("20.00"), quantity=1)
+        mock_repo.get_collection_entries_with_acquisition.return_value = [entry]
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/collection/portfolio-summary")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["unpriced_card_count"] == 1
+        assert data["total_pnl_pct"] is None
+
+    def test_foil_entry_uses_foil_price(self) -> None:
+        """Foil entry must be valued with the foil price observation, not the
+        non-foil one, mirroring list_collection's foil-aware lookup."""
+        mock_repo = MagicMock()
+        mock_repo.get_portfolio_invested_total.return_value = (Decimal("10.00"), 2)
+
+        foil_entry = _make_collection_row(
+            id=1,
+            card_id=42,
+            extras="Foil",
+            acquisition_price=Decimal("5.00"),
+            quantity=1,
+        )
+        non_foil_entry = _make_collection_row(
+            id=2,
+            card_id=42,
+            extras=None,
+            acquisition_price=Decimal("5.00"),
+            quantity=1,
+        )
+        mock_repo.get_collection_entries_with_acquisition.return_value = [
+            foil_entry,
+            non_foil_entry,
+        ]
+
+        def _fake_latest_prices_batch(card_ids, foil_card_ids=None):
+            if foil_card_ids:
+                return {42: _make_price_obs(median_price=Decimal("20.00"))}
+            return {42: _make_price_obs(median_price=Decimal("8.00"))}
+
+        mock_repo.get_latest_prices_batch.side_effect = _fake_latest_prices_batch
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/collection/portfolio-summary")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        # foil entry: 20.00 * 1; non-foil entry: 8.00 * 1 => 28.00
+        assert data["total_current_value"] == 28.00
+        assert data["unpriced_card_count"] == 0
 
 
 class TestPortfolioHistory:

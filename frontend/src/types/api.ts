@@ -42,6 +42,7 @@ export interface SourceCard {
 export interface CardDetail extends CardSummary {
   source_cards: SourceCard[];
   collection_entry_id: number | null;
+  ligamagic_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -138,6 +139,7 @@ export interface PortfolioSummary {
   total_pnl: number;
   total_pnl_pct: number | null;
   invested_card_count: number;
+  unpriced_card_count?: number;
 }
 
 export interface PortfolioHistoryPoint {

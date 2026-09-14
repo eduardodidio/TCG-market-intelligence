@@ -34,6 +34,7 @@ import { CostBadge } from "../components/CostBadge";
 import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { MaxAgeDaysSelect } from "../components/MaxAgeDaysSelect";
 import { PortfolioDashboard } from "../components/PortfolioDashboard";
+import { PaidPriceQuickEdit } from "../components/PaidPriceQuickEdit";
 import { fetchScanPreview } from "../api/scans";
 import { fetchSharingStatus, toggleSharing as apiToggleSharing } from "../api/marketplace";
 import { ValuationBadge } from "../components/ValuationBadge";
@@ -65,7 +66,7 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
   C: "rarity.common",
 };
 
-function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor, banStatus, banRecentlyChanged }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber"; banStatus?: "banned" | "restricted"; banRecentlyChanged?: boolean }) {
+function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor, banStatus, banRecentlyChanged, showPaidPrice, onPaidPriceSaved }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber"; banStatus?: "banned" | "restricted"; banRecentlyChanged?: boolean; showPaidPrice?: boolean; onPaidPriceSaved?: (entryId: number, price: number | null) => void }) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
@@ -214,6 +215,18 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
                   total: formatCurrency(card.latest_price * card.quantity, currencyOverride || "BRL"),
                 })}
               </p>
+            )}
+            {showPaidPrice && onPaidPriceSaved && (
+              <div className="mt-1">
+                <PaidPriceQuickEdit
+                  entryId={card.id}
+                  acquisitionPrice={card.acquisition_price}
+                  latestPrice={card.latest_price}
+                  currency={currencyOverride || "BRL"}
+                  compact={compact}
+                  onSaved={onPaidPriceSaved}
+                />
+              </div>
             )}
           </div>
           {!compact && (
@@ -649,6 +662,14 @@ export function MyCollection() {
     }
   }, [currency]);
 
+  const [portfolioRefreshKey, setPortfolioRefreshKey] = useState(0);
+
+  const handlePaidPriceSaved = useCallback((entryId: number, price: number | null) => {
+    setCards((prev) =>
+      prev.map((c) => (c.id === entryId ? { ...c, acquisition_price: price } : c)),
+    );
+    setPortfolioRefreshKey((k) => k + 1);
+  }, []);
 
   return (
     <div data-testid="page-collection">
@@ -689,7 +710,7 @@ export function MyCollection() {
 
       {/* Portfolio Investment Dashboard — min-height prevents CLS when loading */}
       <div className="min-h-[48px]" data-testid="portfolio-section">
-        <PortfolioDashboard />
+        <PortfolioDashboard refreshKey={portfolioRefreshKey} />
       </div>
 
       {/* Ban alert banner — min-height prevents CLS when loading */}
@@ -927,6 +948,8 @@ export function MyCollection() {
                   highlightColor={highlightColor}
                   banStatus={banInfo?.status}
                   banRecentlyChanged={banInfo?.recentlyChanged}
+                  showPaidPrice={!selectionMode}
+                  onPaidPriceSaved={handlePaidPriceSaved}
                 />
               );
               return (

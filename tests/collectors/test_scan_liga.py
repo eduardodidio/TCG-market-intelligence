@@ -62,16 +62,21 @@ def _card_entry(
     return entry
 
 
+_LIGA_PAGE_URL = "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1"
+
+
 def _liga_price_result(
     low: Decimal | None = None,
     mid: Decimal | None = Decimal("15.00"),
     high: Decimal | None = None,
+    page_url: str | None = _LIGA_PAGE_URL,
 ) -> dict:
     """Create a fake Liga price dict as returned by search_card / parse_card_prices."""
     return {
         "card_name": "Lightning Bolt",
         "normal": {"low": low, "mid": mid, "high": high},
         "foil": {"low": None, "mid": None, "high": None},
+        "page_url": page_url,
     }
 
 
@@ -174,12 +179,14 @@ class TestFetchPriceLiga:
 
         entry = _card_entry(card_id=42, name_en="Counterspell")
         result = await _fetch_price_liga(provider, entry, card_id=42)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is not None
-        assert result.source == "liga"
-        assert result.external_id == "liga_42"
-        assert result.median_price == Decimal("25.00")
-        assert result.currency == "BRL"
+        assert observation.source == "liga"
+        assert observation.external_id == "liga_42"
+        assert observation.median_price == Decimal("25.00")
+        assert observation.currency == "BRL"
+        assert page_url == _LIGA_PAGE_URL
         provider.search_card.assert_awaited_once_with("Counterspell")
 
     async def test_falls_back_to_low(self):
@@ -190,9 +197,10 @@ class TestFetchPriceLiga:
 
         entry = _card_entry(card_id=1, name_en="Bolt")
         result = await _fetch_price_liga(provider, entry, card_id=1)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is not None
-        assert result.median_price == Decimal("10.00")
+        assert observation.median_price == Decimal("10.00")
 
     async def test_falls_back_to_high(self):
         provider = MagicMock()
@@ -202,9 +210,10 @@ class TestFetchPriceLiga:
 
         entry = _card_entry(card_id=2, name_en="Force of Will")
         result = await _fetch_price_liga(provider, entry, card_id=2)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is not None
-        assert result.median_price == Decimal("50.00")
+        assert observation.median_price == Decimal("50.00")
 
     async def test_returns_none_when_no_prices(self):
         provider = MagicMock()
@@ -214,6 +223,7 @@ class TestFetchPriceLiga:
 
         entry = _card_entry(card_id=3, name_en="Unknown Card")
         result = await _fetch_price_liga(provider, entry, card_id=3)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is None
 
@@ -227,9 +237,10 @@ class TestFetchPriceLiga:
 
         entry = _card_entry(card_id=50, name_en="Dual Land")
         result = await _fetch_price_liga(provider, entry, card_id=50)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is not None
-        assert result.median_price == Decimal("10.00")
+        assert observation.median_price == Decimal("10.00")
 
     async def test_fallback_mid_when_no_low(self):
         provider = MagicMock()
@@ -239,9 +250,10 @@ class TestFetchPriceLiga:
 
         entry = _card_entry(card_id=51, name_en="Shock")
         result = await _fetch_price_liga(provider, entry, card_id=51)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is not None
-        assert result.median_price == Decimal("15.00")
+        assert observation.median_price == Decimal("15.00")
 
     async def test_fallback_high_when_no_low_no_mid(self):
         provider = MagicMock()
@@ -251,9 +263,10 @@ class TestFetchPriceLiga:
 
         entry = _card_entry(card_id=52, name_en="Mountain")
         result = await _fetch_price_liga(provider, entry, card_id=52)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is not None
-        assert result.median_price == Decimal("20.00")
+        assert observation.median_price == Decimal("20.00")
 
     async def test_returns_none_for_empty_name(self):
         provider = MagicMock()
@@ -261,6 +274,7 @@ class TestFetchPriceLiga:
 
         entry = _card_entry(card_id=4, name_en="")
         result = await _fetch_price_liga(provider, entry, card_id=4)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is None
         provider.search_card.assert_not_awaited()
@@ -271,9 +285,10 @@ class TestFetchPriceLiga:
 
         entry = {"card_id": 5, "name_en": "", "name_pt": "Raio", "external_id": "x", "slug": "x"}
         result = await _fetch_price_liga(provider, entry, card_id=5)
+        observation, page_url = result if result is not None else (None, None)
 
         assert result is not None
-        assert result.median_price == Decimal("5.00")
+        assert observation.median_price == Decimal("5.00")
         provider.search_card.assert_awaited_once_with("Raio")
 
 
@@ -337,6 +352,8 @@ class TestRunScanLiga:
         assert obs.source == "liga"
         assert obs.external_id == "liga_42"
 
+        repo.upsert_liga_card_url.assert_called_once_with("liga_42", _LIGA_PAGE_URL)
+
     @patch("src.collectors.scan.Repository")
     async def test_liga_concurrency_forced_to_1(self, MockRepo):
         """Even if concurrency=5 is passed, Liga forces concurrency=1."""
@@ -391,6 +408,7 @@ class TestRunScanLiga:
 
         assert result.cards_failed == 1
         assert result.cards_processed == 1  # failed cards count as processed
+        repo.upsert_liga_card_url.assert_not_called()
 
     @patch("src.collectors.scan.Repository")
     async def test_liga_rate_limit_requeued(self, MockRepo):
@@ -418,6 +436,7 @@ class TestRunScanLiga:
         assert result.cards_processed == 1
         assert result.cards_failed == 0
         assert result.observations_saved == 1
+        repo.upsert_liga_card_url.assert_called_once_with("liga_10", _LIGA_PAGE_URL)
 
     @patch("src.collectors.scan.Repository")
     async def test_liga_rate_limit_exhausted(self, MockRepo):
@@ -441,6 +460,7 @@ class TestRunScanLiga:
 
         assert result.cards_failed == 1
         assert result.cards_processed == 1  # failed cards count as processed
+        repo.upsert_liga_card_url.assert_not_called()
 
     @patch("src.collectors.scan.Repository")
     async def test_liga_generic_error_fails_card(self, MockRepo):
@@ -464,6 +484,7 @@ class TestRunScanLiga:
 
         assert result.cards_failed == 1
         assert result.cards_processed == 1  # failed cards count as processed
+        repo.upsert_liga_card_url.assert_not_called()
 
     @patch("src.collectors.scan.Repository")
     async def test_liga_no_price_counted_as_processed(self, MockRepo):
@@ -488,6 +509,7 @@ class TestRunScanLiga:
         assert result.cards_processed == 1
         assert result.cards_failed == 0
         assert result.observations_saved == 0
+        repo.upsert_liga_card_url.assert_not_called()
 
     @patch("src.collectors.scan.Repository")
     async def test_liga_scan_type_overridden(self, MockRepo):

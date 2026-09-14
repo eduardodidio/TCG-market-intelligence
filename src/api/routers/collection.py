@@ -73,6 +73,7 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import CardAnalytics, HistoricalPrice, User
+from src.providers.liga.urls import build_liga_card_url, is_valid_liga_card_url, liga_external_id
 from src.services import ban_analyzer
 from src.services.currency import CurrencyConverter
 from src.utils.set_code_map import map_to_scryfall_set_code
@@ -183,6 +184,10 @@ def list_collection(
                 price_source=price_source,
                 currency=currency,
                 image_url=_scryfall_image_url(r.set_code, r.collector_number),
+                acquisition_price=(
+                    float(r.acquisition_price) if r.acquisition_price is not None else None
+                ),
+                acquired_at=str(r.acquired_at) if r.acquired_at is not None else None,
             )
         )
 
@@ -305,7 +310,15 @@ def portfolio_summary(
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
 ):
-    """Return portfolio investment summary: invested, current value, P&L."""
+    """Return portfolio investment summary: invested, current value, P&L.
+
+    F124 semantics: ``total_invested`` covers all entries with an
+    acquisition_price. ``total_pnl`` / ``total_pnl_pct`` only consider the
+    subset of those entries that also have a current price
+    (``invested_priced``), so unpriced entries are excluded from P&L instead
+    of counting as a 100% loss. Foil entries are valued using the foil price
+    observation (mirrors ``list_collection``).
+    """
     total_invested, invested_count = repo.get_portfolio_invested_total(user_id)
 
     if invested_count == 0:
@@ -316,29 +329,59 @@ def portfolio_summary(
                 total_pnl=0.0,
                 total_pnl_pct=None,
                 invested_card_count=0,
+                unpriced_card_count=0,
             )
         )
 
     # Get entries with acquisition_price and calculate current value
     entries = repo.get_collection_entries_with_acquisition(user_id)
     total_current_value = Decimal("0")
+    invested_priced = Decimal("0")
+    unpriced_count = 0
 
-    # Batch-fetch all card_ids
+    # Batch-fetch foil-aware price maps (mirrors list_collection)
     card_ids = [e.card_id for e in entries if e.card_id is not None]
-    prices_map = repo.get_latest_prices_batch(card_ids) if card_ids else {}
+    foil_card_ids = {
+        e.card_id for e in entries if e.card_id is not None and is_foil_entry(e.extras)
+    }
+    non_foil_card_ids = {
+        e.card_id for e in entries if e.card_id is not None and not is_foil_entry(e.extras)
+    }
+    overlap_card_ids = foil_card_ids & non_foil_card_ids
+
+    prices_map = (
+        repo.get_latest_prices_batch(card_ids, foil_card_ids=foil_card_ids) if card_ids else {}
+    )
+    non_foil_prices: dict = {}
+    if overlap_card_ids:
+        non_foil_prices = repo.get_latest_prices_batch(list(overlap_card_ids))
 
     for entry in entries:
+        obs = None
         if entry.card_id is not None:
-            obs = prices_map.get(entry.card_id)
-            if obs is not None:
-                price = obs.median_price or obs.tcg_price or obs.last_sold_price
-                if price is not None:
-                    total_current_value += Decimal(str(price)) * entry.quantity
+            if entry.card_id in overlap_card_ids:
+                obs = (
+                    prices_map.get(entry.card_id)
+                    if is_foil_entry(entry.extras)
+                    else non_foil_prices.get(entry.card_id)
+                )
+            else:
+                obs = prices_map.get(entry.card_id)
 
-    total_pnl = float(total_current_value) - float(total_invested)
+        price = None
+        if obs is not None:
+            price = obs.median_price or obs.tcg_price or obs.last_sold_price
+
+        if price is not None:
+            total_current_value += Decimal(str(price)) * entry.quantity
+            invested_priced += entry.acquisition_price * entry.quantity
+        else:
+            unpriced_count += 1
+
+    total_pnl = float(total_current_value) - float(invested_priced)
     total_pnl_pct = None
-    if float(total_invested) > 0:
-        total_pnl_pct = round((total_pnl / float(total_invested)) * 100, 2)
+    if float(invested_priced) > 0:
+        total_pnl_pct = round((total_pnl / float(invested_priced)) * 100, 2)
 
     return success_response(
         data=PortfolioSummary(
@@ -347,6 +390,7 @@ def portfolio_summary(
             total_pnl=round(total_pnl, 2),
             total_pnl_pct=total_pnl_pct,
             invested_card_count=invested_count,
+            unpriced_card_count=unpriced_count,
         )
     )
 
@@ -1355,6 +1399,7 @@ async def refresh_card_price_liga(
     """Refresh a single card's price from LigaMagic in real-time."""
     import traceback as _tb
 
+    from src.collectors.liga_url_recorder import record_liga_url
     from src.domain.models import HistoricalPrice
     from src.providers.liga.exceptions import (
         LigaError,
@@ -1496,6 +1541,7 @@ async def refresh_card_price_liga(
         median_price=price,
     )
     repo.insert_price_observations([obs])
+    record_liga_url(repo, ext_id, prices.get("page_url"))
     log.info(
         "card_price_refreshed_liga",
         entry_id=entry_id,
@@ -1633,35 +1679,32 @@ def _build_collection_detail(
         source_cards = repo.get_source_cards_for_card(entry.card_id)
         source_cards_data = [SourceCardSchema.model_validate(sc) for sc in source_cards]
 
-    # Use canonical card name from cards table for Liga URL (entry.name_en can be stale)
-    canonical_name = ""
-    if entry.card_id is not None:
-        card_row = repo.get_card_by_id(entry.card_id)
-        if card_row:
-            _cn = card_row.name_en or card_row.name or ""
-            if isinstance(_cn, str):
-                canonical_name = _cn
-    if not canonical_name:
-        canonical_name = entry.name_en or entry.name_pt or ""
-
     name = entry.name_en or entry.name_pt or ""
-    scryfall_url = None
+
     ligamagic_url = None
-    if canonical_name:
-        encoded_liga_name = quote_plus(canonical_name)
-        ligamagic_url = (
-            f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_liga_name}&show=1"
+    is_foil = is_foil_entry(entry.extras)
+    if entry.card_id is not None:
+        keys = (
+            [liga_external_id(entry.card_id, True), liga_external_id(entry.card_id, False)]
+            if is_foil
+            else [liga_external_id(entry.card_id, False)]
         )
+        for key in keys:
+            stored = repo.get_liga_card_url(key)
+            if is_valid_liga_card_url(stored):
+                ligamagic_url = stored
+                break
+    if ligamagic_url is None:
+        fetch_name = entry.name_en or entry.name_pt or ""
+        ligamagic_url = build_liga_card_url(fetch_name) if fetch_name else None
+
+    scryfall_url = None
     if name:
         encoded_name = quote_plus(name)
         scryfall_q = encoded_name
         if entry.set_code:
             scryfall_q += f"+set:{entry.set_code}"
         scryfall_url = f"https://scryfall.com/search?q={scryfall_q}"
-        if not ligamagic_url:
-            ligamagic_url = (
-                f"https://www.ligamagic.com.br/?view=cards/card&card={encoded_name}&show=1"
-            )
 
     data = CollectionCardDetail(
         id=entry.id,
@@ -1677,7 +1720,7 @@ def _build_collection_detail(
         rarity=entry.rarity,
         color=entry.color,
         extras=entry.extras,
-        is_foil=is_foil_entry(entry.extras),
+        is_foil=is_foil,
         latest_price=latest_price,
         price_source=price_source,
         currency=currency,
@@ -1686,6 +1729,10 @@ def _build_collection_detail(
         source_cards=source_cards_data,
         scryfall_url=scryfall_url,
         ligamagic_url=ligamagic_url,
+        acquisition_price=(
+            float(entry.acquisition_price) if entry.acquisition_price is not None else None
+        ),
+        acquired_at=str(entry.acquired_at) if entry.acquired_at is not None else None,
     )
 
     return success_response(data=data)

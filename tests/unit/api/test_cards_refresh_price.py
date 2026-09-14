@@ -219,6 +219,54 @@ class TestRefreshCardPrice:
             assert len(obs) == 1
             assert float(obs[0].median_price) == 5.0
 
+    def test_refresh_price_records_liga_url(self, repo_with_card, test_user):
+        """Verify the fetched Liga page URL is upserted alongside the price."""
+        from src.database.models import LigaCardUrlRow
+        from src.providers.liga.provider import LigaMagicProvider
+
+        page_url = "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1"
+        mock_provider = MagicMock(spec=LigaMagicProvider)
+        mock_provider.search_card = AsyncMock(
+            return_value={
+                "normal": {"low": Decimal("5.00")},
+                "foil": {},
+                "page_url": page_url,
+            }
+        )
+
+        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
+        client = TestClient(app)
+
+        resp = client.post("/api/v1/cards/1/refresh-price")
+        assert resp.status_code == 200
+
+        with Session(repo_with_card.engine) as session:
+            row = session.query(LigaCardUrlRow).filter_by(external_id="liga_1").one()
+            assert row.url == page_url
+
+    def test_refresh_price_no_price_skips_url_recording(self, repo_with_card, test_user):
+        """When no price is found, no URL should be recorded either."""
+        from src.database.models import LigaCardUrlRow
+        from src.providers.liga.provider import LigaMagicProvider
+
+        mock_provider = MagicMock(spec=LigaMagicProvider)
+        mock_provider.search_card = AsyncMock(
+            return_value={
+                "normal": {"low": None, "mid": None, "high": None},
+                "foil": {},
+                "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
+            }
+        )
+
+        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
+        client = TestClient(app)
+
+        resp = client.post("/api/v1/cards/1/refresh-price")
+        assert resp.status_code == 200
+
+        with Session(repo_with_card.engine) as session:
+            assert session.query(LigaCardUrlRow).count() == 0
+
     def test_refresh_price_deducts_credit(self, repo_with_card, test_user):
         """Verify credit is deducted after successful refresh."""
         from src.providers.liga.provider import LigaMagicProvider

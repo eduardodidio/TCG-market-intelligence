@@ -177,6 +177,33 @@ describe("PortfolioDashboard", () => {
     });
   });
 
+  it("refetches when refreshKey changes but not when it stays the same", async () => {
+    mockFetchPortfolioSummary.mockResolvedValue({
+      data: {
+        total_invested: 100,
+        total_current_value: 120,
+        total_pnl: 20,
+        total_pnl_pct: 20.0,
+        invested_card_count: 5,
+      },
+    });
+    mockFetchPortfolioHistory.mockResolvedValue({ data: [] });
+
+    const { rerender } = render(<PortfolioDashboard refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(mockFetchPortfolioSummary).toHaveBeenCalledTimes(1);
+    });
+
+    rerender(<PortfolioDashboard refreshKey={0} />);
+    expect(mockFetchPortfolioSummary).toHaveBeenCalledTimes(1);
+
+    rerender(<PortfolioDashboard refreshKey={1} />);
+    await waitFor(() => {
+      expect(mockFetchPortfolioSummary).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("shows loading skeleton initially", () => {
     mockFetchPortfolioSummary.mockReturnValue(new Promise(() => {}));
     mockFetchPortfolioHistory.mockReturnValue(new Promise(() => {}));

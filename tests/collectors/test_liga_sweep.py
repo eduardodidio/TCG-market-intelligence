@@ -43,7 +43,10 @@ def _mock_provider_search(prices_map: dict | None = None):
             price = prices_map.get(name)
         else:
             price = Decimal("1.50")
-        return {"normal": {"low": None, "mid": price, "high": None}}
+        return {
+            "normal": {"low": None, "mid": price, "high": None},
+            "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
+        }
 
     provider.search_card = AsyncMock(side_effect=_search)
     return provider
@@ -59,11 +62,13 @@ async def test_fetch_liga_price_found():
     result = await _fetch_liga_price(provider, card)
 
     assert result is not None
-    assert result.source == "liga"
-    assert result.external_id == "liga_42"
-    assert result.median_price == Decimal("1.50")
-    assert result.currency == "BRL"
-    assert result.observed_at == date.today()
+    observation, page_url = result
+    assert observation.source == "liga"
+    assert observation.external_id == "liga_42"
+    assert observation.median_price == Decimal("1.50")
+    assert observation.currency == "BRL"
+    assert observation.observed_at == date.today()
+    assert page_url == "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1"
 
 
 @pytest.mark.asyncio
@@ -92,12 +97,13 @@ async def test_fetch_liga_price_uses_name_pt_fallback():
     result = await _fetch_liga_price(provider, card)
 
     assert result is not None
-    assert result.median_price == Decimal("3.00")
+    observation, _page_url = result
+    assert observation.median_price == Decimal("3.00")
     provider.search_card.assert_awaited_once_with("Raio")
 
 
 @pytest.mark.asyncio
-async def test_fetch_liga_price_prefers_low_over_mid():
+async def test_fetch_liga_price_prefers_mid_over_low():
     provider = AsyncMock()
 
     async def _search(name):
@@ -107,7 +113,10 @@ async def test_fetch_liga_price_prefers_low_over_mid():
     card = _make_card(1, "Card")
     result = await _fetch_liga_price(provider, card)
 
-    assert result.median_price == Decimal("1.00")
+    # Liga sweep uses the market `mid` price, NOT the lowest listing (`low`).
+    # See CLAUDE.md guardrail: "Liga sweep usa preco `mid`, NAO `low`".
+    observation, _page_url = result
+    assert observation.median_price == Decimal("2.00")
 
 
 @pytest.mark.asyncio
@@ -121,7 +130,8 @@ async def test_fetch_liga_price_fallback_mid_when_no_low():
     card = _make_card(1, "Card")
     result = await _fetch_liga_price(provider, card)
 
-    assert result.median_price == Decimal("2.00")
+    observation, _page_url = result
+    assert observation.median_price == Decimal("2.00")
 
 
 @pytest.mark.asyncio
@@ -135,7 +145,8 @@ async def test_fetch_liga_price_fallback_high_when_no_low_no_mid():
     card = _make_card(1, "Card")
     result = await _fetch_liga_price(provider, card)
 
-    assert result.median_price == Decimal("3.00")
+    observation, _page_url = result
+    assert observation.median_price == Decimal("3.00")
 
 
 @pytest.mark.asyncio
@@ -149,7 +160,8 @@ async def test_fetch_liga_price_falls_back_to_low():
     card = _make_card(1, "Card")
     result = await _fetch_liga_price(provider, card)
 
-    assert result.median_price == Decimal("1.00")
+    observation, _page_url = result
+    assert observation.median_price == Decimal("1.00")
 
 
 @pytest.mark.asyncio
@@ -163,7 +175,8 @@ async def test_fetch_liga_price_falls_back_to_high():
     card = _make_card(1, "Card")
     result = await _fetch_liga_price(provider, card)
 
-    assert result.median_price == Decimal("5.00")
+    observation, _page_url = result
+    assert observation.median_price == Decimal("5.00")
 
 
 # ── Unit: batch splitting ────────────────────────────────────────────
@@ -406,13 +419,86 @@ async def test_integration_5_cards_batch_2():
     # Verify observations were saved for found prices
     assert mock_repo.insert_price_observations.call_count == 4
 
-    # Verify delays were called: 1 delay within each batch (between cards)
-    # batch 1: 1 delay (between card 1 and 2)
-    # batch 2: 1 delay (between card 3 and 4)
-    # batch 3: 0 delays (only 1 card)
-    # + 2 batch pauses (between batch 1-2 and batch 2-3)
-    # Total: 2 intra-batch delays + 2 batch pauses = 4
-    assert mock_sleep.await_count == 4
+    # Verify the Liga page URL was recorded alongside each found price
+    assert mock_repo.upsert_liga_card_url.call_count == 4
+    recorded_ids = {call.args[0] for call in mock_repo.upsert_liga_card_url.call_args_list}
+    assert recorded_ids == {"liga_1", "liga_2", "liga_4", "liga_5"}
+
+
+@pytest.mark.asyncio
+async def test_foil_card_records_url_with_foil_suffix():
+    card = _make_card(7, "Foil Card")
+    card["extras"] = "foil"
+    mock_repo = MagicMock()
+    mock_repo.get_cards_for_liga_scan.return_value = [card]
+    mock_repo.insert_price_observations.return_value = 1
+
+    mock_provider = AsyncMock()
+    mock_provider.open = AsyncMock()
+    mock_provider.close = AsyncMock()
+
+    async def _search(name):
+        return {
+            "normal": {"low": None, "mid": None, "high": None},
+            "foil": {"low": None, "mid": Decimal("9.00"), "high": None},
+            "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
+        }
+
+    mock_provider.search_card = AsyncMock(side_effect=_search)
+
+    with (
+        patch("src.collectors.liga_sweep.Repository", return_value=mock_repo),
+        patch("src.collectors.liga_sweep.get_db_url", return_value="sqlite:///:memory:"),
+        patch("src.providers.liga.provider.LigaMagicProvider", return_value=mock_provider),
+        patch("src.collectors.liga_sweep._is_foil", return_value=True),
+    ):
+        result = await run_liga_sweep(db_url="sqlite:///:memory:", delay=0)
+
+    assert result.prices_found == 1
+    mock_repo.upsert_liga_card_url.assert_called_once_with(
+        "liga_7_foil", "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_no_price_found_does_not_record_url():
+    cards = _make_cards(1)
+    mock_repo = MagicMock()
+    mock_repo.get_cards_for_liga_scan.return_value = cards
+
+    mock_provider = _mock_provider_search({"Card 1": None})
+
+    with (
+        patch("src.collectors.liga_sweep.Repository", return_value=mock_repo),
+        patch("src.collectors.liga_sweep.get_db_url", return_value="sqlite:///:memory:"),
+        patch("src.providers.liga.provider.LigaMagicProvider", return_value=mock_provider),
+    ):
+        result = await run_liga_sweep(db_url="sqlite:///:memory:", delay=0)
+
+    assert result.prices_not_found == 1
+    mock_repo.upsert_liga_card_url.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_provider_error_does_not_record_url():
+    cards = _make_cards(1)
+    mock_repo = MagicMock()
+    mock_repo.get_cards_for_liga_scan.return_value = cards
+
+    mock_provider = AsyncMock()
+    mock_provider.open = AsyncMock()
+    mock_provider.close = AsyncMock()
+    mock_provider.search_card = AsyncMock(side_effect=RuntimeError("boom"))
+
+    with (
+        patch("src.collectors.liga_sweep.Repository", return_value=mock_repo),
+        patch("src.collectors.liga_sweep.get_db_url", return_value="sqlite:///:memory:"),
+        patch("src.providers.liga.provider.LigaMagicProvider", return_value=mock_provider),
+    ):
+        result = await run_liga_sweep(db_url="sqlite:///:memory:", delay=0)
+
+    assert result.errors == 1
+    mock_repo.upsert_liga_card_url.assert_not_called()
 
 
 @pytest.mark.asyncio

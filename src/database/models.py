@@ -580,3 +580,19 @@ class WishlistRow(Base):
         Index("ix_wishlist_card", "card_id"),
         Index("ix_wishlist_user_acquired", "user_id", "is_acquired"),
     )
+
+
+class LigaCardUrlRow(Base):
+    """URL of the LigaMagic page a Liga price observation was scraped from (F124).
+
+    Keyed by the same external_id as PriceObservationRow (liga_{card_id} or
+    liga_{card_id}_foil) so link and price always refer to the same page.
+    """
+
+    __tablename__ = "liga_card_urls"
+
+    external_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )

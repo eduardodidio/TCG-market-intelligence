@@ -1,0 +1,43 @@
+flowchart LR
+  subgraph FE[Frontend React]
+    DASH[Dashboard.tsx] --> DIS[DashboardInvestmentSummary]
+    DASH --> TREND[TrendingSection]
+    MYC[MyCollection.tsx] --> PPQ[PaidPriceQuickEdit]
+    MYC --> PD[PortfolioDashboard]
+    CCD[CollectionCardDetail.tsx] --> API_IN[AcquisitionPriceInput]
+    CD[CardDetail.tsx]
+  end
+  subgraph API[FastAPI]
+    LIST[GET /collection]
+    SUM[GET /collection/summary]
+    PATCH[PATCH /collection/:id]
+    PS[GET /collection/portfolio-summary]
+    DET[GET /collection/:id]
+    RL[POST /collection/:id/refresh-liga]
+    CARD[GET /cards/:id]
+  end
+  subgraph LIGA[Liga pipeline]
+    SWEEP[liga_sweep / scan / CLI] --> PROV[LigaMagicProvider.search_card]
+    RL --> PROV
+    PROV -->|page.url| URLS[urls.py validate]
+    URLS --> REC[liga_url_recorder]
+  end
+  subgraph DB[(Neon PostgreSQL / SQLite)]
+    UC[user_collection.acquisition_price]
+    PO[price_observations liga_id / liga_id_foil]
+    LCU[liga_card_urls]
+  end
+  PPQ --> PATCH --> UC
+  API_IN --> PATCH
+  DIS --> PS
+  PD --> PS
+  PS --> UC
+  PS --> PO
+  DASH --> SUM --> UC
+  LIST --> UC
+  PROV --> PO
+  REC --> LCU
+  DET -->|ligamagic_url| LCU
+  CARD -->|ligamagic_url| LCU
+  CCD --> DET
+  CD --> CARD

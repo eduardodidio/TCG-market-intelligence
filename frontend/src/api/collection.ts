@@ -117,7 +117,7 @@ export function fetchValuation(
 
 export function patchCollectionEntry(
   id: number,
-  updates: { quantity?: number; quality?: string; language?: string; extras?: string; acquisition_price?: number; acquired_at?: string },
+  updates: { quantity?: number; quality?: string; language?: string; extras?: string; acquisition_price?: number | null; acquired_at?: string | null },
 ): Promise<ApiResponse<CollectionCard>> {
   return apiPatch<CollectionCard>(`/api/v1/collection/${id}`, updates);
 }

@@ -1538,6 +1538,12 @@ async def _push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age
                             "currency": "BRL",
                         }
                     )
+                    # NOTE: push-prices does NOT record the Liga page URL. The
+                    # price observation here is pushed to a *remote* DB over HTTP,
+                    # while liga_card_urls would be written to the *local* DB — the
+                    # two would never coexist, breaking the "link matches the price"
+                    # guarantee. URL recording is owned by the direct-to-Neon
+                    # writers (liga-sweep, refresh-liga, scan). See F124 / ADR 0012.
                     click.echo(f"  [{i}/{total}] {card_name}: R${price}")
                     processed += 1
                 else:

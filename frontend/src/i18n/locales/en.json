@@ -209,7 +209,14 @@
     "topGainers": "Top Gainers",
     "topLosers": "Top Losers",
     "collectionErrorTitle": "Could not load collection",
-    "collectionErrorDesc": "There was a problem loading your collection data. This may happen after a server update — try again or re-login."
+    "collectionErrorDesc": "There was a problem loading your collection data. This may happen after a server update — try again or re-login.",
+    "investmentTitle": "Investment",
+    "investmentProgress": "{{count}} of {{total}} cards with paid price",
+    "investmentEmptyTitle": "Track your collection's appreciation",
+    "investmentEmptyDesc": "Set the paid price on your cards to see invested value and P&L.",
+    "investmentEmptyCta": "Go to collection",
+    "investmentUnpriced": "{{count}} cards without current price (excluded from P&L)",
+    "investmentError": "Could not load investment data"
   },
   "cards": {
     "title": "Explore Cards",
@@ -310,7 +317,10 @@
     "deleteUndone": "Deletion cancelled",
     "setCompletion": "Set Completion",
     "setCompletionOf": "{{owned}} of {{total}}",
-    "setComplete": "Complete!"
+    "setComplete": "Complete!",
+    "paidPrice": "Paid",
+    "setPaidPrice": "Set paid price",
+    "paidPricePerCopy": "per copy"
   },
   "market": {
     "title": "Market Movers",

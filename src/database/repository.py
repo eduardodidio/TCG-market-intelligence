@@ -23,6 +23,7 @@ from src.database.models import (
     EvaluationEntryRow,
     ExchangeRateRow,
     LegalityHistoryRow,
+    LigaCardUrlRow,  # noqa: F401 (needed for create_all)
     PortfolioSnapshotRow,
     PriceAlertRow,  # noqa: F401 (needed for create_all)
     PriceObservationRow,
@@ -4568,6 +4569,42 @@ class Repository:
                 }
                 for r in rows
             ], total or 0
+
+    # --- Liga card URLs (F124) ---
+
+    def upsert_liga_card_url(self, external_id: str, url: str) -> None:
+        """Insert or update the Liga page URL a price was scraped from.
+
+        Keyed by the same external_id used for the price observation
+        (liga_{card_id} or liga_{card_id}_foil) so the link and the price
+        always refer to the same page.
+        """
+        if not external_id:
+            raise ValueError("external_id must not be empty")
+        if not url:
+            raise ValueError("url must not be empty")
+        if len(url) > 1000:
+            raise ValueError("url must not exceed 1000 characters")
+
+        with Session(self.engine) as session:
+            now = datetime.now()
+            stmt = (
+                dialect_insert(self.engine, LigaCardUrlRow)
+                .values(external_id=external_id, url=url, updated_at=now)
+                .on_conflict_do_update(
+                    index_elements=["external_id"],
+                    set_={"url": url, "updated_at": now},
+                )
+            )
+            session.execute(stmt)
+            session.commit()
+
+    def get_liga_card_url(self, external_id: str) -> str | None:
+        """Return the stored Liga page URL for external_id, or None if unknown."""
+        with Session(self.engine) as session:
+            return session.execute(
+                select(LigaCardUrlRow.url).where(LigaCardUrlRow.external_id == external_id)
+            ).scalar_one_or_none()
 
     def get_user_duplicate_card_ids(self, user_id: int | str) -> dict[int, int]:
         """Return {card_id: surplus_quantity} for cards with quantity > 1."""

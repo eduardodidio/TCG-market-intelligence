@@ -58,11 +58,7 @@ export function AcquisitionPriceInput({
     setSaving(true);
     setError(null);
     try {
-      const updates: Record<string, unknown> = {};
-      if (numVal !== null) {
-        updates.acquisition_price = numVal;
-      }
-      const res = await patchCollectionEntry(entryId, updates as { acquisition_price?: number });
+      const res = await patchCollectionEntry(entryId, { acquisition_price: numVal });
       if (res.data) {
         setEditingPrice(false);
         setSuccess(true);
@@ -82,11 +78,7 @@ export function AcquisitionPriceInput({
     setSaving(true);
     setError(null);
     try {
-      const updates: Record<string, unknown> = {};
-      if (dateDraft) {
-        updates.acquired_at = dateDraft;
-      }
-      const res = await patchCollectionEntry(entryId, updates as { acquired_at?: string });
+      const res = await patchCollectionEntry(entryId, { acquired_at: dateDraft || null });
       if (res.data) {
         setEditingDate(false);
         setSuccess(true);

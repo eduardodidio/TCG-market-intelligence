@@ -109,6 +109,22 @@ class TestPatchSingleEntry:
         assert "language" not in updates
         assert "extras" not in updates
 
+    def test_update_acquisition_price_null_clears(self) -> None:
+        """Explicit null must be forwarded to the repo and clear the field (F124 AC2)."""
+        mock_repo = MagicMock()
+        updated_row = _make_collection_row(acquisition_price=None, acquired_at=None)
+        mock_repo.update_collection_entry.return_value = updated_row
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.patch("/collection/1", json={"acquisition_price": None})
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["acquisition_price"] is None
+        call_args = mock_repo.update_collection_entry.call_args
+        updates = call_args[0][2]
+        assert "acquisition_price" in updates
+        assert updates["acquisition_price"] is None
+
     def test_404_for_nonexistent(self) -> None:
         mock_repo = MagicMock()
         mock_repo.update_collection_entry.return_value = None

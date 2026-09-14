@@ -1,0 +1,19 @@
+flowchart LR
+  subgraph User
+    A[Open Collection] --> B[Click 'Set paid price' on tile]
+    B --> C{Valid value?}
+    C -- no --> C1[Inline error] --> B
+    C -- yes/empty --> D[Save]
+    H[Open Dashboard] --> I[See invested, value, P&L, progress + Trending]
+    J[Open card detail] --> K[Click 'Ver na LigaMagic']
+  end
+  subgraph System
+    D --> E{PATCH ok?}
+    E -- no --> E1[Show save error] --> B
+    E -- yes --> F[Update tile + refetch portfolio summary]
+    F --> G[Portfolio panel updated]
+    K --> L{Stored fetched URL?}
+    L -- yes --> M[Open exact Liga page of the price]
+    L -- no --> N[Open Liga by same name used for price]
+  end
+  G --> H

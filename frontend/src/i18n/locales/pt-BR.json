@@ -209,7 +209,14 @@
     "topGainers": "Maiores Altas",
     "topLosers": "Maiores Baixas",
     "collectionErrorTitle": "Nao foi possivel carregar a colecao",
-    "collectionErrorDesc": "Houve um problema ao carregar os dados da sua colecao. Isso pode ocorrer apos uma atualizacao do servidor — tente novamente ou faca login novamente."
+    "collectionErrorDesc": "Houve um problema ao carregar os dados da sua colecao. Isso pode ocorrer apos uma atualizacao do servidor — tente novamente ou faca login novamente.",
+    "investmentTitle": "Investimento",
+    "investmentProgress": "{{count}} de {{total}} cards com valor pago",
+    "investmentEmptyTitle": "Acompanhe a valorizacao da sua colecao",
+    "investmentEmptyDesc": "Informe o valor pago dos seus cards para ver o investido e o P&L.",
+    "investmentEmptyCta": "Ir para a colecao",
+    "investmentUnpriced": "{{count}} cards sem preco atual (fora do P&L)",
+    "investmentError": "Nao foi possivel carregar o investimento"
   },
   "cards": {
     "title": "Explorar Cartas",
@@ -310,7 +317,10 @@
     "deleteUndone": "Exclusao cancelada",
     "setCompletion": "Completude por Colecao",
     "setCompletionOf": "{{owned}} de {{total}}",
-    "setComplete": "Completo!"
+    "setComplete": "Completo!",
+    "paidPrice": "Pago",
+    "setPaidPrice": "Informar valor pago",
+    "paidPricePerCopy": "por copia"
   },
   "market": {
     "title": "Movimentacao de Mercado",

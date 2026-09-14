@@ -11,6 +11,7 @@ from decimal import Decimal
 
 import structlog
 
+from src.collectors.liga_url_recorder import record_liga_url
 from src.database.repository import Repository
 from src.domain.events import ScanEvent
 from src.domain.models import (
@@ -44,7 +45,7 @@ from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
 
 async def _fetch_price_liga(
     provider, entry: dict, card_id: int, *, is_foil: bool = False
-) -> HistoricalPrice | None:
+) -> tuple[HistoricalPrice, str | None] | None:
     """Fetch price for a single card via the Liga provider.
 
     Uses provider.search_card(name) which returns a parsed price dict
@@ -52,12 +53,15 @@ async def _fetch_price_liga(
 
     When is_foil=True, extracts foil prices and uses a '_foil' suffix
     on the external_id to store them separately.
+
+    Returns a (HistoricalPrice, page_url) tuple, or None if no price found.
     """
     card_name = entry.get("name_en") or entry.get("name_pt", "")
     if not card_name:
         return None
 
     prices = await provider.search_card(card_name)
+    page_url = prices.get("page_url")
 
     if is_foil:
         foil = prices.get("foil", {})
@@ -73,13 +77,14 @@ async def _fetch_price_liga(
             return None
         external_id = f"liga_{card_id}"
 
-    return HistoricalPrice(
+    observation = HistoricalPrice(
         source="liga",
         external_id=external_id,
         observed_at=date.today(),
         median_price=price,
         currency="BRL",
     )
+    return observation, page_url
 
 
 async def run_scan(
@@ -230,12 +235,17 @@ async def run_scan(
                 # Identifier for logging/error messages
                 entry_ident = external_id if not is_liga else (card_name or f"card_{card_id}")
 
+                liga_page_url: str | None = None
                 try:
                     if is_liga:
                         foil = _is_foil(entry.get("extras"))
-                        observation = await _fetch_price_liga(
+                        liga_result = await _fetch_price_liga(
                             provider, entry, card_id, is_foil=foil
                         )
+                        if liga_result is not None:
+                            observation, liga_page_url = liga_result
+                        else:
+                            observation = None
                     else:
                         slug = entry.get("slug", "")
                         jsonld_price = await provider.fetch_current_price(external_id, slug)
@@ -377,6 +387,8 @@ async def run_scan(
 
                 obs_external_id = observation.external_id
                 inserted = repo.insert_price_observations([observation])
+                if is_liga:
+                    record_liga_url(repo, obs_external_id, liga_page_url)
                 async with lock:
                     cards_processed += 1
                     observations_saved += inserted

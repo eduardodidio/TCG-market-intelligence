@@ -13,7 +13,6 @@ import asyncio
 import sys
 import time
 from datetime import datetime
-from urllib.parse import quote_plus
 
 import structlog
 
@@ -27,6 +26,7 @@ from src.providers.liga.exceptions import (
     LigaServerError,
 )
 from src.providers.liga.parser import parse_card_prices
+from src.providers.liga.urls import build_liga_card_url, is_valid_liga_card_url
 
 log = structlog.get_logger()
 
@@ -39,11 +39,8 @@ _USER_AGENT = (
     "Chrome/120.0.0.0 Safari/537.36"
 )
 
-
-def _build_card_url(card_name: str) -> str:
-    """Build a LigaMagic card search URL from a card name."""
-    encoded = quote_plus(card_name.strip())
-    return f"{BASE_URL}/?view=cards/card&card={encoded}&show=1"
+# Kept for backwards compatibility with existing imports/tests.
+_build_card_url = build_liga_card_url
 
 
 class LigaMagicProvider(CardSourceProvider):
@@ -82,6 +79,7 @@ class LigaMagicProvider(CardSourceProvider):
         self._request_count = 0
         self._lock = asyncio.Lock()
         self._unavailable = False
+        self._last_page_url: str | None = None
 
     @property
     def source_name(self) -> str:
@@ -247,6 +245,8 @@ class LigaMagicProvider(CardSourceProvider):
         Applies rate limiting, retries on failure, and raises typed
         exceptions based on HTTP status.
         """
+        self._last_page_url = None
+
         if self._use_sync:
             return await asyncio.to_thread(self._fetch_page_sync, url)
 
@@ -345,6 +345,7 @@ class LigaMagicProvider(CardSourceProvider):
                     )
                     await page.wait_for_timeout(2000)
 
+                self._last_page_url = page.url or url
                 return await page.content()
 
             except LigaError:
@@ -396,6 +397,8 @@ class LigaMagicProvider(CardSourceProvider):
         Mirrors the async ``_fetch_page`` logic but uses blocking calls
         and ``time.sleep()`` for delays.  Runs inside ``asyncio.to_thread()``.
         """
+        self._last_page_url = None
+
         last_status = 0
         timeout_ms = int(self.config.timeout_seconds * 1000)
 
@@ -495,6 +498,7 @@ class LigaMagicProvider(CardSourceProvider):
                     )
                     page.wait_for_timeout(2000)
 
+                self._last_page_url = page.url or url
                 return page.content()
 
             except LigaError:
@@ -686,6 +690,9 @@ class LigaMagicProvider(CardSourceProvider):
 
         log.debug("liga_search_html_received", card=card_name, html_length=len(html))
         prices = parse_card_prices(html, card_name)
+        prices["page_url"] = (
+            self._last_page_url if is_valid_liga_card_url(self._last_page_url) else url
+        )
 
         normal = prices.get("normal", {})
         foil = prices.get("foil", {})
