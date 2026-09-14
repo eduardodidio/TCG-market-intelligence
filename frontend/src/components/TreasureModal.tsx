@@ -172,7 +172,7 @@ export function TreasureModal({
           <img
             src={treasureImage}
             alt={t("credits.balance")}
-            className="max-h-[70vh] max-w-[90vw] rounded-lg"
+            className="max-h-[80vh] max-w-[90vw] rounded-lg"
             style={{
               boxShadow: isOpen
                 ? "0 0 80px 20px rgba(245, 158, 11, 0.4), 0 0 120px 40px rgba(245, 158, 11, 0.15), 0 25px 50px -12px rgba(0, 0, 0, 0.6)"
