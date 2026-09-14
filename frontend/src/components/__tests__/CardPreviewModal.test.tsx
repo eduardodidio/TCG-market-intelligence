@@ -58,18 +58,15 @@ describe("CardPreviewModal", () => {
   });
 
   it("passes isFoil to Card3DTilt", () => {
-    const { container } = render(
-      <CardPreviewModal {...defaultProps} isFoil={true} />
-    );
-    const shimmer = container.querySelector(".foil-shimmer");
+    render(<CardPreviewModal {...defaultProps} isFoil={true} />);
+    // Portal renders into document.body, so use document.body.querySelector
+    const shimmer = document.body.querySelector(".foil-shimmer");
     expect(shimmer).toBeInTheDocument();
   });
 
   it("renders without foil shimmer when isFoil is false", () => {
-    const { container } = render(
-      <CardPreviewModal {...defaultProps} isFoil={false} />
-    );
-    const shimmer = container.querySelector(".foil-shimmer");
+    render(<CardPreviewModal {...defaultProps} isFoil={false} />);
+    const shimmer = document.body.querySelector(".foil-shimmer");
     expect(shimmer).not.toBeInTheDocument();
   });
 
@@ -106,5 +103,11 @@ describe("CardPreviewModal", () => {
     fireEvent.keyDown(document, { key: "Enter" });
     fireEvent.keyDown(document, { key: "Tab" });
     expect(defaultProps.onClose).not.toHaveBeenCalled();
+  });
+
+  it("renders modal in document.body via portal", () => {
+    render(<CardPreviewModal {...defaultProps} />);
+    const backdrop = document.body.querySelector('[data-testid="modal-backdrop"]');
+    expect(backdrop).toBeInTheDocument();
   });
 });

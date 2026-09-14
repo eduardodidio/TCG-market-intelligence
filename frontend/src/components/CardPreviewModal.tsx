@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Card3DTilt } from "./Card3DTilt";
 
 interface CardPreviewModalProps {
@@ -14,12 +15,19 @@ export function CardPreviewModal({
   isFoil = false,
   onClose,
 }: CardPreviewModalProps) {
+  const [visible, setVisible] = useState(false);
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
+  }, []);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(id);
   }, []);
 
   useEffect(() => {
@@ -32,9 +40,9 @@ export function CardPreviewModal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+      className={`fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -42,7 +50,7 @@ export function CardPreviewModal({
       data-testid="modal-backdrop"
     >
       <div
-        className="relative max-w-sm mx-4"
+        className={`relative max-w-md mx-4 transition-transform duration-200 ${visible ? "scale-100" : "scale-95"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -57,7 +65,7 @@ export function CardPreviewModal({
           <img
             src={imageUrl}
             alt={cardName}
-            className="rounded-lg shadow-2xl w-full"
+            className="rounded-lg shadow-2xl w-full max-h-[80vh]"
             draggable={false}
           />
         </Card3DTilt>
@@ -66,6 +74,7 @@ export function CardPreviewModal({
           {cardName}
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
