@@ -43,7 +43,8 @@ export function CardPreviewModal({
   return createPortal(
     <div
       className={`fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`}
-      onClick={onClose}
+      onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
+      onClick={(e: React.MouseEvent) => { e.stopPropagation(); e.preventDefault(); onClose(); }}
       role="dialog"
       aria-modal="true"
       aria-label={cardName}
@@ -54,7 +55,7 @@ export function CardPreviewModal({
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          onClick={onClose}
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); e.preventDefault(); onClose(); }}
           className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/90 transition-colors"
           aria-label="Close"
         >
