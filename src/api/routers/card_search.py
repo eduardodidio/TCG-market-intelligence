@@ -16,7 +16,7 @@ from src.credits.exceptions import InsufficientCreditsError
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
-from src.providers.liga.urls import build_liga_card_url, is_valid_liga_card_url
+from src.providers.liga.url import liga_url_for_card_name
 
 log = structlog.get_logger()
 
@@ -180,8 +180,7 @@ async def _search_via_liga(
     card_name = prices.get("card_name", q.strip())
     local_card_id = _find_local_card(repo, card_name)
 
-    page_url = prices.get("page_url")
-    liga_url = page_url if is_valid_liga_card_url(page_url) else build_liga_card_url(card_name)
+    liga_url = liga_url_for_card_name(card_name)
 
     normal_price = _decimal_to_float(normal.get("low") or normal.get("mid") or normal.get("high"))
     foil_price = _decimal_to_float(foil.get("low") or foil.get("mid") or foil.get("high"))

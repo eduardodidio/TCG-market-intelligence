@@ -48,7 +48,7 @@ function makeLinkedEntry(
         },
       ],
       scryfall_url: "https://scryfall.com/search?q=Lightning+Bolt+set:DMR",
-      ligamagic_url: "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt",
+      ligamagic_url: "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1",
       ...overrides,
     },
     meta: { cursor: null, total: null, offset: null, request_id: "test-liga-001" },

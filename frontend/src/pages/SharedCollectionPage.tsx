@@ -14,6 +14,8 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
 import { TradeInterestModal } from "../components/TradeInterestModal";
+import { Card3DTilt } from "../components/Card3DTilt";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import { useAuth } from "../hooks/useAuth";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
@@ -33,6 +35,7 @@ function SharedCardTile({
   const { getCardName } = useCardName();
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const displayName = getCardName(listing.card_name_en, listing.card_name_pt, t("common.unknownCard"));
   const primaryUrl = scryfallImageUrl(listing.set_code, listing.collector_number);
@@ -41,9 +44,10 @@ function SharedCardTile({
   const showImage = !(imgError && (fallbackError || !fallbackUrl));
 
   return (
+    <Card3DTilt foil={false} className="w-full">
     <div
       className="group block bg-slate-800 rounded-lg overflow-hidden border border-slate-600
-        hover:border-cyan-400/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg relative"
+        hover:border-cyan-400/50 transition-all duration-300 hover:shadow-lg relative"
       data-testid={`shared-card-${listing.entry_id}`}
     >
       {listing.quantity > 1 && (
@@ -52,7 +56,18 @@ function SharedCardTile({
         </span>
       )}
 
-      <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden">
+      <div
+        className={`aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden${showImage ? " cursor-zoom-in" : ""}`}
+        {...(showImage
+          ? {
+              onClick: (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setPreviewOpen(true);
+              },
+            }
+          : {})}
+      >
         {showImage ? (
           <img
             src={currentUrl}
@@ -107,6 +122,15 @@ function SharedCardTile({
         </button>
       </div>
     </div>
+    {previewOpen && currentUrl && (
+      <CardPreviewModal
+        imageUrl={currentUrl}
+        cardName={displayName}
+        isFoil={false}
+        onClose={() => setPreviewOpen(false)}
+      />
+    )}
+    </Card3DTilt>
   );
 }
 

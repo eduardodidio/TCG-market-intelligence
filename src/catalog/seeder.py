@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from src.catalog.scryfall import CatalogCard, parse_bulk_cards
 from src.database.compat import dialect_insert, is_sqlite
 from src.database.models import Base, CardRow, SourceCardRow
-from src.providers.liga.provider import _build_card_url
+from src.providers.liga.url import liga_url_for_card_name
 
 log = structlog.get_logger()
 
@@ -110,7 +110,7 @@ def _process_card_batch(
             continue
 
         external_id = f"liga_catalog_{card.set_code}_{card.collector_number}"
-        url = _build_card_url(card.name_en)
+        url = liga_url_for_card_name(card.name_en)
 
         stmt = (
             dialect_insert(session.get_bind(), SourceCardRow)

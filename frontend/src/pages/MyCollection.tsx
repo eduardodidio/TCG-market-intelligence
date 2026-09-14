@@ -40,7 +40,9 @@ import { fetchSharingStatus, toggleSharing as apiToggleSharing } from "../api/ma
 import { ValuationBadge } from "../components/ValuationBadge";
 import { formatCurrency } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import { SetCompletionSection } from "../components/SetCompletionBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { fetchSetCompletion, type SetCompletionEntry } from "../api/collection";
@@ -72,6 +74,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
   const [refreshing, setRefreshing] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { balance, isAdmin, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
 
   // Primary image: backend-provided URL (Scryfall by set/number)
@@ -80,9 +83,10 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
   const fallbackUrl = card.name_en ? scryfallImageByName(card.name_en) : null;
 
   const inner = (
+    <Card3DTilt foil={card.is_foil} className="w-full">
     <div
       className={`group block bg-slate-800 rounded-lg overflow-hidden
-        border transition-all duration-500 hover:scale-[1.02] hover:shadow-lg relative cursor-pointer
+        border transition-all duration-500 hover:shadow-lg relative cursor-pointer
         ${banRecentlyChanged ? "ring-2 ring-red-400/60 border-red-400/50" : highlightColor === "green" ? "ring-2 ring-emerald-400/60 border-emerald-400/50" : highlightColor === "amber" ? "ring-2 ring-amber-400/40 border-amber-400/40" : "border-slate-600 hover:border-cyan-400/50"}`}
       data-testid={`collection-card-${card.id}`}
     >
@@ -108,7 +112,10 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
       )}
 
       {/* Card image with skeleton loading */}
-      <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden relative">
+      <div
+        className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden relative cursor-zoom-in"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewOpen(true); }}
+      >
         <CardImage
           src={primaryUrl}
           fallbackSrc={fallbackUrl}
@@ -239,6 +246,15 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
         </div>
       </div>
     </div>
+    {previewOpen && primaryUrl && (
+      <CardPreviewModal
+        imageUrl={primaryUrl}
+        cardName={displayName}
+        isFoil={card.is_foil}
+        onClose={() => setPreviewOpen(false)}
+      />
+    )}
+    </Card3DTilt>
   );
 
   // All collection cards link to the collection detail page

@@ -96,6 +96,7 @@ export function mockCardDetail(
       },
     ],
     collection_entry_id: null,
+    ligamagic_url: "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-08-18T12:00:00Z",
     ...overrides,

@@ -1,12 +1,7 @@
 """Tests for Liga Magic link generation in collection detail endpoint.
 
-Per F124 (ADR 0012 — Liga fetched-URL persistence): the collection detail
-endpoint serves the stored Liga URL recorded during the price fetch
-(`liga_{card_id}` / `liga_{card_id}_foil`) rather than rebuilding one from
-the (possibly stale/drifted) canonical card name. When no valid stored URL
-exists, it falls back to a URL built from the same name used for the price
-fetch (`entry.name_en`/`entry.name_pt`), matching what the sweep searched
-for — even if that name has drifted from the linked CardRow.
+Ensures that Liga URLs use the canonical card name from the cards table,
+not the potentially stale name from user_collection.
 """
 
 from __future__ import annotations
@@ -19,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from src.api.deps import get_db, require_auth_or_api_key
 from src.api.routers.collection import router
-from src.database.models import UserCollectionRow
+from src.database.models import CardRow, UserCollectionRow
 
 _TEST_USER_ID = "eduardo"
 
@@ -49,6 +44,20 @@ def _make_collection_row(**overrides) -> MagicMock:
     return row
 
 
+def _make_card_row(**overrides) -> MagicMock:
+    defaults = {
+        "id": 42,
+        "name": "Dain, Rei dos Anoes",
+        "name_en": "Dain, Dwarven King",
+        "set_code": "DMR",
+    }
+    defaults.update(overrides)
+    row = MagicMock(spec=CardRow)
+    for k, v in defaults.items():
+        setattr(row, k, v)
+    return row
+
+
 def _make_app(mock_repo: MagicMock) -> FastAPI:
     app = FastAPI()
     app.include_router(router)
@@ -57,107 +66,72 @@ def _make_app(mock_repo: MagicMock) -> FastAPI:
     return app
 
 
-def _base_repo(**collection_overrides) -> MagicMock:
-    """A MagicMock repo with no stored Liga URL and no price data."""
-    mock_repo = MagicMock()
-    mock_repo.get_collection_entry.return_value = _make_collection_row(**collection_overrides)
-    mock_repo.get_liga_card_url.return_value = None
-    mock_repo.get_source_cards_for_card.return_value = []
-    mock_repo.get_latest_prices_batch.return_value = {}
-    return mock_repo
+class TestLigaMagicLinkFromCardsTable:
+    """Liga Magic URL must use canonical name from cards table, not user_collection."""
 
-
-class TestLigaMagicLinkStoredUrl:
-    def test_stored_url_served_verbatim(self) -> None:
-        mock_repo = _base_repo(name_en="Arcane Signet", extras=None)
-        mock_repo.get_liga_card_url.return_value = (
-            "https://www.ligamagic.com.br/?view=cards/card&card=42&show=1"
+    def test_liga_url_uses_cards_table_name(self) -> None:
+        """When card_id points to a CardRow, ligamagic_url uses CardRow.name_en."""
+        mock_repo = MagicMock()
+        # entry.name_en = "Arcane Signet" (wrong/stale)
+        mock_repo.get_collection_entry.return_value = _make_collection_row(
+            name_en="Arcane Signet",
         )
-
-        client = TestClient(_make_app(mock_repo))
-        resp = client.get("/collection/1")
-        data = resp.json()["data"]
-
-        assert data["ligamagic_url"] == (
-            "https://www.ligamagic.com.br/?view=cards/card&card=42&show=1"
+        # CardRow.name_en = "Dain, Dwarven King" (correct)
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Dain, Dwarven King",
         )
-        mock_repo.get_liga_card_url.assert_called_with("liga_42")
-
-    def test_foil_entry_prefers_foil_stored_url(self) -> None:
-        mock_repo = _base_repo(extras='{"foil": true}')
-
-        def _get_liga_card_url(key: str) -> str | None:
-            urls = {
-                "liga_42_foil": "https://www.ligamagic.com.br/?view=cards/card&card=42f&show=1",
-                "liga_42": "https://www.ligamagic.com.br/?view=cards/card&card=42&show=1",
-            }
-            return urls.get(key)
-
-        mock_repo.get_liga_card_url.side_effect = _get_liga_card_url
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/1")
         data = resp.json()["data"]
 
-        assert data["ligamagic_url"] == (
-            "https://www.ligamagic.com.br/?view=cards/card&card=42f&show=1"
+        # Liga URL must use the canonical name, not "Arcane Signet"
+        assert "Arcane+Signet" not in data["ligamagic_url"]
+        assert "Dain%2C+Dwarven+King" in data["ligamagic_url"]
+        assert "&show=1" in data["ligamagic_url"]
+
+    def test_liga_url_encoding_special_chars(self) -> None:
+        """Card names with commas, apostrophes, and spaces are URL-encoded."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Thalia, Guardian of Thraben",
         )
-
-    def test_foil_entry_falls_back_to_non_foil_stored_url(self) -> None:
-        mock_repo = _base_repo(extras='{"foil": true}')
-
-        def _get_liga_card_url(key: str) -> str | None:
-            urls = {
-                "liga_42": "https://www.ligamagic.com.br/?view=cards/card&card=42&show=1",
-            }
-            return urls.get(key)
-
-        mock_repo.get_liga_card_url.side_effect = _get_liga_card_url
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/1")
         data = resp.json()["data"]
 
-        assert data["ligamagic_url"] == (
-            "https://www.ligamagic.com.br/?view=cards/card&card=42&show=1"
+        assert "Thalia%2C+Guardian+of+Thraben" in data["ligamagic_url"]
+
+    def test_liga_url_fallback_to_card_name_when_name_en_null(self) -> None:
+        """When CardRow.name_en is None, fallback to CardRow.name (Portuguese)."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en=None,
+            name="Dain, Rei dos Anoes",
         )
-
-    def test_foil_entry_falls_back_to_name_when_no_stored_url(self) -> None:
-        mock_repo = _base_repo(extras='{"foil": true}', name_en="Sol Ring")
-
-        client = TestClient(_make_app(mock_repo))
-        resp = client.get("/collection/1")
-        data = resp.json()["data"]
-
-        assert "Sol+Ring" in data["ligamagic_url"]
-
-    def test_stored_invalid_url_is_never_served(self) -> None:
-        mock_repo = _base_repo(name_en="Arcane Signet")
-        mock_repo.get_liga_card_url.return_value = "https://evil.com/?view=cards/card"
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/1")
         data = resp.json()["data"]
 
-        assert "evil.com" not in data["ligamagic_url"]
-        assert "Arcane+Signet" in data["ligamagic_url"]
+        assert "Dain%2C+Rei+dos+Anoes" in data["ligamagic_url"]
 
-
-class TestLigaMagicLinkNameFallback:
-    def test_drifted_entry_name_used_over_card_row_name(self) -> None:
-        """Even when card_id is linked, fallback uses entry name (same as price fetch)."""
-        mock_repo = _base_repo(name_en="Arcane Signet")
-
-        client = TestClient(_make_app(mock_repo))
-        resp = client.get("/collection/1")
-        data = resp.json()["data"]
-
-        assert "Arcane+Signet" in data["ligamagic_url"]
-        # get_card_by_id (canonical name lookup) is no longer used for Liga
-        mock_repo.get_card_by_id.assert_not_called()
-
-    def test_no_card_id_uses_entry_name_without_repo_lookup(self) -> None:
-        mock_repo = _base_repo(card_id=None, name_en="Sol Ring")
+    def test_liga_url_fallback_to_entry_when_card_id_none(self) -> None:
+        """When card_id is None (unlinked), use entry.name_en as fallback."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row(
+            card_id=None,
+            name_en="Sol Ring",
+        )
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/1")
@@ -165,10 +139,19 @@ class TestLigaMagicLinkNameFallback:
 
         assert "Sol+Ring" in data["ligamagic_url"]
         assert "&show=1" in data["ligamagic_url"]
-        mock_repo.get_liga_card_url.assert_not_called()
+        # get_card_by_id should NOT be called when card_id is None
+        mock_repo.get_card_by_id.assert_not_called()
 
-    def test_falls_back_to_name_pt_when_name_en_missing(self) -> None:
-        mock_repo = _base_repo(name_en=None, name_pt="Anel Solar")
+    def test_liga_url_fallback_to_entry_name_pt_when_card_not_found(self) -> None:
+        """When get_card_by_id returns None, use entry.name_pt."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row(
+            name_en=None,
+            name_pt="Anel Solar",
+        )
+        mock_repo.get_card_by_id.return_value = None
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/1")
@@ -176,29 +159,74 @@ class TestLigaMagicLinkNameFallback:
 
         assert "Anel+Solar" in data["ligamagic_url"]
 
-    def test_no_names_yields_null_ligamagic_url(self) -> None:
-        mock_repo = _base_repo(card_id=None, name_en=None, name_pt=None)
+    def test_scryfall_url_still_uses_entry_name(self) -> None:
+        """Scryfall URL should still use the entry's name_en (for set filtering)."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row(
+            name_en="Arcane Signet",
+        )
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Dain, Dwarven King",
+        )
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/1")
         data = resp.json()["data"]
 
-        assert data["ligamagic_url"] is None
-
-    def test_special_chars_encoded(self) -> None:
-        mock_repo = _base_repo(name_en="Dain, Dwarven King")
-
-        client = TestClient(_make_app(mock_repo))
-        resp = client.get("/collection/1")
-        data = resp.json()["data"]
-
+        # Scryfall uses entry name (for now), Liga uses canonical name
+        assert "Arcane+Signet" in data["scryfall_url"]
         assert "Dain%2C+Dwarven+King" in data["ligamagic_url"]
 
-    def test_scryfall_url_still_uses_entry_name(self) -> None:
-        mock_repo = _base_repo(name_en="Arcane Signet")
+    def test_apostrophe_in_card_name(self) -> None:
+        """Card name with apostrophe is properly URL-encoded."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Frodo's Ring",
+        )
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/1")
         data = resp.json()["data"]
 
-        assert "Arcane+Signet" in data["scryfall_url"]
+        # quote_plus encodes apostrophe as %27
+        assert "Frodo%27s+Ring" in data["ligamagic_url"]
+
+    def test_split_card_uses_front_face_only(self) -> None:
+        """Split/DFC card name 'Front // Back' should only use front face in URL."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Painter's Studio // Defaced Gallery",
+        )
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/collection/1")
+        data = resp.json()["data"]
+
+        assert "Painter%27s+Studio" in data["ligamagic_url"]
+        assert "Defaced" not in data["ligamagic_url"]
+        assert "&show=1" in data["ligamagic_url"]
+
+    def test_dfc_with_comma_uses_front_face_only(self) -> None:
+        """DFC card with comma in front face name uses only front face."""
+        mock_repo = MagicMock()
+        mock_repo.get_collection_entry.return_value = _make_collection_row()
+        mock_repo.get_card_by_id.return_value = _make_card_row(
+            name_en="Beorn, Reluctant Host // Till and Tend",
+        )
+        mock_repo.get_source_cards_for_card.return_value = []
+        mock_repo.get_latest_prices_batch.return_value = {}
+
+        client = TestClient(_make_app(mock_repo))
+        resp = client.get("/collection/1")
+        data = resp.json()["data"]
+
+        assert "Beorn%2C+Reluctant+Host" in data["ligamagic_url"]
+        assert "Till" not in data["ligamagic_url"]

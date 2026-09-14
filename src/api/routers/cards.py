@@ -34,7 +34,7 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
-from src.providers.liga.urls import resolve_liga_card_url
+from src.providers.liga.url import liga_url_for_card_name
 from src.services.currency import CurrencyConverter
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -180,13 +180,6 @@ def get_card(
             user_id=str(user.id), card_id=card_id
         )
 
-    ligamagic_url = resolve_liga_card_url(
-        card_id,
-        is_foil=False,
-        fallback_name=card.name_en or card.name_pt or "",
-        lookup=repo.get_liga_card_url,
-    )
-
     data = CardDetail(
         id=card.id,
         game=card.game,
@@ -198,7 +191,7 @@ def get_card(
         currency=currency,
         source_cards=[SourceCardSchema.model_validate(sc) for sc in source_cards],
         collection_entry_id=collection_entry_id,
-        ligamagic_url=ligamagic_url,
+        ligamagic_url=liga_url_for_card_name(card.name_en) if card.name_en else None,
         created_at=card.created_at,
         updated_at=card.updated_at,
     )
@@ -276,7 +269,6 @@ async def refresh_card_price(
 ):
     """Refresh any card's price from LigaMagic (not limited to collection entries)."""
 
-    from src.collectors.liga_url_recorder import record_liga_url
     from src.domain.models import HistoricalPrice
     from src.providers.liga.exceptions import (
         LigaError,
@@ -339,7 +331,6 @@ async def refresh_card_price(
             median_price=price,
         )
         repo.insert_price_observations([obs])
-        record_liga_url(repo, ext_id, prices.get("page_url"))
 
     # Deduct credit
     credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(card_id))

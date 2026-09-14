@@ -12,6 +12,8 @@ import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { AddToWishlistButton } from "../components/AddToWishlistButton";
 import { BatchAddModal } from "../components/BatchAddModal";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { Card3DTilt } from "../components/Card3DTilt";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import { SetAlertModal } from "../components/SetAlertModal";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -36,6 +38,7 @@ export function CardDetail() {
   const { getCardName, getSubtitleName } = useCardName();
   const [showBatchAdd, setShowBatchAdd] = useState(false);
   const [showSetAlert, setShowSetAlert] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const detailFetcher = useCallback(
     () => fetchCardDetail(cardId, { currency }),
@@ -171,11 +174,15 @@ export function CardDetail() {
             collectorNumber={card.collector_number}
             nameEn={card.name_en}
             alt={getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}
+            onImageClick={() => setPreviewOpen(true)}
           />
 
           {/* Card name */}
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-white">{getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}</h1>
+            <h1
+              className="text-2xl font-bold text-white cursor-pointer hover:text-cyan-300 transition-colors"
+              onClick={() => setPreviewOpen(true)}
+            >{getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}</h1>
             <AddToWishlistButton cardId={card.id} />
           </div>
           {(() => {
@@ -346,32 +353,31 @@ export function CardDetail() {
                   />
                 </svg>
               </a>
-              <a
-                href={
-                  card.ligamagic_url ??
-                  `https://www.ligamagic.com.br/?view=cards/card&card=${encodeURIComponent(card.name_en)}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                data-testid="ligamagic-link"
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-700 px-3 py-1.5 text-sm text-cyan-400 hover:bg-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-              >
-                {t("cardDetail.viewOnLigaMagic")}
-                <svg
-                  className="h-3 w-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
+              {card.ligamagic_url && (
+                <a
+                  href={card.ligamagic_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="ligamagic-link"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-slate-700 px-3 py-1.5 text-sm text-cyan-400 hover:bg-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                  />
-                </svg>
-              </a>
+                  {t("cardDetail.viewOnLigaMagic")}
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </a>
+              )}
             </div>
           </div>
 
@@ -426,6 +432,21 @@ export function CardDetail() {
           initialText={`1 ${card.name_en}${card.set_code ? ` [${card.set_code}]` : ""}`}
         />
       )}
+
+      {/* Card Preview Modal (3D zoom) */}
+      {previewOpen && (() => {
+        const previewImageUrl = card.set_code && card.collector_number
+          ? scryfallImageUrl(card.set_code, card.collector_number, "normal")
+          : card.name_en ? scryfallImageByName(card.name_en, "normal") : null;
+        return previewImageUrl ? (
+          <CardPreviewModal
+            imageUrl={previewImageUrl}
+            cardName={getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}
+            isFoil={false}
+            onClose={() => setPreviewOpen(false)}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
@@ -436,11 +457,13 @@ function CardImage({
   collectorNumber,
   nameEn,
   alt,
+  onImageClick,
 }: {
   setCode: string | null;
   collectorNumber: string | null;
   nameEn: string;
   alt: string;
+  onImageClick?: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
@@ -468,20 +491,23 @@ function CardImage({
   return (
     <div className="mb-6 flex justify-center">
       {showImage && currentUrl ? (
-        <img
-          src={currentUrl}
-          alt={alt}
-          data-testid="card-image"
-          className="rounded-lg shadow-lg max-w-[250px] w-full"
-          loading="eager"
-          onError={() => {
-            if (primaryUrl && !imgError) {
-              setImgError(true);
-            } else {
-              setFallbackError(true);
-            }
-          }}
-        />
+        <Card3DTilt tiltMaxAngle={12} scale={1.05}>
+          <img
+            src={currentUrl}
+            alt={alt}
+            data-testid="card-image"
+            className="rounded-lg shadow-lg max-w-[250px] w-full cursor-zoom-in"
+            loading="eager"
+            onClick={onImageClick}
+            onError={() => {
+              if (primaryUrl && !imgError) {
+                setImgError(true);
+              } else {
+                setFallbackError(true);
+              }
+            }}
+          />
+        </Card3DTilt>
       ) : (
         <div
           data-testid="card-image-placeholder"

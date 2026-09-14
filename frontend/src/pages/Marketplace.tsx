@@ -9,6 +9,8 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { TradeInterestModal } from "../components/TradeInterestModal";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
+import { Card3DTilt } from "../components/Card3DTilt";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { useDebounce } from "../hooks/useDebounce";
@@ -27,6 +29,7 @@ function MarketplaceCardTile({
   const { getCardName } = useCardName();
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const displayName = getCardName(listing.card_name_en, listing.card_name_pt, t("common.unknownCard"));
   const primaryUrl = scryfallImageUrl(listing.set_code, listing.collector_number);
@@ -35,9 +38,10 @@ function MarketplaceCardTile({
   const showImage = !(imgError && (fallbackError || !fallbackUrl));
 
   return (
+    <Card3DTilt foil={false} className="w-full">
     <div
       className="group block bg-slate-800 rounded-lg overflow-hidden border border-slate-600
-        hover:border-cyan-400/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg relative"
+        hover:border-cyan-400/50 transition-all duration-300 hover:shadow-lg relative"
       data-testid={`marketplace-card-${listing.entry_id}`}
     >
       {listing.quantity > 1 && (
@@ -46,7 +50,18 @@ function MarketplaceCardTile({
         </span>
       )}
 
-      <div className="aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden">
+      <div
+        className={`aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden${showImage ? " cursor-zoom-in" : ""}`}
+        {...(showImage
+          ? {
+              onClick: (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setPreviewOpen(true);
+              },
+            }
+          : {})}
+      >
         {showImage ? (
           <img
             src={currentUrl}
@@ -105,6 +120,15 @@ function MarketplaceCardTile({
         </div>
       </div>
     </div>
+    {previewOpen && currentUrl && (
+      <CardPreviewModal
+        imageUrl={currentUrl}
+        cardName={displayName}
+        isFoil={false}
+        onClose={() => setPreviewOpen(false)}
+      />
+    )}
+    </Card3DTilt>
   );
 }
 

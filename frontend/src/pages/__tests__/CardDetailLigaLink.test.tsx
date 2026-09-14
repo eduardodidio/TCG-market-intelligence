@@ -95,7 +95,7 @@ describe("CardDetail LigaMagic link", () => {
     );
   });
 
-  it("falls back to the encoded name URL when ligamagic_url is null", async () => {
+  it("does not render ligamagic link when ligamagic_url is null", async () => {
     fetchCardDetailMock.mockResolvedValue({
       data: baseCard({ name_en: "Dain, Dwarven King", ligamagic_url: null }),
       errors: [],
@@ -103,11 +103,9 @@ describe("CardDetail LigaMagic link", () => {
 
     renderCardDetail();
 
-    const link = await screen.findByTestId("ligamagic-link");
-    await waitFor(() =>
-      expect(link.getAttribute("href")).toContain(
-        `card=${encodeURIComponent("Dain, Dwarven King")}`,
-      ),
-    );
+    // Wait for the card detail to render (scryfall link is always present)
+    await screen.findByTestId("scryfall-link");
+    // ligamagic link should NOT be present when ligamagic_url is null
+    expect(screen.queryByTestId("ligamagic-link")).toBeNull();
   });
 });
