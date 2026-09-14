@@ -11,6 +11,9 @@ interface AcquisitionPriceInputProps {
   onSaved?: (price: number | null, acquiredAt: string | null) => void;
 }
 
+// Keep in sync with PaidPriceQuickEdit and the backend validator (> 99999.99 rejected).
+const MAX_PRICE = 99999.99;
+
 /**
  * Inline editable fields for acquisition price and acquired date.
  * Saves via PATCH /collection/{id}.
@@ -51,7 +54,7 @@ export function AcquisitionPriceInput({
 
   const handleSavePrice = async () => {
     const numVal = priceDraft ? parseFloat(priceDraft) : null;
-    if (numVal !== null && (isNaN(numVal) || numVal <= 0)) {
+    if (numVal !== null && (isNaN(numVal) || numVal <= 0 || numVal > MAX_PRICE)) {
       setError(t("portfolio.invalidPrice"));
       return;
     }
@@ -159,6 +162,7 @@ export function AcquisitionPriceInput({
               type="number"
               step="0.01"
               min="0.01"
+              max="99999.99"
               value={priceDraft}
               onChange={(e) => setPriceDraft(e.target.value)}
               onKeyDown={handlePriceKeyDown}

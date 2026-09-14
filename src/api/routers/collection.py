@@ -73,7 +73,7 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import CardAnalytics, HistoricalPrice, User
-from src.providers.liga.urls import build_liga_card_url, is_valid_liga_card_url, liga_external_id
+from src.providers.liga.urls import resolve_liga_card_url
 from src.services import ban_analyzer
 from src.services.currency import CurrencyConverter
 from src.utils.set_code_map import map_to_scryfall_set_code
@@ -1681,22 +1681,13 @@ def _build_collection_detail(
 
     name = entry.name_en or entry.name_pt or ""
 
-    ligamagic_url = None
     is_foil = is_foil_entry(entry.extras)
-    if entry.card_id is not None:
-        keys = (
-            [liga_external_id(entry.card_id, True), liga_external_id(entry.card_id, False)]
-            if is_foil
-            else [liga_external_id(entry.card_id, False)]
-        )
-        for key in keys:
-            stored = repo.get_liga_card_url(key)
-            if is_valid_liga_card_url(stored):
-                ligamagic_url = stored
-                break
-    if ligamagic_url is None:
-        fetch_name = entry.name_en or entry.name_pt or ""
-        ligamagic_url = build_liga_card_url(fetch_name) if fetch_name else None
+    ligamagic_url = resolve_liga_card_url(
+        entry.card_id,
+        is_foil=is_foil,
+        fallback_name=entry.name_en or entry.name_pt or "",
+        lookup=repo.get_liga_card_url,
+    )
 
     scryfall_url = None
     if name:

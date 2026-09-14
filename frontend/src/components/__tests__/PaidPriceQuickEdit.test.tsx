@@ -9,6 +9,7 @@ vi.mock("react-i18next", () => ({
       const translations: Record<string, string> = {
         "collection.paidPrice": "Paid",
         "collection.setPaidPrice": "Set paid price",
+        "collection.paidPricePerCopy": "per copy",
         "portfolio.invalidPrice": "Enter a valid price greater than 0",
         "inlineEdit.saveError": "Failed to save changes",
         "inlineEdit.edit": "Edit",
@@ -230,5 +231,17 @@ describe("PaidPriceQuickEdit", () => {
     const btn = screen.getByTestId("paid-price-edit-btn");
     expect(btn).toHaveAttribute("title");
     expect(btn.textContent).toBe("");
+  });
+
+  it("shows the per-copy hint while editing when quantity > 1", () => {
+    renderWithLink({ acquisitionPrice: 10, quantity: 3 });
+    fireEvent.click(screen.getByTestId("paid-price-edit-btn"));
+    expect(screen.getByTestId("paid-price-per-copy")).toHaveTextContent("per copy");
+  });
+
+  it("does not show the per-copy hint for a single copy", () => {
+    renderWithLink({ acquisitionPrice: 10, quantity: 1 });
+    fireEvent.click(screen.getByTestId("paid-price-edit-btn"));
+    expect(screen.queryByTestId("paid-price-per-copy")).not.toBeInTheDocument();
   });
 });

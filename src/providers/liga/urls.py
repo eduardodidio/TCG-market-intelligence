@@ -6,6 +6,7 @@ and unit-tested without a browser.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from urllib.parse import parse_qs, quote_plus, urlsplit
 
 LIGA_BASE_URL = "https://www.ligamagic.com.br"
@@ -42,3 +43,35 @@ def is_valid_liga_card_url(url: str | None) -> bool:
 def liga_external_id(card_id: int, is_foil: bool) -> str:
     """Build the external_id used for Liga sweep price rows."""
     return f"liga_{card_id}_foil" if is_foil else f"liga_{card_id}"
+
+
+def resolve_liga_card_url(
+    card_id: int | None,
+    *,
+    is_foil: bool,
+    fallback_name: str,
+    lookup: Callable[[str], str | None],
+) -> str | None:
+    """Resolve the best Liga URL for a card.
+
+    Prefers the stored URL of the page the price was actually fetched from
+    (foil key first for foil entries, then the non-foil key), and only falls
+    back to a name-based search URL when no valid stored URL exists. Stored
+    values are validated with :func:`is_valid_liga_card_url` so a foreign or
+    malformed URL is never returned.
+
+    ``lookup`` maps an external_id to a stored URL (typically
+    ``Repository.get_liga_card_url``), keeping this module free of any DB
+    dependency.
+    """
+    if card_id is not None:
+        keys = (
+            [liga_external_id(card_id, True), liga_external_id(card_id, False)]
+            if is_foil
+            else [liga_external_id(card_id, False)]
+        )
+        for key in keys:
+            stored = lookup(key)
+            if is_valid_liga_card_url(stored):
+                return stored
+    return build_liga_card_url(fallback_name) if fallback_name else None

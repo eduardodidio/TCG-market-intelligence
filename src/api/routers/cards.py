@@ -34,7 +34,7 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
-from src.providers.liga.urls import build_liga_card_url, is_valid_liga_card_url, liga_external_id
+from src.providers.liga.urls import resolve_liga_card_url
 from src.services.currency import CurrencyConverter
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -180,12 +180,12 @@ def get_card(
             user_id=str(user.id), card_id=card_id
         )
 
-    stored_url = repo.get_liga_card_url(liga_external_id(card_id, False))
-    if is_valid_liga_card_url(stored_url):
-        ligamagic_url = stored_url
-    else:
-        fetch_name = card.name_en or card.name_pt or ""
-        ligamagic_url = build_liga_card_url(fetch_name) if fetch_name else None
+    ligamagic_url = resolve_liga_card_url(
+        card_id,
+        is_foil=False,
+        fallback_name=card.name_en or card.name_pt or "",
+        lookup=repo.get_liga_card_url,
+    )
 
     data = CardDetail(
         id=card.id,

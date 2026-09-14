@@ -9,6 +9,8 @@ interface PaidPriceQuickEditProps {
   latestPrice: number | null;
   currency: string;
   compact?: boolean;
+  /** Number of copies of this card; when > 1 the editor shows a "per copy" hint. */
+  quantity?: number;
   onSaved: (entryId: number, price: number | null) => void;
 }
 
@@ -25,6 +27,7 @@ export function PaidPriceQuickEdit({
   latestPrice,
   currency,
   compact = false,
+  quantity = 1,
   onSaved,
 }: PaidPriceQuickEditProps) {
   const { t } = useTranslation();
@@ -199,6 +202,11 @@ export function PaidPriceQuickEdit({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+          {quantity > 1 && (
+            <span className="text-xs text-slate-500" data-testid="paid-price-per-copy">
+              {t("collection.paidPricePerCopy")}
+            </span>
+          )}
         </div>
       )}
       {error && (

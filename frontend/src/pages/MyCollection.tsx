@@ -224,6 +224,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
                   latestPrice={card.latest_price}
                   currency={currencyOverride || "BRL"}
                   compact={compact}
+                  quantity={card.quantity}
                   onSaved={onPaidPriceSaved}
                 />
               </div>

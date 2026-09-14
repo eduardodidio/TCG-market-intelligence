@@ -9,6 +9,7 @@ from src.providers.liga.urls import (
     build_liga_card_url,
     is_valid_liga_card_url,
     liga_external_id,
+    resolve_liga_card_url,
 )
 
 
@@ -86,3 +87,62 @@ class TestLigaExternalId:
     def test_zero_card_id_boundary(self):
         assert liga_external_id(0, False) == "liga_0"
         assert liga_external_id(0, True) == "liga_0_foil"
+
+
+class TestResolveLigaCardUrl:
+    _STORED = "https://www.ligamagic.com.br/?view=cards/card&card=123&show=1"
+    _STORED_FOIL = "https://www.ligamagic.com.br/?view=cards/card&card=123f&show=1"
+
+    def test_returns_stored_non_foil(self):
+        store = {"liga_7": self._STORED}
+        url = resolve_liga_card_url(
+            7, is_foil=False, fallback_name="Bolt", lookup=store.get
+        )
+        assert url == self._STORED
+
+    def test_foil_prefers_foil_key(self):
+        store = {"liga_7": self._STORED, "liga_7_foil": self._STORED_FOIL}
+        url = resolve_liga_card_url(
+            7, is_foil=True, fallback_name="Bolt", lookup=store.get
+        )
+        assert url == self._STORED_FOIL
+
+    def test_foil_falls_back_to_non_foil_key(self):
+        store = {"liga_7": self._STORED}
+        url = resolve_liga_card_url(
+            7, is_foil=True, fallback_name="Bolt", lookup=store.get
+        )
+        assert url == self._STORED
+
+    def test_non_foil_never_reads_foil_key(self):
+        store = {"liga_7_foil": self._STORED_FOIL}
+        url = resolve_liga_card_url(
+            7, is_foil=False, fallback_name="Lightning Bolt", lookup=store.get
+        )
+        assert url == build_liga_card_url("Lightning Bolt")
+
+    def test_invalid_stored_url_falls_back_to_name(self):
+        store = {"liga_7": "https://evil.com/?view=cards/card"}
+        url = resolve_liga_card_url(
+            7, is_foil=False, fallback_name="Lightning Bolt", lookup=store.get
+        )
+        assert url == build_liga_card_url("Lightning Bolt")
+
+    def test_no_card_id_uses_name_without_lookup(self):
+        calls: list[str] = []
+
+        def lookup(key: str) -> str | None:
+            calls.append(key)
+            return None
+
+        url = resolve_liga_card_url(
+            None, is_foil=False, fallback_name="Lightning Bolt", lookup=lookup
+        )
+        assert url == build_liga_card_url("Lightning Bolt")
+        assert calls == []  # lookup never called when card_id is None
+
+    def test_no_stored_and_no_name_returns_none(self):
+        url = resolve_liga_card_url(
+            7, is_foil=False, fallback_name="", lookup=lambda _k: None
+        )
+        assert url is None

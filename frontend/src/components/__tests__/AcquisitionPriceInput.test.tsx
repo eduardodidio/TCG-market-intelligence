@@ -126,4 +126,40 @@ describe("AcquisitionPriceInput", () => {
     expect(await screen.findByTestId("acquisition-error")).toBeInTheDocument();
     expect(patchCollectionEntry).not.toHaveBeenCalled();
   });
+
+  it("rejects a price above the max (99999.99) without calling the API", async () => {
+    const patchCollectionEntry = await importPatch();
+    render(
+      <AcquisitionPriceInput entryId={1} acquisitionPrice={null} acquiredAt={null} />,
+    );
+
+    fireEvent.click(screen.getByTestId("acquisition-price-edit-btn"));
+    const input = screen.getByTestId("acquisition-price-field");
+    fireEvent.change(input, { target: { value: "100000" } });
+    fireEvent.click(screen.getByTestId("acquisition-price-save"));
+
+    expect(await screen.findByTestId("acquisition-error")).toBeInTheDocument();
+    expect(patchCollectionEntry).not.toHaveBeenCalled();
+  });
+
+  it("accepts the max boundary price (99999.99)", async () => {
+    const patchCollectionEntry = await importPatch();
+    patchCollectionEntry.mockResolvedValue({
+      data: { id: 1 } as never,
+      meta: {} as never,
+      errors: [],
+    });
+    render(
+      <AcquisitionPriceInput entryId={1} acquisitionPrice={null} acquiredAt={null} />,
+    );
+
+    fireEvent.click(screen.getByTestId("acquisition-price-edit-btn"));
+    const input = screen.getByTestId("acquisition-price-field");
+    fireEvent.change(input, { target: { value: "99999.99" } });
+    fireEvent.click(screen.getByTestId("acquisition-price-save"));
+
+    await waitFor(() => {
+      expect(patchCollectionEntry).toHaveBeenCalledWith(1, { acquisition_price: 99999.99 });
+    });
+  });
 });
