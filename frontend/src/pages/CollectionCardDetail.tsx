@@ -24,6 +24,8 @@ import { ManualPriceInput } from "../components/ManualPriceInput";
 import { MetricsPanel } from "../components/MetricsPanel";
 import { PnlBadge } from "../components/PnlBadge";
 import { PriceChart } from "../components/PriceChart";
+import { Card3DTilt } from "../components/Card3DTilt";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import { FoilBadge } from "../components/FoilBadge";
 import { PriceSourceBadge } from "../components/PriceSourceBadge";
 import { QuantityStepper } from "../components/QuantityStepper";
@@ -97,6 +99,8 @@ export function CollectionCardDetail() {
   const [canonizing, setCanonizing] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
   const [creditModalTarget, setCreditModalTarget] = useState<"liga" | "myp">("liga");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const { balance, isAdmin, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
 
   // Refetch credit balance when navigating between cards
@@ -288,19 +292,25 @@ export function CollectionCardDetail() {
         <div data-testid="card-info-panel" className="bg-slate-800 border border-slate-600 rounded-lg p-6">
           {/* Card image */}
           <div className="mb-6 flex justify-center">
-            <img
-              src={imageUrl}
-              alt={displayName}
-              data-testid="card-image"
-              className="rounded-lg shadow-lg max-w-[250px] w-full"
-              loading="eager"
-              onError={(e) => { e.currentTarget.style.display = "none"; }}
-            />
+            <Card3DTilt foil={entry.is_foil}>
+              <img
+                src={imageUrl}
+                alt={displayName}
+                data-testid="card-image"
+                className="rounded-lg shadow-lg max-w-[250px] w-full cursor-zoom-in"
+                loading="eager"
+                onClick={() => !imageError && setPreviewOpen(true)}
+                onError={(e) => { setImageError(true); e.currentTarget.style.display = "none"; }}
+              />
+            </Card3DTilt>
           </div>
 
           {/* Card name */}
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-white">{displayName}</h1>
+            <h1
+              className="text-2xl font-bold text-white cursor-pointer hover:text-cyan-300 transition-colors"
+              onClick={() => setPreviewOpen(true)}
+            >{displayName}</h1>
             {entry.is_foil && <FoilBadge variant="full" />}
           </div>
           {(() => {
@@ -698,6 +708,15 @@ export function CollectionCardDetail() {
         bonusEligible={bonusEligible}
         onClaimBonus={async () => { await claimBonus(); refetchCredits(); }}
       />
+
+      {previewOpen && imageUrl && (
+        <CardPreviewModal
+          imageUrl={imageUrl}
+          cardName={displayName}
+          isFoil={entry.is_foil}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </div>
   );
 }

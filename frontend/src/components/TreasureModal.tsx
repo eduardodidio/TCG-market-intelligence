@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useTreasureImage } from "../hooks/useTreasureImage";
+import { Card3DTilt } from "./Card3DTilt";
 
 interface TreasureModalProps {
   count: number;
@@ -167,18 +168,20 @@ export function TreasureModal({
         onClick={(e) => e.stopPropagation()}
         data-testid="treasure-modal-content"
       >
-        <img
-          src={treasureImage}
-          alt={t("credits.balance")}
-          className="max-h-[70vh] max-w-[90vw] rounded-lg"
-          style={{
-            boxShadow: isOpen
-              ? "0 0 80px 20px rgba(245, 158, 11, 0.4), 0 0 120px 40px rgba(245, 158, 11, 0.15), 0 25px 50px -12px rgba(0, 0, 0, 0.6)"
-              : "0 4px 6px rgba(0, 0, 0, 0.3)",
-            transition: `box-shadow ${ANIM_DURATION}ms ease`,
-          }}
-          data-testid="treasure-modal-image"
-        />
+        <Card3DTilt tiltMaxAngle={18} scale={1.08} foil>
+          <img
+            src={treasureImage}
+            alt={t("credits.balance")}
+            className="max-h-[70vh] max-w-[90vw] rounded-lg"
+            style={{
+              boxShadow: isOpen
+                ? "0 0 80px 20px rgba(245, 158, 11, 0.4), 0 0 120px 40px rgba(245, 158, 11, 0.15), 0 25px 50px -12px rgba(0, 0, 0, 0.6)"
+                : "0 4px 6px rgba(0, 0, 0, 0.3)",
+              transition: `box-shadow ${ANIM_DURATION}ms ease`,
+            }}
+            data-testid="treasure-modal-image"
+          />
+        </Card3DTilt>
         <div
           className="flex items-center gap-2 bg-slate-800/90 px-4 py-2 rounded-lg"
           style={{

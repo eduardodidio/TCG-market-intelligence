@@ -9,7 +9,9 @@ import {
   removeFromWishlist,
 } from "../api/wishlist";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
@@ -196,6 +198,7 @@ function WishlistCard({
   isAcquired: boolean;
 }) {
   const { t } = useTranslation();
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const imgSrc =
     item.image_uri ??
@@ -206,12 +209,24 @@ function WishlistCard({
         : null);
 
   return (
+    <Card3DTilt foil={false} className="w-full">
     <div
       className="relative flex flex-col bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden"
       data-testid="wishlist-card"
     >
       {/* Card image */}
-      <div className="aspect-[5/7] bg-gray-100 dark:bg-slate-700">
+      <div
+        className={`aspect-[5/7] bg-gray-100 dark:bg-slate-700${imgSrc ? " cursor-zoom-in" : ""}`}
+        {...(imgSrc
+          ? {
+              onClick: (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setPreviewOpen(true);
+              },
+            }
+          : {})}
+      >
         <CardImage
           src={imgSrc}
           alt={item.name_en}
@@ -288,5 +303,14 @@ function WishlistCard({
         </button>
       </div>
     </div>
+    {previewOpen && imgSrc && (
+      <CardPreviewModal
+        imageUrl={imgSrc}
+        cardName={item.name_en ?? "Card"}
+        isFoil={false}
+        onClose={() => setPreviewOpen(false)}
+      />
+    )}
+    </Card3DTilt>
   );
 }

@@ -3,6 +3,14 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { TreasureModal } from "../../src/components/TreasureModal";
 import { LanguageProvider } from "../../src/contexts/LanguageContext";
 
+vi.mock("react-parallax-tilt", () => ({
+  default: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => (
+    <div data-testid="tilt-wrapper" data-props={JSON.stringify(props)}>
+      {children}
+    </div>
+  ),
+}));
+
 // Mock localStorage
 beforeEach(() => {
   vi.useFakeTimers();
@@ -102,5 +110,45 @@ describe("TreasureModal", () => {
     const img = screen.getByTestId("treasure-modal-image") as HTMLImageElement;
     // Default language is EN, so src should contain the EN treasure image
     expect(img.src).toBeTruthy();
+  });
+
+  it("wraps image in Card3DTilt with tiltMaxAngle=18 and scale=1.08", () => {
+    renderModal();
+
+    const tiltWrapper = screen.getByTestId("tilt-wrapper");
+    expect(tiltWrapper).toBeDefined();
+    const props = JSON.parse(tiltWrapper.getAttribute("data-props") || "{}");
+    expect(props.tiltMaxAngleX).toBe(18);
+    expect(props.tiltMaxAngleY).toBe(18);
+    expect(props.scale).toBe(1.08);
+  });
+
+  it("enables foil shimmer on Card3DTilt (glare enabled)", () => {
+    renderModal();
+
+    const tiltWrapper = screen.getByTestId("tilt-wrapper");
+    const props = JSON.parse(tiltWrapper.getAttribute("data-props") || "{}");
+    expect(props.glareEnable).toBe(true);
+    expect(props.glareMaxOpacity).toBe(0.15);
+  });
+
+  it("renders foil-shimmer wrapper around image", () => {
+    renderModal();
+
+    // TreasureModal uses createPortal to document.body, so query from there
+    const shimmer = document.body.querySelector(".foil-shimmer");
+    expect(shimmer).not.toBeNull();
+    // The image should be inside the shimmer wrapper
+    const img = screen.getByTestId("treasure-modal-image");
+    expect(shimmer!.contains(img)).toBe(true);
+  });
+
+  it("keeps fly-in animation styles on content container", () => {
+    renderModal();
+
+    const content = screen.getByTestId("treasure-modal-content");
+    // The content element should have transition styles for the fly-in animation
+    expect(content.style.transition).toContain("transform");
+    expect(content.style.transition).toContain("opacity");
   });
 });
