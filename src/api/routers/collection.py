@@ -1406,7 +1406,10 @@ async def refresh_card_price_liga(
     log.debug("liga_refresh_start", entry_id=entry_id, card_name=card_name)
 
     try:
-        prices = await provider.search_card(card_name)
+        prices = await provider.search_card(
+            card_name,
+            collector_number=entry.collector_number,
+        )
     except LigaNotFoundError:
         response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
         response.errors.append(

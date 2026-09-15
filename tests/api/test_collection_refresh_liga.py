@@ -368,7 +368,7 @@ class TestRefreshLigaHappyPath:
         resp = client.post("/collection/1/refresh-liga")
 
         assert resp.status_code == 200
-        provider.search_card.assert_called_once_with("Raio")
+        provider.search_card.assert_called_once_with("Raio", collector_number="123")
 
     def test_no_provider_close_per_request(self) -> None:
         """Singleton provider should NOT be closed per request."""

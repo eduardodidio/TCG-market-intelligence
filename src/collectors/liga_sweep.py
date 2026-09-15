@@ -45,7 +45,11 @@ async def _fetch_liga_price(provider, card: dict) -> HistoricalPrice | None:
         return None
 
     is_foil_card = _is_foil(card.get("extras"))
-    prices = await provider.search_card(card_name)
+    collector_number = card.get("collector_number")
+    prices = await provider.search_card(
+        card_name,
+        collector_number=collector_number,
+    )
 
     if is_foil_card:
         foil = prices.get("foil", {})

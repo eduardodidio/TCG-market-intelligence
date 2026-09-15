@@ -16,11 +16,8 @@ from src.providers.liga.exceptions import (
     LigaRateLimitError,
     LigaServerError,
 )
-from src.providers.liga.provider import (
-    BASE_URL,
-    LigaMagicProvider,
-    _build_card_url,
-)
+from src.providers.liga.provider import LigaMagicProvider, _build_card_url
+from src.providers.liga.url import BASE_URL
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 

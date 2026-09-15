@@ -1517,7 +1517,11 @@ async def _push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age
                 continue
 
             try:
-                prices = await provider.search_card(card_name)
+                collector_number = entry.get("collector_number")
+                prices = await provider.search_card(
+                    card_name,
+                    collector_number=collector_number,
+                )
 
                 if is_foil:
                     foil = prices.get("foil", {})
@@ -2215,9 +2219,7 @@ def backfill_portfolio(db, user_id, days, skip_prices, dry_run):
                 days_to_fill = days + 1 - existing_snapshots
 
             price_info = f"{missing_prices}/{total_entries}" if not skip_prices else "skipped"
-            click.echo(
-                f"  User {uid}: prices={price_info}, " f"snapshots={days_to_fill} days to fill"
-            )
+            click.echo(f"  User {uid}: prices={price_info}, snapshots={days_to_fill} days to fill")
             results.append(
                 {
                     "user_id": uid,
@@ -2250,9 +2252,7 @@ def backfill_portfolio(db, user_id, days, skip_prices, dry_run):
             value = today_result["value"]
 
             click.echo(
-                f"  User {uid}: prices={price_info}, "
-                f"snapshots={snap_info}, "
-                f"value=R$ {value:.2f}"
+                f"  User {uid}: prices={price_info}, snapshots={snap_info}, value=R$ {value:.2f}"
             )
             results.append(
                 {
