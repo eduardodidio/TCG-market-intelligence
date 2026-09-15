@@ -1572,15 +1572,27 @@ class Repository:
 
             # Sorting
             if sort_by == "price":
-                latest = self._latest_price_subquery()
+                # Correlated scalar subquery: latest liga price (normal OR foil)
                 liga_ext = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
-                stmt = stmt.outerjoin(latest, liga_ext == latest.c.external_id)
+                liga_ext_foil = func.concat(liga_ext, "_foil")
+                sort_price = (
+                    select(PriceObservationRow.median_price)
+                    .where(
+                        PriceObservationRow.source == "liga",
+                        (PriceObservationRow.external_id == liga_ext)
+                        | (PriceObservationRow.external_id == liga_ext_foil),
+                    )
+                    .order_by(PriceObservationRow.observed_at.desc())
+                    .limit(1)
+                    .correlate(UserCollectionRow)
+                    .scalar_subquery()
+                )
                 # Push NULLs to end regardless of direction
-                null_flag = case((latest.c.median_price.is_(None), 1), else_=0)
+                null_flag = case((sort_price.is_(None), 1), else_=0)
                 if sort_dir == "desc":
-                    sort_expr = latest.c.median_price.desc()
+                    sort_expr = sort_price.desc()
                 else:
-                    sort_expr = latest.c.median_price.asc()
+                    sort_expr = sort_price.asc()
                 stmt = stmt.order_by(null_flag, sort_expr, UserCollectionRow.id.asc())
             else:
                 col_name = self._COLLECTION_SORT_COLUMNS.get(sort_by, "name_en")
