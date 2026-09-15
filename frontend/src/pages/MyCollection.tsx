@@ -246,14 +246,6 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
         </div>
       </div>
     </div>
-    {previewOpen && primaryUrl && (
-      <CardPreviewModal
-        imageUrl={primaryUrl}
-        cardName={displayName}
-        isFoil={card.is_foil}
-        onClose={() => setPreviewOpen(false)}
-      />
-    )}
     </Card3DTilt>
   );
 
@@ -284,6 +276,14 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
         bonusEligible={bonusEligible}
         onClaimBonus={async () => { await claimBonus(); refetchCredits(); }}
       />
+      {previewOpen && primaryUrl && (
+        <CardPreviewModal
+          imageUrl={primaryUrl}
+          cardName={displayName}
+          isFoil={card.is_foil}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </>
   );
 }

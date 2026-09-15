@@ -16,7 +16,6 @@ import { OfflineBanner } from "./OfflineBanner";
 import { ThemeToggle } from "./ThemeToggle";
 import { TreasureBalance } from "./TreasureBalance";
 import { UndoToast } from "./UndoToast";
-import { UpdatePrompt } from "./UpdatePrompt";
 
 interface NavItem {
   to: string;
@@ -407,9 +406,6 @@ export function Layout() {
           onDismiss={gaucho.dismissDialog}
         />
       )}
-
-      {/* PWA update prompt */}
-      <UpdatePrompt />
 
       {/* Undo delete toast -- survives page navigation */}
       {pendingDelete && (

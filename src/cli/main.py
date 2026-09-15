@@ -2284,5 +2284,94 @@ def backfill_portfolio(db, user_id, days, skip_prices, dry_run):
         click.echo(f"\nBackfill complete for {len(results)} user(s).")
 
 
+@cli.command("import-csv")
+@click.option(
+    "--file",
+    "csv_file",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the CSV file to import",
+)
+@click.option("--user-id", required=True, help="User ID to import into")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Parse CSV and show stats without importing",
+)
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+def import_csv_cmd(csv_file: str, user_id: str, dry_run: bool, db: str):
+    """Import collection from CSV file (clears existing collection first)."""
+    import csv as csv_mod
+    from pathlib import Path
+
+    from src.collection.importer import _detect_encoding
+
+    csv_path = Path(csv_file)
+    encoding = _detect_encoding(csv_path)
+
+    if dry_run:
+        total_rows = 0
+        linkable = 0
+        skippable = 0
+
+        with open(csv_path, encoding=encoding, newline="") as f:
+            reader = csv_mod.DictReader(f)
+            for row in reader:
+                total_rows += 1
+                set_code = (row.get("Edicao (Sigla)") or "").strip()
+                collector_number = (row.get("Card #") or "").strip()
+                if set_code and collector_number:
+                    linkable += 1
+                else:
+                    skippable += 1
+
+        click.echo("")
+        click.echo("=" * 60)
+        click.echo("  DRY RUN — no data was written")
+        click.echo("  CSV IMPORT PREVIEW")
+        click.echo(f"  File:              {csv_path.name}")
+        click.echo(f"  Encoding:          {encoding}")
+        click.echo(f"  Total rows:        {total_rows}")
+        click.echo(f"  Importable:        {linkable}")
+        click.echo(f"  Will be skipped:   {skippable}")
+        click.echo(f"  User ID:           {user_id}")
+        click.echo("=" * 60)
+        click.echo("")
+        return
+
+    # Warn the user that existing collection will be cleared
+    click.echo("")
+    click.echo("  WARNING: This will DELETE all existing collection entries")
+    click.echo(f"  for user '{user_id}' before importing from '{csv_path.name}'.")
+    click.echo("")
+    if not click.confirm("  Proceed?"):
+        click.echo("  Aborted.")
+        return
+
+    from sqlalchemy import create_engine
+
+    from src.collection.importer import import_collection_csv
+
+    engine = create_engine(db, echo=False)
+    result = import_collection_csv(engine, csv_file, user_id)
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  CSV IMPORT SUMMARY")
+    click.echo(f"  Total CSV rows:    {result['total_csv_rows']}")
+    click.echo(f"  Imported:          {result['imported']}")
+    click.echo(f"  Skipped:           {result['skipped']}")
+    click.echo(f"  Linked to catalog: {result['linked']}")
+    click.echo("=" * 60)
+    click.echo("")
+
+
 if __name__ == "__main__":
     cli()
