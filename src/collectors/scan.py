@@ -60,7 +60,11 @@ async def _fetch_price_liga(
     if not card_name:
         return None
 
-    prices = await provider.search_card(card_name)
+    collector_number = entry.get("collector_number")
+    prices = await provider.search_card(
+        card_name,
+        collector_number=collector_number,
+    )
     page_url = prices.get("page_url")
 
     if is_foil:

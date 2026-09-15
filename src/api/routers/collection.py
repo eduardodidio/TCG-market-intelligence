@@ -1356,6 +1356,7 @@ async def refresh_card_price_liga(
     """Refresh a single card's price from LigaMagic in real-time."""
     import traceback as _tb
 
+    from src.collectors.liga_url_recorder import record_liga_url
     from src.domain.models import HistoricalPrice
     from src.providers.liga.exceptions import (
         LigaError,
@@ -1406,7 +1407,10 @@ async def refresh_card_price_liga(
     log.debug("liga_refresh_start", entry_id=entry_id, card_name=card_name)
 
     try:
-        prices = await provider.search_card(card_name)
+        prices = await provider.search_card(
+            card_name,
+            collector_number=entry.collector_number,
+        )
     except LigaNotFoundError:
         response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
         response.errors.append(
@@ -1497,6 +1501,7 @@ async def refresh_card_price_liga(
         median_price=price,
     )
     repo.insert_price_observations([obs])
+    record_liga_url(repo, ext_id, prices.get("page_url"))
     log.info(
         "card_price_refreshed_liga",
         entry_id=entry_id,

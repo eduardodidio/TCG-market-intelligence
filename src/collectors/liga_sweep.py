@@ -33,9 +33,7 @@ class LigaSweepResult:
 from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
 
 
-async def _fetch_liga_price(
-    provider, card: dict
-) -> tuple[HistoricalPrice, str | None] | None:
+async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str | None] | None:
     """Fetch price for a single card via the Liga provider.
 
     Returns a (HistoricalPrice, page_url) tuple or None if no price found.
@@ -48,7 +46,11 @@ async def _fetch_liga_price(
         return None
 
     is_foil_card = _is_foil(card.get("extras"))
-    prices = await provider.search_card(card_name)
+    collector_number = card.get("collector_number")
+    prices = await provider.search_card(
+        card_name,
+        collector_number=collector_number,
+    )
     page_url = prices.get("page_url")
 
     if is_foil_card:

@@ -307,7 +307,10 @@ async def refresh_card_price(
         )
 
     try:
-        prices = await provider.search_card(card_name)
+        prices = await provider.search_card(
+            card_name,
+            collector_number=card.collector_number,
+        )
     except LigaNotFoundError:
         raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found on LigaMagic")
     except LigaRateLimitError:

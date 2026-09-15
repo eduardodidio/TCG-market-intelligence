@@ -187,7 +187,7 @@ class TestFetchPriceLiga:
         assert observation.median_price == Decimal("25.00")
         assert observation.currency == "BRL"
         assert page_url == _LIGA_PAGE_URL
-        provider.search_card.assert_awaited_once_with("Counterspell")
+        provider.search_card.assert_awaited_once_with("Counterspell", collector_number=None)
 
     async def test_falls_back_to_low(self):
         provider = MagicMock()
@@ -289,7 +289,7 @@ class TestFetchPriceLiga:
 
         assert result is not None
         assert observation.median_price == Decimal("5.00")
-        provider.search_card.assert_awaited_once_with("Raio")
+        provider.search_card.assert_awaited_once_with("Raio", collector_number=None)
 
 
 # ── run_scan with Liga provider ─────────────────────────────────

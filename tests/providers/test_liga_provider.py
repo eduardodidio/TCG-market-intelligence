@@ -16,11 +16,8 @@ from src.providers.liga.exceptions import (
     LigaRateLimitError,
     LigaServerError,
 )
-from src.providers.liga.provider import (
-    BASE_URL,
-    LigaMagicProvider,
-    _build_card_url,
-)
+from src.providers.liga.provider import LigaMagicProvider, _build_card_url
+from src.providers.liga.url import BASE_URL
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 
@@ -428,7 +425,9 @@ class TestSearchCard:
     async def test_page_url_uses_redirected_url_when_valid(self, provider):
         """A valid redirected page.url wins over the requested URL."""
         html = _load_html("liga_card_bolt.html")
-        redirected = "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1&extra=1"
+        redirected = (
+            "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1&extra=1"
+        )
 
         async def fake_fetch(url: str) -> str:
             provider._last_page_url = redirected

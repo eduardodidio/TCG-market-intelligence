@@ -25,8 +25,9 @@ from src.providers.liga.exceptions import (
     LigaRateLimitError,
     LigaServerError,
 )
-from src.providers.liga.parser import parse_card_prices
+from src.providers.liga.parser import parse_card_prices, parse_edition_options
 from src.providers.liga.url import liga_url_for_card_name
+from src.providers.liga.urls import is_valid_liga_card_url
 
 log = structlog.get_logger()
 
@@ -77,6 +78,7 @@ class LigaMagicProvider(CardSourceProvider):
         self._request_count = 0
         self._lock = asyncio.Lock()
         self._unavailable = False
+        self._last_page_url: str | None = None
 
     @property
     def source_name(self) -> str:
@@ -242,6 +244,8 @@ class LigaMagicProvider(CardSourceProvider):
         Applies rate limiting, retries on failure, and raises typed
         exceptions based on HTTP status.
         """
+        self._last_page_url = None
+
         if self._use_sync:
             return await asyncio.to_thread(self._fetch_page_sync, url)
 
@@ -340,6 +344,7 @@ class LigaMagicProvider(CardSourceProvider):
                     )
                     await page.wait_for_timeout(2000)
 
+                self._last_page_url = page.url or url
                 return await page.content()
 
             except LigaError:
@@ -391,6 +396,7 @@ class LigaMagicProvider(CardSourceProvider):
         Mirrors the async ``_fetch_page`` logic but uses blocking calls
         and ``time.sleep()`` for delays.  Runs inside ``asyncio.to_thread()``.
         """
+        self._last_page_url = None
         last_status = 0
         timeout_ms = int(self.config.timeout_seconds * 1000)
 
@@ -490,6 +496,7 @@ class LigaMagicProvider(CardSourceProvider):
                     )
                     page.wait_for_timeout(2000)
 
+                self._last_page_url = page.url or url
                 return page.content()
 
             except LigaError:
@@ -639,19 +646,36 @@ class LigaMagicProvider(CardSourceProvider):
 
     # --- Convenience methods (not in ABC) ---
 
-    async def search_card(self, card_name: str) -> dict:
+    async def search_card(
+        self,
+        card_name: str,
+        collector_number: str | None = None,
+    ) -> dict:
         """Search for a card by name and return parsed price data.
 
         Convenience method for direct card lookups by name.
         Returns the parsed price dict from parse_card_prices.
+
+        Args:
+            card_name: English card name to search for.
+            collector_number: If provided, selects the matching edition
+                on the Liga page before parsing prices.  This ensures
+                the returned prices match the exact printing.
         """
         if not card_name or not card_name.strip():
             return parse_card_prices("", card_name)
 
         async with self._lock:
-            return await self._search_card_unlocked(card_name)
+            return await self._search_card_unlocked(
+                card_name,
+                collector_number=collector_number,
+            )
 
-    async def _search_card_unlocked(self, card_name: str) -> dict:
+    async def _search_card_unlocked(
+        self,
+        card_name: str,
+        collector_number: str | None = None,
+    ) -> dict:
         url = _build_card_url(card_name)
         log.debug("liga_search_start", card=card_name, url=url)
 
@@ -679,8 +703,15 @@ class LigaMagicProvider(CardSourceProvider):
             )
             raise LigaError(msg, url=url) from e
 
+        # If collector_number provided, try selecting the exact edition
+        if collector_number:
+            html = await self._select_edition(html, card_name, collector_number)
+
         log.debug("liga_search_html_received", card=card_name, html_length=len(html))
         prices = parse_card_prices(html, card_name)
+        prices["page_url"] = (
+            self._last_page_url if is_valid_liga_card_url(self._last_page_url) else url
+        )
 
         normal = prices.get("normal", {})
         foil = prices.get("foil", {})
@@ -705,3 +736,72 @@ class LigaMagicProvider(CardSourceProvider):
             )
 
         return prices
+
+    async def _select_edition(self, html: str, card_name: str, collector_number: str) -> str:
+        """Try to select the edition matching *collector_number* on the current page.
+
+        Uses the edition dropdown parsed from *html* and calls the Liga
+        JavaScript function ``editionsCard.changeEdition(value)`` via Playwright.
+        Returns the updated HTML after edition change, or the original HTML
+        if no matching edition is found.
+        """
+        editions = parse_edition_options(html)
+        if not editions:
+            return html
+
+        # Find matching edition(s) by collector number
+        matches = [(val, cn) for val, cn in editions if cn == collector_number]
+        if not matches:
+            log.debug(
+                "liga_edition_no_match",
+                card=card_name,
+                collector_number=collector_number,
+                available_count=len(editions),
+            )
+            return html
+
+        edition_value = matches[0][0]
+        log.debug(
+            "liga_edition_select",
+            card=card_name,
+            edition_value=edition_value,
+            collector_number=collector_number,
+        )
+
+        try:
+            if self._use_sync:
+                return await asyncio.to_thread(self._select_edition_sync, edition_value)
+            else:
+                page = await self._ensure_page()
+                await page.evaluate(f"editionsCard.changeEdition('{edition_value}')")
+                await page.wait_for_timeout(2000)
+                try:
+                    await page.wait_for_selector(
+                        "div.price-mkp div.price",
+                        timeout=5000,
+                    )
+                except Exception:
+                    pass
+                return await page.content()
+        except Exception as e:
+            log.warning(
+                "liga_edition_select_failed",
+                card=card_name,
+                edition_value=edition_value,
+                error=str(e),
+            )
+            return html
+
+    def _select_edition_sync(self, edition_value: str) -> str:
+        """Select edition using sync Playwright (runs in thread)."""
+        page = self._sync_page
+        page.evaluate(f"editionsCard.changeEdition('{edition_value}')")
+        page.wait_for_timeout(2000)
+        try:
+            page.wait_for_selector(
+                "div.price-mkp div.price",
+                timeout=5000,
+            )
+        except Exception:
+            pass
+        return page.content()

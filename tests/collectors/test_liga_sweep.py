@@ -38,7 +38,7 @@ def _mock_provider_search(prices_map: dict | None = None):
     provider.open = AsyncMock()
     provider.close = AsyncMock()
 
-    async def _search(name):
+    async def _search(name, **kwargs):
         if prices_map is not None:
             price = prices_map.get(name)
         else:
@@ -99,22 +99,21 @@ async def test_fetch_liga_price_uses_name_pt_fallback():
     assert result is not None
     observation, _page_url = result
     assert observation.median_price == Decimal("3.00")
-    provider.search_card.assert_awaited_once_with("Raio")
+    provider.search_card.assert_awaited_once_with("Raio", collector_number=None)
 
 
 @pytest.mark.asyncio
 async def test_fetch_liga_price_prefers_mid_over_low():
+    """Sweep uses 'mid' (mercado) per CLAUDE.md, not 'low' (menor anuncio)."""
     provider = AsyncMock()
 
-    async def _search(name):
+    async def _search(name, **kwargs):
         return {"normal": {"low": Decimal("1.00"), "mid": Decimal("2.00"), "high": Decimal("3.00")}}
 
     provider.search_card = AsyncMock(side_effect=_search)
     card = _make_card(1, "Card")
     result = await _fetch_liga_price(provider, card)
 
-    # Liga sweep uses the market `mid` price, NOT the lowest listing (`low`).
-    # See CLAUDE.md guardrail: "Liga sweep usa preco `mid`, NAO `low`".
     observation, _page_url = result
     assert observation.median_price == Decimal("2.00")
 
@@ -123,7 +122,7 @@ async def test_fetch_liga_price_prefers_mid_over_low():
 async def test_fetch_liga_price_fallback_mid_when_no_low():
     provider = AsyncMock()
 
-    async def _search(name):
+    async def _search(name, **kwargs):
         return {"normal": {"low": None, "mid": Decimal("2.00"), "high": Decimal("3.00")}}
 
     provider.search_card = AsyncMock(side_effect=_search)
@@ -138,7 +137,7 @@ async def test_fetch_liga_price_fallback_mid_when_no_low():
 async def test_fetch_liga_price_fallback_high_when_no_low_no_mid():
     provider = AsyncMock()
 
-    async def _search(name):
+    async def _search(name, **kwargs):
         return {"normal": {"low": None, "mid": None, "high": Decimal("3.00")}}
 
     provider.search_card = AsyncMock(side_effect=_search)
@@ -153,7 +152,7 @@ async def test_fetch_liga_price_fallback_high_when_no_low_no_mid():
 async def test_fetch_liga_price_falls_back_to_low():
     provider = AsyncMock()
 
-    async def _search(name):
+    async def _search(name, **kwargs):
         return {"normal": {"low": Decimal("1.00"), "mid": None, "high": None}}
 
     provider.search_card = AsyncMock(side_effect=_search)
@@ -168,7 +167,7 @@ async def test_fetch_liga_price_falls_back_to_low():
 async def test_fetch_liga_price_falls_back_to_high():
     provider = AsyncMock()
 
-    async def _search(name):
+    async def _search(name, **kwargs):
         return {"normal": {"low": None, "mid": None, "high": Decimal("5.00")}}
 
     provider.search_card = AsyncMock(side_effect=_search)
@@ -343,7 +342,7 @@ async def test_graceful_interruption_returns_partial_results():
 
     call_count = 0
 
-    async def _search_with_interrupt(name):
+    async def _search_with_interrupt(name, **kwargs):
         nonlocal call_count
         call_count += 1
         if call_count >= 3:
@@ -399,7 +398,7 @@ async def test_integration_5_cards_batch_2():
         patch("src.collectors.liga_sweep.Repository", return_value=mock_repo),
         patch("src.collectors.liga_sweep.get_db_url", return_value="sqlite:///:memory:"),
         patch("src.providers.liga.provider.LigaMagicProvider", return_value=mock_provider),
-        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        patch("asyncio.sleep", new_callable=AsyncMock),
     ):
         result = await run_liga_sweep(
             db_url="sqlite:///:memory:",
@@ -437,7 +436,7 @@ async def test_foil_card_records_url_with_foil_suffix():
     mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
-    async def _search(name):
+    async def _search(name, **kwargs):
         return {
             "normal": {"low": None, "mid": None, "high": None},
             "foil": {"low": None, "mid": Decimal("9.00"), "high": None},
@@ -511,7 +510,7 @@ async def test_integration_errors_counted():
 
     call_count = 0
 
-    async def _search_with_error(name):
+    async def _search_with_error(name, **kwargs):
         nonlocal call_count
         call_count += 1
         if call_count == 2:

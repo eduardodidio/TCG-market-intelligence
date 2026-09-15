@@ -37,6 +37,46 @@ def _parse_brl(text: str) -> Decimal | None:
         return None
 
 
+def _parse_price_mkp(html: str) -> dict | None:
+    """Extract prices from the structured ``div.price-mkp`` section.
+
+    LigaMagic renders a summary price bar with three slots::
+
+        <div class="price-mkp">
+          <div class="min"><div class="price">R$ 6,84</div></div>
+          <div class="medium"><div class="price">R$ 8,50</div></div>
+          <div class="max"><div class="price">R$ 12,00</div></div>
+        </div>
+
+    Returns ``{"low": Decimal, "mid": Decimal, "high": Decimal}`` or None.
+    """
+    mkp_match = re.search(
+        r'<div\s+class="price-mkp">(.*?)</div>\s*</div>\s*</div>\s*</div>',
+        html,
+        re.DOTALL,
+    )
+    if not mkp_match:
+        return None
+
+    section = mkp_match.group(1)
+
+    def _extract(cls: str) -> Decimal | None:
+        m = re.search(
+            rf'<div\s+class="{cls}">\s*<div\s+class="price">\s*(R\$[^<]+)',
+            section,
+        )
+        return _parse_brl(m.group(1)) if m else None
+
+    low = _extract("min")
+    mid = _extract("medium")
+    high = _extract("max")
+
+    if low is None and mid is None and high is None:
+        return None
+
+    return {"low": low, "mid": mid, "high": high}
+
+
 def parse_card_prices(html: str, card_name: str = "") -> dict:
     """Extract price data from a LigaMagic card page HTML.
 
@@ -49,8 +89,8 @@ def parse_card_prices(html: str, card_name: str = "") -> dict:
         }
 
     Extraction strategies (tried in order):
-    1. Regex for R$ price patterns near known labels
-    2. Fallback: collect all R$ values from page body
+    1. Structured ``div.price-mkp`` section (min/medium/max)
+    2. Fallback: collect all R$ values from page body (legacy)
     """
     result: dict = {
         "card_name": card_name,
@@ -61,7 +101,21 @@ def parse_card_prices(html: str, card_name: str = "") -> dict:
     if not html or not html.strip():
         return result
 
-    # --- Strategy 1: Find all R$ price values on the page ---
+    # --- Strategy 1: Structured price-mkp section ---
+    mkp = _parse_price_mkp(html)
+    if mkp is not None:
+        result["normal"] = mkp
+
+        # Foil: look for a separate foil price-mkp (extras_f section)
+        foil_section = _extract_foil_section(html)
+        if foil_section:
+            foil_mkp = _parse_price_mkp(foil_section)
+            if foil_mkp is not None:
+                result["foil"] = foil_mkp
+
+        return result
+
+    # --- Strategy 2 (fallback): Find all R$ price values on the page ---
     # Handle R$ with normal space, &nbsp;, no space, or \xa0 (non-breaking space)
     price_matches = re.findall(r"R\$(?:\s|&nbsp;|\xa0)*[\d.,]+", html)
     parsed_prices = []
@@ -72,11 +126,6 @@ def parse_card_prices(html: str, card_name: str = "") -> dict:
 
     if not parsed_prices:
         return result
-
-    # --- Strategy 2: Map prices to low/mid/high ---
-    # LigaMagic typically shows prices in order: low, mid, high
-    # for normal cards, then the same for foil.
-    # With obfuscated CSS, we rely on positional extraction.
 
     # Deduplicate while preserving order
     seen: set[Decimal] = set()
@@ -99,8 +148,7 @@ def parse_card_prices(html: str, card_name: str = "") -> dict:
     elif len(sorted_prices) == 1:
         result["normal"]["mid"] = sorted_prices[0]
 
-    # --- Strategy 3: Detect foil prices ---
-    # Look for "foil" keyword near R$ values
+    # Detect foil prices in fallback mode
     foil_section = _extract_foil_section(html)
     if foil_section:
         foil_matches = re.findall(r"R\$(?:\s|&nbsp;|\xa0)*[\d.,]+", foil_section)
@@ -148,6 +196,31 @@ def _extract_foil_section(html: str) -> str | None:
         return html[earliest_pos:]
 
     return None
+
+
+def parse_edition_options(html: str) -> list[tuple[str, str]]:
+    """Extract edition options from the Liga card page dropdown.
+
+    Returns a list of ``(value, collector_number)`` tuples, e.g.::
+
+        [("480612_1", "1"), ("480263_367", "367"), ...]
+
+    The ``value`` is the full dropdown value used by
+    ``editionsCard.changeEdition(value)`` and the ``collector_number``
+    is the portion after the underscore.
+    """
+    results: list[tuple[str, str]] = []
+    # Edition dropdown options have format: value="480612_1"
+    # The second part of value is the collector number
+    for m in re.finditer(
+        r'<option[^>]*value="(\d+_[\w]+)"[^>]*>',
+        html,
+    ):
+        val = m.group(1)
+        parts = val.split("_", 1)
+        if len(parts) == 2:
+            results.append((val, parts[1]))
+    return results
 
 
 def parse_card_name_from_page(html: str) -> str | None:
