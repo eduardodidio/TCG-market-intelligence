@@ -77,10 +77,6 @@ vi.mock("../UndoToast", () => ({
   UndoToast: () => null,
 }));
 
-vi.mock("../UpdatePrompt", () => ({
-  UpdatePrompt: () => null,
-}));
-
 vi.mock("../ChimarraoIcon", () => ({
   ChimarraoIcon: () => null,
 }));
