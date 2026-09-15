@@ -1,0 +1,21 @@
+{
+  "id": "D-F111-20260908-001",
+  "feature": "F111",
+  "type": "feature_start",
+  "description": "Portfolio History Backfill & Dashboard Activation",
+  "requested_at": "2026-09-08T12:00:00Z",
+  "decided_at": "2026-09-08T12:01:00Z",
+  "status": "executed",
+  "rationale": "Feature fills a critical gap: PortfolioDashboard (F105) is implemented but shows empty because no portfolio snapshots or acquisition prices exist. Backfilling historical data is low-risk (additive only) and enables existing UI to function. POC scope (30 days synthetic) is appropriately scoped.",
+  "actions": [
+    {
+      "action": "plan-feature",
+      "target": "F111",
+      "status": "approved"
+    }
+  ],
+  "governance": {
+    "verdict": "agree",
+    "note": "Manual approval — didio CLI not available, decision recorded inline"
+  }
+}

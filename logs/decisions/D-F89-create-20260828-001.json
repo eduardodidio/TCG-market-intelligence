@@ -1,0 +1,21 @@
+{
+  "decision_id": "D-F89-create-20260828-001",
+  "timestamp": "2026-08-28T23:10:00Z",
+  "type": "feature_start",
+  "context_summary": "F89 Batch Collection Management — Execute planned feature. 6 tasks in 3 waves. Backend PATCH/DELETE/POST endpoints (Wave 0), frontend inline edit + batch add modal + multi-select toolbar (Wave 1), i18n + integration tests (Wave 2).",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with create-feature — execute all waves.",
+      "pros": ["Plan already validated via /plan-feature", "No schema migration needed", "Well-scoped CRUD feature"],
+      "cons": ["6 tasks across 3 waves"]
+    }
+  ],
+  "decision": "A",
+  "rationale": "Plan already exists and was validated. Feature is well-scoped with clear task boundaries and wave parallelism.",
+  "actions": [
+    { "action": "create-feature", "feature": "F89" }
+  ],
+  "status": "executed",
+  "governance": null
+}

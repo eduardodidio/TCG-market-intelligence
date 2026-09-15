@@ -17,14 +17,28 @@ build/
 .claude/worktrees/
 backups/
 
-# Scryfall bulk data (large JSON files)
+# Scryfall bulk data (large JSON/JSONL files)
 data/catalog/*.json
+data/catalog/*.jsonl
 
-# Batch scripts (contain API keys)
+# Database files
+*.db
+
+# Build artifacts
+frontend/tsconfig.build.tsbuildinfo
+
+# Personal data exports
+docs/export*.csv
+
+# Batch scripts (contain local paths / API keys)
 push-all.bat
 push-db.bat
 push-prices.bat
 setup-schedule.bat
+daily-scan.bat
+
+# Parallel run logs
+logs/parallel-run/
 
 # Frontend
 node_modules/

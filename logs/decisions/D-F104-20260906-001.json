@@ -1,0 +1,43 @@
+{
+  "decision_id": "D-F104-20260906-001",
+  "timestamp": "2026-09-06T12:00:00Z",
+  "type": "feature_start",
+  "context_summary": "F104 Quick Win UX Polish — 8 visual/UX improvements identified from competitive TCG marketplace research. All are low-effort, high-impact frontend enhancements with no backend changes required. The project already has Recharts (for sparklines), a price history table (source_cards), currency service (for arbitrage), and a 100k+ card catalog (F103). These are purely additive UI improvements with no risk to existing functionality.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Plan all 8 quick wins as a single feature with maximum Wave parallelization. Each improvement is independent, so most can run in parallel.",
+      "pros": [
+        "All items are independent — no cross-dependencies between sparklines, hover previews, skeleton loading, etc.",
+        "Single feature keeps the scope contained and trackable",
+        "Maximizes parallelization — most tasks can run in the same Wave",
+        "All required data sources already exist (price history, currency rates, catalog)",
+        "Recharts is already in the project for sparklines",
+        "Low risk — purely additive frontend changes, no backend modifications"
+      ],
+      "cons": [
+        "8 tasks in one feature is larger than typical, but all are small/focused",
+        "Merge conflicts possible if multiple tasks touch the same component — mitigated by Wave grouping"
+      ]
+    },
+    {
+      "option": "B",
+      "description": "Split into 2 features: F104 (price visualization) and F105 (UX polish).",
+      "pros": [
+        "Smaller per-feature scope"
+      ],
+      "cons": [
+        "Unnecessary overhead — all items are quick wins, splitting doubles the ceremony",
+        "User explicitly asked for a single grouped feature",
+        "More merge coordination needed between two features"
+      ]
+    }
+  ],
+  "decision": "A",
+  "rationale": "All 8 items are independent, low-risk, frontend-only quick wins. Grouping them in a single feature with parallel Waves minimizes overhead and matches the user's explicit request. The existing codebase already provides all required data and libraries. No backend changes needed.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F104" }
+  ],
+  "status": "executed",
+  "governance": null
+}

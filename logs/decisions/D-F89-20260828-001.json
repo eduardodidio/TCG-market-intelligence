@@ -1,0 +1,27 @@
+{
+  "decision_id": "D-F89-20260828-001",
+  "timestamp": "2026-08-28T23:07:08Z",
+  "type": "feature_start",
+  "context_summary": "F89 Batch Collection Management — LigaMagic-style batch add and edit. Currently the only way to add cards is CSV import (destructive re-import) and there are no edit endpoints for qty/condition/language/extras. This feature adds: (1) Batch Add with text parser (Qty CardName [Set] [Condition] [Language] [Extras]), preview table, POST endpoint; (2) Batch Edit with multi-select checkboxes, bulk actions toolbar (qty, condition, language, extras, delete), PATCH endpoint; (3) Single Card inline edit on detail/tile pages. Well-scoped CRUD feature with clear data model.",
+  "options_considered": [
+    {
+      "option": "A",
+      "description": "Proceed with plan-feature for F89 — full batch collection management.",
+      "pros": ["Clear user need — no edit or non-destructive add mechanism exists", "Data model already supports all fields (qty, quality, language, extras)", "Follows established LigaMagic UX pattern users are familiar with", "Well-scoped: backend CRUD + frontend forms"],
+      "cons": ["Multiple frontend components to build", "Text parser needs robust error handling"]
+    },
+    {
+      "option": "B",
+      "description": "Split into F89 (single edit) + F90 (batch add) + F91 (batch edit).",
+      "pros": ["Smaller, incremental deliveries"],
+      "cons": ["Shared backend (PATCH endpoint) would be duplicated across plans", "Unnecessary overhead for well-scoped feature"]
+    }
+  ],
+  "decision": "A",
+  "rationale": "Single feature with parallel waves. Backend PATCH/POST endpoints are shared across all three use cases. The text parser, multi-select UI, and inline edit are independent frontend work that can run in parallel waves. No reason to split.",
+  "actions": [
+    { "action": "plan-feature", "feature": "F89" }
+  ],
+  "status": "executed",
+  "governance": null
+}
