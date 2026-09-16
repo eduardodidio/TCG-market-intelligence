@@ -30,13 +30,13 @@ class TestNormalizeSigla:
             del SCRYFALL_TO_LIGA_SIGLA["xtestset"]
 
     def test_normalize_sigla_case_insensitive(self):
-        """Input should already be lowercased; verify lowercase lookup works."""
+        """normalize_sigla lowercases input before lookup."""
         SCRYFALL_TO_LIGA_SIGLA["mytest"] = "ligamytest"
         try:
             # Lowercase input matches
             assert normalize_sigla("mytest") == "ligamytest"
-            # Uppercase input does NOT match (caller must lowercase first)
-            assert normalize_sigla("MYTEST") == "MYTEST"
+            # Uppercase input is lowercased by normalize_sigla, so it matches too
+            assert normalize_sigla("MYTEST") == "ligamytest"
         finally:
             del SCRYFALL_TO_LIGA_SIGLA["mytest"]
 
@@ -57,6 +57,28 @@ class TestNormalizeSigla:
     def test_normalize_sigla_returns_str(self):
         """Return type is always str."""
         assert isinstance(normalize_sigla("fdn"), str)
+
+    def test_normalize_sigla_card_override(self):
+        """Per-card overrides take priority over per-set mapping."""
+        # Ghostfire Elspeth
+        assert normalize_sigla("tdm", "401") == "gftdm"
+        # Regular tdm card (no override) stays as-is
+        assert normalize_sigla("tdm", "1") == "tdm"
+
+    def test_normalize_sigla_art_card_override(self):
+        """Art card in Hobbit Art Series gets ashob sigla."""
+        assert normalize_sigla("hob", "44a") == "ashob"
+
+    def test_normalize_sigla_borderless_override(self):
+        """Borderless LTR cards get bltr sigla."""
+        assert normalize_sigla("ltr", "425") == "bltr"
+        # Regular LTR card stays as-is
+        assert normalize_sigla("ltr", "1") == "ltr"
+
+    def test_normalize_sigla_commander_override(self):
+        """Commander variant editions get correct sigla."""
+        assert normalize_sigla("thb", "259") == "cthb"
+        assert normalize_sigla("cmr", "689") == "cbcmr"
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +119,7 @@ class TestProviderUsesNormalizedSigla:
                 set_code="afr",
             )
             # normalize_sigla was called with the lowercased set_code
-            mock_normalize.assert_called_once_with("afr")
+            mock_normalize.assert_called_once_with("afr", "001")
 
     @pytest.mark.asyncio
     async def test_provider_selects_mapped_sigla(self):

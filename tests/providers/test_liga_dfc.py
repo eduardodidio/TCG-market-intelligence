@@ -124,3 +124,28 @@ def test_url_builder_art_card_simple():
     """Simple art card (no DFC) keeps annotation."""
     url = liga_url_for_card_name("Plains (Art Card)")
     assert "Art+Card" in url
+
+
+def test_url_builder_with_set_code():
+    """When set_code is provided, URL includes &ed= parameter."""
+    url = liga_url_for_card_name("Lightning Bolt", set_code="m11")
+    assert "&ed=m11" in url
+    assert "Lightning+Bolt" in url
+
+
+def test_url_builder_art_card_with_set_code():
+    """Art card URL includes &ed= when set_code provided."""
+    url = liga_url_for_card_name(
+        "The Arkenstone // Seek the Heart (Art Card with Signature)",
+        set_code="ashob",
+    )
+    assert "&ed=ashob" in url
+    assert "Arkenstone" in url
+    assert "Art+Card" in url
+    assert "Seek" not in url
+
+
+def test_url_builder_no_set_code_no_ed():
+    """Without set_code, URL has no &ed= parameter."""
+    url = liga_url_for_card_name("Lightning Bolt")
+    assert "&ed=" not in url

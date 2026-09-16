@@ -26,7 +26,9 @@ from src.providers.liga.exceptions import (
     LigaServerError,
 )
 from src.providers.liga.parser import parse_card_prices, parse_edition_options
-from src.providers.liga.sigla_map import normalize_sigla
+from src.providers.liga.sigla_map import (
+    normalize_sigla,  # noqa: F811 — used in _select_edition & URL
+)
 from src.providers.liga.url import liga_url_for_card_name
 from src.providers.liga.urls import is_valid_liga_card_url
 
@@ -700,7 +702,9 @@ class LigaMagicProvider(CardSourceProvider):
         collector_number: str | None = None,
         set_code: str | None = None,
     ) -> dict:
-        url = _build_card_url(card_name)
+        # Resolve Liga sigla from set_code + collector_number
+        liga_sigla = normalize_sigla(set_code, collector_number) if set_code else None
+        url = liga_url_for_card_name(card_name, set_code=liga_sigla)
         log.debug("liga_search_start", card=card_name, url=url)
 
         try:
@@ -824,7 +828,7 @@ class LigaMagicProvider(CardSourceProvider):
         # When multiple editions share the same collector_number,
         # prefer the one whose sigla matches our set_code.
         if set_code and len(matches) > 1:
-            sc = normalize_sigla(set_code.lower())
+            sc = normalize_sigla(set_code.lower(), collector_number)
             sigla_matches = [m for m in matches if m[2] == sc]
             if sigla_matches:
                 matches = sigla_matches
