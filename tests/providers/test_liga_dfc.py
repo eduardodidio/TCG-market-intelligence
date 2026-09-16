@@ -12,9 +12,12 @@ def test_clean_card_name_strips_collector_number():
     assert _clean_card_name("Lightning Bolt (#333)") == "Lightning Bolt"
 
 
-def test_clean_card_name_strips_art_card():
-    assert _clean_card_name("Plains (Art Card)") == "Plains"
-    assert _clean_card_name("Forest (Art Card with Signature)") == "Forest"
+def test_clean_card_name_preserves_art_card():
+    """Art cards are separate Liga products — annotation must be preserved."""
+    assert _clean_card_name("Plains (Art Card)") == "Plains (Art Card)"
+    assert (
+        _clean_card_name("Forest (Art Card with Signature)") == "Forest (Art Card with Signature)"
+    )
 
 
 def test_clean_card_name_strips_borderless():
@@ -53,7 +56,6 @@ def test_clean_card_name_dfc_name_unchanged():
 def test_clean_card_name_case_insensitive():
     """Variant annotations are matched case-insensitively."""
     assert _clean_card_name("Plains (BORDERLESS)") == "Plains"
-    assert _clean_card_name("Forest (art card)") == "Forest"
     assert _clean_card_name("Island (extended art)") == "Island"
 
 
@@ -106,3 +108,19 @@ def test_url_builder_dfc():
     assert "The+Arkenstone" in url
     assert "Seek" not in url
     assert "Heart" not in url
+
+
+def test_url_builder_art_card_dfc_uses_front_face_only():
+    """DFC art cards use front face + annotation (no back face in URL)."""
+    url = liga_url_for_card_name("The Arkenstone // Seek the Heart (Art Card with Signature)")
+    assert "Arkenstone" in url
+    assert "Art+Card" in url
+    # Back face should NOT be in the URL
+    assert "Seek" not in url
+    assert "Heart" not in url
+
+
+def test_url_builder_art_card_simple():
+    """Simple art card (no DFC) keeps annotation."""
+    url = liga_url_for_card_name("Plains (Art Card)")
+    assert "Art+Card" in url

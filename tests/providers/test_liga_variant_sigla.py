@@ -49,9 +49,13 @@ def test_variant_sigla_candidates_short_amp_no_strip():
 
 
 def test_variant_sigla_candidates_normal_set():
-    """A normal set code like 'mh3' should get promo prefixes only."""
+    """A normal set code like 'mh3' should get all variant prefixes."""
     candidates = _variant_sigla_candidates("mh3")
-    assert candidates == {"pmh3", "ampmh3"}
+    assert "pmh3" in candidates
+    assert "ampmh3" in candidates
+    assert "gfmh3" in candidates
+    assert "asmh3" in candidates
+    assert "blmh3" in candidates
 
 
 def test_variant_sigla_candidates_promo_set_both_directions():
@@ -60,3 +64,17 @@ def test_variant_sigla_candidates_promo_set_both_directions():
     assert "dmu" in candidates
     assert "ppdmu" in candidates
     assert "amppdmu" in candidates
+
+
+def test_variant_sigla_candidates_ghostfire():
+    """'tdm' should produce 'gftdm' and 'gftdm' should strip to 'tdm'."""
+    candidates = _variant_sigla_candidates("tdm")
+    assert "gftdm" in candidates
+    candidates_gf = _variant_sigla_candidates("gftdm")
+    assert "tdm" in candidates_gf
+
+
+def test_variant_sigla_candidates_art_series():
+    """'hob' should produce 'ashob' for art series matching."""
+    candidates = _variant_sigla_candidates("hob")
+    assert "ashob" in candidates

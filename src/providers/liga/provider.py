@@ -44,16 +44,19 @@ _USER_AGENT = (
 
 
 def _variant_sigla_candidates(sigla: str) -> set[str]:
-    """Generate variant sigla candidates for fuzzy set matching."""
+    """Generate variant sigla candidates for fuzzy set matching.
+
+    Liga uses prefixes on set codes for variant editions:
+    - ``p`` — promo, ``amp`` — ampersand promo
+    - ``gf`` — Ghostfire, ``as`` — Art Series
+    - ``bl`` — Borderless, ``ex`` — Extended Art, ``sc`` — Showcase
+    """
     candidates = set()
-    # Add promo prefix
-    candidates.add(f"p{sigla}")
-    candidates.add(f"amp{sigla}")
-    # Strip promo prefix
-    if sigla.startswith("p") and len(sigla) > 1:
-        candidates.add(sigla[1:])
-    if sigla.startswith("amp") and len(sigla) > 3:
-        candidates.add(sigla[3:])
+    _PREFIXES = ("p", "amp", "gf", "as", "bl", "ex", "sc")
+    for pfx in _PREFIXES:
+        candidates.add(f"{pfx}{sigla}")
+        if sigla.startswith(pfx) and len(sigla) > len(pfx):
+            candidates.add(sigla[len(pfx) :])
     return candidates
 
 
@@ -792,8 +795,23 @@ class LigaMagicProvider(CardSourceProvider):
             # No edition dropdown on page — single printing, default is fine
             return html, True
 
-        # Find matching edition(s) by collector number
+        # Find matching edition(s) by collector number (exact match first)
         matches = [(val, cn, sigla) for val, cn, sigla in editions if cn == collector_number]
+        if not matches:
+            # Fallback: try normalized CN (strip trailing letter for DFC cards)
+            import re
+
+            cn_norm = re.match(r"^(\d+)[a-z]$", collector_number or "")
+            if cn_norm:
+                normalized = cn_norm.group(1)
+                matches = [(val, cn, sigla) for val, cn, sigla in editions if cn == normalized]
+                if matches:
+                    log.debug(
+                        "liga_edition_cn_normalized",
+                        card=card_name,
+                        original_cn=collector_number,
+                        normalized_cn=normalized,
+                    )
         if not matches:
             log.warning(
                 "liga_edition_no_match",

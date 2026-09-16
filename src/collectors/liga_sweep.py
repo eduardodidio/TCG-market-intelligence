@@ -38,18 +38,18 @@ def _clean_card_name(name: str) -> str:
 
     Removes:
     - (#NNN) collector number annotations
-    - (Art Card), (Art Card with Signature)
     - (Borderless), (Extended Art), (Showcase), (Etched), (Retro Frame)
+
+    Does NOT remove (Art Card ...) — Liga treats art cards as separate
+    products with different card IDs, so the annotation is required to
+    find the correct page.
     """
     import re
 
     # Strip (#NNN) collector number annotations
     name = re.sub(r"\s*\(#\d+\)", "", name)
-    # Strip variant annotations that confuse Liga search
-    variant_re = (
-        r"\s*\((?:Art Card(?:\s+with\s+Signature)?|Borderless"
-        r"|Extended\s+Art|Showcase|Etched|Retro\s+Frame)\)"
-    )
+    # Strip variant annotations (NOT Art Card — see docstring)
+    variant_re = r"\s*\((?:Borderless|Extended\s+Art|Showcase|Etched|Retro\s+Frame)\)"
     name = re.sub(variant_re, "", name, flags=re.IGNORECASE)
     return name.strip()
 
@@ -83,7 +83,7 @@ async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str 
     card_name = _clean_card_name(card_name)
 
     is_foil_card = _is_foil(card.get("extras"))
-    collector_number = _normalize_collector_number(card.get("collector_number"))
+    collector_number = card.get("collector_number")
     set_code = card.get("set_code")
     prices = await provider.search_card(
         card_name,
