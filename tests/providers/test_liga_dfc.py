@@ -102,22 +102,19 @@ def test_normalize_collector_number_letters_only():
 # -- URL builder DFC test -----------------------------------------------------
 
 
-def test_url_builder_dfc():
-    """Verify liga_url_for_card_name splits DFC names and uses only the front face."""
+def test_url_builder_dfc_keeps_full_name():
+    """Liga requires the full DFC name to show the detailed card page."""
     url = liga_url_for_card_name("The Arkenstone // Seek the Heart")
-    assert "The+Arkenstone" in url
-    assert "Seek" not in url
-    assert "Heart" not in url
+    assert "Arkenstone" in url
+    assert "Seek" in url
 
 
-def test_url_builder_art_card_dfc_uses_front_face_only():
-    """DFC art cards use front face + annotation (no back face in URL)."""
+def test_url_builder_art_card_keeps_full_name():
+    """Art card DFC name preserved in URL."""
     url = liga_url_for_card_name("The Arkenstone // Seek the Heart (Art Card with Signature)")
     assert "Arkenstone" in url
     assert "Art+Card" in url
-    # Back face should NOT be in the URL
-    assert "Seek" not in url
-    assert "Heart" not in url
+    assert "Seek" in url
 
 
 def test_url_builder_art_card_simple():
@@ -133,16 +130,15 @@ def test_url_builder_with_set_code():
     assert "Lightning+Bolt" in url
 
 
-def test_url_builder_art_card_with_set_code():
-    """Art card URL includes &ed= when set_code provided."""
+def test_url_builder_dfc_with_set_code():
+    """DFC URL includes &ed= and full name."""
     url = liga_url_for_card_name(
-        "The Arkenstone // Seek the Heart (Art Card with Signature)",
-        set_code="ashob",
+        "The Arkenstone // Seek the Heart",
+        set_code="hob",
     )
-    assert "&ed=ashob" in url
+    assert "&ed=hob" in url
     assert "Arkenstone" in url
-    assert "Art+Card" in url
-    assert "Seek" not in url
+    assert "Seek" in url
 
 
 def test_url_builder_no_set_code_no_ed():
