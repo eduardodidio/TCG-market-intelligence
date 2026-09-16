@@ -650,6 +650,7 @@ class LigaMagicProvider(CardSourceProvider):
         self,
         card_name: str,
         collector_number: str | None = None,
+        set_code: str | None = None,
     ) -> dict:
         """Search for a card by name and return parsed price data.
 
@@ -661,6 +662,9 @@ class LigaMagicProvider(CardSourceProvider):
             collector_number: If provided, selects the matching edition
                 on the Liga page before parsing prices.  This ensures
                 the returned prices match the exact printing.
+            set_code: If provided together with collector_number, used
+                to disambiguate when multiple editions share the same
+                collector number (matched against Liga's ``data-sigla``).
         """
         if not card_name or not card_name.strip():
             return parse_card_prices("", card_name)
@@ -669,12 +673,14 @@ class LigaMagicProvider(CardSourceProvider):
             return await self._search_card_unlocked(
                 card_name,
                 collector_number=collector_number,
+                set_code=set_code,
             )
 
     async def _search_card_unlocked(
         self,
         card_name: str,
         collector_number: str | None = None,
+        set_code: str | None = None,
     ) -> dict:
         url = _build_card_url(card_name)
         log.debug("liga_search_start", card=card_name, url=url)
@@ -706,7 +712,12 @@ class LigaMagicProvider(CardSourceProvider):
         # If collector_number provided, try selecting the exact edition
         edition_matched = True
         if collector_number:
-            html, edition_matched = await self._select_edition(html, card_name, collector_number)
+            html, edition_matched = await self._select_edition(
+                html,
+                card_name,
+                collector_number,
+                set_code=set_code,
+            )
 
         log.debug("liga_search_html_received", card=card_name, html_length=len(html))
         prices = parse_card_prices(html, card_name)
@@ -740,12 +751,21 @@ class LigaMagicProvider(CardSourceProvider):
         return prices
 
     async def _select_edition(
-        self, html: str, card_name: str, collector_number: str
+        self,
+        html: str,
+        card_name: str,
+        collector_number: str,
+        *,
+        set_code: str | None = None,
     ) -> tuple[str, bool]:
         """Try to select the edition matching *collector_number* on the current page.
 
         Uses the edition dropdown parsed from *html* and calls the Liga
         JavaScript function ``editionsCard.changeEdition(value)`` via Playwright.
+
+        When *set_code* is provided it is matched against the Liga ``data-sigla``
+        attribute to disambiguate editions that share the same collector number
+        (e.g. Orb of Dragonkind #157 exists in both AFR and AMPAFR).
 
         Returns:
             (html, edition_matched) — updated HTML and whether the edition was found.
@@ -758,15 +778,38 @@ class LigaMagicProvider(CardSourceProvider):
             return html, True
 
         # Find matching edition(s) by collector number
-        matches = [(val, cn) for val, cn in editions if cn == collector_number]
+        matches = [(val, cn, sigla) for val, cn, sigla in editions if cn == collector_number]
         if not matches:
             log.warning(
                 "liga_edition_no_match",
                 card=card_name,
                 collector_number=collector_number,
-                available=[cn for _, cn in editions[:10]],
+                available=[(cn, sigla) for _, cn, sigla in editions[:10]],
             )
             return html, False
+
+        # When multiple editions share the same collector_number,
+        # prefer the one whose sigla matches our set_code.
+        if set_code and len(matches) > 1:
+            sc = set_code.lower()
+            sigla_matches = [m for m in matches if m[2] == sc]
+            if sigla_matches:
+                matches = sigla_matches
+                log.debug(
+                    "liga_edition_sigla_match",
+                    card=card_name,
+                    set_code=set_code,
+                    matched_sigla=matches[0][2],
+                    total_cn_matches=len(matches),
+                )
+            else:
+                log.warning(
+                    "liga_edition_sigla_no_match",
+                    card=card_name,
+                    set_code=set_code,
+                    collector_number=collector_number,
+                    available_siglas=[m[2] for m in matches],
+                )
 
         edition_value = matches[0][0]
         log.debug(
@@ -774,6 +817,7 @@ class LigaMagicProvider(CardSourceProvider):
             card=card_name,
             edition_value=edition_value,
             collector_number=collector_number,
+            sigla=matches[0][2] if len(matches[0]) > 2 else "?",
         )
 
         try:

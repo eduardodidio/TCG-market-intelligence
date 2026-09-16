@@ -198,28 +198,31 @@ def _extract_foil_section(html: str) -> str | None:
     return None
 
 
-def parse_edition_options(html: str) -> list[tuple[str, str]]:
+def parse_edition_options(html: str) -> list[tuple[str, str, str]]:
     """Extract edition options from the Liga card page dropdown.
 
-    Returns a list of ``(value, collector_number)`` tuples, e.g.::
+    Returns a list of ``(value, collector_number, sigla)`` tuples, e.g.::
 
-        [("480612_1", "1"), ("480263_367", "367"), ...]
+        [("480612_1", "1", "fdn"), ("480263_367", "367", "cmm"), ...]
 
     The ``value`` is the full dropdown value used by
-    ``editionsCard.changeEdition(value)`` and the ``collector_number``
-    is the portion after the underscore.
+    ``editionsCard.changeEdition(value)``, the ``collector_number``
+    is the portion after the underscore, and ``sigla`` is the Liga
+    set code from the ``data-sigla`` attribute (lowercased).
     """
-    results: list[tuple[str, str]] = []
-    # Edition dropdown options have format: value="480612_1"
-    # The second part of value is the collector number
+    results: list[tuple[str, str, str]] = []
     for m in re.finditer(
-        r'<option[^>]*value="(\d+_[\w]+)"[^>]*>',
+        r'<option([^>]*)value="(\d+_[\w]+)"([^>]*)>',
         html,
     ):
-        val = m.group(1)
+        attrs = m.group(1) + m.group(3)
+        val = m.group(2)
+        # Extract data-sigla from surrounding attributes
+        sigla_match = re.search(r'data-sigla="([^"]*)"', attrs)
+        sigla = sigla_match.group(1).lower() if sigla_match else ""
         parts = val.split("_", 1)
         if len(parts) == 2:
-            results.append((val, parts[1]))
+            results.append((val, parts[1], sigla))
     return results
 
 

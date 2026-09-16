@@ -349,7 +349,7 @@ class TestParseEditionOptions:
         html = _load_html("liga_card_price_mkp.html")
         editions = parse_edition_options(html)
         assert len(editions) == 3
-        values = [v for v, _ in editions]
+        values = [v for v, _cn, _sigla in editions]
         assert "480612_1" in values
         assert "480263_367" in values
         assert "479771_331" in values
@@ -357,7 +357,7 @@ class TestParseEditionOptions:
     def test_collector_numbers(self):
         html = _load_html("liga_card_price_mkp.html")
         editions = parse_edition_options(html)
-        collector_nums = {cn for _, cn in editions}
+        collector_nums = {cn for _, cn, _sigla in editions}
         assert collector_nums == {"1", "367", "331"}
 
     def test_empty_html(self):

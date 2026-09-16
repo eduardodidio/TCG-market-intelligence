@@ -104,7 +104,7 @@ async def test_fetch_liga_price_uses_name_pt_fallback():
     assert result is not None
     observation, _page_url = result
     assert observation.median_price == Decimal("3.00")
-    provider.search_card.assert_awaited_once_with("Raio", collector_number=None)
+    provider.search_card.assert_awaited_once_with("Raio", collector_number=None, set_code=None)
 
 
 @pytest.mark.asyncio
@@ -679,4 +679,6 @@ async def test_fetch_liga_price_strips_collector_number_annotation():
     observation, _ = result
     assert observation.median_price == Decimal("8.00")
     # Verify the cleaned name was used in the search
-    provider.search_card.assert_awaited_once_with("Arcane Signet", collector_number="503")
+    provider.search_card.assert_awaited_once_with(
+        "Arcane Signet", collector_number="503", set_code="DMU"
+    )

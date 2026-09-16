@@ -59,9 +59,11 @@ async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str 
 
     is_foil_card = _is_foil(card.get("extras"))
     collector_number = card.get("collector_number")
+    set_code = card.get("set_code")
     prices = await provider.search_card(
         card_name,
         collector_number=collector_number,
+        set_code=set_code,
     )
     page_url = prices.get("page_url")
 
