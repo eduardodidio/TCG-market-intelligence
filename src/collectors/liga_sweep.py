@@ -34,13 +34,38 @@ from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
 
 
 def _clean_card_name(name: str) -> str:
-    """Strip collector-number annotations like '(#333)' from card names.
+    """Strip annotations that confuse Liga search.
 
-    These annotations confuse Liga search and cause wrong card matches.
+    Removes:
+    - (#NNN) collector number annotations
+    - (Art Card), (Art Card with Signature)
+    - (Borderless), (Extended Art), (Showcase), (Etched), (Retro Frame)
     """
     import re
 
-    return re.sub(r"\s*\(#\d+\)", "", name).strip()
+    # Strip (#NNN) collector number annotations
+    name = re.sub(r"\s*\(#\d+\)", "", name)
+    # Strip variant annotations that confuse Liga search
+    variant_re = (
+        r"\s*\((?:Art Card(?:\s+with\s+Signature)?|Borderless"
+        r"|Extended\s+Art|Showcase|Etched|Retro\s+Frame)\)"
+    )
+    name = re.sub(variant_re, "", name, flags=re.IGNORECASE)
+    return name.strip()
+
+
+def _normalize_collector_number(cn: str | None) -> str | None:
+    """Strip trailing letter suffix from DFC collector numbers.
+
+    E.g. "32a" -> "32", "367" -> "367" (unchanged).
+    Only strips a single trailing lowercase letter when the rest is digits.
+    """
+    if not cn:
+        return cn
+    import re
+
+    m = re.match(r"^(\d+)[a-z]$", cn)
+    return m.group(1) if m else cn
 
 
 async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str | None] | None:
@@ -58,7 +83,7 @@ async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str 
     card_name = _clean_card_name(card_name)
 
     is_foil_card = _is_foil(card.get("extras"))
-    collector_number = card.get("collector_number")
+    collector_number = _normalize_collector_number(card.get("collector_number"))
     set_code = card.get("set_code")
     prices = await provider.search_card(
         card_name,
@@ -83,7 +108,14 @@ async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str 
         foil = prices.get("foil", {})
         price: Decimal | None = foil.get("mid") or foil.get("low") or foil.get("high")
         if price is None:
-            log.warning("liga_sweep_no_foil_prices", card=card_name, card_id=card_id)
+            log.warning(
+                "liga_sweep_no_foil_prices",
+                card=card_name,
+                card_id=card_id,
+                collector_number=collector_number,
+                set_code=set_code,
+                edition_matched=prices.get("edition_matched", True),
+            )
             return None
         external_id = f"liga_{card_id}_foil"
     else:

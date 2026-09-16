@@ -19,6 +19,7 @@ import csv
 import json
 import re
 import sys
+import unicodedata
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -28,6 +29,75 @@ OUTPUT_DIR = Path(__file__).parent / "debug_output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 HTML_DIR = Path(__file__).resolve().parent.parent / "docs" / "htmlsColecao"
+
+
+def normalize_diacritics(text: str) -> str:
+    """Strip diacritical marks from text.
+
+    Uses NFKD normalization to decompose characters, then removes
+    combining characters (accents, umlauts, circumflexes, etc.).
+
+    Examples:
+        "Dáin" -> "Dain"
+        "Andúril" -> "Anduril"
+        "Barad-dûr" -> "Barad-dur"
+        "Sméagol" -> "Smeagol"
+    """
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+
+def classify_hint(
+    name_en: str,
+    extras: str | None,
+    edition: str | None,
+    liga_buy: Decimal | None,
+    diff_pct: float | None,
+) -> str:
+    """Classify a mismatch into a root-cause hint category.
+
+    Returns the first matching hint, checked in priority order:
+        foil_card   - extras contains "Foil"
+        dfc_card    - name contains " // "
+        art_card    - edition contains "Art Series" or name contains "Art Card"
+        promo       - extras contains "Promo" or "Pre Release"
+        variant_ed  - edition contains variant keywords
+        cheap_card  - Liga buy price < R$1.00
+        expected    - positive diff AND no other hint AND Liga > R$5
+        (empty)     - no hint applies
+    """
+    extras_str = extras or ""
+    edition_str = edition or ""
+
+    if "Foil" in extras_str:
+        return "foil_card"
+
+    if " // " in (name_en or ""):
+        return "dfc_card"
+
+    if "Art Series" in edition_str or "Art Card" in (name_en or ""):
+        return "art_card"
+
+    if "Promo" in extras_str or "Pre Release" in extras_str:
+        return "promo"
+
+    variant_keywords = ["(Variantes)", "(Borderless)", "(Extended Art)", "(Showcase)", "(Retro)"]
+    if any(kw in edition_str for kw in variant_keywords):
+        return "variant_ed"
+
+    if liga_buy is not None and liga_buy < Decimal("1.00"):
+        return "cheap_card"
+
+    # "expected" = our price is higher (positive diff) and Liga price > R$5
+    if (
+        diff_pct is not None
+        and diff_pct > 0
+        and liga_buy is not None
+        and liga_buy > Decimal("5.00")
+    ):
+        return "expected"
+
+    return ""
 
 
 def _parse_brl(text: str) -> Decimal | None:
@@ -175,6 +245,7 @@ def compare_with_db(liga_cards: list[dict]) -> list[dict]:
         for card in liga_cards:
             liga_buy = Decimal(card["buy_price"]) if card.get("buy_price") else None
             name_en = card.get("name_en") or card.get("name_pt") or "?"
+            name_pt = card.get("name_pt", "")
 
             # Try to find in our collection by name_en (fuzzy match)
             row = conn.execute(
@@ -188,7 +259,7 @@ def compare_with_db(liga_cards: list[dict]) -> list[dict]:
                 """),
                 {
                     "name_en": f"%{name_en}%",
-                    "name_pt": f"%{card.get('name_pt', '')}%",
+                    "name_pt": f"%{name_pt}%",
                     "cn": card.get("collector_number", ""),
                 },
             ).fetchone()
@@ -205,9 +276,48 @@ def compare_with_db(liga_cards: list[dict]) -> list[dict]:
                     """),
                     {
                         "name_en": f"%{name_en}%",
-                        "name_pt": f"%{card.get('name_pt', '')}%",
+                        "name_pt": f"%{name_pt}%",
                     },
                 ).fetchone()
+
+            # Fallback: normalized diacritics match (handles Dáin, Andúril, etc.)
+            if not row:
+                norm_en = normalize_diacritics(name_en)
+                norm_pt = normalize_diacritics(name_pt)
+                # Only attempt if normalization actually changed something
+                if norm_en != name_en or norm_pt != name_pt:
+                    row = conn.execute(
+                        text("""
+                            SELECT uc.card_id, uc.name_en, uc.name_pt,
+                                   uc.collector_number, uc.extras, uc.set_code
+                            FROM user_collection uc
+                            WHERE (uc.name_en ILIKE :name_en OR uc.name_pt ILIKE :name_pt)
+                              AND uc.collector_number = :cn
+                            LIMIT 1
+                        """),
+                        {
+                            "name_en": f"%{norm_en}%",
+                            "name_pt": f"%{norm_pt}%",
+                            "cn": card.get("collector_number", ""),
+                        },
+                    ).fetchone()
+
+                    # Normalized match without collector_number
+                    if not row:
+                        row = conn.execute(
+                            text("""
+                                SELECT uc.card_id, uc.name_en, uc.name_pt,
+                                       uc.collector_number, uc.extras, uc.set_code
+                                FROM user_collection uc
+                                WHERE uc.name_en ILIKE :name_en
+                                   OR uc.name_pt ILIKE :name_pt
+                                LIMIT 1
+                            """),
+                            {
+                                "name_en": f"%{norm_en}%",
+                                "name_pt": f"%{norm_pt}%",
+                            },
+                        ).fetchone()
 
             if not row:
                 results.append(
@@ -223,6 +333,7 @@ def compare_with_db(liga_cards: list[dict]) -> list[dict]:
                         "diff_pct": "N/A",
                         "card_id": None,
                         "status": "NOT_IN_DB",
+                        "hint": "",
                     }
                 )
                 continue
@@ -255,20 +366,31 @@ def compare_with_db(liga_cards: list[dict]) -> list[dict]:
                 diff = our_price - liga_buy
                 if liga_buy > 0:
                     diff_pct = float(diff / liga_buy * 100)
-                if abs(diff_pct or 0) > 50:
-                    status = "BIG_MISMATCH"
-                elif abs(diff_pct or 0) > 20:
-                    status = "MISMATCH"
-                elif abs(diff_pct or 0) > 5:
+                abs_pct = abs(diff_pct or 0)
+                is_above = (diff_pct or 0) > 0
+                if abs_pct > 50:
+                    status = "BIG_ABOVE" if is_above else "BIG_BELOW"
+                elif abs_pct > 20:
+                    status = "MISMATCH_ABOVE" if is_above else "MISMATCH_BELOW"
+                elif abs_pct > 5:
                     status = "DRIFT"
             elif liga_buy and not our_price:
                 status = "NO_OUR_PRICE"
             elif not liga_buy:
                 status = "NO_LIGA_PRICE"
 
+            result_name_en = d.get("name_en") or name_en
+            hint = classify_hint(
+                name_en=result_name_en,
+                extras=card.get("extras"),
+                edition=card.get("edition_name"),
+                liga_buy=liga_buy,
+                diff_pct=diff_pct,
+            )
+
             results.append(
                 {
-                    "name_en": d.get("name_en") or name_en,
+                    "name_en": result_name_en,
                     "name_pt": card.get("name_pt", ""),
                     "collector_number": card.get("collector_number"),
                     "edition": card.get("edition_name", ""),
@@ -280,6 +402,7 @@ def compare_with_db(liga_cards: list[dict]) -> list[dict]:
                     "diff_pct": f"{diff_pct:+.1f}%" if diff_pct is not None else "N/A",
                     "card_id": card_id,
                     "status": status,
+                    "hint": hint,
                 }
             )
 
@@ -290,6 +413,7 @@ def save_reports(results: list[dict]):
     """Save comparison results as CSV + print summary."""
     fields = [
         "status",
+        "hint",
         "name_en",
         "name_pt",
         "collector_number",
@@ -313,7 +437,13 @@ def save_reports(results: list[dict]):
     print(f"\nFull report: {csv_path}")
 
     # Mismatches only
-    mismatches = [r for r in results if r["status"] in ("MISMATCH", "BIG_MISMATCH")]
+    mismatch_statuses = (
+        "MISMATCH_ABOVE",
+        "MISMATCH_BELOW",
+        "BIG_ABOVE",
+        "BIG_BELOW",
+    )
+    mismatches = [r for r in results if r["status"] in mismatch_statuses]
     if mismatches:
         mm_path = OUTPUT_DIR / "mismatches.csv"
         with open(mm_path, "w", newline="", encoding="utf-8") as f:
@@ -333,8 +463,10 @@ def save_reports(results: list[dict]):
     total = len(results)
     ok = sum(1 for r in results if r["status"] == "OK")
     drift = sum(1 for r in results if r["status"] == "DRIFT")
-    mismatch = sum(1 for r in results if r["status"] == "MISMATCH")
-    big_mismatch = sum(1 for r in results if r["status"] == "BIG_MISMATCH")
+    mm_above = sum(1 for r in results if r["status"] == "MISMATCH_ABOVE")
+    mm_below = sum(1 for r in results if r["status"] == "MISMATCH_BELOW")
+    big_above = sum(1 for r in results if r["status"] == "BIG_ABOVE")
+    big_below = sum(1 for r in results if r["status"] == "BIG_BELOW")
     no_our = sum(1 for r in results if r["status"] == "NO_OUR_PRICE")
     no_liga = sum(1 for r in results if r["status"] == "NO_LIGA_PRICE")
     not_in_db = sum(1 for r in results if r["status"] == "NOT_IN_DB")
@@ -345,8 +477,10 @@ def save_reports(results: list[dict]):
     print(f"Total cards from Liga:     {total}")
     print(f"  OK (< 5% diff):          {ok}")
     print(f"  DRIFT (5-20%):           {drift}")
-    print(f"  MISMATCH (20-50%):       {mismatch}")
-    print(f"  BIG_MISMATCH (> 50%):    {big_mismatch}")
+    print(f"  MISMATCH_ABOVE (20-50%): {mm_above}")
+    print(f"  MISMATCH_BELOW (20-50%): {mm_below}")
+    print(f"  BIG_ABOVE (> 50%):       {big_above}")
+    print(f"  BIG_BELOW (> 50%):       {big_below}")
     print(f"  No price in our DB:      {no_our}")
     print(f"  No Liga price:           {no_liga}")
     print(f"  Not found in our DB:     {not_in_db}")
@@ -356,11 +490,25 @@ def save_reports(results: list[dict]):
     print("\nNOTE: Liga shows 'Menor Preco de Compra' (lowest buy price)")
     print("      Our DB stores 'mid' (market median price)")
     print("      Our price is expected to be HIGHER than Liga's lowest.")
-    print("      Focus on BIG_MISMATCH and cases where our price < Liga price.")
+    print("      Focus on BIG_BELOW and MISMATCH_BELOW (our price < Liga).")
 
-    if big_mismatch > 0:
+    # Hint breakdown for mismatches
+    hint_counts: dict[str, int] = {}
+    for r in results:
+        if r["status"] in mismatch_statuses:
+            h = r.get("hint", "") or "(no hint)"
+            hint_counts[h] = hint_counts.get(h, 0) + 1
+
+    if hint_counts:
+        print(f"\n{'='*65}")
+        print("MISMATCH ROOT-CAUSE HINTS")
+        print(f"{'='*65}")
+        for hint_name, count in sorted(hint_counts.items(), key=lambda x: -x[1]):
+            print(f"  {hint_name:20s}  {count}")
+
+    if big_above + big_below > 0:
         print("\nBIGGEST MISMATCHES (>50% diff):")
-        bm = [r for r in results if r["status"] == "BIG_MISMATCH"]
+        bm = [r for r in results if r["status"] in ("BIG_ABOVE", "BIG_BELOW")]
         bm.sort(
             key=lambda x: abs(float(x["diff_pct"].rstrip("%").replace("+", "")))
             if x["diff_pct"] != "N/A"
@@ -368,15 +516,16 @@ def save_reports(results: list[dict]):
             reverse=True,
         )
         for r in bm[:20]:
+            hint_tag = f"  [{r['hint']}]" if r.get("hint") else ""
             print(
                 f"  {r['name_en']:40s}  Liga={r['liga_buy_price']:>10s}"
                 f"  Ours={r['our_price']:>10s}  ({r['diff_pct']:>7s})"
-                f"  {r['extras'] or ''}"
+                f"  {r['extras'] or ''}{hint_tag}"
             )
 
-    if mismatch > 0:
+    if mm_above + mm_below > 0:
         print("\nMISMATCHES (20-50% diff):")
-        mm = [r for r in results if r["status"] == "MISMATCH"]
+        mm = [r for r in results if r["status"] in ("MISMATCH_ABOVE", "MISMATCH_BELOW")]
         mm.sort(
             key=lambda x: abs(float(x["diff_pct"].rstrip("%").replace("+", "")))
             if x["diff_pct"] != "N/A"
@@ -384,10 +533,11 @@ def save_reports(results: list[dict]):
             reverse=True,
         )
         for r in mm[:20]:
+            hint_tag = f"  [{r['hint']}]" if r.get("hint") else ""
             print(
                 f"  {r['name_en']:40s}  Liga={r['liga_buy_price']:>10s}"
                 f"  Ours={r['our_price']:>10s}  ({r['diff_pct']:>7s})"
-                f"  {r['extras'] or ''}"
+                f"  {r['extras'] or ''}{hint_tag}"
             )
 
 

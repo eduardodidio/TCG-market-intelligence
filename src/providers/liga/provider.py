@@ -26,6 +26,7 @@ from src.providers.liga.exceptions import (
     LigaServerError,
 )
 from src.providers.liga.parser import parse_card_prices, parse_edition_options
+from src.providers.liga.sigla_map import normalize_sigla
 from src.providers.liga.url import liga_url_for_card_name
 from src.providers.liga.urls import is_valid_liga_card_url
 
@@ -40,6 +41,20 @@ _USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/120.0.0.0 Safari/537.36"
 )
+
+
+def _variant_sigla_candidates(sigla: str) -> set[str]:
+    """Generate variant sigla candidates for fuzzy set matching."""
+    candidates = set()
+    # Add promo prefix
+    candidates.add(f"p{sigla}")
+    candidates.add(f"amp{sigla}")
+    # Strip promo prefix
+    if sigla.startswith("p") and len(sigla) > 1:
+        candidates.add(sigla[1:])
+    if sigla.startswith("amp") and len(sigla) > 3:
+        candidates.add(sigla[3:])
+    return candidates
 
 
 class LigaMagicProvider(CardSourceProvider):
@@ -791,7 +806,7 @@ class LigaMagicProvider(CardSourceProvider):
         # When multiple editions share the same collector_number,
         # prefer the one whose sigla matches our set_code.
         if set_code and len(matches) > 1:
-            sc = set_code.lower()
+            sc = normalize_sigla(set_code.lower())
             sigla_matches = [m for m in matches if m[2] == sc]
             if sigla_matches:
                 matches = sigla_matches
@@ -803,13 +818,25 @@ class LigaMagicProvider(CardSourceProvider):
                     total_cn_matches=len(matches),
                 )
             else:
-                log.warning(
-                    "liga_edition_sigla_no_match",
-                    card=card_name,
-                    set_code=set_code,
-                    collector_number=collector_number,
-                    available_siglas=[m[2] for m in matches],
-                )
+                # Try variant prefixes: p{set} or strip leading p/amp
+                variant_siglas = _variant_sigla_candidates(sc)
+                variant_matches = [m for m in matches if m[2] in variant_siglas]
+                if variant_matches:
+                    matches = variant_matches
+                    log.debug(
+                        "liga_edition_variant_sigla_match",
+                        card=card_name,
+                        set_code=set_code,
+                        matched_sigla=variant_matches[0][2],
+                    )
+                else:
+                    log.warning(
+                        "liga_edition_sigla_no_match",
+                        card=card_name,
+                        set_code=set_code,
+                        collector_number=collector_number,
+                        available_siglas=[m[2] for m in matches],
+                    )
 
         edition_value = matches[0][0]
         log.debug(

@@ -682,3 +682,104 @@ async def test_fetch_liga_price_strips_collector_number_annotation():
     provider.search_card.assert_awaited_once_with(
         "Arcane Signet", collector_number="503", set_code="DMU"
     )
+
+
+# ── Foil-specific scenarios (F129-T06) ──────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_foil_no_price_logs_diagnostic_fields(capfd):
+    """When a foil card has no foil prices, the warning log should include
+    collector_number, set_code, and edition_matched fields."""
+    provider = AsyncMock()
+
+    async def _search(name, **kwargs):
+        return {
+            "normal": {"low": Decimal("5.00"), "mid": Decimal("8.00"), "high": None},
+            "foil": {"low": None, "mid": None, "high": None},
+            "edition_matched": True,
+            "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
+        }
+
+    provider.search_card = AsyncMock(side_effect=_search)
+
+    card = _make_card(99, "Shiny Card")
+    card["extras"] = "foil"
+    card["collector_number"] = "42"
+    card["set_code"] = "MH3"
+
+    with (
+        patch("src.collectors.liga_sweep._is_foil", return_value=True),
+        patch("src.collectors.liga_sweep.log") as mock_log,
+    ):
+        result = await _fetch_liga_price(provider, card)
+
+    assert result is None
+    mock_log.warning.assert_called_once()
+    call_kwargs = mock_log.warning.call_args
+    # Positional arg is the event name
+    assert call_kwargs[0][0] == "liga_sweep_no_foil_prices"
+    # Check diagnostic fields are present
+    assert call_kwargs[1]["card"] == "Shiny Card"
+    assert call_kwargs[1]["card_id"] == 99
+    assert call_kwargs[1]["collector_number"] == "42"
+    assert call_kwargs[1]["set_code"] == "MH3"
+    assert call_kwargs[1]["edition_matched"] is True
+
+
+@pytest.mark.asyncio
+async def test_foil_no_price_logs_edition_matched_false():
+    """When edition_matched is False in the response, the log should reflect it."""
+    provider = AsyncMock()
+
+    async def _search(name, **kwargs):
+        return {
+            "normal": {"low": None, "mid": None, "high": None},
+            "foil": {"low": None, "mid": None, "high": None},
+            "edition_matched": True,
+            "page_url": None,
+        }
+
+    provider.search_card = AsyncMock(side_effect=_search)
+
+    card = _make_card(55, "Foil Dud")
+    card["extras"] = "foil"
+    card["collector_number"] = "10"
+    card["set_code"] = "AFR"
+
+    with (
+        patch("src.collectors.liga_sweep._is_foil", return_value=True),
+        patch("src.collectors.liga_sweep.log") as mock_log,
+    ):
+        result = await _fetch_liga_price(provider, card)
+
+    assert result is None
+    assert mock_log.warning.call_args[1]["edition_matched"] is True
+
+
+@pytest.mark.asyncio
+async def test_foil_card_no_fallback_to_normal():
+    """A foil card with no foil prices must return None -- never fall back
+    to normal prices, which would store incorrect data."""
+    provider = AsyncMock()
+
+    async def _search(name, **kwargs):
+        return {
+            "normal": {"low": Decimal("10.00"), "mid": Decimal("15.00"), "high": Decimal("20.00")},
+            "foil": {"low": None, "mid": None, "high": None},
+            "edition_matched": True,
+            "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
+        }
+
+    provider.search_card = AsyncMock(side_effect=_search)
+
+    card = _make_card(77, "Expensive Normal Only")
+    card["extras"] = "foil"
+    card["collector_number"] = "200"
+    card["set_code"] = "DMU"
+
+    with patch("src.collectors.liga_sweep._is_foil", return_value=True):
+        result = await _fetch_liga_price(provider, card)
+
+    # Must be None -- foil card with no foil prices should NOT store normal prices
+    assert result is None
