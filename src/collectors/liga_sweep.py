@@ -33,6 +33,16 @@ class LigaSweepResult:
 from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
 
 
+def _clean_card_name(name: str) -> str:
+    """Strip collector-number annotations like '(#333)' from card names.
+
+    These annotations confuse Liga search and cause wrong card matches.
+    """
+    import re
+
+    return re.sub(r"\s*\(#\d+\)", "", name).strip()
+
+
 async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str | None] | None:
     """Fetch price for a single card via the Liga provider.
 
@@ -45,6 +55,8 @@ async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str 
     if not card_name:
         return None
 
+    card_name = _clean_card_name(card_name)
+
     is_foil_card = _is_foil(card.get("extras"))
     collector_number = card.get("collector_number")
     prices = await provider.search_card(
@@ -52,6 +64,18 @@ async def _fetch_liga_price(provider, card: dict) -> tuple[HistoricalPrice, str 
         collector_number=collector_number,
     )
     page_url = prices.get("page_url")
+
+    # When Liga has edition options but none matched our collector_number,
+    # the default prices belong to a different printing — skip to avoid
+    # storing wrong prices (root cause of 10x+ price swings).
+    if not prices.get("edition_matched", True):
+        log.warning(
+            "liga_sweep_edition_mismatch",
+            card=card_name,
+            card_id=card_id,
+            collector_number=collector_number,
+        )
+        return None
 
     if is_foil_card:
         foil = prices.get("foil", {})

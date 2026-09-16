@@ -9,7 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.collectors.liga_sweep import LigaSweepResult, _fetch_liga_price, run_liga_sweep
+from src.collectors.liga_sweep import (
+    LigaSweepResult,
+    _clean_card_name,
+    _fetch_liga_price,
+    run_liga_sweep,
+)
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -583,3 +588,95 @@ async def test_default_db_url_from_config():
         await run_liga_sweep(db_url=None, dry_run=True)
 
     mock_repo_cls.assert_called_once_with("sqlite:///custom.db")
+
+
+# ── Unit: _clean_card_name ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "input_name, expected",
+    [
+        ("Arcane Signet (#333)", "Arcane Signet"),
+        ("Sol Ring (#357)", "Sol Ring"),
+        ("Command Tower (#485)", "Command Tower"),
+        ("Lightning Bolt", "Lightning Bolt"),
+        ("Card Name", "Card Name"),
+        ("", ""),
+        ("Card (#1) Other", "Card Other"),
+    ],
+)
+def test_clean_card_name(input_name, expected):
+    assert _clean_card_name(input_name) == expected
+
+
+# ── Unit: edition mismatch skips price ──────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_fetch_liga_price_skips_on_edition_mismatch():
+    """When Liga has edition options but none match, skip the price."""
+    provider = AsyncMock()
+
+    async def _search(name, **kwargs):
+        return {
+            "normal": {
+                "low": Decimal("500.00"),
+                "mid": Decimal("800.00"),
+                "high": Decimal("1000.00"),
+            },
+            "edition_matched": False,
+            "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
+        }
+
+    provider.search_card = AsyncMock(side_effect=_search)
+    card = _make_card(503, "Arcane Signet")
+    card["collector_number"] = "333"
+    result = await _fetch_liga_price(provider, card)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_liga_price_stores_when_edition_matched():
+    """When Liga edition selection succeeds, store the price normally."""
+    provider = AsyncMock()
+
+    async def _search(name, **kwargs):
+        return {
+            "normal": {"low": Decimal("5.00"), "mid": Decimal("8.00"), "high": Decimal("12.00")},
+            "edition_matched": True,
+            "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
+        }
+
+    provider.search_card = AsyncMock(side_effect=_search)
+    card = _make_card(503, "Arcane Signet")
+    card["collector_number"] = "333"
+    result = await _fetch_liga_price(provider, card)
+
+    assert result is not None
+    observation, _ = result
+    assert observation.median_price == Decimal("8.00")
+
+
+@pytest.mark.asyncio
+async def test_fetch_liga_price_stores_when_no_edition_flag():
+    """Backward compat: if edition_matched is absent, store normally."""
+    provider = _mock_provider_search()
+    card = _make_card(42, "Lightning Bolt")
+    result = await _fetch_liga_price(provider, card)
+
+    assert result is not None
+
+
+@pytest.mark.asyncio
+async def test_fetch_liga_price_strips_collector_number_annotation():
+    """Card names with (#xxx) annotations should be cleaned before search."""
+    provider = _mock_provider_search({"Arcane Signet": Decimal("8.00")})
+    card = _make_card(503, "Arcane Signet (#333)")
+    result = await _fetch_liga_price(provider, card)
+
+    assert result is not None
+    observation, _ = result
+    assert observation.median_price == Decimal("8.00")
+    # Verify the cleaned name was used in the search
+    provider.search_card.assert_awaited_once_with("Arcane Signet", collector_number="503")

@@ -536,3 +536,33 @@ class TestLifecycle:
         provider = LigaMagicProvider()
         await provider.close()  # Should not raise
         assert provider._page is None
+
+
+# ---------------------------------------------------------------------------
+# Edition selection — return tuple (html, matched)
+# ---------------------------------------------------------------------------
+
+
+class TestSelectEditionReturnType:
+    """Verify _select_edition returns (html, bool) tuple."""
+
+    @pytest.mark.asyncio
+    async def test_no_editions_returns_true(self):
+        """When page has no edition dropdown, match is assumed True."""
+        provider = LigaMagicProvider()
+        html = "<html><body>No editions here</body></html>"
+        result_html, matched = await provider._select_edition(html, "Card", "123")
+        assert matched is True
+        assert result_html == html
+
+    @pytest.mark.asyncio
+    async def test_editions_no_match_returns_false(self):
+        """When editions exist but none match collector_number, return False."""
+        provider = LigaMagicProvider()
+        html = """<html><body>
+            <option value="100_1">Set A #1</option>
+            <option value="200_50">Set B #50</option>
+        </body></html>"""
+        result_html, matched = await provider._select_edition(html, "Card", "999")
+        assert matched is False
+        assert result_html == html

@@ -704,11 +704,13 @@ class LigaMagicProvider(CardSourceProvider):
             raise LigaError(msg, url=url) from e
 
         # If collector_number provided, try selecting the exact edition
+        edition_matched = True
         if collector_number:
-            html = await self._select_edition(html, card_name, collector_number)
+            html, edition_matched = await self._select_edition(html, card_name, collector_number)
 
         log.debug("liga_search_html_received", card=card_name, html_length=len(html))
         prices = parse_card_prices(html, card_name)
+        prices["edition_matched"] = edition_matched
         prices["page_url"] = (
             self._last_page_url if is_valid_liga_card_url(self._last_page_url) else url
         )
@@ -737,28 +739,34 @@ class LigaMagicProvider(CardSourceProvider):
 
         return prices
 
-    async def _select_edition(self, html: str, card_name: str, collector_number: str) -> str:
+    async def _select_edition(
+        self, html: str, card_name: str, collector_number: str
+    ) -> tuple[str, bool]:
         """Try to select the edition matching *collector_number* on the current page.
 
         Uses the edition dropdown parsed from *html* and calls the Liga
         JavaScript function ``editionsCard.changeEdition(value)`` via Playwright.
-        Returns the updated HTML after edition change, or the original HTML
-        if no matching edition is found.
+
+        Returns:
+            (html, edition_matched) — updated HTML and whether the edition was found.
+            When the page has edition options but none match, returns (html, False)
+            so the caller can decide whether to trust the default prices.
         """
         editions = parse_edition_options(html)
         if not editions:
-            return html
+            # No edition dropdown on page — single printing, default is fine
+            return html, True
 
         # Find matching edition(s) by collector number
         matches = [(val, cn) for val, cn in editions if cn == collector_number]
         if not matches:
-            log.debug(
+            log.warning(
                 "liga_edition_no_match",
                 card=card_name,
                 collector_number=collector_number,
-                available_count=len(editions),
+                available=[cn for _, cn in editions[:10]],
             )
-            return html
+            return html, False
 
         edition_value = matches[0][0]
         log.debug(
@@ -770,7 +778,8 @@ class LigaMagicProvider(CardSourceProvider):
 
         try:
             if self._use_sync:
-                return await asyncio.to_thread(self._select_edition_sync, edition_value)
+                new_html = await asyncio.to_thread(self._select_edition_sync, edition_value)
+                return new_html, True
             else:
                 page = await self._ensure_page()
                 await page.evaluate(f"editionsCard.changeEdition('{edition_value}')")
@@ -782,7 +791,7 @@ class LigaMagicProvider(CardSourceProvider):
                     )
                 except Exception:
                     pass
-                return await page.content()
+                return await page.content(), True
         except Exception as e:
             log.warning(
                 "liga_edition_select_failed",
@@ -790,7 +799,7 @@ class LigaMagicProvider(CardSourceProvider):
                 edition_value=edition_value,
                 error=str(e),
             )
-            return html
+            return html, False
 
     def _select_edition_sync(self, edition_value: str) -> str:
         """Select edition using sync Playwright (runs in thread)."""
