@@ -20,9 +20,11 @@ export interface CardTileProps {
   onPriceRefreshed?: (cardId: number, newPrice: number | null) => void;
   /** Override the default navigation target (`/cards/{id}`). */
   linkTo?: string;
+  /** When true, enables foil shimmer effect on the 3D tilt and preview modal. */
+  isFoil?: boolean;
 }
 
-export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProps) {
+export function CardTile({ card, trend, linkTo, isFoil }: CardTileProps) {
   const { t } = useTranslation();
   const { currency } = useCurrency();
   const { getCardName } = useCardName();
@@ -31,7 +33,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [displayPrice, setDisplayPrice] = useState<number | null | undefined>(undefined);
+  const [queued, setQueued] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   // Primary: set/collector_number URL. Fallback: name-based URL.
@@ -44,19 +46,19 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
   const currentUrl = imgError && fallbackUrl ? fallbackUrl : primaryUrl;
   const showImage = currentUrl && !(imgError && (fallbackError || !fallbackUrl));
 
-  const currentPrice = displayPrice !== undefined ? displayPrice : card.latest_price;
+  const currentPrice = card.latest_price;
 
   const handleRefresh = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (refreshing) return;
+    if (refreshing || queued) return;
 
     setRefreshing(true);
     try {
       const res = await refreshCardPrice(card.id);
-      if (res.data) {
-        setDisplayPrice(res.data.latest_price);
-        onPriceRefreshed?.(card.id, res.data.latest_price);
+      if (res.data?.status === "queued") {
+        setQueued(true);
+        setTimeout(() => setQueued(false), 5000);
       }
     } catch {
       // silently fail
@@ -66,7 +68,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
   };
 
   return (
-    <Card3DTilt foil={false} className="w-full">
+    <Card3DTilt foil={isFoil ?? false} className="w-full">
     <Link
       to={linkTo ?? `/cards/${card.id}`}
       className="group block bg-white dark:bg-slate-800 rounded-lg overflow-hidden
@@ -79,28 +81,46 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
         <button
           data-testid={`refresh-card-price-${card.id}`}
           onClick={handleRefresh}
-          disabled={refreshing}
-          title={t("credits.refreshCostTooltip", { cost: 1 })}
-          className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full
-            bg-black/60 text-slate-300 hover:text-cyan-400 hover:bg-black/80
-            opacity-0 group-hover:opacity-100 transition-all
+          disabled={refreshing || queued}
+          title={queued ? t("cards.priceUpdateQueued") : t("credits.refreshCostTooltip", { cost: 1 })}
+          className={`absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full
+            bg-black/60 ${queued ? "text-yellow-400" : "text-slate-300 hover:text-cyan-400"} hover:bg-black/80
+            ${queued ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-all
             disabled:opacity-100 disabled:cursor-not-allowed
-            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400`}
         >
-          <svg
-            className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
+          {queued ? (
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              data-testid="clock-icon"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          ) : (
+            <svg
+              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          )}
         </button>
       )}
 
@@ -190,6 +210,11 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
             <TrendBadge changePct={trend.change_pct} />
           )}
         </div>
+        {queued && (
+          <span className="text-xs text-yellow-500 dark:text-yellow-400 mt-1 block" data-testid="queued-feedback">
+            {t("cards.priceUpdateQueued")}
+          </span>
+        )}
         {trend && trend.prices.length > 1 && (
           <div className="mt-1" data-testid="card-sparkline">
             <PriceSparkline prices={trend.prices} height={24} />
@@ -201,6 +226,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo }: CardTileProp
       <CardPreviewModal
         imageUrl={currentUrl}
         cardName={displayName}
+        isFoil={isFoil}
         onClose={() => setPreviewOpen(false)}
       />
     )}

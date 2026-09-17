@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query
 
 from src.analytics.aggregation import (
     PERIOD_MAP,
@@ -257,25 +257,18 @@ def get_history(
     )
 
 
-@router.post("/{card_id}/refresh-price", response_model=ApiResponse[CardSummary])
-async def refresh_card_price(
+@router.post("/{card_id}/refresh-price")
+def refresh_card_price(
     card_id: int,
-    request: Request,
-    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
     repo: Repository = Depends(get_db),
-    converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user: User = Depends(get_current_user),
     credit_svc: CreditService = Depends(get_credit_service),
 ):
-    """Refresh any card's price from LigaMagic (not limited to collection entries)."""
+    """Queue a price update request for a card via LigaMagic.
 
-    from src.domain.models import HistoricalPrice
-    from src.providers.liga.exceptions import (
-        LigaError,
-        LigaNotFoundError,
-        LigaRateLimitError,
-    )
-    from src.providers.liga.provider import LigaMagicProvider
+    Deducts credit immediately and queues the request for async processing
+    by the ``process-price-requests`` CLI command.
+    """
 
     # Credit guard
     if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
@@ -293,61 +286,41 @@ async def refresh_card_price(
             "Card has no name (name_en or name_pt required for LigaMagic search)",
         )
 
-    # Get Liga provider from registry
-    registry = getattr(request.app.state, "provider_registry", None)
-    provider = None
-    if registry is not None:
-        provider = next(
-            (p for p in registry.providers if isinstance(p, LigaMagicProvider)),
-            None,
-        )
-    if provider is None:
-        raise api_error(
-            503, ErrorCode.EXTERNAL_PROVIDER_UNAVAILABLE, "LigaMagic provider not available"
-        )
-
-    try:
-        prices = await provider.search_card(
-            card_name,
-            collector_number=card.collector_number,
-        )
-    except LigaNotFoundError:
-        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found on LigaMagic")
-    except LigaRateLimitError:
-        raise api_error(429, ErrorCode.EXTERNAL_FAILURE, "LigaMagic rate limited, try again later")
-    except LigaError as exc:
-        raise api_error(502, ErrorCode.EXTERNAL_FAILURE, f"LigaMagic error: {exc}")
-    except Exception as exc:
-        msg = f"{type(exc).__name__}: {exc}" if str(exc) else f"{type(exc).__name__} (no details)"
-        raise api_error(502, ErrorCode.EXTERNAL_FAILURE, f"LigaMagic error: {msg}")
-
-    # Extract normal price
-    normal = prices.get("normal", {})
-    price = normal.get("low") or normal.get("mid") or normal.get("high")
-
-    if price is not None:
-        ext_id = f"liga_{card_id}"
-        obs = HistoricalPrice(
-            source="liga",
-            external_id=ext_id,
-            observed_at=date.today(),
-            median_price=price,
-        )
-        repo.insert_price_observations([obs])
-
-    # Deduct credit
+    # Deduct credit immediately (before queuing)
     credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(card_id))
 
-    # Return updated card summary
-    converted_price = converter.convert(price, date.today(), currency) if price else None
-    data = CardSummary(
-        id=card.id,
-        game=card.game,
-        name_en=card.name_en,
-        name_pt=card.name_pt,
-        set_code=card.set_code,
-        collector_number=card.collector_number,
-        latest_price=converted_price,
-        currency=currency,
+    # Queue the request
+    price_request = repo.create_price_update_request(card_id, user.id)
+
+    return success_response(
+        data={
+            "status": "queued",
+            "request_id": price_request.id,
+            "card_id": card_id,
+            "message": "Price update request queued. It will be processed shortly.",
+        }
     )
-    return success_response(data=data)
+
+
+@router.get("/{card_id}/price-request-status")
+def get_price_request_status(
+    card_id: int,
+    repo: Repository = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Check the status of the most recent price update request for a card."""
+    price_request = repo.get_user_price_request_for_card(user.id, card_id)
+    if not price_request:
+        return success_response(data={"status": "none"})
+    return success_response(
+        data={
+            "status": price_request.status,
+            "requested_at": price_request.requested_at.isoformat(),
+            "processed_at": (
+                price_request.processed_at.isoformat() if price_request.processed_at else None
+            ),
+            "result_price": float(price_request.result_price)
+            if price_request.result_price
+            else None,
+        }
+    )

@@ -31,10 +31,11 @@ export function Card3DTilt({
       perspective={1000}
       transitionSpeed={300}
       glareEnable={foil}
-      glareMaxOpacity={foil ? 0.15 : 0}
-      glareColor="rgba(200, 180, 255, 0.3)"
+      glareMaxOpacity={foil ? 0.35 : 0}
+      glareColor="rgba(255, 255, 255, 0.4)"
       glarePosition="all"
       className={className}
+      style={{ borderRadius: '12px', overflow: 'hidden' }}
     >
       {foil ? <div className="foil-shimmer">{children}</div> : children}
     </Tilt>

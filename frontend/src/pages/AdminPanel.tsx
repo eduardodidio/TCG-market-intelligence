@@ -19,6 +19,7 @@ import { AdminScansSection } from "../components/admin/AdminScansSection";
 import { AdminErrorsSection } from "../components/admin/AdminErrorsSection";
 import { AdminOperationsSection } from "../components/admin/AdminOperationsSection";
 import { AdminAuditLogSection } from "../components/admin/AdminAuditLogSection";
+import { AdminPriceRequestsSection } from "../components/admin/AdminPriceRequestsSection";
 
 const LIMIT = 50;
 
@@ -697,6 +698,15 @@ export function AdminPanel() {
         onToggle={() => toggleSection("errors")}
       >
         <AdminErrorsSection isOpen={openSection === "errors"} />
+      </AccordionSection>
+
+      {/* Price Requests Section (F130) */}
+      <AccordionSection
+        title={t("admin.section.priceRequests")}
+        isOpen={openSection === "price-requests"}
+        onToggle={() => toggleSection("price-requests")}
+      >
+        <AdminPriceRequestsSection isOpen={openSection === "price-requests"} />
       </AccordionSection>
 
       {/* Audit Log Section (F100) */}

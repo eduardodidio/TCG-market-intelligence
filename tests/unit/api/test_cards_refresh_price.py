@@ -1,9 +1,12 @@
-"""Tests for POST /api/v1/cards/{card_id}/refresh-price endpoint (F113-T09)."""
+"""Tests for POST /api/v1/cards/{card_id}/refresh-price endpoint.
+
+Updated for F130 queue-based implementation: the endpoint now queues a
+PriceUpdateRequest instead of calling Liga directly.
+"""
 
 from __future__ import annotations
 
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -12,7 +15,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from src.api.routers.cards import router
-from src.database.models import Base, CardRow
+from src.database.models import Base, CardRow, PriceUpdateRequestRow
 from src.database.repository import Repository
 from src.domain.models import User
 
@@ -21,9 +24,7 @@ from src.domain.models import User
 # ---------------------------------------------------------------------------
 
 
-def _make_app(
-    repo: Repository, user: User | None = None, provider=None, credit_balance: int = 100
-) -> tuple:
+def _make_app(repo: Repository, user: User | None = None, credit_balance: int = 100) -> tuple:
     """Build a minimal FastAPI app with the cards router and mocked dependencies.
 
     Returns (app, credit_svc_mock).
@@ -39,14 +40,6 @@ def _make_app(
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
-
-    # Mock provider registry
-    registry = MagicMock()
-    if provider is not None:
-        registry.providers = [provider]
-    else:
-        registry.providers = []
-    app.state.provider_registry = registry
 
     # Override DB dependency with generator
     def override_db():
@@ -112,177 +105,71 @@ def test_user():
 
 
 class TestRefreshCardPrice:
-    """Tests for POST /api/v1/cards/{card_id}/refresh-price."""
+    """Tests for POST /api/v1/cards/{card_id}/refresh-price (queue-based)."""
 
-    def test_refresh_price_success(self, repo_with_card, test_user):
-        """Successfully refresh a card's price from Liga."""
-        from src.providers.liga.provider import LigaMagicProvider
-
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        mock_provider.search_card = AsyncMock(
-            return_value={
-                "normal": {"low": Decimal("2.50"), "mid": Decimal("3.00"), "high": Decimal("4.00")},
-                "foil": {},
-            }
-        )
-
-        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
+    def test_refresh_price_returns_queued(self, repo_with_card, test_user):
+        """Successfully queues a price update request."""
+        app, _ = _make_app(repo_with_card, user=test_user)
         client = TestClient(app)
 
         resp = client.post("/api/v1/cards/1/refresh-price")
         assert resp.status_code == 200
         body = resp.json()
-        assert body["data"]["latest_price"] == 2.5
-        assert body["data"]["name_en"] == "Lightning Bolt"
+        assert body["data"]["status"] == "queued"
+        assert "request_id" in body["data"]
+        assert body["data"]["card_id"] == 1
 
     def test_refresh_price_card_not_found(self, repo_with_card, test_user):
         """Return 404 when card ID doesn't exist."""
-        from src.providers.liga.provider import LigaMagicProvider
-
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
+        app, _ = _make_app(repo_with_card, user=test_user)
         client = TestClient(app)
 
         resp = client.post("/api/v1/cards/999/refresh-price")
         assert resp.status_code == 404
 
-    def test_refresh_price_no_provider(self, repo_with_card, test_user):
-        """Return 503 when Liga provider is not available."""
-        app, _ = _make_app(repo_with_card, user=test_user, provider=None)
-        client = TestClient(app)
-
-        resp = client.post("/api/v1/cards/1/refresh-price")
-        assert resp.status_code == 503
-
     def test_refresh_price_insufficient_credits(self, repo_with_card, test_user):
         """Return 402 when user has insufficient credits."""
-        from src.providers.liga.provider import LigaMagicProvider
-
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider, credit_balance=0)
+        app, _ = _make_app(repo_with_card, user=test_user, credit_balance=0)
         client = TestClient(app)
 
         resp = client.post("/api/v1/cards/1/refresh-price")
         assert resp.status_code == 402
 
-    def test_refresh_price_liga_not_found(self, repo_with_card, test_user):
-        """Return 404 when Liga can't find the card."""
-        from src.providers.liga.exceptions import LigaNotFoundError
-        from src.providers.liga.provider import LigaMagicProvider
-
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        mock_provider.search_card = AsyncMock(side_effect=LigaNotFoundError("Not found"))
-
-        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
-        client = TestClient(app)
-
-        resp = client.post("/api/v1/cards/1/refresh-price")
-        assert resp.status_code == 404
-
-    def test_refresh_price_liga_rate_limited(self, repo_with_card, test_user):
-        """Return 429 when Liga rate-limits us."""
-        from src.providers.liga.exceptions import LigaRateLimitError
-        from src.providers.liga.provider import LigaMagicProvider
-
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        mock_provider.search_card = AsyncMock(side_effect=LigaRateLimitError("Rate limited"))
-
-        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
-        client = TestClient(app)
-
-        resp = client.post("/api/v1/cards/1/refresh-price")
-        assert resp.status_code == 429
-
-    def test_refresh_price_stores_observation(self, repo_with_card, test_user):
-        """Verify that a price observation is stored in the DB."""
-        from src.providers.liga.provider import LigaMagicProvider
-
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        mock_provider.search_card = AsyncMock(
-            return_value={
-                "normal": {"low": Decimal("5.00")},
-                "foil": {},
-            }
-        )
-
-        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
-        client = TestClient(app)
-
-        resp = client.post("/api/v1/cards/1/refresh-price")
-        assert resp.status_code == 200
-
-        # Check that price observation was stored
-        with Session(repo_with_card.engine) as session:
-            from src.database.models import PriceObservationRow
-
-            obs = session.query(PriceObservationRow).filter_by(external_id="liga_1").all()
-            assert len(obs) == 1
-            assert float(obs[0].median_price) == 5.0
-
-    def test_refresh_price_records_liga_url(self, repo_with_card, test_user):
-        """Verify the fetched Liga page URL is upserted alongside the price."""
-        from src.database.models import LigaCardUrlRow
-        from src.providers.liga.provider import LigaMagicProvider
-
-        page_url = "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1"
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        mock_provider.search_card = AsyncMock(
-            return_value={
-                "normal": {"low": Decimal("5.00")},
-                "foil": {},
-                "page_url": page_url,
-            }
-        )
-
-        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
+    def test_refresh_price_creates_db_request(self, repo_with_card, test_user):
+        """Verify a PriceUpdateRequestRow is created in the database."""
+        app, _ = _make_app(repo_with_card, user=test_user)
         client = TestClient(app)
 
         resp = client.post("/api/v1/cards/1/refresh-price")
         assert resp.status_code == 200
 
         with Session(repo_with_card.engine) as session:
-            row = session.query(LigaCardUrlRow).filter_by(external_id="liga_1").one()
-            assert row.url == page_url
-
-    def test_refresh_price_no_price_skips_url_recording(self, repo_with_card, test_user):
-        """When no price is found, no URL should be recorded either."""
-        from src.database.models import LigaCardUrlRow
-        from src.providers.liga.provider import LigaMagicProvider
-
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        mock_provider.search_card = AsyncMock(
-            return_value={
-                "normal": {"low": None, "mid": None, "high": None},
-                "foil": {},
-                "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
-            }
-        )
-
-        app, _ = _make_app(repo_with_card, user=test_user, provider=mock_provider)
-        client = TestClient(app)
-
-        resp = client.post("/api/v1/cards/1/refresh-price")
-        assert resp.status_code == 200
-
-        with Session(repo_with_card.engine) as session:
-            assert session.query(LigaCardUrlRow).count() == 0
+            rows = session.query(PriceUpdateRequestRow).all()
+            assert len(rows) == 1
+            assert rows[0].card_id == 1
+            assert rows[0].user_id == test_user.id
+            assert rows[0].status == "pending"
 
     def test_refresh_price_deducts_credit(self, repo_with_card, test_user):
-        """Verify credit is deducted after successful refresh."""
-        from src.providers.liga.provider import LigaMagicProvider
-
-        mock_provider = MagicMock(spec=LigaMagicProvider)
-        mock_provider.search_card = AsyncMock(
-            return_value={
-                "normal": {"low": Decimal("1.00")},
-                "foil": {},
-            }
-        )
-
-        app, credit_svc = _make_app(repo_with_card, user=test_user, provider=mock_provider)
+        """Verify credit is deducted at request time (before processing)."""
+        app, credit_svc = _make_app(repo_with_card, user=test_user)
         client = TestClient(app)
 
         resp = client.post("/api/v1/cards/1/refresh-price")
         assert resp.status_code == 200
 
         credit_svc.deduct.assert_called_once()
+
+    def test_refresh_price_card_without_name(self, repo_with_card, test_user):
+        """Return 422 when card has no usable name (empty string)."""
+        with Session(repo_with_card.engine) as session:
+            card = session.query(CardRow).first()
+            card.name_en = ""
+            card.name_pt = None
+            session.commit()
+
+        app, _ = _make_app(repo_with_card, user=test_user)
+        client = TestClient(app)
+
+        resp = client.post("/api/v1/cards/1/refresh-price")
+        assert resp.status_code == 422

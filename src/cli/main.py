@@ -1178,6 +1178,119 @@ def _print_liga_sweep_summary(result):
     click.echo("=" * 60)
 
 
+@cli.command("process-price-requests")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--limit", default=50, type=int, help="Max requests to process")
+@click.option("--delay", default=2.0, type=float, help="Seconds between requests")
+@click.option("--dry-run", is_flag=True, help="Show pending count without processing")
+def process_price_requests(db, limit, delay, dry_run):
+    """Process pending price update requests via LigaMagic."""
+    from src.collectors.liga_sweep import _fetch_liga_price
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    pending = repo.get_pending_price_requests(limit=limit)
+
+    if not pending:
+        click.echo("No pending price requests.")
+        return
+
+    click.echo(f"Found {len(pending)} pending request(s).")
+    if dry_run:
+        click.echo("[DRY RUN] Would process the above requests.")
+        return
+
+    async def _process_all():
+        from src.providers.liga.exceptions import LigaError
+        from src.providers.liga.provider import LigaMagicProvider
+
+        provider = LigaMagicProvider()
+        completed = 0
+        failed = 0
+
+        try:
+            await provider.initialize()
+
+            for req in pending:
+                card = repo.get_card_by_id(req.card_id)
+                if not card:
+                    repo.update_price_request_status(
+                        req.id, "failed", error_message="Card not found in database"
+                    )
+                    failed += 1
+                    continue
+
+                card_name = card.name_en or card.name_pt
+                if not card_name:
+                    repo.update_price_request_status(
+                        req.id, "failed", error_message="Card has no name"
+                    )
+                    failed += 1
+                    continue
+
+                # Mark as processing
+                repo.update_price_request_status(req.id, "processing")
+
+                try:
+                    card_dict = {
+                        "card_id": card.id,
+                        "name_en": card.name_en,
+                        "name_pt": card.name_pt,
+                        "collector_number": card.collector_number,
+                        "set_code": card.set_code,
+                    }
+                    result = await _fetch_liga_price(provider, card_dict)
+
+                    if result is not None:
+                        observation, page_url = result
+                        repo.insert_price_observations([observation])
+                        price = observation.median_price
+                        repo.update_price_request_status(req.id, "completed", result_price=price)
+                        click.echo(f"  [OK] card_id={card.id} " f"({card_name[:30]}) -> R$ {price}")
+                        completed += 1
+                    else:
+                        repo.update_price_request_status(
+                            req.id, "completed", error_message="No price found on LigaMagic"
+                        )
+                        click.echo(f"  [--] card_id={card.id} " f"({card_name[:30]}) -> no price")
+                        completed += 1
+
+                except LigaError as exc:
+                    repo.update_price_request_status(req.id, "failed", error_message=str(exc))
+                    click.echo(f"  [FAIL] card_id={card.id} " f"({card_name[:30]}) -> {exc}")
+                    failed += 1
+                except Exception as exc:
+                    msg = f"{type(exc).__name__}: {exc}"
+                    repo.update_price_request_status(req.id, "failed", error_message=msg)
+                    click.echo(f"  [FAIL] card_id={card.id} " f"({card_name[:30]}) -> {msg}")
+                    failed += 1
+
+                if delay > 0:
+                    await asyncio.sleep(delay)
+
+        finally:
+            await provider.close()
+
+        return completed, failed
+
+    completed, failed = asyncio.run(_process_all())
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  PRICE REQUEST PROCESSING SUMMARY")
+    click.echo(f"  Total pending:           {len(pending)}")
+    click.echo(f"  Completed:               {completed}")
+    click.echo(f"  Failed:                  {failed}")
+    click.echo("=" * 60)
+
+
 @cli.command("snapshot-portfolio")
 @click.option(
     "--db",

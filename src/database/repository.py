@@ -27,6 +27,7 @@ from src.database.models import (
     PortfolioSnapshotRow,
     PriceAlertRow,  # noqa: F401 (needed for create_all)
     PriceObservationRow,
+    PriceUpdateRequestRow,
     ScanRunRow,
     ScheduledScanRow,
     SharedCollectionRow,
@@ -4629,3 +4630,134 @@ class Repository:
                 )
             ).all()
             return {r.card_id: r.quantity - 1 for r in rows}
+
+    # ── Price Update Requests (F130) ─────────────────────────────
+
+    def create_price_update_request(self, card_id: int, user_id: int) -> PriceUpdateRequestRow:
+        """Create a price update request, deduplicating within 24h.
+
+        If a pending request for the same card_id already exists and was
+        created within the last 24 hours, return the existing one instead
+        of creating a duplicate.
+        """
+        cutoff = datetime.now() - timedelta(hours=24)
+        with Session(self.engine) as session:
+            existing = session.execute(
+                select(PriceUpdateRequestRow).where(
+                    PriceUpdateRequestRow.card_id == card_id,
+                    PriceUpdateRequestRow.status == "pending",
+                    PriceUpdateRequestRow.requested_at >= cutoff,
+                )
+            ).scalar_one_or_none()
+            if existing:
+                session.expunge(existing)
+                return existing
+
+            row = PriceUpdateRequestRow(
+                card_id=card_id,
+                user_id=user_id,
+                status="pending",
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def get_pending_price_requests(self, limit: int = 50) -> list[PriceUpdateRequestRow]:
+        """Return oldest pending requests with fewer than 3 attempts."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(PriceUpdateRequestRow)
+                .where(
+                    PriceUpdateRequestRow.status == "pending",
+                    PriceUpdateRequestRow.attempts < 3,
+                )
+                .order_by(PriceUpdateRequestRow.requested_at.asc())
+                .limit(limit)
+            )
+            rows = session.execute(stmt).scalars().all()
+            for r in rows:
+                session.expunge(r)
+            return list(rows)
+
+    def update_price_request_status(
+        self,
+        request_id: int,
+        status: str,
+        result_price: Decimal | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """Update a price request's status and increment its attempt counter."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(PriceUpdateRequestRow).where(PriceUpdateRequestRow.id == request_id)
+            ).scalar_one_or_none()
+            if row is None:
+                return
+            row.status = status
+            row.attempts = row.attempts + 1
+            if status in ("completed", "failed"):
+                row.processed_at = datetime.now()
+            if result_price is not None:
+                row.result_price = result_price
+            if error_message is not None:
+                row.error_message = error_message
+            session.commit()
+
+    def get_price_requests(
+        self,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[PriceUpdateRequestRow], int]:
+        """List price requests with optional status filter. Returns (rows, total)."""
+        with Session(self.engine) as session:
+            base = select(PriceUpdateRequestRow)
+            count_stmt = select(func.count(PriceUpdateRequestRow.id))
+            if status is not None:
+                base = base.where(PriceUpdateRequestRow.status == status)
+                count_stmt = count_stmt.where(PriceUpdateRequestRow.status == status)
+
+            total = session.execute(count_stmt).scalar_one()
+
+            stmt = (
+                base.order_by(PriceUpdateRequestRow.requested_at.desc()).offset(offset).limit(limit)
+            )
+            rows = session.execute(stmt).scalars().all()
+            for r in rows:
+                session.expunge(r)
+            return list(rows), total
+
+    def get_user_price_request_for_card(
+        self, user_id: int, card_id: int
+    ) -> PriceUpdateRequestRow | None:
+        """Get the latest price request for a specific user+card combo."""
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(PriceUpdateRequestRow)
+                .where(
+                    PriceUpdateRequestRow.user_id == user_id,
+                    PriceUpdateRequestRow.card_id == card_id,
+                )
+                .order_by(PriceUpdateRequestRow.requested_at.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if row:
+                session.expunge(row)
+            return row
+
+    def count_price_requests_by_status(self) -> dict[str, int]:
+        """Return request counts grouped by status."""
+        with Session(self.engine) as session:
+            rows = session.execute(
+                select(
+                    PriceUpdateRequestRow.status,
+                    func.count(PriceUpdateRequestRow.id),
+                ).group_by(PriceUpdateRequestRow.status)
+            ).all()
+            counts = {status: cnt for status, cnt in rows}
+            # Ensure all known statuses appear in the result
+            for s in ("pending", "processing", "completed", "failed"):
+                counts.setdefault(s, 0)
+            return counts

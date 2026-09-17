@@ -127,7 +127,24 @@
       "scans": "Scans de Preco",
       "operations": "Operacoes",
       "errors": "Erros da Aplicacao",
+      "priceRequests": "Solicitacoes de Preco",
       "auditLog": "Log de Auditoria"
+    },
+    "priceRequests": {
+      "pending": "Pendente",
+      "processing": "Processando",
+      "completed": "Concluido",
+      "failed": "Falha",
+      "allFilter": "Todos",
+      "noRequests": "Nenhuma solicitacao de preco",
+      "colCardName": "Nome do Card",
+      "colUserId": "ID do Usuario",
+      "colStatus": "Status",
+      "colRequested": "Solicitado",
+      "colProcessed": "Processado",
+      "colPrice": "Preco",
+      "colError": "Erro",
+      "colAttempts": "Tentativas"
     },
     "ops": {
       "ligaScan": "Scan Liga Colecao",
@@ -234,7 +251,10 @@
     "searchCooldown": "Aguarde antes de buscar novamente",
     "webSearchCost": "Custa 1 token",
     "ligaUnavailable": "Busca Liga indisponivel",
-    "comingSoon": "Em breve"
+    "comingSoon": "Em breve",
+    "priceUpdateQueued": "Atualizacao solicitada",
+    "priceUpdateQueuedDesc": "Sua solicitacao de atualizacao de preco esta na fila e sera processada em breve.",
+    "priceUpdatePending": "Atualizacao pendente"
   },
   "cardDetail": {
     "pageTitle": "Detalhe da Carta | TEDHC Market",

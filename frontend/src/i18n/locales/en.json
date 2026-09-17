@@ -127,7 +127,24 @@
       "scans": "Price Scans",
       "operations": "Operations",
       "errors": "Application Errors",
+      "priceRequests": "Price Requests",
       "auditLog": "Audit Log"
+    },
+    "priceRequests": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "allFilter": "All",
+      "noRequests": "No price requests",
+      "colCardName": "Card Name",
+      "colUserId": "User ID",
+      "colStatus": "Status",
+      "colRequested": "Requested",
+      "colProcessed": "Processed",
+      "colPrice": "Price",
+      "colError": "Error",
+      "colAttempts": "Attempts"
     },
     "ops": {
       "ligaScan": "Liga Collection Scan",
@@ -234,7 +251,10 @@
     "searchCooldown": "Wait before searching again",
     "webSearchCost": "Costs 1 token",
     "ligaUnavailable": "Liga search unavailable",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "priceUpdateQueued": "Update requested",
+    "priceUpdateQueuedDesc": "Your price update request is in the queue and will be processed shortly.",
+    "priceUpdatePending": "Update pending"
   },
   "cardDetail": {
     "pageTitle": "Card Detail | TEDHC Market",

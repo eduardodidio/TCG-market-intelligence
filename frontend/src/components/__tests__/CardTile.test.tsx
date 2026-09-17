@@ -122,10 +122,10 @@ describe("CardTile", () => {
     } as ReturnType<typeof useAuth>);
   });
 
-  it("calls refreshCardPrice and updates display on success", async () => {
+  it("calls refreshCardPrice and shows queued feedback on success", async () => {
     const { refreshCardPrice } = await import("../../api/cards");
     vi.mocked(refreshCardPrice).mockResolvedValue({
-      data: { ...baseCard, latest_price: 5.0 },
+      data: { status: "queued", request_id: 123, card_id: 42 },
       error: null,
     } as Awaited<ReturnType<typeof refreshCardPrice>>);
 
@@ -138,11 +138,16 @@ describe("CardTile", () => {
       expect(refreshCardPrice).toHaveBeenCalledWith(42);
     });
 
-    await waitFor(() => {
-      expect(onRefreshed).toHaveBeenCalledWith(42, 5.0);
-    });
+    // Should NOT call onPriceRefreshed for queued responses
+    expect(onRefreshed).not.toHaveBeenCalled();
 
-    expect(screen.getByTestId("card-price")).toHaveTextContent("R$ 5.00");
+    // Price should remain unchanged
+    expect(screen.getByTestId("card-price")).toHaveTextContent("R$ 3.50");
+
+    // Should show queued feedback text
+    await waitFor(() => {
+      expect(screen.getByTestId("queued-feedback")).toBeInTheDocument();
+    });
   });
 
   it("disables button while refreshing", async () => {
@@ -160,10 +165,33 @@ describe("CardTile", () => {
     fireEvent.click(btn);
     expect(btn).toBeDisabled();
 
-    // Resolve and cleanup
-    resolvePromise!({ data: { ...baseCard, latest_price: 4.0 }, error: null });
+    // Resolve with queued response — button stays disabled because queued=true
+    resolvePromise!({ data: { status: "queued", request_id: 1, card_id: 42 }, error: null });
     await waitFor(() => {
-      expect(btn).not.toBeDisabled();
+      // Button remains disabled during the 5s queued window
+      expect(btn).toBeDisabled();
+    });
+  });
+
+  it("disables refresh button when queued", async () => {
+    const { refreshCardPrice } = await import("../../api/cards");
+    vi.mocked(refreshCardPrice).mockResolvedValue({
+      data: { status: "queued", request_id: 123, card_id: 42 },
+      error: null,
+    } as Awaited<ReturnType<typeof refreshCardPrice>>);
+
+    renderTile();
+    const btn = screen.getByTestId("refresh-card-price-42");
+
+    fireEvent.click(btn);
+
+    await waitFor(() => {
+      expect(btn).toBeDisabled();
+    });
+
+    // Should show clock icon instead of refresh icon
+    await waitFor(() => {
+      expect(screen.getByTestId("clock-icon")).toBeInTheDocument();
     });
   });
 
@@ -244,5 +272,40 @@ describe("CardTile", () => {
     // Click backdrop to close
     fireEvent.click(screen.getByTestId("modal-backdrop"));
     expect(screen.queryByTestId("modal-backdrop")).not.toBeInTheDocument();
+  });
+
+  describe("isFoil prop plumbing", () => {
+    it("passes foil={true} to Card3DTilt when isFoil is true", () => {
+      const { container } = renderTile({ isFoil: true });
+      // Card3DTilt wraps children in a foil-shimmer div when foil=true
+      expect(container.querySelector(".foil-shimmer")).toBeInTheDocument();
+      // The Tilt mock captures glareEnable in data-props
+      const tiltWrapper = screen.getAllByTestId("tilt-wrapper")[0];
+      const props = JSON.parse(tiltWrapper.getAttribute("data-props") ?? "{}");
+      expect(props.glareEnable).toBe(true);
+    });
+
+    it("passes foil={false} to Card3DTilt when isFoil is undefined", () => {
+      const { container } = renderTile();
+      // No foil-shimmer div when foil is false
+      expect(container.querySelector(".foil-shimmer")).not.toBeInTheDocument();
+      const tiltWrapper = screen.getAllByTestId("tilt-wrapper")[0];
+      const props = JSON.parse(tiltWrapper.getAttribute("data-props") ?? "{}");
+      expect(props.glareEnable).toBe(false);
+    });
+
+    it("passes isFoil to CardPreviewModal when preview is opened", () => {
+      renderTile({ isFoil: true });
+      // Open the preview modal by clicking the image
+      fireEvent.click(screen.getByTestId("card-image-placeholder"));
+      expect(screen.getByTestId("modal-backdrop")).toBeInTheDocument();
+      // The modal renders its own Card3DTilt with foil={isFoil}
+      const tiltWrappers = screen.getAllByTestId("tilt-wrapper");
+      expect(tiltWrappers.length).toBeGreaterThanOrEqual(2);
+      // The modal's tilt wrapper (last one) should also have glareEnable=true
+      const modalTilt = tiltWrappers[tiltWrappers.length - 1];
+      const modalProps = JSON.parse(modalTilt.getAttribute("data-props") ?? "{}");
+      expect(modalProps.glareEnable).toBe(true);
+    });
   });
 });

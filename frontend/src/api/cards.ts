@@ -45,10 +45,16 @@ export function fetchPriceTrends(
   });
 }
 
+export interface PriceRefreshResponse {
+  status: string;
+  request_id: number;
+  card_id: number;
+}
+
 export function refreshCardPrice(
   cardId: number,
-): Promise<ApiResponse<CardSummary>> {
-  return apiPost<CardSummary>(`/api/v1/cards/${cardId}/refresh-price`, {});
+): Promise<ApiResponse<PriceRefreshResponse>> {
+  return apiPost<PriceRefreshResponse>(`/api/v1/cards/${cardId}/refresh-price`, {});
 }
 
 export function searchCardsWeb(

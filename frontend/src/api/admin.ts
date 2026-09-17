@@ -216,3 +216,39 @@ export function fetchAuditLog(params: {
   if (params.offset !== undefined) query.offset = String(params.offset);
   return apiGet<AuditLogEntry[]>("/api/v1/admin/audit-log", query);
 }
+
+// ── F130: Price Requests ─────────────────────────────────────────────
+
+export interface PriceRequest {
+  id: number;
+  card_id: number;
+  card_name: string;
+  user_id: number;
+  status: string;
+  requested_at: string;
+  processed_at: string | null;
+  result_price: number | null;
+  error_message: string | null;
+  attempts: number;
+}
+
+export function fetchAdminPriceRequests(params?: {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const query: Record<string, string> = {};
+  if (params?.status) query.status = params.status;
+  if (params?.limit !== undefined) query.limit = String(params.limit);
+  if (params?.offset !== undefined) query.offset = String(params.offset);
+  return apiGet<{ items: PriceRequest[]; total: number }>(
+    "/api/v1/admin/price-requests",
+    query,
+  );
+}
+
+export function fetchAdminPriceRequestStats() {
+  return apiGet<Record<string, number>>(
+    "/api/v1/admin/price-requests/stats",
+  );
+}

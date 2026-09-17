@@ -6,13 +6,15 @@ vi.mock("react-parallax-tilt", () => ({
   default: ({
     children,
     className,
+    style,
     ...props
   }: {
     children: React.ReactNode;
     className?: string;
+    style?: React.CSSProperties;
     [key: string]: unknown;
   }) => (
-    <div data-testid="tilt-wrapper" className={className} data-props={JSON.stringify(props)}>
+    <div data-testid="tilt-wrapper" className={className} style={style} data-props={JSON.stringify(props)}>
       {children}
     </div>
   ),
@@ -57,7 +59,7 @@ describe("Card3DTilt", () => {
     const wrapper = screen.getByTestId("tilt-wrapper");
     const props = JSON.parse(wrapper.getAttribute("data-props") || "{}");
     expect(props.glareEnable).toBe(true);
-    expect(props.glareMaxOpacity).toBe(0.15);
+    expect(props.glareMaxOpacity).toBe(0.35);
   });
 
   it("disables glare when foil is false", () => {
@@ -136,5 +138,64 @@ describe("Card3DTilt", () => {
     );
     const parent = screen.getByText("normal card").parentElement;
     expect(parent).not.toHaveClass("foil-shimmer");
+  });
+
+  it("glareMaxOpacity is higher when foil=true vs foil=false", () => {
+    const { unmount } = render(
+      <Card3DTilt foil>
+        <span>foil</span>
+      </Card3DTilt>,
+    );
+    const foilWrapper = screen.getByTestId("tilt-wrapper");
+    const foilProps = JSON.parse(foilWrapper.getAttribute("data-props") || "{}");
+    const foilOpacity = foilProps.glareMaxOpacity;
+    unmount();
+
+    render(
+      <Card3DTilt>
+        <span>non-foil</span>
+      </Card3DTilt>,
+    );
+    const normalWrapper = screen.getByTestId("tilt-wrapper");
+    const normalProps = JSON.parse(normalWrapper.getAttribute("data-props") || "{}");
+    const normalOpacity = normalProps.glareMaxOpacity;
+
+    expect(foilOpacity).toBeGreaterThan(normalOpacity);
+    expect(foilOpacity).toBeGreaterThanOrEqual(0.35);
+    expect(normalOpacity).toBe(0);
+  });
+
+  it("renders Tilt wrapper with overflow hidden and borderRadius style", () => {
+    render(
+      <Card3DTilt>
+        <span>content</span>
+      </Card3DTilt>,
+    );
+    const wrapper = screen.getByTestId("tilt-wrapper");
+    expect(wrapper.style.overflow).toBe("hidden");
+    expect(wrapper.style.borderRadius).toBe("12px");
+  });
+
+  it("does not apply overflow/borderRadius style when disabled", () => {
+    render(
+      <Card3DTilt disabled>
+        <span>content</span>
+      </Card3DTilt>,
+    );
+    expect(screen.queryByTestId("tilt-wrapper")).not.toBeInTheDocument();
+    const container = screen.getByText("content").parentElement;
+    expect(container?.style.overflow).toBeFalsy();
+    expect(container?.style.borderRadius).toBeFalsy();
+  });
+
+  it("uses holographic white glare color for foil cards", () => {
+    render(
+      <Card3DTilt foil>
+        <span>foil card</span>
+      </Card3DTilt>,
+    );
+    const wrapper = screen.getByTestId("tilt-wrapper");
+    const props = JSON.parse(wrapper.getAttribute("data-props") || "{}");
+    expect(props.glareColor).toBe("rgba(255, 255, 255, 0.4)");
   });
 });

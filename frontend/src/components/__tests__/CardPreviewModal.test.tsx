@@ -3,8 +3,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { CardPreviewModal } from "../CardPreviewModal";
 
 vi.mock("react-parallax-tilt", () => ({
-  default: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => (
-    <div data-testid="tilt-wrapper" data-props={JSON.stringify(props)}>
+  default: ({ children, style, ...props }: { children: React.ReactNode; style?: React.CSSProperties; [key: string]: unknown }) => (
+    <div data-testid="tilt-wrapper" style={style} data-props={JSON.stringify(props)}>
       {children}
     </div>
   ),
@@ -109,5 +109,19 @@ describe("CardPreviewModal", () => {
     render(<CardPreviewModal {...defaultProps} />);
     const backdrop = document.body.querySelector('[data-testid="modal-backdrop"]');
     expect(backdrop).toBeInTheDocument();
+  });
+
+  it("renders image with rounded-xl class for matching border-radius", () => {
+    render(<CardPreviewModal {...defaultProps} />);
+    const img = screen.getByRole("img");
+    expect(img).toHaveClass("rounded-xl");
+    expect(img).not.toHaveClass("rounded-lg");
+  });
+
+  it("renders Tilt wrapper with overflow hidden and borderRadius style", () => {
+    render(<CardPreviewModal {...defaultProps} />);
+    const tiltWrapper = screen.getByTestId("tilt-wrapper");
+    expect(tiltWrapper.style.overflow).toBe("hidden");
+    expect(tiltWrapper.style.borderRadius).toBe("12px");
   });
 });

@@ -219,10 +219,8 @@ export function Cards() {
       if (refreshAllAbortRef.current) break;
       setRefreshAllProgress({ current: i + 1, total });
       try {
-        const res = await refreshCardPrice(cards[i].id);
-        if (res.data) {
-          handlePriceRefreshed(cards[i].id, res.data.latest_price);
-        }
+        await refreshCardPrice(cards[i].id);
+        // Price update is queued; price will be updated on next page load
       } catch {
         // continue with next card
       }

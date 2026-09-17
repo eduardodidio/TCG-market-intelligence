@@ -481,3 +481,48 @@ def download_backup(
         media_type="application/x-sqlite3",
         background=BackgroundTask(lambda: shutil.rmtree(tmp_dir, ignore_errors=True)),
     )
+
+
+# ── Price request queue (F130-T05) ──────────────────────────────────
+
+
+@router.get("/price-requests")
+def list_price_requests(
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+    status: str | None = Query(
+        None, description="Filter by status: pending, processing, completed, failed"
+    ),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """List price update requests with optional status filter (admin only)."""
+    rows, total = repo.get_price_requests(status=status, limit=limit, offset=offset)
+    items = []
+    for r in rows:
+        card = repo.get_card_by_id(r.card_id)
+        items.append(
+            {
+                "id": r.id,
+                "card_id": r.card_id,
+                "card_name": (card.name_en if card else "Unknown"),
+                "user_id": r.user_id,
+                "status": r.status,
+                "requested_at": r.requested_at.isoformat(),
+                "processed_at": r.processed_at.isoformat() if r.processed_at else None,
+                "result_price": float(r.result_price) if r.result_price else None,
+                "error_message": r.error_message,
+                "attempts": r.attempts,
+            }
+        )
+    return success_response(data={"items": items, "total": total})
+
+
+@router.get("/price-requests/stats")
+def price_request_stats(
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+):
+    """Aggregate counts of price requests by status (admin only)."""
+    counts = repo.count_price_requests_by_status()
+    return success_response(data=counts)

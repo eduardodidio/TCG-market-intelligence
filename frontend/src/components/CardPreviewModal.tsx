@@ -66,7 +66,7 @@ export function CardPreviewModal({
           <img
             src={imageUrl}
             alt={cardName}
-            className="rounded-lg shadow-2xl w-full max-h-[80vh]"
+            className="rounded-xl shadow-2xl w-full max-h-[80vh]"
             draggable={false}
           />
         </Card3DTilt>

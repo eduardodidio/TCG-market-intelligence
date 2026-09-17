@@ -596,3 +596,35 @@ class LigaCardUrlRow(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now
     )
+
+
+class PriceUpdateRequestRow(Base):
+    """Persistent queue for price update requests (F130).
+
+    Users submit requests on the Render server; a local processor with
+    Liga/Playwright access picks them up and processes them later.
+    """
+
+    __tablename__ = "price_update_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    card_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    # status values: pending, processing, completed, failed
+    requested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    result_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+
+    __table_args__ = (
+        Index("ix_price_update_req_status", "status"),
+        Index("ix_price_update_req_card", "card_id"),
+        Index("ix_price_update_req_user", "user_id"),
+        Index("ix_price_update_req_requested", "requested_at"),
+    )
