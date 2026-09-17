@@ -54,7 +54,26 @@ export interface PriceRefreshResponse {
 export function refreshCardPrice(
   cardId: number,
 ): Promise<ApiResponse<PriceRefreshResponse>> {
-  return apiPost<PriceRefreshResponse>(`/api/v1/cards/${cardId}/refresh-price`, {});
+  return apiPost<PriceRefreshResponse>(
+    `/api/v1/cards/${cardId}/refresh-price`,
+    {},
+    { timeoutMs: 30_000 },
+  );
+}
+
+export interface PriceRequestStatus {
+  status: "none" | "pending" | "processing" | "completed" | "failed";
+  requested_at?: string;
+  processed_at?: string;
+  result_price?: number | null;
+}
+
+export function fetchPriceRequestStatus(
+  cardId: number,
+): Promise<ApiResponse<PriceRequestStatus>> {
+  return apiGet<PriceRequestStatus>(
+    `/api/v1/cards/${cardId}/price-request-status`,
+  );
 }
 
 export function searchCardsWeb(

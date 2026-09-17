@@ -51,21 +51,22 @@ function MoverRow({ mover, type }: MoverRowProps) {
 interface CollectionMoversProps {
   days?: number;
   limit?: number;
+  investmentOnly?: boolean;
 }
 
-export function CollectionMovers({ days = 7, limit = 5 }: CollectionMoversProps) {
+export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }: CollectionMoversProps) {
   const { t } = useTranslation();
   const [data, setData] = useState<CollectionMoversData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    fetchCollectionMovers(days, limit)
+    fetchCollectionMovers(days, limit, investmentOnly)
       .then((res) => {
         if (res.data) setData(res.data);
       })
       .finally(() => setLoading(false));
-  }, [days, limit]);
+  }, [days, limit, investmentOnly]);
 
   if (loading) {
     return (

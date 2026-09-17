@@ -1,20 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
+import { refreshCardPrice } from "../api/cards";
+import { refreshCatalogSet } from "../api/catalog";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
 import { CardPreviewModal } from "../components/CardPreviewModal";
+import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { GridSizeToggle } from "../components/GridSizeToggle";
 import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
+import { useAuth } from "../hooks/useAuth";
 import { useCatalogCards } from "../hooks/useCatalogCards";
 import type { CatalogCard } from "../hooks/useCatalogCards";
 import { useCatalogSets } from "../hooks/useCatalogSets";
 import { useCatalogStats } from "../hooks/useCatalogStats";
 import { useCardName } from "../hooks/useCardName";
+import { useCredits } from "../hooks/useCredits";
+import { useGridSize } from "../hooks/useGridSize";
+import { usePriceRequestPolling } from "../hooks/usePriceRequestPolling";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { GRID_SIZE_CONFIG } from "../utils/constants";
 
 const RARITY_OPTIONS = [
   { value: "C", label: "C" },
@@ -54,26 +63,136 @@ function RarityBadge({ rarity }: { rarity: string | null }) {
   );
 }
 
-export function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedView?: boolean }) {
+export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCard; ownedView?: boolean; compact?: boolean }) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
+  const { isAuthenticated } = useAuth();
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [queued, setQueued] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [failed, setFailed] = useState(false);
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
 
   const isUnowned = ownedView && card.owned === false;
+
+  // Poll for price request status after queuing
+  const { status: requestStatus, isPolling } = usePriceRequestPolling({
+    cardId: card.id,
+    enabled: queued,
+    onCompleted: () => {
+      setQueued(false);
+      setCompleted(true);
+      setTimeout(() => setCompleted(false), 1500);
+    },
+    onFailed: () => {
+      setQueued(false);
+      setFailed(true);
+      setTimeout(() => setFailed(false), 3000);
+    },
+  });
+
+  const handleRefresh = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (refreshing || queued || completed || failed) return;
+
+    setRefreshing(true);
+    setRefreshError(false);
+    try {
+      const res = await refreshCardPrice(card.id);
+      if (res.errors && res.errors.length > 0) {
+        setRefreshError(true);
+        setTimeout(() => setRefreshError(false), 3000);
+        return;
+      }
+      if (res.data?.status === "queued") {
+        setQueued(true);
+      }
+    } catch {
+      setRefreshError(true);
+      setTimeout(() => setRefreshError(false), 3000);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Determine the visual state of the refresh button
+  const pollingTimedOut = queued && !isPolling && requestStatus !== "completed" && requestStatus !== "failed";
+  const showAlwaysVisible = refreshError || queued || completed || failed;
+
+  const buttonColor = refreshError || failed
+    ? "text-red-400"
+    : completed
+      ? "text-green-400"
+      : queued
+        ? pollingTimedOut
+          ? "text-yellow-400"
+          : "text-cyan-400"
+        : "text-slate-300 hover:text-cyan-400";
+
+  const buttonTitle = refreshError
+    ? t("cards.priceRefreshError")
+    : failed
+      ? t("cards.priceUpdateFailed")
+      : completed
+        ? t("cards.priceUpdateCompleted")
+        : pollingTimedOut
+          ? t("cards.priceUpdateTimeout")
+          : queued
+            ? t("cards.priceUpdateProcessing")
+            : t("credits.refreshCostTooltip", { cost: 1 });
 
   return (
     <Card3DTilt foil={false} className="w-full">
     <Link
       to={`/cards/${card.id}`}
       className={`group block bg-slate-800 rounded-lg overflow-hidden
-        transition-all duration-200 hover:shadow-lg ${
+        transition-all duration-200 hover:shadow-lg relative ${
           isUnowned
             ? "border border-dashed border-slate-600 opacity-40"
             : "border border-slate-600 hover:border-cyan-400/50"
         }`}
       data-testid={`catalog-card-${card.id}`}
     >
+      {/* Refresh button overlay */}
+      {isAuthenticated && (
+        <button
+          data-testid={`refresh-card-price-${card.id}`}
+          onClick={handleRefresh}
+          disabled={refreshing || queued || refreshError || completed || failed}
+          title={buttonTitle}
+          className={`absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full
+            bg-black/60 ${buttonColor} hover:bg-black/80
+            ${showAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-all
+            disabled:opacity-100 disabled:cursor-not-allowed
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400`}
+        >
+          {refreshError || failed ? (
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" data-testid="error-icon">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : completed ? (
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" data-testid="check-icon">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : queued && isPolling ? (
+            <svg className="h-3.5 w-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" data-testid="spinner-icon">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          ) : pollingTimedOut ? (
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" data-testid="clock-icon">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : (
+            <svg className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          )}
+        </button>
+      )}
+
       {/* Card image with skeleton loading */}
       <div
         className={`aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800
@@ -94,7 +213,8 @@ export function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedV
         />
       </div>
 
-      {/* Card info */}
+      {/* Card info — hidden in compact mode */}
+      {!compact && (
       <div className="p-3">
         <h3
           className="text-sm font-semibold text-white truncate group-hover:text-cyan-400 transition-colors"
@@ -130,7 +250,28 @@ export function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedV
             {t("common.noPriceData")}
           </p>
         )}
+        {(queued && isPolling) && (
+          <span className="text-xs text-cyan-400 mt-1 block" data-testid="queued-feedback">
+            {t("cards.priceUpdateProcessing")}
+          </span>
+        )}
+        {completed && (
+          <span className="text-xs text-green-400 mt-1 block" data-testid="completed-feedback">
+            {t("cards.priceUpdateCompleted")}
+          </span>
+        )}
+        {failed && (
+          <span className="text-xs text-red-400 mt-1 block" data-testid="failed-feedback">
+            {t("cards.priceUpdateFailed")}
+          </span>
+        )}
+        {refreshError && (
+          <span className="text-xs text-red-400 mt-1 block" data-testid="refresh-error-feedback">
+            {t("cards.priceRefreshError")}
+          </span>
+        )}
       </div>
+      )}
     </Link>
     {previewOpen && card.image_uri && (
       <CardPreviewModal
@@ -146,6 +287,7 @@ export function CatalogCardTile({ card, ownedView }: { card: CatalogCard; ownedV
 export function CatalogPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { gridSize, setGridSize } = useGridSize();
 
   useScrollRestoration("catalog");
 
@@ -200,6 +342,50 @@ export function CatalogPage() {
   const { cards, total, loading, loadingMore, error, hasMore, loadMore } = useCatalogCards(filters);
   const { sets } = useCatalogSets();
   const { stats } = useCatalogStats();
+  const { isAuthenticated } = useAuth();
+  const { balance, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
+
+  // Refresh All Set state
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  // Find the card count for the selected set
+  const selectedSetInfo = sets.find((s) => s.set_code === selectedSet);
+  const selectedSetCardCount = selectedSetInfo?.card_count ?? 0;
+
+  const handleRefreshAllSet = useCallback(async () => {
+    if (!selectedSet) return;
+    setScanLoading(true);
+    setScanError(null);
+    setScanFeedback(null);
+    try {
+      const res = await refreshCatalogSet(selectedSet);
+      if (res.errors && res.errors.length > 0) {
+        setScanError(res.errors.map((e) => e.message).join("; "));
+      } else if (res.data) {
+        setScanFeedback(
+          t("catalog.scanQueued", {
+            count: res.data.card_count,
+            set: res.data.set_code,
+            defaultValue: "Queued {{count}} cards from {{set}} for price update",
+          }),
+        );
+        refetchCredits();
+      }
+    } catch {
+      setScanError(t("catalog.scanError", { defaultValue: "Failed to queue scan" }));
+    } finally {
+      setScanLoading(false);
+      setScanModalOpen(false);
+      // Clear feedback after 8 seconds
+      setTimeout(() => {
+        setScanFeedback(null);
+        setScanError(null);
+      }, 8000);
+    }
+  }, [selectedSet, t, refetchCredits]);
 
   const toggleRarity = useCallback((rarity: string) => {
     setSelectedRarities((prev) => {
@@ -276,7 +462,7 @@ export function CatalogPage() {
             <SearchBar
               value={searchTerm}
               onChange={setSearchTerm}
-              placeholder={t("catalog.searchPlaceholder")}
+              placeholder={t("catalog.searchPlaceholderBilingual")}
             />
           </div>
           <button
@@ -300,6 +486,7 @@ export function CatalogPage() {
               </span>
             )}
           </button>
+          <GridSizeToggle value={gridSize} onChange={setGridSize} />
         </div>
 
         {/* Collapsible filter section */}
@@ -478,7 +665,7 @@ export function CatalogPage() {
       {/* Loading state */}
       {loading && (
         <div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+          className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses}`}
           data-testid="skeleton-grid"
         >
           {Array.from({ length: 10 }).map((_, i) => (
@@ -493,7 +680,9 @@ export function CatalogPage() {
           title={t("catalog.emptyTitle")}
           description={
             hasActiveFilters
-              ? t("catalog.emptyFiltered")
+              ? searchTerm
+                ? `${t("catalog.emptyFiltered")} ${t("catalog.emptySearchHint")}`
+                : t("catalog.emptyFiltered")
               : t("catalog.emptyDescription")
           }
           action={
@@ -504,22 +693,69 @@ export function CatalogPage() {
         />
       )}
 
-      {/* Results count */}
+      {/* Results count + Refresh All Set button */}
       {!loading && cards.length > 0 && (
-        <p className="text-sm text-slate-400 mb-4" data-testid="results-count">
-          {t("catalog.resultsCount", { count: total })}
-        </p>
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <p className="text-sm text-slate-400" data-testid="results-count">
+            {t("catalog.resultsCount", { count: total })}
+          </p>
+          {isAuthenticated && selectedSet && (
+            <button
+              onClick={() => setScanModalOpen(true)}
+              disabled={scanLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
+                bg-cyan-600 hover:bg-cyan-500 text-white rounded-md transition-colors
+                disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="refresh-all-set-btn"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {t("catalog.refreshAllSet", { defaultValue: "Refresh All Set" })}
+              <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold bg-amber-500/20 text-amber-400 rounded">
+                {selectedSetCardCount}
+              </span>
+            </button>
+          )}
+          {scanFeedback && (
+            <span className="text-sm text-green-400" data-testid="scan-feedback">
+              {scanFeedback}
+            </span>
+          )}
+          {scanError && (
+            <span className="text-sm text-red-400" data-testid="scan-error">
+              {scanError}
+            </span>
+          )}
+        </div>
       )}
+
+      {/* Credit confirm modal for Refresh All Set */}
+      <CreditConfirmModal
+        isOpen={scanModalOpen}
+        onConfirm={handleRefreshAllSet}
+        onCancel={() => setScanModalOpen(false)}
+        cost={selectedSetCardCount}
+        balance={balance ?? 0}
+        actionLabel={t("catalog.refreshAllSetAction", {
+          set: selectedSet,
+          defaultValue: "Queue price updates for all cards in {{set}}",
+        })}
+        cardCount={selectedSetCardCount}
+        bonusEligible={bonusEligible}
+        onClaimBonus={async () => { await claimBonus(); }}
+      />
 
       {/* Card grid */}
       {!loading && cards.length > 0 && (
         <>
           <div
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+            className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses}`}
             data-testid="catalog-grid"
           >
             {cards.map((card) => (
-              <CatalogCardTile key={card.id} card={card} ownedView={ownedView} />
+              <CatalogCardTile key={card.id} card={card} ownedView={ownedView} compact={GRID_SIZE_CONFIG[gridSize].compact} />
             ))}
           </div>
 

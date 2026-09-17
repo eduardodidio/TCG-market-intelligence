@@ -39,6 +39,11 @@ const DeckList = lazy(() =>
 const TopDecksPage = lazy(() =>
   import("./pages/TopDecksPage").then((m) => ({ default: m.TopDecksPage })),
 );
+const DeckBuildWizard = lazy(() =>
+  import("./pages/DeckBuildWizard").then((m) => ({
+    default: m.DeckBuildWizard,
+  })),
+);
 const DeckView = lazy(() =>
   import("./pages/DeckView").then((m) => ({ default: m.DeckView })),
 );
@@ -101,6 +106,11 @@ const WishlistPage = lazy(() =>
 const TradeMatchesPage = lazy(() =>
   import("./pages/TradeMatchesPage").then((m) => ({
     default: m.TradeMatchesPage,
+  })),
+);
+const ImportPurchasesPage = lazy(() =>
+  import("./pages/ImportPurchasesPage").then((m) => ({
+    default: m.ImportPurchasesPage,
   })),
 );
 const NotFoundPage = lazy(() =>
@@ -302,6 +312,16 @@ export default function App() {
                 }
               />
               <Route
+                path="/import-purchases"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <ImportPurchasesPage />
+                  </Suspense>
+                }
+              />
+              <Route
                 path="/decks"
                 element={
                   <Suspense
@@ -320,6 +340,20 @@ export default function App() {
                     <TopDecksPage />
                   </Suspense>
                 }
+              />
+              <Route
+                path="/decks/build"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <DeckBuildWizard />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/decks/evaluate"
+                element={<Navigate to="/decks?evaluate=true" replace />}
               />
               <Route
                 path="/decks/:id"

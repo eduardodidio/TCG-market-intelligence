@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { fetchDecks } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckImportModal } from "../components/DeckImportModal";
@@ -9,6 +9,8 @@ import type { DeckSummary } from "../types/api";
 
 export function DeckList() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const evaluateMode = searchParams.get("evaluate") === "true";
   const [decks, setDecks] = useState<DeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +64,18 @@ export function DeckList() {
           {t("decks.importDeck")}
         </button>
       </div>
+
+      {evaluateMode && (
+        <div
+          className="mb-4 p-3 rounded-md bg-indigo-900/20 border border-indigo-700/50 text-indigo-300 text-sm flex items-center gap-2"
+          data-testid="evaluate-banner"
+        >
+          <svg className="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5.24 14.26a2.25 2.25 0 00-.659 1.59v.1c0 1.243 1.007 2.25 2.25 2.25h10.338c1.243 0 2.25-1.007 2.25-2.25v-.1a2.25 2.25 0 00-.66-1.59l-3.85-3.851a2.25 2.25 0 01-.659-1.591V3.104M9.75 3h4.5" />
+          </svg>
+          {t("deckEval.selectDeckToEvaluate", { defaultValue: "Select a deck to evaluate" })}
+        </div>
+      )}
 
       {error && (
         <div
@@ -160,6 +174,20 @@ export function DeckList() {
                     {deck.value_change_pct.toFixed(1)}%
                   </span>
                 )}
+              </div>
+              {/* Evaluate button */}
+              <div className="mt-3 pt-3 border-t border-slate-700">
+                <Link
+                  to={`/decks/${deck.id}?tab=evaluation`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition-colors"
+                  data-testid={`evaluate-deck-btn-${deck.id}`}
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5.24 14.26a2.25 2.25 0 00-.659 1.59v.1c0 1.243 1.007 2.25 2.25 2.25h10.338c1.243 0 2.25-1.007 2.25-2.25v-.1a2.25 2.25 0 00-.66-1.59l-3.85-3.851a2.25 2.25 0 01-.659-1.591V3.104M9.75 3h4.5" />
+                  </svg>
+                  {t("deckEval.tabEvaluation", { defaultValue: "Evaluation" })}
+                </Link>
               </div>
             </Link>
           ))}

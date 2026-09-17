@@ -140,6 +140,7 @@ export interface PortfolioSummary {
   total_pnl_pct: number | null;
   invested_card_count: number;
   unpriced_card_count?: number;
+  cards_without_acquisition: number;
 }
 
 export interface PortfolioHistoryPoint {
@@ -592,4 +593,114 @@ export interface WebSearchResult {
   foil_price: number | null;
   image_url: string | null;
   local_card_id: number | null;
+}
+
+// Deck evaluation types (F133)
+
+export interface ManaCurvePoint {
+  cmc: number;
+  count: number;
+}
+
+export interface TypeDistEntry {
+  type_name: string;
+  count: number;
+}
+
+export interface ColorDistEntry {
+  color: string;
+  pip_count: number;
+}
+
+export interface IllegalCard {
+  name_en: string;
+  status: string;
+}
+
+export interface LegalityResult {
+  format: string;
+  is_legal: boolean;
+  illegal_cards: IllegalCard[];
+  singleton_violations: string[];
+  card_count_valid: boolean;
+}
+
+export interface BudgetEntry {
+  name_en: string;
+  price: number;
+  quantity: number;
+}
+
+export interface BudgetAnalysis {
+  total_value: number;
+  most_expensive: BudgetEntry[];
+  price_tiers: Record<string, number>;
+}
+
+export interface DeckEvaluation {
+  deck_id: number;
+  mana_curve: ManaCurvePoint[];
+  type_distribution: TypeDistEntry[];
+  color_distribution: ColorDistEntry[];
+  land_count: number;
+  nonland_count: number;
+  total_cards: number;
+  avg_cmc: number;
+  color_identity: string[];
+  legality: LegalityResult | null;
+  budget: BudgetAnalysis | null;
+  suggestions: string[];
+}
+
+// Deck generator types (F133)
+
+export interface DeckGenerateParams {
+  format_name: string;
+  commander_card_id?: number | null;
+  colors?: string[];
+  archetype?: string | null;
+  budget_limit?: number | null;
+  prioritize_owned?: boolean;
+  deck_name?: string | null;
+  exclude_card_ids?: number[];
+}
+
+export interface GeneratedCard {
+  card_id: number | null;
+  name_en: string;
+  set_code: string | null;
+  collector_number: string | null;
+  quantity: number;
+  mana_cost: string | null;
+  type_line: string | null;
+  rarity: string | null;
+  image_uri: string | null;
+  price: number | null;
+  is_owned: boolean;
+}
+
+export interface DeckGenerateResult {
+  deck_id: number;
+  name: string;
+  format_name: string;
+  archetype: string | null;
+  colors: string[];
+  total_cards: number;
+  land_count: number;
+  nonland_count: number;
+  total_value: number | null;
+  warnings: string[];
+  cards: GeneratedCard[];
+}
+
+export interface CommanderSearchResult {
+  card_id: number;
+  name_en: string;
+  set_code: string | null;
+  collector_number: string | null;
+  color_identity: string | null;
+  mana_cost: string | null;
+  type_line: string | null;
+  rarity: string | null;
+  image_uri: string | null;
 }

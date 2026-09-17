@@ -483,6 +483,83 @@ def download_backup(
     )
 
 
+# ── Process price requests (F132-T04) ────────────────────────────────
+
+
+@router.post("/jobs/process-price-requests")
+def trigger_process_price_requests(
+    request: Request,
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+    limit: int = Query(100, ge=1, le=1000),
+    delay: float = Query(2.0, ge=0.5, le=10.0),
+):
+    """Trigger processing of pending price requests (admin only).
+
+    Spawns a background thread that runs the same logic as the
+    ``process-price-requests`` CLI command. Only works when the server
+    has access to LigaMagic (residential IP + Playwright).
+    """
+    import asyncio
+    import json
+    import threading
+
+    from src.collectors.price_request_processor import process_pending_price_requests
+    from src.config import get_db_url
+
+    # Check if there are any pending requests first
+    counts = repo.count_price_requests_by_status()
+    pending_count = counts.get("pending", 0)
+    if pending_count == 0:
+        return success_response(data={"status": "no_pending", "message": "No pending requests"})
+
+    db_url = get_db_url()
+    scan_id = repo.create_scan_run(
+        "process_price_requests",
+        json.dumps(
+            {
+                "triggered_by": admin.id,
+                "limit": limit,
+                "pending_count": pending_count,
+            }
+        ),
+    )
+
+    def _run():
+        asyncio.run(
+            process_pending_price_requests(
+                db_url=db_url,
+                limit=limit,
+                delay=delay,
+            )
+        )
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    audit.log(
+        actor=admin,
+        action="job_trigger",
+        target_type="scan",
+        target_id=str(scan_id),
+        details={
+            "job_type": "process_price_requests",
+            "limit": limit,
+            "pending_count": pending_count,
+        },
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return success_response(
+        data={
+            "scan_id": scan_id,
+            "status": "started",
+            "pending_count": pending_count,
+        }
+    )
+
+
 # ── Price request queue (F130-T05) ──────────────────────────────────
 
 

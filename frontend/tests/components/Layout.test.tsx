@@ -107,12 +107,13 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Non-admin primary: Dashboard, My Collection, Wishlist, Explore Cards, Card Catalog, Price Alerts, Settings (no Admin)
-    expect(links).toHaveLength(7);
+    // Non-admin primary: Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Card Catalog, Price Alerts, Settings (no Admin)
+    expect(links).toHaveLength(8);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
+    expect(linkTexts).toContain("Import Purchases");
     expect(linkTexts).toContain("Wishlist");
     expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Card Catalog");
@@ -128,8 +129,8 @@ describe("Layout", () => {
     expandBeta();
 
     const linkTexts = getNavLinkTexts();
-    // Primary (7) + Beta (10) = 17
-    expect(linkTexts).toHaveLength(17);
+    // Primary (8) + Beta (12) = 20
+    expect(linkTexts).toHaveLength(20);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Wishlist");
@@ -385,9 +386,9 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Admin sees 8 primary (Dashboard, My Collection, Wishlist, Explore Cards, Card Catalog, Price Alerts, Settings, Admin)
-    // + 10 beta = 18 total
-    expect(links).toHaveLength(18);
+    // Admin sees 9 primary (Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Card Catalog, Price Alerts, Settings, Admin)
+    // + 12 beta = 21 total
+    expect(links).toHaveLength(21);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Admin");

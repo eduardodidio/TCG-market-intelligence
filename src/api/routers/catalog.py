@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from enum import Enum
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from src.api.deps import get_db, get_optional_user
+from src.api.deps import get_credit_service, get_current_user, get_db, get_optional_user
 from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import ApiResponse, success_response
+from src.credits.constants import CARD_REFRESH_COST
+from src.credits.service import CreditService
+from src.database.models import CardRow, PriceUpdateRequestRow
 from src.database.repository import Repository
 from src.domain.models import User
 
@@ -70,6 +74,18 @@ class SortDirEnum(str, Enum):
     desc = "desc"
 
 
+class CatalogScanRequest(BaseModel):
+    set_code: str
+    max_age_days: int = 7
+
+
+class CatalogScanResponse(BaseModel):
+    status: str
+    set_code: str
+    card_count: int
+    total_cost: int
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -101,7 +117,7 @@ def list_catalog_cards(
     ownership_join = ""
     if with_ownership and user_id:
         ownership_select = (
-            ",\n               CASE WHEN uc.id IS NOT NULL" " THEN 1 ELSE 0 END AS owned"
+            ",\n               CASE WHEN uc.id IS NOT NULL THEN 1 ELSE 0 END AS owned"
         )
         ownership_join = (
             "\n        LEFT JOIN user_collection uc"
@@ -170,7 +186,7 @@ def list_catalog_cards(
             params[key] = f"%{letter}%"
 
     if name is not None:
-        filters.append("(c.name_en LIKE :name OR c.name_pt LIKE :name)")
+        filters.append("(LOWER(c.name_en) LIKE LOWER(:name) OR LOWER(c.name_pt) LIKE LOWER(:name))")
         params["name"] = f"%{name}%"
 
     if has_price is True:
@@ -364,5 +380,103 @@ def get_catalog_stats(
         total_sets=total_sets,
         cards_with_price=cards_with_price,
         cards_without_price=total_cards - cards_with_price,
+    )
+    return success_response(data=data)
+
+
+MAX_CATALOG_SCAN_CARDS = 1000
+
+
+@router.post("/scan", response_model=ApiResponse[CatalogScanResponse])
+def scan_catalog_set(
+    body: CatalogScanRequest,
+    repo: Repository = Depends(get_db),
+    user: User = Depends(get_current_user),
+    credit_svc: CreditService = Depends(get_credit_service),
+):
+    """Queue price update requests for all cards in a catalog set.
+
+    Inserts one ``price_update_requests`` row per card. The local
+    ``process-price-requests`` CLI command picks them up later.
+    Cost: 1 credit per card.  Deduplicates against pending requests
+    created within the last 24 hours.
+    """
+    set_code = body.set_code.strip().lower()
+
+    # Verify set exists in the catalog
+    with Session(repo.engine) as session:
+        card_ids = (
+            session.execute(
+                select(CardRow.id).where(
+                    CardRow.game == "magic",
+                    CardRow.set_code == set_code,
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    if not card_ids:
+        raise api_error(
+            404,
+            ErrorCode.RESOURCE_NOT_FOUND,
+            f"No catalog cards found for set '{set_code}'",
+        )
+
+    # Guard: cap max cards to prevent accidental abuse
+    if len(card_ids) > MAX_CATALOG_SCAN_CARDS:
+        raise api_error(
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            f"Set has {len(card_ids)} cards, exceeding the limit of {MAX_CATALOG_SCAN_CARDS}. "
+            "Use the CLI for very large sets.",
+        )
+
+    # Credit guard
+    total_cost = len(card_ids) * CARD_REFRESH_COST
+    if not credit_svc.check_sufficient(user.id, total_cost):
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
+
+    # Deduct credits upfront
+    credit_svc.deduct(user.id, total_cost, "catalog_scan", reference_id=set_code)
+
+    # Bulk-insert price_update_requests, deduplicating against recent pendings
+    cutoff = datetime.now() - timedelta(hours=24)
+    queued_count = 0
+    with Session(repo.engine) as session:
+        # Find card_ids that already have a pending request within 24h
+        existing_ids = set(
+            session.execute(
+                select(PriceUpdateRequestRow.card_id).where(
+                    PriceUpdateRequestRow.card_id.in_(card_ids),
+                    PriceUpdateRequestRow.status == "pending",
+                    PriceUpdateRequestRow.requested_at >= cutoff,
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        rows_to_insert = []
+        for cid in card_ids:
+            if cid not in existing_ids:
+                rows_to_insert.append(
+                    PriceUpdateRequestRow(
+                        card_id=cid,
+                        user_id=user.id,
+                        status="pending",
+                    )
+                )
+            queued_count += 1  # count all cards (including deduped)
+
+        if rows_to_insert:
+            session.add_all(rows_to_insert)
+            session.commit()
+
+    data = CatalogScanResponse(
+        status="queued",
+        set_code=set_code,
+        card_count=queued_count,
+        total_cost=total_cost,
     )
     return success_response(data=data)

@@ -204,7 +204,7 @@ export function PortfolioDashboard({ refreshKey = 0 }: PortfolioDashboardProps =
 
               {/* Collection movers */}
               <div className="mb-4">
-                <CollectionMovers />
+                <CollectionMovers investmentOnly />
               </div>
 
               {/* Export button */}

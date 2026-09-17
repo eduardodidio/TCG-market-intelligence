@@ -7,6 +7,7 @@ import type { CardSummary } from "../../types/api";
 // Mock dependencies
 vi.mock("../../api/cards", () => ({
   refreshCardPrice: vi.fn(),
+  fetchPriceRequestStatus: vi.fn(),
 }));
 
 vi.mock("../../hooks/useAuth", () => ({
@@ -129,6 +130,14 @@ describe("CardTile", () => {
       error: null,
     } as Awaited<ReturnType<typeof refreshCardPrice>>);
 
+    // Mock polling to return pending so it keeps polling
+    const { fetchPriceRequestStatus } = await import("../../api/cards");
+    vi.mocked(fetchPriceRequestStatus).mockResolvedValue({
+      data: { status: "pending" },
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
+      errors: [],
+    } as Awaited<ReturnType<typeof fetchPriceRequestStatus>>);
+
     const onRefreshed = vi.fn();
     renderTile({ onPriceRefreshed: onRefreshed });
 
@@ -138,16 +147,11 @@ describe("CardTile", () => {
       expect(refreshCardPrice).toHaveBeenCalledWith(42);
     });
 
-    // Should NOT call onPriceRefreshed for queued responses
+    // Should NOT call onPriceRefreshed for queued responses (only on completed)
     expect(onRefreshed).not.toHaveBeenCalled();
 
     // Price should remain unchanged
     expect(screen.getByTestId("card-price")).toHaveTextContent("R$ 3.50");
-
-    // Should show queued feedback text
-    await waitFor(() => {
-      expect(screen.getByTestId("queued-feedback")).toBeInTheDocument();
-    });
   });
 
   it("disables button while refreshing", async () => {
@@ -168,7 +172,7 @@ describe("CardTile", () => {
     // Resolve with queued response — button stays disabled because queued=true
     resolvePromise!({ data: { status: "queued", request_id: 1, card_id: 42 }, error: null });
     await waitFor(() => {
-      // Button remains disabled during the 5s queued window
+      // Button remains disabled during the queued/polling window
       expect(btn).toBeDisabled();
     });
   });
@@ -180,6 +184,14 @@ describe("CardTile", () => {
       error: null,
     } as Awaited<ReturnType<typeof refreshCardPrice>>);
 
+    // Mock polling to return pending
+    const { fetchPriceRequestStatus } = await import("../../api/cards");
+    vi.mocked(fetchPriceRequestStatus).mockResolvedValue({
+      data: { status: "pending" },
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
+      errors: [],
+    } as Awaited<ReturnType<typeof fetchPriceRequestStatus>>);
+
     renderTile();
     const btn = screen.getByTestId("refresh-card-price-42");
 
@@ -189,13 +201,32 @@ describe("CardTile", () => {
       expect(btn).toBeDisabled();
     });
 
-    // Should show clock icon instead of refresh icon
+    // Should show spinner icon while polling
     await waitFor(() => {
-      expect(screen.getByTestId("clock-icon")).toBeInTheDocument();
+      expect(screen.getByTestId("spinner-icon")).toBeInTheDocument();
     });
   });
 
-  it("handles refresh failure gracefully", async () => {
+  it("shows error icon and feedback on refresh failure", async () => {
+    const { refreshCardPrice } = await import("../../api/cards");
+    vi.mocked(refreshCardPrice).mockResolvedValue({
+      data: null,
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
+      errors: [{ code: "TIMEOUT", message: "Request timed out" }],
+    } as Awaited<ReturnType<typeof refreshCardPrice>>);
+
+    renderTile();
+    fireEvent.click(screen.getByTestId("refresh-card-price-42"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("error-icon")).toBeInTheDocument();
+    });
+
+    // Should show error feedback text
+    expect(screen.getByTestId("refresh-error-feedback")).toBeInTheDocument();
+  });
+
+  it("shows error state when refreshCardPrice throws", async () => {
     const { refreshCardPrice } = await import("../../api/cards");
     vi.mocked(refreshCardPrice).mockRejectedValue(new Error("Network error"));
 
@@ -203,8 +234,10 @@ describe("CardTile", () => {
     fireEvent.click(screen.getByTestId("refresh-card-price-42"));
 
     await waitFor(() => {
-      expect(refreshCardPrice).toHaveBeenCalledWith(42);
+      expect(screen.getByTestId("error-icon")).toBeInTheDocument();
     });
+
+    expect(screen.getByTestId("refresh-error-feedback")).toBeInTheDocument();
 
     // Price should remain unchanged
     expect(screen.getByTestId("card-price")).toHaveTextContent("R$ 3.50");

@@ -352,6 +352,7 @@ def create_app() -> FastAPI:
     from src.api.routers.market import router as market_router
     from src.api.routers.marketplace import router as marketplace_router
     from src.api.routers.price_ingest import router as price_ingest_router
+    from src.api.routers.purchases import router as purchases_router
     from src.api.routers.scans import router as scans_router
     from src.api.routers.schedules import router as schedules_router
     from src.api.routers.sets import router as sets_router
@@ -380,6 +381,7 @@ def create_app() -> FastAPI:
     app.include_router(catalog_router, prefix="/api/v1")
     app.include_router(alerts_router, prefix="/api/v1")
     app.include_router(wishlist_router, prefix="/api/v1")
+    app.include_router(purchases_router, prefix="/api/v1")
     app.include_router(trade_match_router, prefix="/api/v1")
 
     # Health check (outside /api/v1)

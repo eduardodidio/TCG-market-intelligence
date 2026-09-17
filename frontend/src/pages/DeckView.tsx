@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { refreshCardPriceLiga } from "../api/collection";
 import { fetchDeckValue } from "../api/deckRanking";
@@ -8,12 +8,14 @@ import { deleteDeck, fetchDeck } from "../api/decks";
 import { BatchAddModal } from "../components/BatchAddModal";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckCardTile } from "../components/DeckCardTile";
+import { DeckEvaluationPanel } from "../components/DeckEvaluationPanel";
 import type { DeckDetail, DeckValueDetail } from "../types/api";
 
 export function DeckView() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [deck, setDeck] = useState<DeckDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +25,10 @@ export function DeckView() {
   const [valuePeriod, setValuePeriod] = useState("30d");
   const [showHistory, setShowHistory] = useState(false);
   const [showBatchAdd, setShowBatchAdd] = useState(false);
+  const [activeTab, setActiveTab] = useState<"cards" | "evaluation">(() => {
+    const tabParam = searchParams.get("tab");
+    return tabParam === "evaluation" ? "evaluation" : "cards";
+  });
 
   const loadDeck = useCallback(async () => {
     if (!id) return;
@@ -283,28 +289,69 @@ export function DeckView() {
         </div>
       )}
 
-      {/* Card Grid */}
-      {deck.cards.length === 0 ? (
-        <p className="text-slate-400 text-center py-8" data-testid="deck-no-cards">
-          {t("decks.noCards")}
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {deck.cards.map((card) => {
-            if (!card.name_en && !card.card_id) {
-              return (
-                <div
-                  key={card.id}
-                  className="rounded-lg bg-slate-800 border border-slate-600/50 p-4 flex items-center justify-center aspect-[488/680]"
-                  data-testid={`deck-card-missing-${card.id}`}
-                >
-                  <p className="text-xs text-slate-500 text-center">{t("decks.cardNotFound")}</p>
-                </div>
-              );
-            }
-            return <DeckCardTile key={card.id} card={card} onRefresh={handleDeckCardRefresh} />;
-          })}
-        </div>
+      {/* Tab Switcher */}
+      <div className="flex gap-1 mb-4" data-testid="deck-view-tabs">
+        <button
+          onClick={() => {
+            setActiveTab("cards");
+            setSearchParams((prev) => { prev.delete("tab"); return prev; }, { replace: true });
+          }}
+          className={`px-4 py-2 rounded-t text-sm font-medium transition-colors ${
+            activeTab === "cards"
+              ? "bg-slate-800 text-white border-b-2 border-cyan-500"
+              : "bg-slate-900 text-slate-400 hover:text-white"
+          }`}
+          data-testid="tab-cards"
+        >
+          {t("deckEval.tabCards", { defaultValue: "Cards" })}
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("evaluation");
+            setSearchParams((prev) => { prev.set("tab", "evaluation"); return prev; }, { replace: true });
+          }}
+          className={`px-4 py-2 rounded-t text-sm font-medium transition-colors ${
+            activeTab === "evaluation"
+              ? "bg-slate-800 text-white border-b-2 border-cyan-500"
+              : "bg-slate-900 text-slate-400 hover:text-white"
+          }`}
+          data-testid="tab-evaluation"
+        >
+          {t("deckEval.tabEvaluation", { defaultValue: "Evaluation" })}
+        </button>
+      </div>
+
+      {/* Cards Tab */}
+      {activeTab === "cards" && (
+        <>
+          {deck.cards.length === 0 ? (
+            <p className="text-slate-400 text-center py-8" data-testid="deck-no-cards">
+              {t("decks.noCards")}
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {deck.cards.map((card) => {
+                if (!card.name_en && !card.card_id) {
+                  return (
+                    <div
+                      key={card.id}
+                      className="rounded-lg bg-slate-800 border border-slate-600/50 p-4 flex items-center justify-center aspect-[488/680]"
+                      data-testid={`deck-card-missing-${card.id}`}
+                    >
+                      <p className="text-xs text-slate-500 text-center">{t("decks.cardNotFound")}</p>
+                    </div>
+                  );
+                }
+                return <DeckCardTile key={card.id} card={card} onRefresh={handleDeckCardRefresh} />;
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Evaluation Tab */}
+      {activeTab === "evaluation" && (
+        <DeckEvaluationPanel deckId={Number(id)} />
       )}
 
       {/* Batch Add Missing Cards Modal */}

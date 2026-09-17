@@ -647,3 +647,54 @@ class TradeAgreement:
     buyer_fee_charged: int
     seller_fee_charged: int
     completed_at: datetime | None
+
+
+# --- Deck evaluation domain models (F133) ---
+
+
+@dataclass
+class DeckEvaluation:
+    """Full evaluation result for a deck."""
+
+    mana_curve: dict[int, int]
+    color_distribution: dict[str, int]
+    type_distribution: dict[str, int]
+    land_count: int
+    nonland_count: int
+    total_cards: int
+    avg_cmc: float
+    color_identity: set[str]
+    legality_check: dict | None = None
+    budget: dict | None = None
+    suggestions: list[str] = field(default_factory=list)
+
+
+# --- Deck builder domain models (F133) ---
+
+
+@dataclass
+class DeckBuildParams:
+    """Parameters for auto-generating a deck from the catalog."""
+
+    format_name: str
+    commander_card_id: int | None = None
+    colors: list[str] = field(default_factory=list)
+    archetype: str | None = None
+    budget_limit: Decimal | None = None
+    prioritize_owned: bool = False
+    user_id: str | None = None
+    exclude_card_ids: list[int] = field(default_factory=list)
+
+
+@dataclass
+class GeneratedDeck:
+    """Result of the deck builder service."""
+
+    cards: list[dict]
+    format_name: str
+    archetype: str | None
+    colors: list[str]
+    total_value: Decimal | None
+    land_count: int
+    nonland_count: int
+    warnings: list[str] = field(default_factory=list)

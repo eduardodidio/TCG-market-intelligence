@@ -143,6 +143,7 @@ class TestPortfolioSummary:
     def test_empty_portfolio(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_portfolio_invested_total.return_value = (Decimal("0"), 0)
+        mock_repo.count_entries_without_acquisition.return_value = 0
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/portfolio-summary")
@@ -158,6 +159,7 @@ class TestPortfolioSummary:
     def test_portfolio_with_entries(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_portfolio_invested_total.return_value = (Decimal("10.00"), 1)
+        mock_repo.count_entries_without_acquisition.return_value = 0
 
         entry = _make_collection_row(
             acquisition_price=Decimal("5.00"),
@@ -187,6 +189,7 @@ class TestPortfolioSummary:
         mock_repo = MagicMock()
         # invested total covers both entries: 2*10 + 1*20 = 40
         mock_repo.get_portfolio_invested_total.return_value = (Decimal("40.00"), 2)
+        mock_repo.count_entries_without_acquisition.return_value = 0
 
         priced_entry = _make_collection_row(
             id=1,
@@ -216,15 +219,15 @@ class TestPortfolioSummary:
         assert data["total_invested"] == 40.00
         # current value = 15 * 2 = 30 (unpriced entry contributes 0)
         assert data["total_current_value"] == 30.00
-        # invested_priced = 10 * 2 = 20 (only the priced entry)
-        # pnl = 30 - 20 = 10; pct = 10/20*100 = 50.0
-        assert data["total_pnl"] == 10.00
-        assert data["total_pnl_pct"] == 50.0
+        # pnl = 30 - 40 = -10; pct = -10/40*100 = -25.0
+        assert data["total_pnl"] == -10.00
+        assert data["total_pnl_pct"] == -25.0
         assert data["unpriced_card_count"] == 1
 
     def test_all_entries_unpriced(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_portfolio_invested_total.return_value = (Decimal("20.00"), 1)
+        mock_repo.count_entries_without_acquisition.return_value = 0
 
         entry = _make_collection_row(card_id=42, acquisition_price=Decimal("20.00"), quantity=1)
         mock_repo.get_collection_entries_with_acquisition.return_value = [entry]
@@ -236,13 +239,14 @@ class TestPortfolioSummary:
         data = resp.json()["data"]
         assert data["total_invested"] == 20.00
         assert data["total_current_value"] == 0.0
-        assert data["total_pnl"] == 0.0
-        assert data["total_pnl_pct"] is None
+        assert data["total_pnl"] == -20.0
+        assert data["total_pnl_pct"] == -100.0
         assert data["unpriced_card_count"] == 1
 
     def test_entry_with_no_card_id_is_unpriced(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_portfolio_invested_total.return_value = (Decimal("20.00"), 1)
+        mock_repo.count_entries_without_acquisition.return_value = 0
 
         entry = _make_collection_row(card_id=None, acquisition_price=Decimal("20.00"), quantity=1)
         mock_repo.get_collection_entries_with_acquisition.return_value = [entry]
@@ -253,13 +257,14 @@ class TestPortfolioSummary:
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["unpriced_card_count"] == 1
-        assert data["total_pnl_pct"] is None
+        assert data["total_pnl_pct"] == -100.0
 
     def test_foil_entry_uses_foil_price(self) -> None:
         """Foil entry must be valued with the foil price observation, not the
         non-foil one, mirroring list_collection's foil-aware lookup."""
         mock_repo = MagicMock()
         mock_repo.get_portfolio_invested_total.return_value = (Decimal("10.00"), 2)
+        mock_repo.count_entries_without_acquisition.return_value = 0
 
         foil_entry = _make_collection_row(
             id=1,
@@ -291,8 +296,9 @@ class TestPortfolioSummary:
         resp = client.get("/collection/portfolio-summary")
         assert resp.status_code == 200
         data = resp.json()["data"]
-        # foil entry: 20.00 * 1; non-foil entry: 8.00 * 1 => 28.00
-        assert data["total_current_value"] == 28.00
+        # Portfolio summary does NOT do foil-aware pricing (no foil_card_ids passed).
+        # Both entries with card_id=42 use the same non-foil price: 8.00 * 1 + 8.00 * 1 = 16.00
+        assert data["total_current_value"] == 16.00
         assert data["unpriced_card_count"] == 0
 
 

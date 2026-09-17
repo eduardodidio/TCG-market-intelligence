@@ -54,7 +54,10 @@
     "achievements": "Conquistas",
     "betaTest": "Beta Test",
     "wishlist": "Lista de Desejos",
-    "tradeMatches": "Trocas"
+    "tradeMatches": "Trocas",
+    "importPurchases": "Importar Compras",
+    "buildDeck": "Montar Deck",
+    "deckEvaluator": "Avaliador de Deck"
   },
   "catalog": {
     "title": "Catalogo de Cartas",
@@ -77,7 +80,13 @@
     "sortSet": "Colecao",
     "sortPrice": "Preco",
     "sortAsc": "Crescente",
-    "sortDesc": "Decrescente"
+    "sortDesc": "Decrescente",
+    "searchPlaceholderBilingual": "Buscar pelo nome em ingles ou portugues...",
+    "emptySearchHint": "Tente buscar pelo nome no outro idioma.",
+    "refreshAllSet": "Atualizar Toda a Colecao",
+    "refreshAllSetAction": "Enfileirar atualizacao de precos para todas as cartas de {{set}}",
+    "scanQueued": "{{count}} cartas de {{set}} enfileiradas para atualizacao de preco",
+    "scanError": "Falha ao enfileirar atualizacao"
   },
   "admin": {
     "title": "Painel Admin",
@@ -144,7 +153,13 @@
       "colProcessed": "Processado",
       "colPrice": "Preco",
       "colError": "Erro",
-      "colAttempts": "Tentativas"
+      "colAttempts": "Tentativas",
+      "processQueue": "Processar Fila",
+      "processQueuePending": "Processar Fila ({{count}} pendentes)",
+      "processingStarted": "Processamento iniciado. Atualize para ver os resultados.",
+      "processingRunning": "Processando...",
+      "noPending": "Nenhuma solicitacao pendente",
+      "localOnly": "Requer servidor local com acesso Liga"
     },
     "ops": {
       "ligaScan": "Scan Liga Colecao",
@@ -233,7 +248,9 @@
     "investmentEmptyDesc": "Informe o valor pago dos seus cards para ver o investido e o P&L.",
     "investmentEmptyCta": "Ir para a colecao",
     "investmentUnpriced": "{{count}} cards sem preco atual (fora do P&L)",
-    "investmentError": "Nao foi possivel carregar o investimento"
+    "investmentError": "Nao foi possivel carregar o investimento",
+    "cardsWithoutAcquisition": "{{count}} cards sem preco de aquisicao",
+    "cardsWithoutAcquisitionDesc": "Adicione precos de compra para acompanhar o desempenho do investimento"
   },
   "cards": {
     "title": "Explorar Cartas",
@@ -254,7 +271,13 @@
     "comingSoon": "Em breve",
     "priceUpdateQueued": "Atualizacao solicitada",
     "priceUpdateQueuedDesc": "Sua solicitacao de atualizacao de preco esta na fila e sera processada em breve.",
-    "priceUpdatePending": "Atualizacao pendente"
+    "priceUpdatePending": "Atualizacao pendente",
+    "priceUpdateProcessing": "Processando...",
+    "priceUpdateCompleted": "Preco atualizado!",
+    "priceUpdateFailed": "Falha na atualizacao",
+    "priceUpdateTimeout": "O processamento pode demorar. Verifique mais tarde.",
+    "priceRefreshError": "Falha ao solicitar atualizacao de preco",
+    "priceRefreshTimeout": "Tempo esgotado. Tente novamente mais tarde."
   },
   "cardDetail": {
     "pageTitle": "Detalhe da Carta | TEDHC Market",
@@ -340,7 +363,11 @@
     "setComplete": "Completo!",
     "paidPrice": "Pago",
     "setPaidPrice": "Informar valor pago",
-    "paidPricePerCopy": "por copia"
+    "paidPricePerCopy": "por copia",
+    "filterAcquisitionAll": "Todos",
+    "filterAcquisitionWith": "Com preco",
+    "filterAcquisitionWithout": "Sem preco",
+    "filterAcquisitionLabel": "Investimento"
   },
   "market": {
     "title": "Movimentacao de Mercado",
@@ -397,6 +424,53 @@
     "summaryImported": "Cartas Importadas",
     "summaryLinked": "Cartas Vinculadas a Colecao",
     "summaryUnlinkedHint": "{{count}} carta(s) nao puderam ser vinculadas a sua colecao."
+  },
+  "deckBuilder": {
+    "title": "Montador de Deck",
+    "stepFormat": "Escolher Formato",
+    "stepCommander": "Escolher Comandante",
+    "stepColors": "Escolher Cores",
+    "stepArchetype": "Arquetipo e Orcamento",
+    "stepReview": "Revisar Deck",
+    "searchCommander": "Buscar comandante...",
+    "budgetLabel": "Limite de Orcamento (BRL)",
+    "budgetNoLimit": "Sem limite",
+    "prioritizeOwned": "Priorizar cartas que possuo",
+    "generateBtn": "Gerar Deck",
+    "regenerateBtn": "Gerar Novamente",
+    "saveDeck": "Salvar Deck",
+    "deckName": "Nome do Deck"
+  },
+  "deckEval": {
+    "title": "Avaliacao do Deck",
+    "manaCurve": "Curva de Mana",
+    "typeDistribution": "Tipos de Carta",
+    "colorDistribution": "Distribuicao de Cores",
+    "legality": "Legalidade no Formato",
+    "legalIn": "Legal em {{format}}",
+    "notLegalIn": "Nao legal em {{format}}",
+    "budget": "Analise de Orcamento",
+    "avgCmc": "Custo de Mana Medio",
+    "lands": "Terrenos",
+    "nonlands": "Nao-terrenos",
+    "suggestions": "Sugestoes",
+    "noSuggestions": "Nenhum problema encontrado!",
+    "mostExpensive": "Cartas Mais Caras",
+    "priceTiers": "Faixas de Preco",
+    "tabCards": "Cartas",
+    "tabEvaluation": "Avaliacao",
+    "tabValue": "Historico de Valor",
+    "selectFormat": "Avaliar para formato",
+    "checkFormat": "Avaliar formato:",
+    "singletonViolations": "Violacoes de Unicidade:",
+    "illegalCards": "Cartas Ilegais:",
+    "selectDeckToEvaluate": "Selecione um deck para avaliar",
+    "composition": "Composicao",
+    "totalCards": "Total de Cartas",
+    "colorIdentity": "Identidade de Cor",
+    "noData": "Sem dados",
+    "totalValue": "Valor Total",
+    "cardCountInvalid": "O deck nao atinge o minimo de cartas"
   },
   "auth": {
     "appTitle": "TEDHC Market",

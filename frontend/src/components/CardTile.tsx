@@ -7,6 +7,7 @@ import { refreshCardPrice } from "../api/cards";
 import { useAuth } from "../hooks/useAuth";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
+import { usePriceRequestPolling } from "../hooks/usePriceRequestPolling";
 import { formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { Card3DTilt } from "./Card3DTilt";
@@ -24,7 +25,7 @@ export interface CardTileProps {
   isFoil?: boolean;
 }
 
-export function CardTile({ card, trend, linkTo, isFoil }: CardTileProps) {
+export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: CardTileProps) {
   const { t } = useTranslation();
   const { currency } = useCurrency();
   const { getCardName } = useCardName();
@@ -34,7 +35,29 @@ export function CardTile({ card, trend, linkTo, isFoil }: CardTileProps) {
   const [fallbackError, setFallbackError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [queued, setQueued] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Poll for price request status after queuing
+  const { status: requestStatus, isPolling } = usePriceRequestPolling({
+    cardId: card.id,
+    enabled: queued,
+    onCompleted: (price) => {
+      setQueued(false);
+      setCompleted(true);
+      setTimeout(() => setCompleted(false), 1500);
+      if (price !== null && onPriceRefreshed) {
+        onPriceRefreshed(card.id, price);
+      }
+    },
+    onFailed: () => {
+      setQueued(false);
+      setFailed(true);
+      setTimeout(() => setFailed(false), 3000);
+    },
+  });
 
   // Primary: set/collector_number URL. Fallback: name-based URL.
   const primaryUrl =
@@ -51,21 +74,55 @@ export function CardTile({ card, trend, linkTo, isFoil }: CardTileProps) {
   const handleRefresh = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (refreshing || queued) return;
+    if (refreshing || queued || completed || failed) return;
 
     setRefreshing(true);
+    setRefreshError(false);
     try {
       const res = await refreshCardPrice(card.id);
+      if (res.errors && res.errors.length > 0) {
+        setRefreshError(true);
+        setTimeout(() => setRefreshError(false), 3000);
+        return;
+      }
       if (res.data?.status === "queued") {
         setQueued(true);
-        setTimeout(() => setQueued(false), 5000);
       }
     } catch {
-      // silently fail
+      setRefreshError(true);
+      setTimeout(() => setRefreshError(false), 3000);
     } finally {
       setRefreshing(false);
     }
   };
+
+  // Determine the visual state of the refresh button
+  const pollingTimedOut = queued && !isPolling && requestStatus !== "completed" && requestStatus !== "failed";
+  const showAlwaysVisible = refreshError || queued || completed || failed;
+
+  // Button color
+  const buttonColor = refreshError || failed
+    ? "text-red-400"
+    : completed
+      ? "text-green-400"
+      : queued
+        ? pollingTimedOut
+          ? "text-yellow-400"
+          : "text-cyan-400"
+        : "text-slate-300 hover:text-cyan-400";
+
+  // Button title
+  const buttonTitle = refreshError
+    ? t("cards.priceRefreshError")
+    : failed
+      ? t("cards.priceUpdateFailed")
+      : completed
+        ? t("cards.priceUpdateCompleted")
+        : pollingTimedOut
+          ? t("cards.priceUpdateTimeout")
+          : queued
+            ? t("cards.priceUpdateProcessing")
+            : t("credits.refreshCostTooltip", { cost: 1 });
 
   return (
     <Card3DTilt foil={isFoil ?? false} className="w-full">
@@ -81,15 +138,63 @@ export function CardTile({ card, trend, linkTo, isFoil }: CardTileProps) {
         <button
           data-testid={`refresh-card-price-${card.id}`}
           onClick={handleRefresh}
-          disabled={refreshing || queued}
-          title={queued ? t("cards.priceUpdateQueued") : t("credits.refreshCostTooltip", { cost: 1 })}
+          disabled={refreshing || queued || refreshError || completed || failed}
+          title={buttonTitle}
           className={`absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full
-            bg-black/60 ${queued ? "text-yellow-400" : "text-slate-300 hover:text-cyan-400"} hover:bg-black/80
-            ${queued ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-all
+            bg-black/60 ${buttonColor} hover:bg-black/80
+            ${showAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-all
             disabled:opacity-100 disabled:cursor-not-allowed
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400`}
         >
-          {queued ? (
+          {refreshError || failed ? (
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              data-testid="error-icon"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          ) : completed ? (
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              data-testid="check-icon"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          ) : queued && isPolling ? (
+            <svg
+              className="h-3.5 w-3.5 animate-spin"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              data-testid="spinner-icon"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          ) : pollingTimedOut ? (
             <svg
               className="h-3.5 w-3.5"
               fill="none"
@@ -210,9 +315,29 @@ export function CardTile({ card, trend, linkTo, isFoil }: CardTileProps) {
             <TrendBadge changePct={trend.change_pct} />
           )}
         </div>
-        {queued && (
+        {(queued && isPolling) && (
+          <span className="text-xs text-cyan-500 dark:text-cyan-400 mt-1 block" data-testid="queued-feedback">
+            {t("cards.priceUpdateProcessing")}
+          </span>
+        )}
+        {pollingTimedOut && (
           <span className="text-xs text-yellow-500 dark:text-yellow-400 mt-1 block" data-testid="queued-feedback">
-            {t("cards.priceUpdateQueued")}
+            {t("cards.priceUpdateTimeout")}
+          </span>
+        )}
+        {completed && (
+          <span className="text-xs text-green-500 dark:text-green-400 mt-1 block" data-testid="completed-feedback">
+            {t("cards.priceUpdateCompleted")}
+          </span>
+        )}
+        {failed && (
+          <span className="text-xs text-red-500 dark:text-red-400 mt-1 block" data-testid="failed-feedback">
+            {t("cards.priceUpdateFailed")}
+          </span>
+        )}
+        {refreshError && (
+          <span className="text-xs text-red-500 dark:text-red-400 mt-1 block" data-testid="refresh-error-feedback">
+            {t("cards.priceRefreshError")}
           </span>
         )}
         {trend && trend.prices.length > 1 && (

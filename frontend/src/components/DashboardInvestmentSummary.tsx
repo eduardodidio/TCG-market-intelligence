@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { fetchPortfolioSummary } from "../api/collection";
+import { Line, LineChart, ResponsiveContainer } from "recharts";
+import { fetchPortfolioHistory, fetchPortfolioSummary } from "../api/collection";
 import { useApi } from "../hooks/useApi";
-import type { PortfolioSummary } from "../types/api";
+import type { PortfolioHistoryPoint, PortfolioSummary } from "../types/api";
 import { formatCurrency } from "../utils/format";
 import { CurrencyIndicator } from "./CurrencyIndicator";
 import { KpiCard } from "./KpiCard";
@@ -15,6 +16,11 @@ interface DashboardInvestmentSummaryProps {
 export function DashboardInvestmentSummary({ totalUnique }: DashboardInvestmentSummaryProps) {
   const { t } = useTranslation();
   const { data, loading, error } = useApi<PortfolioSummary>(() => fetchPortfolioSummary());
+  const {
+    data: history,
+    loading: historyLoading,
+    error: historyError,
+  } = useApi<PortfolioHistoryPoint[]>(() => fetchPortfolioHistory(90));
 
   if (loading) {
     return (
@@ -25,6 +31,10 @@ export function DashboardInvestmentSummary({ totalUnique }: DashboardInvestmentS
           <SkeletonKpi />
           <SkeletonKpi />
         </div>
+        <div
+          className="mt-3 animate-pulse bg-slate-700/50 rounded-lg h-[80px]"
+          data-testid="sparkline-skeleton"
+        />
       </div>
     );
   }
@@ -62,6 +72,24 @@ export function DashboardInvestmentSummary({ totalUnique }: DashboardInvestmentS
             {t("dashboard.investmentEmptyCta")}
           </Link>
         </div>
+        {/* Even with zero invested cards, show alert if cards exist without acquisition */}
+        {data.cards_without_acquisition > 0 && (
+          <Link
+            to="/collection?has_acquisition_price=false"
+            className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400 hover:bg-amber-500/20 transition-colors"
+            data-testid="missing-acquisition-alert"
+          >
+            <svg className="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span className="flex-1">
+              {t("dashboard.cardsWithoutAcquisition", { count: data.cards_without_acquisition })}
+            </span>
+            <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        )}
       </div>
     );
   }
@@ -76,6 +104,8 @@ export function DashboardInvestmentSummary({ totalUnique }: DashboardInvestmentS
   const pct = totalUnique > 0
     ? Math.min(100, Math.round((data.invested_card_count / totalUnique) * 100))
     : 0;
+
+  const showSparkline = !historyLoading && !historyError && history && history.length > 1;
 
   return (
     <div data-testid="dashboard-investment">
@@ -112,11 +142,39 @@ export function DashboardInvestmentSummary({ totalUnique }: DashboardInvestmentS
                 {data.total_pnl_pct.toFixed(2)}%
               </span>
             ) : (
-              "—"
+              "---"
             )
           }
         />
       </div>
+
+      {/* P&L sparkline */}
+      {showSparkline && (
+        <div
+          className="mt-3 rounded-lg bg-white/5 border border-white/10 p-3"
+          data-testid="pnl-sparkline"
+        >
+          <ResponsiveContainer width="100%" height={80}>
+            <LineChart data={history}>
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#22d3ee"
+                strokeWidth={1.5}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {historyLoading && (
+        <div
+          className="mt-3 animate-pulse bg-slate-700/50 rounded-lg h-[80px]"
+          data-testid="sparkline-skeleton"
+        />
+      )}
+
       <div className="mt-3">
         <div
           data-testid="dashboard-investment-progress"
@@ -146,6 +204,25 @@ export function DashboardInvestmentSummary({ totalUnique }: DashboardInvestmentS
           </p>
         )}
       </div>
+
+      {/* Missing acquisition price alert */}
+      {data.cards_without_acquisition > 0 && (
+        <Link
+          to="/collection?has_acquisition_price=false"
+          className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400 hover:bg-amber-500/20 transition-colors"
+          data-testid="missing-acquisition-alert"
+        >
+          <svg className="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span className="flex-1">
+            {t("dashboard.cardsWithoutAcquisition", { count: data.cards_without_acquisition })}
+          </span>
+          <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      )}
     </div>
   );
 }

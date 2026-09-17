@@ -17,11 +17,23 @@ from src.api.schemas.deck_ranking import (
     DeckValuePointSchema,
 )
 from src.api.schemas.decks import (
+    BudgetAnalysis,
+    BudgetEntry,
+    ColorDistEntry,
+    CommanderCandidate,
     DeckCardSchema,
     DeckDetailSchema,
+    DeckEvaluationResponse,
+    DeckGenerateRequest,
+    DeckGenerateResponse,
     DeckImportRequest,
     DeckImportResult,
     DeckSummarySchema,
+    GeneratedCardSchema,
+    IllegalCard,
+    LegalityResult,
+    ManaCurvePoint,
+    TypeDistEntry,
 )
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.database.repository import Repository
@@ -40,10 +52,7 @@ _PERIOD_DAYS = {"7d": 7, "30d": 30, "90d": 90}
 
 def _scryfall_image_url(set_code: str, collector_number: str) -> str:
     mapped = map_to_scryfall_set_code(set_code)
-    return (
-        f"https://api.scryfall.com/cards/{mapped}/{collector_number}"
-        f"?format=image&version=normal"
-    )
+    return f"https://api.scryfall.com/cards/{mapped}/{collector_number}?format=image&version=normal"
 
 
 def _convert_value(
@@ -217,6 +226,149 @@ def get_deck_ranking(
     )
 
 
+_VALID_FORMATS = {
+    "commander",
+    "standard",
+    "modern",
+    "legacy",
+    "vintage",
+    "pioneer",
+    "pauper",
+    "brawl",
+    "oathbreaker",
+    "casual",
+}
+
+
+@router.get("/commanders", response_model=ApiResponse[list[CommanderCandidate]])
+def search_commanders(
+    q: str = "",
+    colors: str = "",
+    limit: int = Query(default=20, ge=1, le=50),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Search for legendary creatures that can serve as commanders."""
+    from src.decks.builder import get_commander_candidates
+
+    color_list = [c.strip().upper() for c in colors.split(",") if c.strip()] if colors else None
+
+    candidates = get_commander_candidates(
+        repo,
+        colors=color_list,
+        search=q if q else None,
+        limit=limit,
+    )
+
+    return success_response(
+        data=[CommanderCandidate(**c) for c in candidates],
+    )
+
+
+@router.post("/generate", response_model=ApiResponse[DeckGenerateResponse])
+def generate_deck_endpoint(
+    request: DeckGenerateRequest,
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Generate a deck from the catalog based on format, colors, and archetype."""
+    from src.decks.builder import generate_deck
+    from src.domain.models import DeckBuildParams
+
+    fmt = request.format_name.lower()
+    if fmt not in _VALID_FORMATS:
+        raise api_error(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            f"Unknown format: {request.format_name}. "
+            f"Valid formats: {', '.join(sorted(_VALID_FORMATS))}",
+        )
+
+    # Validate commander if provided
+    if request.commander_card_id is not None:
+        commander = repo.get_card_by_id(request.commander_card_id)
+        if not commander:
+            raise api_error(
+                400,
+                ErrorCode.VALIDATION_ERROR,
+                "Commander card not found in catalog",
+            )
+        type_line = commander.type_line or ""
+        if "Legendary" not in type_line or "Creature" not in type_line:
+            raise api_error(
+                400,
+                ErrorCode.VALIDATION_ERROR,
+                f"Card '{commander.name_en}' is not a Legendary Creature",
+            )
+
+    params = DeckBuildParams(
+        format_name=fmt,
+        commander_card_id=request.commander_card_id,
+        colors=request.colors,
+        archetype=request.archetype,
+        budget_limit=Decimal(str(request.budget_limit)) if request.budget_limit else None,
+        prioritize_owned=request.prioritize_owned,
+        user_id=user_id,
+        exclude_card_ids=request.exclude_card_ids,
+    )
+
+    generated = generate_deck(repo, params)
+
+    # Auto-generate deck name
+    color_str = "".join(sorted(generated.colors)) if generated.colors else "5C"
+    archetype_str = (generated.archetype or "").capitalize()
+    from datetime import date as date_cls
+
+    deck_name = request.deck_name or f"{color_str} {archetype_str} — {date_cls.today().isoformat()}"
+
+    # Save the deck
+    deck = repo.create_deck(user_id, deck_name.strip())
+    cards_for_db = [
+        {
+            "name_en": c["name_en"],
+            "set_code": c.get("set_code"),
+            "collector_number": c.get("collector_number"),
+            "quantity": c.get("quantity", 1),
+            "card_id": c.get("card_id"),
+        }
+        for c in generated.cards
+    ]
+    repo.add_deck_cards(deck.id, cards_for_db)
+
+    total_cards = sum(c["quantity"] for c in generated.cards)
+
+    return success_response(
+        data=DeckGenerateResponse(
+            deck_id=deck.id,
+            name=deck_name.strip(),
+            format_name=generated.format_name,
+            archetype=generated.archetype,
+            colors=generated.colors,
+            total_cards=total_cards,
+            land_count=generated.land_count,
+            nonland_count=generated.nonland_count,
+            total_value=float(generated.total_value) if generated.total_value is not None else None,
+            warnings=generated.warnings,
+            cards=[
+                GeneratedCardSchema(
+                    card_id=c.get("card_id"),
+                    name_en=c["name_en"],
+                    set_code=c.get("set_code"),
+                    collector_number=c.get("collector_number"),
+                    quantity=c.get("quantity", 1),
+                    mana_cost=c.get("mana_cost"),
+                    type_line=c.get("type_line"),
+                    rarity=c.get("rarity"),
+                    image_uri=c.get("image_uri"),
+                    price=c.get("price"),
+                    is_owned=c.get("is_owned", False),
+                )
+                for c in generated.cards
+            ],
+        )
+    )
+
+
 @router.get("", response_model=ApiResponse[list[DeckSummarySchema]])
 def list_decks(
     repo: Repository = Depends(get_db),
@@ -329,6 +481,147 @@ def get_deck_value(
             value_series=series_schemas,
             currency=currency,
             period=period,
+        )
+    )
+
+
+@router.get("/{deck_id}/evaluate", response_model=ApiResponse[DeckEvaluationResponse])
+def evaluate_deck_endpoint(
+    deck_id: int,
+    format: str | None = Query(default=None, alias="format"),
+    archetype: str | None = Query(default=None),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Evaluate a deck: mana curve, type/color distribution, legality, budget."""
+    from src.decks.evaluator import evaluate_deck
+
+    deck = repo.get_deck(deck_id)
+    if not deck:
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
+    if deck.user_id != user_id:
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
+
+    deck_cards = repo.get_deck_cards(deck_id)
+
+    # Enrich cards with CardRow data (mana_cost, type_line, color_identity, rarity)
+    card_ids = [dc.card_id for dc in deck_cards if dc.card_id is not None]
+
+    # Batch-fetch card info
+    card_info: dict[int, object] = {}
+    for cid in card_ids:
+        card_row = repo.get_card_by_id(cid)
+        if card_row:
+            card_info[cid] = card_row
+
+    # Batch-fetch prices
+    prices_raw = repo.get_latest_prices_batch(card_ids) if card_ids else {}
+    prices: dict[int, Decimal] = {}
+    for cid, obs in prices_raw.items():
+        if obs and obs.median_price is not None:
+            prices[cid] = Decimal(str(obs.median_price))
+
+    # Batch-fetch legalities
+    legalities = repo.get_legalities_for_cards_batch(card_ids) if card_ids else {}
+
+    # Build enriched card dicts for the evaluator
+    enriched_cards: list[dict] = []
+    unlinked_count = 0
+    for dc in deck_cards:
+        card_dict: dict = {
+            "card_id": dc.card_id,
+            "name_en": dc.name_en,
+            "quantity": dc.quantity,
+            "mana_cost": None,
+            "type_line": None,
+            "color_identity": None,
+            "rarity": None,
+        }
+        if dc.card_id is not None and dc.card_id in card_info:
+            cr = card_info[dc.card_id]
+            card_dict["mana_cost"] = cr.mana_cost
+            card_dict["type_line"] = cr.type_line
+            card_dict["color_identity"] = cr.color_identity
+            card_dict["rarity"] = cr.rarity
+        elif dc.card_id is None:
+            unlinked_count += 1
+        enriched_cards.append(card_dict)
+
+    evaluation = evaluate_deck(
+        cards=enriched_cards,
+        prices=prices if prices else None,
+        legalities=legalities if legalities else None,
+        format_name=format,
+        archetype=archetype,
+    )
+
+    # Build response
+    mana_curve = [
+        ManaCurvePoint(cmc=cmc, count=count) for cmc, count in sorted(evaluation.mana_curve.items())
+    ]
+
+    type_distribution = [
+        TypeDistEntry(type_name=name, count=count)
+        for name, count in sorted(evaluation.type_distribution.items())
+    ]
+
+    color_distribution = [
+        ColorDistEntry(color=color, pip_count=count)
+        for color, count in sorted(evaluation.color_distribution.items())
+    ]
+
+    legality_result = None
+    if evaluation.legality_check:
+        lc = evaluation.legality_check
+        legality_result = LegalityResult(
+            format=lc["format"],
+            is_legal=lc["is_legal"],
+            illegal_cards=[
+                IllegalCard(name_en=ic["name_en"], status=ic["status"])
+                for ic in lc.get("illegal_cards", [])
+            ],
+            singleton_violations=lc.get("singleton_violations", []),
+            card_count_valid=lc.get("card_count_valid", True),
+        )
+
+    budget_result = None
+    if evaluation.budget:
+        b = evaluation.budget
+        budget_result = BudgetAnalysis(
+            total_value=float(b["total_value"]),
+            most_expensive=[
+                BudgetEntry(
+                    name_en=e["name_en"],
+                    price=float(e["price"]),
+                    quantity=e["quantity"],
+                )
+                for e in b.get("most_expensive", [])
+            ],
+            price_tiers=b.get("price_tiers", {}),
+        )
+
+    suggestions = list(evaluation.suggestions)
+    if unlinked_count > 0:
+        suggestions.insert(
+            0,
+            f"{unlinked_count} card(s) are not linked to the catalog and "
+            "were excluded from some analyses.",
+        )
+
+    return success_response(
+        data=DeckEvaluationResponse(
+            deck_id=deck_id,
+            mana_curve=mana_curve,
+            type_distribution=type_distribution,
+            color_distribution=color_distribution,
+            land_count=evaluation.land_count,
+            nonland_count=evaluation.nonland_count,
+            total_cards=evaluation.total_cards,
+            avg_cmc=evaluation.avg_cmc,
+            color_identity=sorted(evaluation.color_identity),
+            legality=legality_result,
+            budget=budget_result,
+            suggestions=suggestions,
         )
     )
 

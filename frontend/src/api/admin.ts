@@ -247,6 +247,23 @@ export function fetchAdminPriceRequests(params?: {
   );
 }
 
+export interface ProcessQueueResult {
+  scan_id?: number;
+  status: string;
+  pending_count?: number;
+  message?: string;
+}
+
+export function triggerProcessPriceRequests(
+  limit = 100,
+): Promise<ApiResponse<ProcessQueueResult>> {
+  return apiPost<ProcessQueueResult>(
+    `/api/v1/admin/jobs/process-price-requests?limit=${limit}`,
+    {},
+    { timeoutMs: 15_000 },
+  );
+}
+
 export function fetchAdminPriceRequestStats() {
   return apiGet<Record<string, number>>(
     "/api/v1/admin/price-requests/stats",

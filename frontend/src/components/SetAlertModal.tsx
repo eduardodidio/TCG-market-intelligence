@@ -97,14 +97,14 @@ export function SetAlertModal({ cardId, cardName, onClose }: SetAlertModalProps)
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-hidden"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       data-testid="set-alert-modal-overlay"
     >
       <div
-        className="bg-slate-800 border border-slate-600 rounded-lg shadow-xl w-full max-w-md mx-4"
+        className="bg-slate-800 border border-slate-600 rounded-lg shadow-xl w-full max-w-md mx-4 min-w-0"
         data-testid="set-alert-modal"
       >
         {/* Header */}
@@ -125,12 +125,12 @@ export function SetAlertModal({ cardId, cardName, onClose }: SetAlertModalProps)
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4">
+        <div className="px-6 py-4 overflow-hidden" data-testid="set-alert-modal-body">
           <p className="text-sm text-slate-300 mb-4">
             {t("alerts.setAlertDescription", { cardName })}
           </p>
 
-          <form onSubmit={handleSubmit} data-testid="set-alert-form">
+          <form onSubmit={handleSubmit} data-testid="set-alert-form" className="min-w-0">
             {/* Direction toggle */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-slate-300 mb-2">

@@ -305,6 +305,14 @@ export function MyCollection() {
   const [selectedSet, setSelectedSet] = useState<string | null>(searchParams.get("set") ?? null);
   const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "price");
   const [sortDir, setSortDir] = useState<"asc" | "desc">((searchParams.get("dir") as "asc" | "desc") ?? "desc");
+  const [acquisitionFilter, setAcquisitionFilter] = useState<"all" | "with" | "without">(
+    () => {
+      const param = searchParams.get("has_acquisition_price");
+      if (param === "true") return "with";
+      if (param === "false") return "without";
+      return "all";
+    },
+  );
   const [cards, setCards] = useState<CollectionCard[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -571,8 +579,10 @@ export function MyCollection() {
       params.sort = sortBy;
       params.dir = sortDir;
     }
+    if (acquisitionFilter === "with") params.has_acquisition_price = "true";
+    if (acquisitionFilter === "without") params.has_acquisition_price = "false";
     setSearchParams(params, { replace: true });
-  }, [debouncedSearch, selectedSet, sortBy, sortDir, setSearchParams]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, acquisitionFilter, setSearchParams]);
 
   // Build API params (shared between initial fetch and load-more)
   const buildParams = useCallback(
@@ -588,9 +598,11 @@ export function MyCollection() {
       if (currency !== "BRL") {
         params.currency = currency;
       }
+      if (acquisitionFilter === "with") params.has_acquisition_price = "true";
+      if (acquisitionFilter === "without") params.has_acquisition_price = "false";
       return params;
     },
-    [debouncedSearch, selectedSet, sortBy, sortDir, currency],
+    [debouncedSearch, selectedSet, sortBy, sortDir, currency, acquisitionFilter],
   );
 
   // Fetch collection cards
@@ -626,7 +638,7 @@ export function MyCollection() {
       .finally(() => {
         if (currentId === fetchIdRef.current) setLoading(false);
       });
-  }, [debouncedSearch, selectedSet, sortBy, sortDir, currency, buildParams, refreshKey]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, currency, acquisitionFilter, buildParams, refreshKey]);
 
   const handleLoadMore = useCallback(() => {
     if (!hasMore || loadingMore) return;
@@ -658,6 +670,7 @@ export function MyCollection() {
   const handleClearFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedSet(null);
+    setAcquisitionFilter("all");
   }, []);
 
   const handleSortChange = useCallback((newSortBy: string, newSortDir: "asc" | "desc") => {
@@ -764,6 +777,36 @@ export function MyCollection() {
         {setOptions.length > 0 && (
           <SetIconFilter options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
         )}
+        {/* Acquisition price filter chips */}
+        <div className="flex items-center gap-2" data-testid="acquisition-filter">
+          <span className="text-xs font-medium text-slate-500">
+            {t("collection.filterAcquisitionLabel")}:
+          </span>
+          {(["all", "with", "without"] as const).map((value) => {
+            const labelKey =
+              value === "all"
+                ? "collection.filterAcquisitionAll"
+                : value === "with"
+                  ? "collection.filterAcquisitionWith"
+                  : "collection.filterAcquisitionWithout";
+            const isActive = acquisitionFilter === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setAcquisitionFilter(value)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                  isActive
+                    ? "bg-cyan-500 text-white"
+                    : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-300"
+                }`}
+                data-testid={`acquisition-filter-${value}`}
+              >
+                {t(labelKey)}
+              </button>
+            );
+          })}
+        </div>
         <div className="flex justify-end items-center gap-3">
           {/* Select mode toggle */}
           <button
@@ -903,7 +946,7 @@ export function MyCollection() {
       )}
 
       {!loading && !error && cards.length === 0 && (() => {
-        const hasActiveFilters = debouncedSearch !== "" || selectedSet !== null;
+        const hasActiveFilters = debouncedSearch !== "" || selectedSet !== null || acquisitionFilter !== "all";
         if (hasActiveFilters) {
           return (
             <EmptyState

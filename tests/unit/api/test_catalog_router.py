@@ -496,3 +496,57 @@ class TestRarityFilterCodes:
         resp = self.client.get("/api/v1/catalog/cards?rarity=R")
         body = resp.json()["data"]
         assert body["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# F131-T04 — Case-insensitive search (LOWER() wrapping)
+# ---------------------------------------------------------------------------
+
+
+class TestCatalogSearchCoherence:
+    """Verify case-insensitive search across name_en and name_pt."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, client: TestClient) -> None:
+        self.client = client
+
+    def test_lowercase_search_matches_mixed_case_name(self) -> None:
+        """Searching 'lightning' (all lowercase) matches 'Lightning Bolt'."""
+        resp = self.client.get("/api/v1/catalog/cards?name=lightning")
+        body = resp.json()["data"]
+        assert body["total"] == 1
+        assert body["items"][0]["name_en"] == "Lightning Bolt"
+
+    def test_uppercase_search_matches_mixed_case_name(self) -> None:
+        """Searching 'LIGHTNING' (all uppercase) matches 'Lightning Bolt'."""
+        resp = self.client.get("/api/v1/catalog/cards?name=LIGHTNING")
+        body = resp.json()["data"]
+        assert body["total"] == 1
+        assert body["items"][0]["name_en"] == "Lightning Bolt"
+
+    def test_lowercase_pt_search_matches(self) -> None:
+        """Searching 'raio' matches name_pt 'Raio'."""
+        resp = self.client.get("/api/v1/catalog/cards?name=raio")
+        body = resp.json()["data"]
+        assert body["total"] == 1
+        assert body["items"][0]["name_pt"] == "Raio"
+
+    def test_mixed_case_pt_search_matches(self) -> None:
+        """Searching 'contrafeitico' matches name_pt 'Contrafeitico'."""
+        resp = self.client.get("/api/v1/catalog/cards?name=contrafeitico")
+        body = resp.json()["data"]
+        assert body["total"] == 1
+        assert body["items"][0]["name_pt"] == "Contrafeitico"
+
+    def test_empty_name_returns_all(self) -> None:
+        """Empty name filter should not apply, returning all cards."""
+        resp = self.client.get("/api/v1/catalog/cards")
+        body = resp.json()["data"]
+        assert body["total"] == 5
+
+    def test_nonexistent_name_returns_zero(self) -> None:
+        """Searching a nonsense string returns 0 results."""
+        resp = self.client.get("/api/v1/catalog/cards?name=xyznonexistent123")
+        body = resp.json()["data"]
+        assert body["total"] == 0
+        assert len(body["items"]) == 0

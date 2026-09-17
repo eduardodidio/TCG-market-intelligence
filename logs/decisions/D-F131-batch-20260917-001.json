@@ -1,0 +1,15 @@
+{
+  "id": "D-F131-batch-20260917-001",
+  "feature": "F131-F137",
+  "type": "feature_start",
+  "requested_at": "2026-09-17T14:48:05Z",
+  "decided_at": "2026-09-17T14:50:00Z",
+  "status": "executed",
+  "actions": [
+    {
+      "action": "plan-feature",
+      "rationale": "Batch of 7 features/fixes (F131-F137). Mix of quick UI fixes (F134 sidebar, F137 modal), medium-scope enhancements (F131 catalog UX, F132 queue fix, F135 purchase import, F136 portfolio revision), and one large feature (F133 deck builder). Single dependency chain: F136 depends on F135. All others fully independent. No new external dependencies beyond existing stack (BeautifulSoup already available). Deck builder (F133) is the riskiest — relies on heuristic card selection from catalog data, but scoped to Beta Test section so blast radius is contained."
+    }
+  ],
+  "notes": "Gandalf approved via manual gate (didio CLI not available as standalone binary). 7 features planned for maximum parallelism across 4 waves. F133 deck builder is largest scope but contained in Beta Test. F135 purchase import uses existing HTML files in docs/comprasEmLojas/."
+}

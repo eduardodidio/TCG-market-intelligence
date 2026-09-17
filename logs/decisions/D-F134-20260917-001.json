@@ -1,0 +1,15 @@
+{
+  "id": "D-F134-20260917-001",
+  "feature": "F134",
+  "type": "feature_start",
+  "requested_at": "2026-09-17T15:00:00Z",
+  "decided_at": "2026-09-17T15:00:05Z",
+  "status": "executed",
+  "actions": [
+    {
+      "action": "create-feature",
+      "rationale": "Single-task CSS fix in Layout.tsx — add flex layout and overflow-y-auto to sidebar. Minimal risk, no new dependencies (tailwind-scrollbar is optional cosmetic), no shared state changes. Already planned in F131-batch gate (D-F131-batch-20260917-001). Proceed directly."
+    }
+  ],
+  "notes": "Covered by batch gate D-F131-batch-20260917-001. Low-risk UI fix, single file change."
+}

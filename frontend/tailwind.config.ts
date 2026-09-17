@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import scrollbar from 'tailwind-scrollbar';
 
 export default {
   darkMode: 'class',
@@ -52,5 +53,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [scrollbar({ nocompatible: true })],
 } satisfies Config;

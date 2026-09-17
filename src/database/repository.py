@@ -1353,13 +1353,19 @@ class Repository:
         entry_id: int,
         user_id: str,
         updates: dict,
+        *,
+        session: Session | None = None,
     ) -> UserCollectionRow | None:
         """Update a single collection entry. Returns updated row or None if not found.
 
+        If *session* is provided, uses it without committing (caller
+        manages the transaction). Otherwise creates its own session.
+
         Raises ValueError if the entry belongs to a different user.
         """
-        with Session(self.engine) as session:
-            row = session.execute(
+
+        def _do(s: Session) -> UserCollectionRow | None:
+            row = s.execute(
                 select(UserCollectionRow).where(UserCollectionRow.id == entry_id)
             ).scalar_one_or_none()
             if row is None:
@@ -1370,10 +1376,17 @@ class Repository:
             for key, value in updates.items():
                 if key in self._EDITABLE_COLLECTION_FIELDS:
                     setattr(row, key, value)
-            session.commit()
-            session.refresh(row)
-            # Detach from session so caller can use it after session close
-            session.expunge(row)
+            s.flush()
+            return row
+
+        if session is not None:
+            return _do(session)
+        with Session(self.engine) as own_session:
+            row = _do(own_session)
+            own_session.commit()
+            if row is not None:
+                own_session.refresh(row)
+                own_session.expunge(row)
             return row
 
     def delete_collection_entry(self, entry_id: int, user_id: str) -> bool:
@@ -1557,6 +1570,7 @@ class Repository:
         offset: int = 0,
         limit: int = 50,
         after_id: int | None = None,
+        has_acquisition_price: bool | None = None,
     ) -> list[UserCollectionRow]:
         from sqlalchemy import String as SAString
         from sqlalchemy import cast as sa_cast
@@ -1571,6 +1585,10 @@ class Repository:
                 )
             if set_code:
                 stmt = stmt.where(UserCollectionRow.set_code == set_code)
+            if has_acquisition_price is True:
+                stmt = stmt.where(UserCollectionRow.acquisition_price.isnot(None))
+            elif has_acquisition_price is False:
+                stmt = stmt.where(UserCollectionRow.acquisition_price.is_(None))
 
             # Sorting
             if sort_by == "price":
@@ -1624,6 +1642,7 @@ class Repository:
         user_id: str,
         name_search: str | None = None,
         set_code: str | None = None,
+        has_acquisition_price: bool | None = None,
     ) -> int:
         with Session(self.engine) as session:
             stmt = (
@@ -1639,6 +1658,10 @@ class Repository:
                 )
             if set_code:
                 stmt = stmt.where(UserCollectionRow.set_code == set_code)
+            if has_acquisition_price is True:
+                stmt = stmt.where(UserCollectionRow.acquisition_price.isnot(None))
+            elif has_acquisition_price is False:
+                stmt = stmt.where(UserCollectionRow.acquisition_price.is_(None))
             return session.execute(stmt).scalar() or 0
 
     def get_collection_summary(self, user_id: str) -> dict:
@@ -4065,6 +4088,19 @@ class Repository:
             total = row[0] or Decimal("0")
             count = row[1] or 0
             return (Decimal(str(total)), count)
+
+    def count_entries_without_acquisition(self, user_id: str) -> int:
+        """Count collection entries where acquisition_price IS NULL."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(func.count())
+                .select_from(UserCollectionRow)
+                .where(
+                    UserCollectionRow.user_id == user_id,
+                    UserCollectionRow.acquisition_price.is_(None),
+                )
+            )
+            return session.execute(stmt).scalar() or 0
 
     def get_collection_entries_with_acquisition(self, user_id: str) -> list[UserCollectionRow]:
         """Return collection entries that have acquisition_price set."""

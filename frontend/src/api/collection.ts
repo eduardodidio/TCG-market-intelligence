@@ -170,11 +170,14 @@ export interface CollectionMoversData {
 export function fetchCollectionMovers(
   days: number = 7,
   limit: number = 5,
+  investmentOnly: boolean = false,
 ): Promise<ApiResponse<CollectionMoversData>> {
-  return apiGet<CollectionMoversData>("/api/v1/collection/movers", {
+  const params: Record<string, string> = {
     days: String(days),
     limit: String(limit),
-  });
+  };
+  if (investmentOnly) params.investment_only = "true";
+  return apiGet<CollectionMoversData>("/api/v1/collection/movers", params);
 }
 
 export async function deleteCollectionEntry(id: number): Promise<void> {

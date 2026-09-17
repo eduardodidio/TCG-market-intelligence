@@ -109,6 +109,10 @@ def list_collection(
     offset: int | None = Query(default=None, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
+    has_acquisition_price: bool | None = Query(
+        default=None,
+        description="Filter by acquisition price presence: true=with price, false=without price",
+    ),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
@@ -123,6 +127,7 @@ def list_collection(
         offset=offset if offset is not None else 0,
         after_id=after_id,
         limit=limit,
+        has_acquisition_price=has_acquisition_price,
     )
 
     has_next = len(rows) > limit
@@ -188,7 +193,12 @@ def list_collection(
         )
 
     next_cursor = _encode_cursor(rows[-1].id) if has_next and rows else None
-    total = repo.count_collection(user_id, name_search=name, set_code=set)
+    total = repo.count_collection(
+        user_id,
+        name_search=name,
+        set_code=set,
+        has_acquisition_price=has_acquisition_price,
+    )
 
     # Log when an authenticated user's collection appears empty (no filters)
     if total == 0 and not name and not set:
@@ -308,6 +318,7 @@ def portfolio_summary(
 ):
     """Return portfolio investment summary: invested, current value, P&L."""
     total_invested, invested_count = repo.get_portfolio_invested_total(user_id)
+    cards_without_acquisition = repo.count_entries_without_acquisition(user_id)
 
     if invested_count == 0:
         return success_response(
@@ -317,6 +328,7 @@ def portfolio_summary(
                 total_pnl=0.0,
                 total_pnl_pct=None,
                 invested_card_count=0,
+                cards_without_acquisition=cards_without_acquisition,
             )
         )
 
@@ -328,6 +340,8 @@ def portfolio_summary(
     card_ids = [e.card_id for e in entries if e.card_id is not None]
     prices_map = repo.get_latest_prices_batch(card_ids) if card_ids else {}
 
+    # Count entries with acquisition price but no current market price
+    unpriced_count = 0
     for entry in entries:
         if entry.card_id is not None:
             obs = prices_map.get(entry.card_id)
@@ -335,6 +349,12 @@ def portfolio_summary(
                 price = obs.median_price or obs.tcg_price or obs.last_sold_price
                 if price is not None:
                     total_current_value += Decimal(str(price)) * entry.quantity
+                else:
+                    unpriced_count += 1
+            else:
+                unpriced_count += 1
+        else:
+            unpriced_count += 1
 
     total_pnl = float(total_current_value) - float(total_invested)
     total_pnl_pct = None
@@ -348,6 +368,8 @@ def portfolio_summary(
             total_pnl=round(total_pnl, 2),
             total_pnl_pct=total_pnl_pct,
             invested_card_count=invested_count,
+            unpriced_card_count=unpriced_count,
+            cards_without_acquisition=cards_without_acquisition,
         )
     )
 
@@ -374,11 +396,21 @@ def portfolio_history(
 def collection_movers(
     days: int = Query(default=7, ge=1, le=90),
     limit: int = Query(default=5, ge=1, le=20),
+    investment_only: bool = Query(
+        default=False,
+        description="When true, only include cards with acquisition_price in movers",
+    ),
     repo: Repository = Depends(get_db),
     user_id: str = Depends(require_auth_or_api_key),
 ):
     """Return top gainers and losers in the user's collection by price change %."""
     trending = repo.get_trending_price_data_for_user(user_id, days)
+
+    # When investment_only, filter to cards that have acquisition prices
+    if investment_only:
+        entries = repo.get_collection_entries_with_acquisition(user_id)
+        investment_card_ids = {e.card_id for e in entries if e.card_id is not None}
+        trending = {cid: series for cid, series in trending.items() if cid in investment_card_ids}
 
     # Compute change for each card that has at least 2 data points
     changes: list[tuple[int, float, float, float, float]] = []

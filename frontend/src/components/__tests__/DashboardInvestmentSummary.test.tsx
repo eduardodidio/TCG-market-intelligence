@@ -16,6 +16,7 @@ vi.mock("react-i18next", () => ({
         "dashboard.investmentEmptyCta": "Go to collection",
         "dashboard.investmentUnpriced": "{{count}} cards without current price (excluded from P&L)",
         "dashboard.investmentError": "Could not load investment data",
+        "dashboard.cardsWithoutAcquisition": "{{count}} cards without acquisition price",
         "portfolio.totalInvested": "Total Invested",
         "portfolio.currentValue": "Current Value",
         "portfolio.totalPnl": "Total P&L",
@@ -56,9 +57,22 @@ vi.mock("../../utils/format", () => ({
   formatCurrency: (v: number) => `R$ ${v.toFixed(2)}`,
 }));
 
+// Mock recharts to avoid rendering issues in tests
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
+  LineChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="line-chart">{children}</div>
+  ),
+  Line: () => <div data-testid="line" />,
+}));
+
 const mockFetchPortfolioSummary = vi.fn();
+const mockFetchPortfolioHistory = vi.fn();
 vi.mock("../../api/collection", () => ({
   fetchPortfolioSummary: () => mockFetchPortfolioSummary(),
+  fetchPortfolioHistory: (days: number) => mockFetchPortfolioHistory(days),
 }));
 
 function renderComponent(totalUnique = 10) {
@@ -76,6 +90,7 @@ function makeSummary(overrides: Partial<PortfolioSummary> = {}): PortfolioSummar
     total_pnl: 50,
     total_pnl_pct: 50,
     invested_card_count: 5,
+    cards_without_acquisition: 0,
     ...overrides,
   };
 }
@@ -83,12 +98,22 @@ function makeSummary(overrides: Partial<PortfolioSummary> = {}): PortfolioSummar
 describe("DashboardInvestmentSummary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: history resolves with empty data
+    mockFetchPortfolioHistory.mockResolvedValue({ data: [], errors: [] });
   });
 
   it("shows loading skeletons initially", () => {
     mockFetchPortfolioSummary.mockReturnValue(new Promise(() => {}));
+    mockFetchPortfolioHistory.mockReturnValue(new Promise(() => {}));
     renderComponent();
     expect(screen.getAllByTestId("skeleton-kpi")).toHaveLength(4);
+  });
+
+  it("shows sparkline skeleton while loading", () => {
+    mockFetchPortfolioSummary.mockReturnValue(new Promise(() => {}));
+    mockFetchPortfolioHistory.mockReturnValue(new Promise(() => {}));
+    renderComponent();
+    expect(screen.getByTestId("sparkline-skeleton")).toBeInTheDocument();
   });
 
   it("renders KPIs and progress bar on success", async () => {
@@ -122,15 +147,6 @@ describe("DashboardInvestmentSummary", () => {
     await waitFor(() => expect(screen.getByTestId("dashboard-investment-progress")).toBeInTheDocument());
     expect(screen.getByText("R$ 0.00")).not.toHaveClass("text-emerald-400");
     expect(screen.getByText("R$ 0.00")).not.toHaveClass("text-red-400");
-  });
-
-  it("shows '—' when total_pnl_pct is null", async () => {
-    mockFetchPortfolioSummary.mockResolvedValue({
-      data: makeSummary({ total_pnl_pct: null }),
-      errors: [],
-    });
-    renderComponent();
-    await waitFor(() => expect(screen.getByText("—")).toBeInTheDocument());
   });
 
   it("shows CTA when invested_card_count is 0", async () => {
@@ -192,5 +208,84 @@ describe("DashboardInvestmentSummary", () => {
     renderComponent();
     await waitFor(() => expect(screen.getByTestId("dashboard-investment-unpriced")).toBeInTheDocument());
     expect(screen.getByTestId("dashboard-investment-unpriced")).toHaveTextContent("3 cards without current price");
+  });
+
+  // --- F136 new tests ---
+
+  it("renders P&L sparkline when portfolio history has > 1 data points", async () => {
+    mockFetchPortfolioSummary.mockResolvedValue({ data: makeSummary(), errors: [] });
+    mockFetchPortfolioHistory.mockResolvedValue({
+      data: [
+        { date: "2026-09-01", value: 100 },
+        { date: "2026-09-02", value: 110 },
+        { date: "2026-09-03", value: 120 },
+      ],
+      errors: [],
+    });
+    renderComponent();
+    await waitFor(() => expect(screen.getByTestId("pnl-sparkline")).toBeInTheDocument());
+  });
+
+  it("hides sparkline when history has 0-1 data points", async () => {
+    mockFetchPortfolioSummary.mockResolvedValue({ data: makeSummary(), errors: [] });
+    mockFetchPortfolioHistory.mockResolvedValue({
+      data: [{ date: "2026-09-01", value: 100 }],
+      errors: [],
+    });
+    renderComponent();
+    await waitFor(() => expect(screen.getByTestId("dashboard-investment-progress")).toBeInTheDocument());
+    expect(screen.queryByTestId("pnl-sparkline")).not.toBeInTheDocument();
+  });
+
+  it("shows missing-price alert when cards_without_acquisition > 0", async () => {
+    mockFetchPortfolioSummary.mockResolvedValue({
+      data: makeSummary({ cards_without_acquisition: 7 }),
+      errors: [],
+    });
+    renderComponent();
+    await waitFor(() => expect(screen.getByTestId("missing-acquisition-alert")).toBeInTheDocument());
+    expect(screen.getByTestId("missing-acquisition-alert")).toHaveTextContent("7 cards without acquisition price");
+  });
+
+  it("alert links to /collection?has_acquisition_price=false", async () => {
+    mockFetchPortfolioSummary.mockResolvedValue({
+      data: makeSummary({ cards_without_acquisition: 3 }),
+      errors: [],
+    });
+    renderComponent();
+    await waitFor(() => expect(screen.getByTestId("missing-acquisition-alert")).toBeInTheDocument());
+    const alert = screen.getByTestId("missing-acquisition-alert");
+    expect(alert).toHaveAttribute("href", "/collection?has_acquisition_price=false");
+  });
+
+  it("hides alert when cards_without_acquisition is 0", async () => {
+    mockFetchPortfolioSummary.mockResolvedValue({
+      data: makeSummary({ cards_without_acquisition: 0 }),
+      errors: [],
+    });
+    renderComponent();
+    await waitFor(() => expect(screen.getByTestId("dashboard-investment-progress")).toBeInTheDocument());
+    expect(screen.queryByTestId("missing-acquisition-alert")).not.toBeInTheDocument();
+  });
+
+  it("shows alert even when invested_card_count is 0 (empty state)", async () => {
+    mockFetchPortfolioSummary.mockResolvedValue({
+      data: makeSummary({ invested_card_count: 0, cards_without_acquisition: 5 }),
+      errors: [],
+    });
+    renderComponent();
+    await waitFor(() => expect(screen.getByTestId("missing-acquisition-alert")).toBeInTheDocument());
+    expect(screen.getByTestId("missing-acquisition-alert")).toHaveTextContent("5 cards without acquisition price");
+  });
+
+  it("error fetching history does not crash KPI section", async () => {
+    mockFetchPortfolioSummary.mockResolvedValue({ data: makeSummary(), errors: [] });
+    mockFetchPortfolioHistory.mockRejectedValue(new Error("history error"));
+    renderComponent();
+    await waitFor(() => expect(screen.getByTestId("dashboard-investment-progress")).toBeInTheDocument());
+    // KPIs still render
+    expect(screen.getAllByTestId("kpi-card")).toHaveLength(4);
+    // sparkline not shown
+    expect(screen.queryByTestId("pnl-sparkline")).not.toBeInTheDocument();
   });
 });

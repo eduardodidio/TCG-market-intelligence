@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   fetchAdminPriceRequests,
   fetchAdminPriceRequestStats,
+  triggerProcessPriceRequests,
 } from "../../api/admin";
 import type { PriceRequest } from "../../api/admin";
 
@@ -59,6 +60,10 @@ function PriceRequestsContent() {
   // Stats state
   const [stats, setStats] = useState<Record<string, number> | null>(null);
 
+  // Processing state
+  const [processing, setProcessing] = useState(false);
+  const [processMessage, setProcessMessage] = useState<string | null>(null);
+
   // Filter state
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [offset, setOffset] = useState(0);
@@ -87,6 +92,30 @@ function PriceRequestsContent() {
     setLoading(false);
   }, [statusFilter, offset]);
 
+  const handleProcessQueue = useCallback(async () => {
+    setProcessing(true);
+    setProcessMessage(null);
+    try {
+      const resp = await triggerProcessPriceRequests();
+      if (resp.data) {
+        if (resp.data.status === "no_pending") {
+          setProcessMessage(t("admin.priceRequests.noPending"));
+        } else {
+          setProcessMessage(t("admin.priceRequests.processingStarted"));
+          // Refresh stats and list after a delay
+          setTimeout(() => {
+            loadStats();
+            loadRequests();
+          }, 5000);
+        }
+      }
+    } catch {
+      setProcessMessage(t("cards.priceRefreshError"));
+    } finally {
+      setProcessing(false);
+    }
+  }, [t, loadStats, loadRequests]);
+
   useEffect(() => {
     loadStats();
   }, [loadStats]);
@@ -105,6 +134,44 @@ function PriceRequestsContent() {
 
   return (
     <div data-testid="price-requests-section">
+      {/* Process queue button */}
+      <div className="flex items-center gap-3 mb-4">
+        <button
+          onClick={handleProcessQueue}
+          disabled={processing || (stats?.pending ?? 0) === 0}
+          className="px-4 py-2 text-sm bg-cyan-700 hover:bg-cyan-600
+            disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg
+            flex items-center gap-2 transition-colors"
+          data-testid="process-queue-btn"
+          title={t("admin.priceRequests.localOnly")}
+        >
+          {processing ? (
+            <>
+              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {t("admin.priceRequests.processingRunning")}
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {t("admin.priceRequests.processQueuePending", { count: stats?.pending ?? 0 })}
+            </>
+          )}
+        </button>
+        {processMessage && (
+          <span className="text-sm text-slate-300" data-testid="process-message">
+            {processMessage}
+          </span>
+        )}
+      </div>
+
       {/* Stats bar */}
       {stats && (
         <div

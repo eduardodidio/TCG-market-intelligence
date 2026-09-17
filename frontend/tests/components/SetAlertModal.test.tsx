@@ -131,6 +131,37 @@ describe("SetAlertModal", () => {
     expect(btn.className).toContain("bg-red-600");
   });
 
+  it("overlay has overflow-hidden class to prevent layout escape", () => {
+    renderModal();
+    const overlay = screen.getByTestId("set-alert-modal-overlay");
+    expect(overlay.className).toContain("overflow-hidden");
+  });
+
+  it("inner modal has min-w-0 class to prevent flex min-width intrinsic sizing", () => {
+    renderModal();
+    const modal = screen.getByTestId("set-alert-modal");
+    expect(modal.className).toContain("min-w-0");
+  });
+
+  it("form has min-w-0 class", () => {
+    renderModal();
+    const form = screen.getByTestId("set-alert-form");
+    expect(form.className).toContain("min-w-0");
+  });
+
+  it("body wrapper has overflow-hidden class to contain content", () => {
+    renderModal();
+    const body = screen.getByTestId("set-alert-modal-body");
+    expect(body.className).toContain("overflow-hidden");
+  });
+
+  it("closes modal when Escape key is pressed", () => {
+    const onClose = vi.fn();
+    renderModal({ onClose });
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it("shows existing alerts for the card", async () => {
     mockFetchAlerts.mockResolvedValue({
       data: [

@@ -206,7 +206,7 @@ describe("CollectionMovers", () => {
     render(<CollectionMovers days={30} limit={10} />);
 
     await waitFor(() => {
-      expect(mockFetchCollectionMovers).toHaveBeenCalledWith(30, 10);
+      expect(mockFetchCollectionMovers).toHaveBeenCalledWith(30, 10, false);
     });
   });
 

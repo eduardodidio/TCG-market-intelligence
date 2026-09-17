@@ -53,11 +53,15 @@ const ICONS = {
   arrowsRightLeft: <NavIcon d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />,
   trophy: <NavIcon d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0116.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.52 0" />,
   clipboardCheck: <NavIcon d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 011.65 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75" />,
+  arrowUpTray: <NavIcon d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />,
+  wrench: <NavIcon d="M11.42 15.17l-4.655 4.655a2.121 2.121 0 01-3-3l4.655-4.655m3-3l4.655-4.655a2.121 2.121 0 013 3l-4.655 4.655m-3 3l-3-3m7.5-3l-3-3" />,
+  beaker: <NavIcon d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5.24 14.26a2.25 2.25 0 00-.659 1.59v.1c0 1.243 1.007 2.25 2.25 2.25h10.338c1.243 0 2.25-1.007 2.25-2.25v-.1a2.25 2.25 0 00-.66-1.59l-3.85-3.851a2.25 2.25 0 01-.659-1.591V3.104M9.75 3h4.5" />,
 };
 
 const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/", labelKey: "nav.dashboard", requiresAuth: false, icon: ICONS.home },
   { to: "/collection", labelKey: "nav.myCollection", requiresAuth: true, icon: ICONS.layers },
+  { to: "/import-purchases", labelKey: "nav.importPurchases", requiresAuth: true, icon: ICONS.arrowUpTray },
   { to: "/wishlist", labelKey: "nav.wishlist", requiresAuth: true, icon: ICONS.heart },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false, icon: ICONS.search },
   { to: "/catalog", labelKey: "nav.catalog", requiresAuth: false, icon: ICONS.book },
@@ -73,6 +77,8 @@ const BETA_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/banlist/history", labelKey: "nav.banHistory", requiresAuth: false, icon: ICONS.clock },
   { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true, icon: ICONS.rectStack },
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true, icon: ICONS.star },
+  { to: "/decks/build", labelKey: "nav.buildDeck", requiresAuth: true, icon: ICONS.wrench },
+  { to: "/decks/evaluate", labelKey: "nav.deckEvaluator", requiresAuth: true, icon: ICONS.beaker },
   { to: "/marketplace", labelKey: "nav.marketplace", requiresAuth: true, icon: ICONS.shoppingBag },
   { to: "/trade-matches", labelKey: "nav.tradeMatches", requiresAuth: true, icon: ICONS.arrowsRightLeft },
   { to: "/achievements", labelKey: "nav.achievements", requiresAuth: true, icon: ICONS.trophy },
@@ -174,13 +180,14 @@ export function Layout() {
       <aside
         className={`
           fixed inset-y-0 left-0 z-30 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-600
-          transform transition-all duration-200 ease-in-out
+          transform transition-all duration-200 ease-in-out flex flex-col
           md:relative md:translate-x-0
           ${sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full"}
           ${!sidebarOpen ? (collapsed ? "md:w-16" : "md:w-64") : ""}
         `}
         data-testid="sidebar"
       >
+        <div className="flex-shrink-0" data-testid="sidebar-header">
         <div className="flex items-center h-16 px-4 border-b border-gray-200 dark:border-slate-600 justify-between">
           <Link to="/" className="no-underline overflow-hidden">
             {collapsed ? (
@@ -267,6 +274,8 @@ export function Layout() {
         <div className={`flex items-center gap-2 py-3 border-b border-gray-200 dark:border-slate-600 ${collapsed ? "px-1 justify-center" : "px-6"}`} data-testid="sidebar-theme-toggle">
           <ThemeToggle />
         </div>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 dark:scrollbar-thumb-slate-500 scrollbar-track-transparent" data-testid="sidebar-nav-container">
         <nav className={`mt-4 ${collapsed ? "px-1" : "px-3"}`} data-testid="sidebar-nav">
           {visiblePrimaryItems.map((item) => {
             const isActive = location.pathname === item.to;
@@ -344,6 +353,7 @@ export function Layout() {
             </div>
           )}
         </nav>
+        </div>
         {/* Install PWA prompt — hidden when collapsed */}
         {!collapsed && (
           <div className="mt-auto">

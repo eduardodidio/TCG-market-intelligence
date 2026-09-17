@@ -169,6 +169,7 @@ class PortfolioSummary(BaseModel):
     total_pnl_pct: float | None = None
     invested_card_count: int = 0
     unpriced_card_count: int = 0
+    cards_without_acquisition: int = 0
 
 
 class PortfolioHistoryPoint(BaseModel):
