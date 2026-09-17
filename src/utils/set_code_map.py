@@ -54,9 +54,21 @@ _KNOWN_VARIANTS: dict[str, str] = {
     # Special Commander (sc*)
     "schob": "hob",
     "schoc": "hoc",
-    "sc9": "sc9",  # Ambiguous — return as-is
+    "sc9": "sch",  # Store Championships
     # Art Series (ash*)
     "ashob": "hob",
+    # Liga legacy short codes → Scryfall standard codes
+    "4e": "4ed",  # 4th Edition
+    "awot": "wot",  # Wilds of Eldraine: Enchanting Tales
+    "eftle": "tle",  # Avatar: The Last Airbender Eternal
+    "ex": "exo",  # Exodus
+    "mi": "mrd",  # Mirrodin
+    "ne": "nem",  # Nemesis
+    "sc": "scg",  # Scourge
+    "us": "usg",  # Urza's Saga
+    "vi": "vis",  # Visions
+    "fnmp": "pfnm",  # FNM Promos (best-effort, CN may not match)
+    "pro": "ppro",  # Pro Tour Promos (best-effort, CN may not match)
 }
 
 # Prefixes to strip as a heuristic for unknown codes.
