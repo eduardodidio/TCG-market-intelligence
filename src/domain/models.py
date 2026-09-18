@@ -451,6 +451,7 @@ class User:
     is_active: bool = True
     is_admin: bool = False
     role: str = "admin"
+    auth_user_id: int | None = None  # original user id when proxied (guest→admin)
     password_expires_at: datetime | None = None
 
 

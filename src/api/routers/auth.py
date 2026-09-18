@@ -140,7 +140,8 @@ def update_preferences(
     if not updates:
         raise api_error(422, ErrorCode.VALIDATION_EMPTY_UPDATE, "No preferences provided")
 
-    updated = repo.update_user(user.id, **updates)
+    real_id = user.auth_user_id or user.id
+    updated = repo.update_user(real_id, **updates)
     if not updated:
         raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "User not found")
 
@@ -166,7 +167,8 @@ def change_password(
     repo: Repository = Depends(get_db),
 ):
     """Change the current user's password. Clears password expiration."""
-    db_user = repo.get_user_by_id(user.id)
+    real_id = user.auth_user_id or user.id
+    db_user = repo.get_user_by_id(real_id)
     if not db_user or not db_user.password_hash:
         raise api_error(400, ErrorCode.AUTH_PASSWORD_UNAVAILABLE, "Password change not available")
 
@@ -174,7 +176,7 @@ def change_password(
         raise api_error(400, ErrorCode.AUTH_PASSWORD_MISMATCH, "Current password is incorrect")
 
     new_hash = hash_password(body.new_password)
-    repo.update_user(user.id, password_hash=new_hash, password_expires_at=None)
+    repo.update_user(real_id, password_hash=new_hash, password_expires_at=None)
 
     tokens = AuthTokens(
         access_token=create_access_token(user.id, user.email),

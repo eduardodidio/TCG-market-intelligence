@@ -54,7 +54,7 @@ def get_current_user(
     if not user_row.is_active:
         raise api_error(401, ErrorCode.AUTH_ACCOUNT_INACTIVE, "User account is inactive")
 
-    return User(
+    user = User(
         id=user_row.id,
         email=user_row.email,
         display_name=user_row.display_name,
@@ -66,6 +66,33 @@ def get_current_user(
         is_admin=bool(getattr(user_row, "is_admin", 0)),
         role=getattr(user_row, "role", "admin"),
         password_expires_at=getattr(user_row, "password_expires_at", None),
+    )
+    return _proxy_guest(user, repo)
+
+
+def _proxy_guest(user: User, repo: Repository) -> User:
+    """If user is a guest, proxy their data identity to the primary admin."""
+    if user.role != "guest":
+        return user
+    admin_ids = repo.get_admin_user_ids()
+    if not admin_ids:
+        return user
+    admin_row = repo.get_user_by_id(admin_ids[0])
+    if not admin_row:
+        return user
+    return User(
+        id=admin_row.id,
+        email=user.email,
+        display_name=user.display_name,
+        avatar_url=user.avatar_url,
+        auth_provider=user.auth_provider,
+        preferred_currency=getattr(admin_row, "preferred_currency", "BRL"),
+        preferred_language=getattr(admin_row, "preferred_language", "en"),
+        is_active=user.is_active,
+        is_admin=False,
+        role="guest",
+        auth_user_id=user.id,
+        password_expires_at=user.password_expires_at,
     )
 
 
@@ -91,7 +118,7 @@ def get_optional_user(
     if user_row is None or not user_row.is_active:
         return None
 
-    return User(
+    user = User(
         id=user_row.id,
         email=user_row.email,
         display_name=user_row.display_name,
@@ -104,6 +131,7 @@ def get_optional_user(
         role=getattr(user_row, "role", "admin"),
         password_expires_at=getattr(user_row, "password_expires_at", None),
     )
+    return _proxy_guest(user, repo)
 
 
 def get_current_user_id(user: User = Depends(get_current_user)) -> str:
