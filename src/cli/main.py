@@ -2166,6 +2166,192 @@ def catalog_stats(db):
     click.echo("")
 
 
+@catalog.command("missing")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--user-id", default=None, help="Limit to sets in user collection")
+@click.option(
+    "--min-cards", default=50, type=int, help="Min cards per set to display (default: 50)"
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["table", "script"]),
+    default="table",
+    help="Output format: table (human) or script (paste into batch)",
+)
+def catalog_missing(db, user_id, min_cards, fmt):
+    """Show catalog sets without Liga prices — find scanning gaps."""
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.orm import Session
+
+    engine = create_engine(db, echo=False)
+
+    with Session(engine) as session:
+        # All catalog sets with card counts
+        catalog_rows = session.execute(
+            text(
+                "SELECT set_code, COUNT(*) as total FROM cards"
+                " WHERE set_code IS NOT NULL GROUP BY set_code ORDER BY total DESC"
+            )
+        ).fetchall()
+        catalog_map = {r[0]: r[1] for r in catalog_rows}
+
+        # Sets with any Liga price data
+        priced_rows = session.execute(
+            text(
+                "SELECT c.set_code, COUNT(DISTINCT c.id) as priced"
+                " FROM cards c"
+                " JOIN price_observations po ON po.external_id = 'liga_' || CAST(c.id AS TEXT)"
+                " WHERE c.set_code IS NOT NULL"
+                " GROUP BY c.set_code"
+            )
+        ).fetchall()
+        priced_map = {r[0]: r[1] for r in priced_rows}
+
+        # User collection sets (optional)
+        coll_set_codes: set[str] = set()
+        if user_id:
+            coll_rows = session.execute(
+                text(
+                    "SELECT DISTINCT c.set_code FROM user_collection uc"
+                    " JOIN cards c ON c.id = uc.card_id"
+                    " WHERE c.set_code IS NOT NULL AND uc.user_id = :uid"
+                ),
+                {"uid": user_id},
+            ).fetchall()
+            coll_set_codes = {r[0] for r in coll_rows}
+
+    engine.dispose()
+
+    # Classify sets
+    unscanned = [
+        (sc, total) for sc, total in catalog_rows if sc not in priced_map and total >= min_cards
+    ]
+    partial = [
+        (sc, priced_map[sc], catalog_map[sc])
+        for sc in priced_map
+        if priced_map[sc] < catalog_map.get(sc, 0) * 0.5 and catalog_map.get(sc, 0) >= min_cards
+    ]
+    partial.sort(key=lambda x: x[2], reverse=True)
+
+    if user_id:
+        coll_missing = [sc for sc in sorted(coll_set_codes) if sc not in priced_map]
+        coll_partial = [(sc, p, t) for sc, p, t in partial if sc in coll_set_codes]
+    else:
+        coll_missing = []
+        coll_partial = []
+
+    if fmt == "script":
+        _print_missing_script(unscanned, partial, coll_set_codes, user_id)
+    else:
+        _print_missing_table(
+            unscanned,
+            partial,
+            coll_missing,
+            coll_partial,
+            coll_set_codes,
+            user_id,
+            catalog_map,
+            priced_map,
+            min_cards,
+        )
+
+
+def _print_missing_table(
+    unscanned,
+    partial,
+    coll_missing,
+    coll_partial,
+    coll_set_codes,
+    user_id,
+    catalog_map,
+    priced_map,
+    min_cards,
+):
+    """Print human-readable table of missing sets."""
+    total_sets = len(catalog_map)
+    scanned_sets = len(priced_map)
+
+    click.echo("")
+    click.echo("=" * 65)
+    click.echo("  CATALOG MISSING SETS REPORT")
+    click.echo("=" * 65)
+
+    if user_id and coll_missing:
+        click.echo(f"\n  COLLECTION SETS WITHOUT PRICES ({len(coll_missing)})")
+        click.echo("  " + "-" * 55)
+        for sc in coll_missing:
+            total = catalog_map.get(sc, 0)
+            click.echo(f"    {sc:<10} {total:>6} cards in catalog, 0 priced")
+
+    if user_id and coll_partial:
+        click.echo(f"\n  COLLECTION SETS PARTIALLY SCANNED ({len(coll_partial)})")
+        click.echo("  " + "-" * 55)
+        for sc, priced, total in coll_partial:
+            pct = priced * 100 // total if total else 0
+            click.echo(f"    {sc:<10} {priced:>5}/{total:>5} ({pct:>2}%)")
+
+    click.echo(f"\n  UNSCANNED SETS ({min_cards}+ cards): {len(unscanned)}")
+    click.echo("  " + "-" * 55)
+    for sc, total in unscanned[:30]:
+        flag = " *COLL*" if sc in coll_set_codes else ""
+        click.echo(f"    {sc:<10} {total:>6} cards{flag}")
+    if len(unscanned) > 30:
+        click.echo(f"    ... and {len(unscanned) - 30} more")
+
+    if partial:
+        click.echo(f"\n  PARTIALLY SCANNED (<50%, {min_cards}+ cards): {len(partial)}")
+        click.echo("  " + "-" * 55)
+        for sc, priced, total in partial[:20]:
+            pct = priced * 100 // total if total else 0
+            flag = " *COLL*" if sc in coll_set_codes else ""
+            click.echo(f"    {sc:<10} {priced:>5}/{total:>5} ({pct:>2}%){flag}")
+        if len(partial) > 20:
+            click.echo(f"    ... and {len(partial) - 20} more")
+
+    click.echo(f"\n  SUMMARY: {scanned_sets}/{total_sets} sets have price data")
+    if user_id:
+        click.echo(f"  Collection: {len(coll_set_codes)} sets, {len(coll_missing)} without prices")
+    click.echo("")
+
+
+def _print_missing_script(unscanned, partial, coll_set_codes, user_id):
+    """Print shell script output for catalog-scan-batch.sh."""
+    click.echo("# Generated by: python -m src.cli.main catalog missing --format script")
+    click.echo(f"# Date: {__import__('datetime').date.today()}")
+    click.echo("")
+
+    if user_id and coll_set_codes:
+        coll_unscanned = [(sc, t) for sc, t in unscanned if sc in coll_set_codes]
+        coll_part = [(sc, p, t) for sc, p, t in partial if sc in coll_set_codes]
+        if coll_unscanned or coll_part:
+            click.echo("# --- Collection priority (your sets) ---")
+            for sc, total in coll_unscanned:
+                click.echo(f'scan_set "{sc}"   # {total} cards, 0 priced')
+            for sc, priced, total in coll_part:
+                click.echo(f'scan_set "{sc}"   # {total} cards, {priced} priced')
+            click.echo("")
+
+    click.echo("# --- Unscanned sets ---")
+    for sc, total in unscanned:
+        flag = " *COLL*" if sc in coll_set_codes else ""
+        click.echo(f'scan_set "{sc}"   # {total} cards{flag}')
+
+    if partial:
+        click.echo("")
+        click.echo("# --- Partially scanned (<50%) ---")
+        for sc, priced, total in partial:
+            flag = " *COLL*" if sc in coll_set_codes else ""
+            click.echo(f'scan_set "{sc}"   # {priced}/{total} priced{flag}')
+
+
 @cli.command("backfill-portfolio")
 @click.option(
     "--db",
