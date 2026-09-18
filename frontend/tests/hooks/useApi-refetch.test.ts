@@ -92,8 +92,8 @@ describe("useApi refetchOnFocus", () => {
     // Initial fetch = 1 call
     expect(fetcher).toHaveBeenCalledTimes(1);
 
-    // Advance time past the 30s debounce
-    vi.advanceTimersByTime(31_000);
+    // Advance time past the 120s debounce
+    vi.advanceTimersByTime(121_000);
 
     // Simulate tab becoming visible
     await act(async () => {
@@ -105,7 +105,7 @@ describe("useApi refetchOnFocus", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it("skips refetch if last fetch was less than 30s ago (debounce)", async () => {
+  it("skips refetch if last fetch was less than 120s ago (debounce)", async () => {
     const fetcher = makeFetcher("data");
 
     renderHook(() => useApi(fetcher, [], { refetchOnFocus: true }));
@@ -142,7 +142,7 @@ describe("useApi refetchOnFocus", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
 
     // Advance past debounce
-    vi.advanceTimersByTime(31_000);
+    vi.advanceTimersByTime(121_000);
 
     // Simulate tab becoming hidden
     await act(async () => {
@@ -182,7 +182,7 @@ describe("useApi refetchOnFocus", () => {
     });
 
     // Advance past debounce and trigger refetch
-    vi.advanceTimersByTime(31_000);
+    vi.advanceTimersByTime(121_000);
 
     await act(async () => {
       fireVisibilityChange("visible");
@@ -202,8 +202,8 @@ describe("useApi refetchOnFocus", () => {
     // Still 2 — debounced
     expect(fetcher).toHaveBeenCalledTimes(2);
 
-    // After another 26s (total 31s from last fetch), should work
-    vi.advanceTimersByTime(26_000);
+    // After another 116s (total 121s from last fetch), should work
+    vi.advanceTimersByTime(116_000);
 
     await act(async () => {
       fireVisibilityChange("visible");

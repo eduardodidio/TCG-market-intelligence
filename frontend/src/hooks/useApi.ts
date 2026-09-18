@@ -14,7 +14,7 @@ interface UseApiResult<T> {
   setData: (data: T | null) => void;
 }
 
-const REFETCH_DEBOUNCE_MS = 30_000;
+const REFETCH_DEBOUNCE_MS = 120_000;
 
 /**
  * Generic data-fetching hook with AbortController cleanup.
