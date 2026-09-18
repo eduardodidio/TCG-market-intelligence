@@ -9,6 +9,7 @@ export interface AlertResponse {
   is_active: boolean;
   triggered_at: string | null;
   created_at: string;
+  current_price: number | null;
 }
 
 export interface AlertNotificationResponse {
@@ -30,4 +31,9 @@ export interface CreateAlertRequest {
   card_id: number;
   target_price: number;
   direction: "below" | "above";
+}
+
+export interface UpdateAlertRequest {
+  target_price?: number;
+  direction?: "below" | "above";
 }

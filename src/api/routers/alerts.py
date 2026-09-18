@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from src.api.deps import get_current_user, get_db
 from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.envelope import ApiResponse, success_response
-from src.database.models import AlertNotificationRow, CardRow, PriceAlertRow
+from src.database.models import AlertNotificationRow, CardRow, PriceAlertRow, PriceObservationRow
 from src.database.repository import Repository
 from src.domain.models import User
 
@@ -34,6 +34,11 @@ class CreateAlertRequest(BaseModel):
     direction: str = Field(..., pattern="^(below|above)$")
 
 
+class UpdateAlertRequest(BaseModel):
+    target_price: float | None = Field(None, gt=0)
+    direction: str | None = Field(None, pattern="^(below|above)$")
+
+
 class AlertResponse(BaseModel):
     id: int
     card_id: int
@@ -43,6 +48,7 @@ class AlertResponse(BaseModel):
     is_active: bool
     triggered_at: str | None = None
     created_at: str
+    current_price: float | None = None
 
 
 class AlertNotificationResponse(BaseModel):
@@ -142,6 +148,20 @@ def list_alerts(
         query = query.order_by(PriceAlertRow.created_at.desc()).offset(offset).limit(limit)
         rows = session.execute(query).all()
 
+        # Fetch latest prices for all alert card_ids
+        card_ids = list({alert.card_id for alert, _ in rows})
+        latest_prices: dict[int, float] = {}
+        for cid in card_ids:
+            ext_id = f"liga_{cid}"
+            price_row = session.execute(
+                select(PriceObservationRow.median_price)
+                .where(PriceObservationRow.external_id == ext_id)
+                .order_by(PriceObservationRow.observed_at.desc())
+                .limit(1)
+            ).first()
+            if price_row and price_row[0] is not None:
+                latest_prices[cid] = float(price_row[0])
+
         alerts = [
             AlertResponse(
                 id=alert.id,
@@ -152,6 +172,7 @@ def list_alerts(
                 is_active=bool(alert.is_active),
                 triggered_at=alert.triggered_at.isoformat() if alert.triggered_at else None,
                 created_at=alert.created_at.isoformat(),
+                current_price=latest_prices.get(alert.card_id),
             )
             for alert, card_name in rows
         ]
@@ -210,6 +231,52 @@ def list_notifications(
             NotificationsListResponse(
                 notifications=notifications,
                 unread_count=unread_count,
+            )
+        )
+
+
+@router.patch("/{alert_id}", response_model=ApiResponse[AlertResponse])
+def update_alert(
+    alert_id: int,
+    request: UpdateAlertRequest,
+    user: User = Depends(get_current_user),
+    repo: Repository = Depends(get_db),
+):
+    """Update a price alert (only owner can update, only active alerts)."""
+    with Session(repo.engine) as session:
+        alert = session.get(PriceAlertRow, alert_id)
+        if alert is None:
+            raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Alert not found")
+        if alert.user_id != user.id:
+            raise api_error(403, ErrorCode.AUTHZ_FORBIDDEN, "Not authorized to update this alert")
+        if not alert.is_active:
+            raise api_error(
+                409, ErrorCode.VALIDATION_LIMIT_EXCEEDED, "Cannot edit a triggered alert"
+            )
+
+        # Apply partial updates
+        if request.target_price is not None:
+            alert.target_price = Decimal(str(request.target_price))
+        if request.direction is not None:
+            alert.direction = request.direction
+
+        session.commit()
+        session.refresh(alert)
+
+        # Get card name
+        card = session.get(CardRow, alert.card_id)
+        card_name = card.name_en if card else None
+
+        return success_response(
+            AlertResponse(
+                id=alert.id,
+                card_id=alert.card_id,
+                card_name=card_name,
+                target_price=float(alert.target_price),
+                direction=alert.direction,
+                is_active=bool(alert.is_active),
+                triggered_at=alert.triggered_at.isoformat() if alert.triggered_at else None,
+                created_at=alert.created_at.isoformat(),
             )
         )
 
