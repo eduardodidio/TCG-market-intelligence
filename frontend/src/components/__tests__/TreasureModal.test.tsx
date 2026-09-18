@@ -51,9 +51,9 @@ describe("TreasureModal", () => {
   it("calls onClose after animation when Escape key is pressed", () => {
     render(<TreasureModal {...defaultProps} />);
     fireEvent.keyDown(document, { key: "Escape" });
-    // onClose is called after ANIM_DURATION (500ms) timeout
+    // onClose is called after ANIM_DURATION (600ms) timeout
     expect(defaultProps.onClose).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(600); });
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -61,14 +61,14 @@ describe("TreasureModal", () => {
     render(<TreasureModal {...defaultProps} />);
     fireEvent.click(screen.getByTestId("treasure-modal-backdrop"));
     expect(defaultProps.onClose).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(600); });
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
   });
 
   it("does not close when content area is clicked", () => {
     render(<TreasureModal {...defaultProps} />);
     fireEvent.click(screen.getByTestId("treasure-modal-content"));
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(600); });
     expect(defaultProps.onClose).not.toHaveBeenCalled();
   });
 
@@ -81,5 +81,52 @@ describe("TreasureModal", () => {
     render(<TreasureModal {...defaultProps} />);
     const img = screen.getByTestId("treasure-modal-image");
     expect(img).toHaveAttribute("src", "https://example.com/treasure.jpg");
+  });
+
+  it("uses smooth easing curve without bounce overshoot", () => {
+    render(<TreasureModal {...defaultProps} />);
+    const content = screen.getByTestId("treasure-modal-content");
+    expect(content.style.transition).toContain("cubic-bezier(0.16, 1, 0.3, 1)");
+    // Must NOT contain the old bouncy easing
+    expect(content.style.transition).not.toContain("1.56");
+  });
+
+  it("applies golden shimmer wrapper when modal is open", async () => {
+    render(<TreasureModal {...defaultProps} />);
+    // Flush requestAnimationFrame to trigger phase → "open"
+    await act(async () => { vi.advanceTimersByTime(16); });
+    const shimmerWrapper = screen.getByTestId("treasure-shimmer-wrapper");
+    expect(shimmerWrapper).toHaveClass("treasure-golden-shimmer");
+  });
+
+  it("applies treasure-modal-glow class to image when open", async () => {
+    render(<TreasureModal {...defaultProps} />);
+    await act(async () => { vi.advanceTimersByTime(16); });
+    const img = screen.getByTestId("treasure-modal-image");
+    expect(img).toHaveClass("treasure-modal-glow");
+  });
+
+  it("applies float animation class after enter transition completes", async () => {
+    render(<TreasureModal {...defaultProps} />);
+    const content = screen.getByTestId("treasure-modal-content");
+    // Flush rAF to trigger phase → "open"
+    await act(async () => { vi.advanceTimersByTime(16); });
+    // Float should NOT be active yet (enter transition still in progress)
+    expect(content).not.toHaveClass("treasure-float");
+    // After ANIM_DURATION (600ms) the float class should be applied
+    await act(async () => { vi.advanceTimersByTime(600); });
+    expect(content).toHaveClass("treasure-float");
+  });
+
+  it("removes float animation when leaving", async () => {
+    render(<TreasureModal {...defaultProps} />);
+    // Enter and wait for float
+    await act(async () => { vi.advanceTimersByTime(16); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    const content = screen.getByTestId("treasure-modal-content");
+    expect(content).toHaveClass("treasure-float");
+    // Trigger close
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(content).not.toHaveClass("treasure-float");
   });
 });

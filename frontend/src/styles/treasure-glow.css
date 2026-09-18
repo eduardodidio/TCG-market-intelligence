@@ -1,0 +1,103 @@
+/* T1 — Sidebar thumbnail pulsing golden glow */
+@keyframes treasure-pulse-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 8px 2px rgba(245, 158, 11, 0.3),
+      0 0 20px 4px rgba(245, 158, 11, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 14px 4px rgba(245, 158, 11, 0.5),
+      0 0 30px 8px rgba(245, 158, 11, 0.25);
+  }
+}
+
+.treasure-glow {
+  animation: treasure-pulse-glow 3s ease-in-out infinite;
+}
+
+.treasure-glow:hover {
+  box-shadow:
+    0 0 18px 6px rgba(245, 158, 11, 0.6),
+    0 0 36px 10px rgba(245, 158, 11, 0.3);
+}
+
+/* T2 — Modal pulsing box-shadow (larger values for full-size card) */
+@keyframes treasure-modal-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 80px 20px rgba(245, 158, 11, 0.35),
+      0 0 120px 40px rgba(245, 158, 11, 0.12),
+      0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    box-shadow:
+      0 0 100px 30px rgba(245, 158, 11, 0.5),
+      0 0 150px 50px rgba(245, 158, 11, 0.2),
+      0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  }
+}
+
+.treasure-modal-glow {
+  animation: treasure-modal-pulse 3s ease-in-out infinite;
+}
+
+/* T2 — Gentle float while modal is open */
+@keyframes treasure-float {
+  0%, 100% { transform: translateY(0px); }
+  50%      { transform: translateY(-6px); }
+}
+
+.treasure-float {
+  animation: treasure-float 4s ease-in-out infinite;
+}
+
+/* T2 — Golden shimmer overlay on modal image */
+@keyframes golden-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.treasure-golden-shimmer {
+  position: relative;
+}
+
+.treasure-golden-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 215, 0, 0.15) 45%,
+    rgba(245, 158, 11, 0.25) 50%,
+    rgba(255, 215, 0, 0.15) 55%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: golden-shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 1;
+  mix-blend-mode: screen;
+}
+
+/* Respect prefers-reduced-motion for all treasure animations */
+@media (prefers-reduced-motion: reduce) {
+  .treasure-glow {
+    animation: none;
+  }
+
+  .treasure-modal-glow {
+    animation: none;
+  }
+
+  .treasure-float {
+    animation: none;
+  }
+
+  .treasure-golden-shimmer::before {
+    animation: none;
+    background-position: 50% 0;
+  }
+}

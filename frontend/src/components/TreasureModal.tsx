@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useTreasureImage } from "../hooks/useTreasureImage";
 import { Card3DTilt } from "./Card3DTilt";
+import "../styles/treasure-glow.css";
 
 interface TreasureModalProps {
   count: number;
@@ -11,7 +12,7 @@ interface TreasureModalProps {
   originRect?: DOMRect | null;
 }
 
-const ANIM_DURATION = 500; // ms
+const ANIM_DURATION = 600; // ms
 const SPARKLE_COUNT = 18;
 
 interface Sparkle {
@@ -56,6 +57,7 @@ export function TreasureModal({
   );
   const contentRef = useRef<HTMLDivElement>(null);
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
+  const [floating, setFloating] = useState(false);
 
   // Trigger enter animation on mount
   useEffect(() => {
@@ -68,6 +70,16 @@ export function TreasureModal({
     });
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // Enable float animation after enter transition completes
+  useEffect(() => {
+    if (phase === "open") {
+      const timer = setTimeout(() => setFloating(true), ANIM_DURATION);
+      return () => clearTimeout(timer);
+    } else {
+      setFloating(false);
+    }
+  }, [phase]);
 
   // Keyboard escape
   const handleClose = useCallback(() => {
@@ -115,7 +127,7 @@ export function TreasureModal({
   };
 
   const contentStyle: React.CSSProperties = {
-    transition: `transform ${ANIM_DURATION}ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity ${ANIM_DURATION}ms ease`,
+    transition: `transform ${ANIM_DURATION}ms cubic-bezier(0.16, 1, 0.3, 1), opacity ${ANIM_DURATION}ms ease`,
     ...(isOpen
       ? {
           transform: "scale(1) translate(0, 0)",
@@ -163,24 +175,26 @@ export function TreasureModal({
 
       <div
         ref={contentRef}
-        className="flex flex-col items-center gap-4"
+        className={`flex flex-col items-center gap-4${floating ? " treasure-float" : ""}`}
         style={contentStyle}
         onClick={(e) => e.stopPropagation()}
         data-testid="treasure-modal-content"
       >
         <Card3DTilt tiltMaxAngle={18} scale={1.08} foil>
-          <img
-            src={treasureImage}
-            alt={t("credits.balance")}
-            className="max-h-[80vh] max-w-[90vw] rounded-lg"
-            style={{
-              boxShadow: isOpen
-                ? "0 0 80px 20px rgba(245, 158, 11, 0.4), 0 0 120px 40px rgba(245, 158, 11, 0.15), 0 25px 50px -12px rgba(0, 0, 0, 0.6)"
-                : "0 4px 6px rgba(0, 0, 0, 0.3)",
-              transition: `box-shadow ${ANIM_DURATION}ms ease`,
-            }}
-            data-testid="treasure-modal-image"
-          />
+          <div className={isOpen ? "treasure-golden-shimmer" : ""} data-testid="treasure-shimmer-wrapper">
+            <img
+              src={treasureImage}
+              alt={t("credits.balance")}
+              className={`max-h-[80vh] max-w-[90vw] rounded-lg${isOpen ? " treasure-modal-glow" : ""}`}
+              style={{
+                boxShadow: isOpen
+                  ? undefined
+                  : "0 4px 6px rgba(0, 0, 0, 0.3)",
+                transition: `box-shadow ${ANIM_DURATION}ms ease`,
+              }}
+              data-testid="treasure-modal-image"
+            />
+          </div>
         </Card3DTilt>
         <div
           className="flex items-center gap-2 bg-slate-800/90 px-4 py-2 rounded-lg"
