@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -14,7 +15,7 @@ import structlog
 from src.collectors.liga_url_recorder import record_liga_url
 from src.config import get_db_url
 from src.database.repository import Repository
-from src.domain.models import HistoricalPrice, ScanFilter, ScanType
+from src.domain.models import HistoricalPrice, ScanFilter, ScanRun, ScanType
 
 log = structlog.get_logger()
 
@@ -145,6 +146,7 @@ async def run_liga_sweep(
     dry_run: bool = False,
     set_filter: str | None = None,
     collection_only: bool = True,
+    on_complete: Callable[[ScanRun, list[str]], None] | None = None,
 ) -> LigaSweepResult:
     """Sweep all eligible collection cards through LigaMagic.
 
@@ -211,6 +213,7 @@ async def run_liga_sweep(
     prices_not_found = 0
     errors = 0
     batches_completed = 0
+    processed_external_ids: list[str] = []
 
     # Import LigaMagicProvider lazily to avoid Playwright import at module level
     from src.providers.liga.provider import LigaMagicProvider
@@ -233,6 +236,7 @@ async def run_liga_sweep(
                         record_liga_url(repo, observation.external_id, page_url)
                         prices_found += 1
                         batch_prices_found += 1
+                        processed_external_ids.append(observation.external_id)
                     else:
                         prices_not_found += 1
 
@@ -275,6 +279,20 @@ async def run_liga_sweep(
         )
     finally:
         await provider.close()
+
+    # Fire on_complete callback with all processed external_ids
+    if on_complete is not None and processed_external_ids:
+        scan_run = ScanRun(
+            id=None,
+            scan_type="liga_sweep",
+            status="completed",
+            cards_total=total_eligible,
+            cards_processed=total_processed,
+        )
+        try:
+            on_complete(scan_run, processed_external_ids)
+        except Exception:
+            log.exception("liga_sweep_on_complete_error")
 
     return LigaSweepResult(
         total_eligible=total_eligible,

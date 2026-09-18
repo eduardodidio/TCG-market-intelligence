@@ -3,6 +3,7 @@ import type {
   AlertResponse,
   NotificationsListResponse,
   CreateAlertRequest,
+  UpdateAlertRequest,
 } from "../types/alerts";
 import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 
@@ -16,6 +17,13 @@ export function createAlert(
   body: CreateAlertRequest,
 ): Promise<ApiResponse<AlertResponse>> {
   return apiPost<AlertResponse>("/api/v1/alerts", body);
+}
+
+export function updateAlert(
+  alertId: number,
+  body: UpdateAlertRequest,
+): Promise<ApiResponse<AlertResponse>> {
+  return apiPatch<AlertResponse>(`/api/v1/alerts/${alertId}`, body);
 }
 
 export function deleteAlert(alertId: number): Promise<void> {

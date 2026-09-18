@@ -1119,7 +1119,15 @@
     "createdAt": "Criado",
     "triggeredAt": "Disparado",
     "dismiss": "Dispensar",
-    "loginRequired": "Entre para gerenciar seus alertas de preco."
+    "loginRequired": "Entre para gerenciar seus alertas de preco.",
+    "createAlert": "Criar Alerta",
+    "searchCard": "Buscar carta...",
+    "selectCard": "Selecione uma carta para criar alerta",
+    "noResults": "Nenhuma carta encontrada",
+    "backToSearch": "Voltar para busca",
+    "currentPrice": "Atual: R$ {{price}}",
+    "editTargetPrice": "Editar preco alvo",
+    "priceUpdated": "Preco alvo atualizado"
   },
   "pwa": {
     "updateAvailable": "Uma nova versao esta disponivel!",

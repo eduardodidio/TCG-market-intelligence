@@ -1119,7 +1119,15 @@
     "createdAt": "Created",
     "triggeredAt": "Triggered",
     "dismiss": "Dismiss",
-    "loginRequired": "Please sign in to manage your price alerts."
+    "loginRequired": "Please sign in to manage your price alerts.",
+    "createAlert": "Create Alert",
+    "searchCard": "Search for a card...",
+    "selectCard": "Select a card to set an alert",
+    "noResults": "No cards found",
+    "backToSearch": "Back to search",
+    "currentPrice": "Current: R$ {{price}}",
+    "editTargetPrice": "Edit target price",
+    "priceUpdated": "Target price updated"
   },
   "pwa": {
     "updateAvailable": "A new version is available!",
