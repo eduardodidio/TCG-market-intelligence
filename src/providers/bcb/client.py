@@ -30,7 +30,7 @@ async def fetch_daily_rate(target_date: date | None = None) -> ExchangeRate | No
         target_date = date.today()
 
     formatted = _format_date(target_date)
-    url = f"{BASE_URL}/CotacaoDolarDia(dataCotacao=@d)" f"?@d='{formatted}'&$format=json"
+    url = f"{BASE_URL}/CotacaoDolarDia(dataCotacao=@d)?@d='{formatted}'&$format=json"
 
     log.debug("bcb_fetch_daily", date=str(target_date), url=url)
 

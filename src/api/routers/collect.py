@@ -125,8 +125,7 @@ async def _run_backfill_job(
         )
         job_tracker.complete(
             job_id,
-            f"Processed {summary.cards_processed} cards, "
-            f"{summary.observations_saved} observations",
+            f"Processed {summary.cards_processed} cards, {summary.observations_saved} observations",
         )
     except Exception as e:
         job_tracker.fail(job_id, str(e))
@@ -139,8 +138,7 @@ async def _run_update_job(job_id: str) -> None:
         summary = await run_update()
         job_tracker.complete(
             job_id,
-            f"Updated {summary.cards_processed} cards, "
-            f"{summary.observations_saved} observations",
+            f"Updated {summary.cards_processed} cards, {summary.observations_saved} observations",
         )
     except Exception as e:
         job_tracker.fail(job_id, str(e))

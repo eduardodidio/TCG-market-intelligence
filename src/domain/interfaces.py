@@ -10,8 +10,7 @@ class CardSourceProvider(ABC):
 
     @property
     @abstractmethod
-    def source_name(self) -> str:
-        ...
+    def source_name(self) -> str: ...
 
     @abstractmethod
     async def discover_sets(self) -> list[str]:
@@ -29,8 +28,6 @@ class CardSourceProvider(ABC):
         ...
 
     @abstractmethod
-    async def get_price_history(
-        self, card: SourceCard, days: int = 1095
-    ) -> list[HistoricalPrice]:
+    async def get_price_history(self, card: SourceCard, days: int = 1095) -> list[HistoricalPrice]:
         """Get historical price data for a card."""
         ...

@@ -22,6 +22,7 @@ from src.domain.models import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_prices(n: int = 10, external_id: str = "12345") -> list[HistoricalPrice]:
     """Build a list of HistoricalPrice with sequential dates."""
     base = date(2026, 1, 1)
@@ -45,12 +46,16 @@ def _make_analytics(external_id: str = "12345", source: str = "myp") -> CardAnal
         source=source,
         moving_averages=[
             MovingAverage(
-                period=7, value=Decimal("12.34"),
-                price_field="median_price", calculated_at=date(2026, 1, 10),
+                period=7,
+                value=Decimal("12.34"),
+                price_field="median_price",
+                calculated_at=date(2026, 1, 10),
             ),
             MovingAverage(
-                period=30, value=Decimal("11.89"),
-                price_field="median_price", calculated_at=date(2026, 1, 10),
+                period=30,
+                value=Decimal("11.89"),
+                price_field="median_price",
+                calculated_at=date(2026, 1, 10),
             ),
         ],
         extremes=PriceExtremes(
@@ -80,6 +85,7 @@ def _make_analytics(external_id: str = "12345", source: str = "myp") -> CardAnal
 # analyze card — happy path
 # ---------------------------------------------------------------------------
 
+
 class TestAnalyzeCard:
     def test_happy_path(self):
         """Full analytics output is printed when card has data."""
@@ -87,9 +93,13 @@ class TestAnalyzeCard:
         prices = _make_prices(n=30)
         analytics = _make_analytics()
 
-        with patch("src.database.repository.Repository") as MockRepo, \
-             patch("src.analytics.indicators.compute_card_analytics",
-                   return_value=analytics) as mock_compute:
+        with (
+            patch("src.config.get_db_url", return_value="sqlite:///tcg_market.db"),
+            patch("src.database.repository.Repository") as MockRepo,
+            patch(
+                "src.analytics.indicators.compute_card_analytics", return_value=analytics
+            ) as mock_compute,
+        ):
             mock_repo = MagicMock()
             MockRepo.return_value = mock_repo
             mock_repo.get_price_series.return_value = prices
@@ -141,19 +151,28 @@ class TestAnalyzeCard:
         prices = _make_prices(n=10)
         analytics = _make_analytics()
 
-        with patch("src.database.repository.Repository") as MockRepo, \
-             patch("src.analytics.indicators.compute_card_analytics", return_value=analytics):
+        with (
+            patch("src.database.repository.Repository") as MockRepo,
+            patch("src.analytics.indicators.compute_card_analytics", return_value=analytics),
+        ):
             mock_repo = MagicMock()
             MockRepo.return_value = mock_repo
             mock_repo.get_price_series.return_value = prices
 
-            result = runner.invoke(cli, [
-                "analyze", "card",
-                "--db", "sqlite:///custom.db",
-                "--source", "tcgplayer",
-                "--price-field", "tcg_price",
-                "ABC123",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "analyze",
+                    "card",
+                    "--db",
+                    "sqlite:///custom.db",
+                    "--source",
+                    "tcgplayer",
+                    "--price-field",
+                    "tcg_price",
+                    "ABC123",
+                ],
+            )
 
         assert result.exit_code == 0
         MockRepo.assert_called_once_with(db_url="sqlite:///custom.db")
@@ -172,8 +191,10 @@ class TestAnalyzeCard:
             price_field="median_price",
         )
 
-        with patch("src.database.repository.Repository") as MockRepo, \
-             patch("src.analytics.indicators.compute_card_analytics", return_value=analytics):
+        with (
+            patch("src.database.repository.Repository") as MockRepo,
+            patch("src.analytics.indicators.compute_card_analytics", return_value=analytics),
+        ):
             mock_repo = MagicMock()
             MockRepo.return_value = mock_repo
             mock_repo.get_price_series.return_value = prices
@@ -197,8 +218,10 @@ class TestAnalyzeCard:
             momentum=None,
         )
 
-        with patch("src.database.repository.Repository") as MockRepo, \
-             patch("src.analytics.indicators.compute_card_analytics", return_value=analytics):
+        with (
+            patch("src.database.repository.Repository") as MockRepo,
+            patch("src.analytics.indicators.compute_card_analytics", return_value=analytics),
+        ):
             mock_repo = MagicMock()
             MockRepo.return_value = mock_repo
             mock_repo.get_price_series.return_value = prices
@@ -217,12 +240,16 @@ class TestAnalyzeCard:
 # analyze list
 # ---------------------------------------------------------------------------
 
+
 class TestAnalyzeList:
     def test_happy_path(self):
         """Prints table of cards with observation counts."""
         runner = CliRunner()
 
-        with patch("src.database.repository.Repository") as MockRepo:
+        with (
+            patch("src.config.get_db_url", return_value="sqlite:///tcg_market.db"),
+            patch("src.database.repository.Repository") as MockRepo,
+        ):
             mock_repo = MagicMock()
             MockRepo.return_value = mock_repo
             mock_repo.get_cards_with_observations.return_value = [

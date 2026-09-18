@@ -236,7 +236,7 @@ class TestBatchCsvRead:
     def test_read_csv_skips_empty_names(self, tmp_path):
         csv_file = tmp_path / "gaps.csv"
         csv_file.write_text(
-            "name_en,collector_number\n" "Bolt,1\n" ",\n" "  ,2\n" "Shock,3\n",
+            "name_en,collector_number\nBolt,1\n,\n  ,2\nShock,3\n",
             encoding="utf-8",
         )
         rows = _read_batch_csv(csv_file)
@@ -291,8 +291,7 @@ class TestBatchCsvWrite:
         with open(output, "r", encoding="utf-8") as f:
             header = f.readline().strip()
         expected = (
-            "card_name,collector_number,set_code,"
-            "edition_matched,our_mid,liga_mid,diff_pct,status"
+            "card_name,collector_number,set_code,edition_matched,our_mid,liga_mid,diff_pct,status"
         )
         assert header == expected
 

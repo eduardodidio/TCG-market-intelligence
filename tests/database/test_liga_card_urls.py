@@ -15,15 +15,21 @@ def repo(tmp_path):
 
 class TestLigaCardUrlUpsertAndGet:
     def test_insert_then_get(self, repo):
-        repo.upsert_liga_card_url("liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1")
+        repo.upsert_liga_card_url(
+            "liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1"
+        )
 
         assert repo.get_liga_card_url("liga_42") == (
             "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1"
         )
 
     def test_upsert_updates_existing_key(self, repo):
-        repo.upsert_liga_card_url("liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1")
-        repo.upsert_liga_card_url("liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Bar&show=1")
+        repo.upsert_liga_card_url(
+            "liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1"
+        )
+        repo.upsert_liga_card_url(
+            "liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Bar&show=1"
+        )
 
         assert repo.get_liga_card_url("liga_42") == (
             "https://www.ligamagic.com.br/?view=cards/card&card=Bar&show=1"
@@ -34,18 +40,24 @@ class TestLigaCardUrlUpsertAndGet:
 
         from src.database.models import LigaCardUrlRow
 
-        repo.upsert_liga_card_url("liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1")
+        repo.upsert_liga_card_url(
+            "liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1"
+        )
         with Session(repo.engine) as session:
             first_updated_at = session.get(LigaCardUrlRow, "liga_42").updated_at
 
-        repo.upsert_liga_card_url("liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Bar&show=1")
+        repo.upsert_liga_card_url(
+            "liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Bar&show=1"
+        )
         with Session(repo.engine) as session:
             second_updated_at = session.get(LigaCardUrlRow, "liga_42").updated_at
 
         assert second_updated_at >= first_updated_at
 
     def test_independent_keys_normal_and_foil(self, repo):
-        repo.upsert_liga_card_url("liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1")
+        repo.upsert_liga_card_url(
+            "liga_42", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1"
+        )
         repo.upsert_liga_card_url(
             "liga_42_foil", "https://www.ligamagic.com.br/?view=cards/card&card=Foo+Foil&show=1"
         )
@@ -79,7 +91,9 @@ class TestLigaCardUrlUpsertAndGet:
 class TestLigaCardUrlValidation:
     def test_empty_external_id_raises(self, repo):
         with pytest.raises(ValueError):
-            repo.upsert_liga_card_url("", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1")
+            repo.upsert_liga_card_url(
+                "", "https://www.ligamagic.com.br/?view=cards/card&card=Foo&show=1"
+            )
 
     def test_empty_url_raises(self, repo):
         with pytest.raises(ValueError):

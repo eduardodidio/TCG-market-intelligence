@@ -29,6 +29,12 @@ frontend/tsconfig.build.tsbuildinfo
 
 # Personal data exports
 docs/export*.csv
+docs/comprasEmLojas/
+docs/htmlsColecao/
+docs/printsColeacao.png
+
+# Debug output
+scripts/debug_output/
 
 # Batch scripts (contain local paths / API keys)
 push-all.bat

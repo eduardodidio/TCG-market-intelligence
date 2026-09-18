@@ -170,9 +170,7 @@ class TestSearchWebMalformedData:
         app.include_router(card_search_router)
         app.dependency_overrides[get_db] = lambda: MagicMock()
         app.dependency_overrides[get_current_user] = lambda: _TEST_USER
-        app.dependency_overrides[get_credit_service] = lambda: (
-            credit_svc or self._make_credit_svc()
-        )
+        app.dependency_overrides[get_credit_service] = lambda: credit_svc or self._make_credit_svc()
         if provider:
             registry = ProviderRegistry([provider])
             app.state.provider_registry = registry

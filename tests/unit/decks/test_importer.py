@@ -120,20 +120,18 @@ class TestImportDeckFromCsv:
 
     def test_csv_linking(self, engine):
         _seed_cards(engine)
-        csv_content = "Card (EN),Edicao (Sigla),Card #,Quantidade\n" "Lightning Bolt,lea,161,4\n"
+        csv_content = "Card (EN),Edicao (Sigla),Card #,Quantidade\nLightning Bolt,lea,161,4\n"
         result = import_deck_from_csv(engine, "user1", "Linked CSV", csv_content)
         assert result["cards_linked"] == 1
 
     def test_csv_skip_empty_name(self, engine):
         csv_content = (
-            "Card (EN),Edicao (Sigla),Card #,Quantidade\n"
-            ",lea,161,4\n"
-            "Lightning Bolt,lea,161,4\n"
+            "Card (EN),Edicao (Sigla),Card #,Quantidade\n,lea,161,4\nLightning Bolt,lea,161,4\n"
         )
         result = import_deck_from_csv(engine, "user1", "Skip Empty", csv_content)
         assert result["cards_imported"] == 1
 
     def test_csv_default_quantity(self, engine):
-        csv_content = "Card (EN),Edicao (Sigla),Card #,Quantidade\n" "Lightning Bolt,lea,161,\n"
+        csv_content = "Card (EN),Edicao (Sigla),Card #,Quantidade\nLightning Bolt,lea,161,\n"
         result = import_deck_from_csv(engine, "user1", "Default Qty", csv_content)
         assert result["cards_imported"] == 1

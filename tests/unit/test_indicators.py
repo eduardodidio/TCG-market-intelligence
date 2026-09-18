@@ -24,6 +24,7 @@ from src.domain.models import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _hp(
     day_offset: int,
     median: Decimal | None = None,
@@ -47,7 +48,8 @@ def _hp(
 
 
 def _make_prices(
-    values: list[Decimal | None], base_date: date | None = None,
+    values: list[Decimal | None],
+    base_date: date | None = None,
 ) -> list[HistoricalPrice]:
     """Build a list of HistoricalPrice with daily observations."""
     return [_hp(i, median=v, base_date=base_date) for i, v in enumerate(values)]
@@ -57,12 +59,11 @@ def _make_prices(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def thirty_daily_prices() -> list[HistoricalPrice]:
     """30 daily prices: 10.00, 10.50, 11.00, ..., incrementing by 0.50."""
-    return _make_prices(
-        [Decimal("10.00") + Decimal("0.50") * i for i in range(30)]
-    )
+    return _make_prices([Decimal("10.00") + Decimal("0.50") * i for i in range(30)])
 
 
 @pytest.fixture
@@ -75,8 +76,16 @@ def constant_prices() -> list[HistoricalPrice]:
 def prices_with_nones() -> list[HistoricalPrice]:
     """10 prices with some None values."""
     values: list[Decimal | None] = [
-        Decimal("10.00"), None, Decimal("12.00"), None, Decimal("14.00"),
-        Decimal("16.00"), None, Decimal("18.00"), Decimal("20.00"), Decimal("22.00"),
+        Decimal("10.00"),
+        None,
+        Decimal("12.00"),
+        None,
+        Decimal("14.00"),
+        Decimal("16.00"),
+        None,
+        Decimal("18.00"),
+        Decimal("20.00"),
+        Decimal("22.00"),
     ]
     return _make_prices(values)
 
@@ -101,6 +110,7 @@ def single_price() -> list[HistoricalPrice]:
 # compute_moving_average
 # ---------------------------------------------------------------------------
 
+
 class TestComputeMovingAverage:
     def test_ma7_over_10_points(self, constant_prices: list[HistoricalPrice]):
         """MA(7) over 10 data points uses last 7 values."""
@@ -116,18 +126,14 @@ class TestComputeMovingAverage:
         assert result is not None
         # Last 7 values: 21.50, 22.00, 22.50, 23.00, 23.50, 24.00, 24.50
         # (indices 23-29 => 10 + 0.5*23=21.50 ... 10+0.5*29=24.50)
-        expected = sum(
-            Decimal("10.00") + Decimal("0.50") * i for i in range(23, 30)
-        ) / 7
+        expected = sum(Decimal("10.00") + Decimal("0.50") * i for i in range(23, 30)) / 7
         assert result.value == expected
 
     def test_ma30_over_30_points(self, thirty_daily_prices: list[HistoricalPrice]):
         """MA(30) over exactly 30 points uses all values."""
         result = compute_moving_average(thirty_daily_prices, period=30)
         assert result is not None
-        expected = sum(
-            Decimal("10.00") + Decimal("0.50") * i for i in range(30)
-        ) / 30
+        expected = sum(Decimal("10.00") + Decimal("0.50") * i for i in range(30)) / 30
         assert result.value == expected
 
     def test_returns_none_insufficient_data(self, single_price: list[HistoricalPrice]):
@@ -176,6 +182,7 @@ class TestComputeMovingAverage:
 # compute_all_moving_averages
 # ---------------------------------------------------------------------------
 
+
 class TestComputeAllMovingAverages:
     def test_default_periods(self, thirty_daily_prices: list[HistoricalPrice]):
         """Default periods [7, 30, 90]; 90 should be skipped (only 30 points)."""
@@ -201,6 +208,7 @@ class TestComputeAllMovingAverages:
 # compute_price_extremes
 # ---------------------------------------------------------------------------
 
+
 class TestComputePriceExtremes:
     def test_finds_ath_atl(self, thirty_daily_prices: list[HistoricalPrice]):
         result = compute_price_extremes(thirty_daily_prices)
@@ -208,7 +216,7 @@ class TestComputePriceExtremes:
         assert result.ath_price == Decimal("24.50")  # 10 + 0.5*29
         assert result.atl_price == Decimal("10.00")
         assert result.ath_date == date(2026, 1, 30)  # offset 29
-        assert result.atl_date == date(2026, 1, 1)   # offset 0
+        assert result.atl_date == date(2026, 1, 1)  # offset 0
 
     def test_constant_prices(self, constant_prices: list[HistoricalPrice]):
         """ATH == ATL when all prices are the same."""
@@ -245,6 +253,7 @@ class TestComputePriceExtremes:
 # compute_volatility
 # ---------------------------------------------------------------------------
 
+
 class TestComputeVolatility:
     def test_known_std_dev(self):
         """Verify against hand-calculated population std_dev."""
@@ -276,9 +285,7 @@ class TestComputeVolatility:
     def test_period_days_filter(self):
         """Only uses data within last N days when period_days is set."""
         # 60 days of data, but only look at last 7
-        prices = _make_prices(
-            [Decimal("10.00") + Decimal("0.50") * i for i in range(60)]
-        )
+        prices = _make_prices([Decimal("10.00") + Decimal("0.50") * i for i in range(60)])
         result_all = compute_volatility(prices)
         result_7d = compute_volatility(prices, period_days=7)
         assert result_all is not None
@@ -304,6 +311,7 @@ class TestComputeVolatility:
 # ---------------------------------------------------------------------------
 # compute_momentum
 # ---------------------------------------------------------------------------
+
 
 class TestComputeMomentum:
     def test_positive_roc(self):
@@ -422,7 +430,9 @@ class TestComputeMomentum:
             _hp(7, median=Decimal("12.00")),
         ]
         result = compute_momentum(
-            prices, period_days=7, price_field="nonexistent_field",
+            prices,
+            period_days=7,
+            price_field="nonexistent_field",
         )
         assert result is None
 
@@ -440,6 +450,7 @@ class TestComputeMomentum:
 # ---------------------------------------------------------------------------
 # compute_card_analytics
 # ---------------------------------------------------------------------------
+
 
 class TestComputeCardAnalytics:
     def test_assembles_all_indicators(self, thirty_daily_prices: list[HistoricalPrice]):

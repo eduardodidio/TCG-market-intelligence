@@ -17,10 +17,7 @@ from src.utils.set_code_map import map_to_scryfall_set_code
 
 def _scryfall_image_url(set_code: str, collector_number: str) -> str:
     mapped = map_to_scryfall_set_code(set_code)
-    return (
-        f"https://api.scryfall.com/cards/{mapped}/{collector_number}"
-        f"?format=image&version=normal"
-    )
+    return f"https://api.scryfall.com/cards/{mapped}/{collector_number}?format=image&version=normal"
 
 
 _STATUS_ORDER = {"banned": 0, "restricted": 1, "legal": 2, "not_legal": 3}

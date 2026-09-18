@@ -15,10 +15,7 @@ def _scryfall_image_url(set_code: str | None, collector_number: str | None) -> s
     if not set_code or not collector_number:
         return None
     mapped = map_to_scryfall_set_code(set_code)
-    return (
-        f"https://api.scryfall.com/cards/{mapped}/{collector_number}"
-        f"?format=image&version=normal"
-    )
+    return f"https://api.scryfall.com/cards/{mapped}/{collector_number}?format=image&version=normal"
 
 
 class TrendingService:

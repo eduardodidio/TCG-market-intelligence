@@ -84,10 +84,10 @@ def _make_app(
     app.dependency_overrides[get_db] = lambda: mock_repo
 
     if include_auth:
-        app.dependency_overrides[get_current_user] = lambda: (user or _TEST_USER)
+        app.dependency_overrides[get_current_user] = lambda: user or _TEST_USER
         app.dependency_overrides[require_auth_or_api_key] = lambda: _TEST_USER_ID
 
-    app.dependency_overrides[get_credit_service] = lambda: (credit_svc or _make_credit_svc())
+    app.dependency_overrides[get_credit_service] = lambda: credit_svc or _make_credit_svc()
 
     providers = []
     if mock_provider is not None:
@@ -128,7 +128,7 @@ class TestSearchWebReturnsResults:
         assert data[0]["foil_price"] == 10.0
         assert data[0]["liga_url"] is not None
         assert "ligamagic" in data[0]["liga_url"]
-        assert "&show=1" in data[0]["liga_url"]
+        assert "card=Lightning" in data[0]["liga_url"]
 
     def test_empty_results_when_no_prices(self):
         mock_repo = MagicMock()

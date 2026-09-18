@@ -44,4 +44,4 @@ class TestScryfallImageUrl:
 
     def test_url_format(self):
         url = _scryfall_image_url("dmr", "100")
-        assert url == ("https://api.scryfall.com/cards/dmr/100" "?format=image&version=normal")
+        assert url == ("https://api.scryfall.com/cards/dmr/100?format=image&version=normal")

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.providers.liga.urls import (
     LIGA_BASE_URL,
     build_liga_card_url,
@@ -39,7 +37,9 @@ class TestBuildLigaCardUrl:
 
 class TestIsValidLigaCardUrl:
     def test_valid_www_host(self):
-        assert is_valid_liga_card_url("https://www.ligamagic.com.br/?view=cards/card&card=X") is True
+        assert (
+            is_valid_liga_card_url("https://www.ligamagic.com.br/?view=cards/card&card=X") is True
+        )
 
     def test_valid_bare_host(self):
         assert is_valid_liga_card_url("https://ligamagic.com.br/?view=cards/card&card=X") is True
@@ -95,23 +95,17 @@ class TestResolveLigaCardUrl:
 
     def test_returns_stored_non_foil(self):
         store = {"liga_7": self._STORED}
-        url = resolve_liga_card_url(
-            7, is_foil=False, fallback_name="Bolt", lookup=store.get
-        )
+        url = resolve_liga_card_url(7, is_foil=False, fallback_name="Bolt", lookup=store.get)
         assert url == self._STORED
 
     def test_foil_prefers_foil_key(self):
         store = {"liga_7": self._STORED, "liga_7_foil": self._STORED_FOIL}
-        url = resolve_liga_card_url(
-            7, is_foil=True, fallback_name="Bolt", lookup=store.get
-        )
+        url = resolve_liga_card_url(7, is_foil=True, fallback_name="Bolt", lookup=store.get)
         assert url == self._STORED_FOIL
 
     def test_foil_falls_back_to_non_foil_key(self):
         store = {"liga_7": self._STORED}
-        url = resolve_liga_card_url(
-            7, is_foil=True, fallback_name="Bolt", lookup=store.get
-        )
+        url = resolve_liga_card_url(7, is_foil=True, fallback_name="Bolt", lookup=store.get)
         assert url == self._STORED
 
     def test_non_foil_never_reads_foil_key(self):
@@ -142,7 +136,5 @@ class TestResolveLigaCardUrl:
         assert calls == []  # lookup never called when card_id is None
 
     def test_no_stored_and_no_name_returns_none(self):
-        url = resolve_liga_card_url(
-            7, is_foil=False, fallback_name="", lookup=lambda _k: None
-        )
+        url = resolve_liga_card_url(7, is_foil=False, fallback_name="", lookup=lambda _k: None)
         assert url is None
