@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useCredits } from "../hooks/useCredits";
 import { useTreasureImage } from "../hooks/useTreasureImage";
 import { TreasureModal } from "./TreasureModal";
+import "../styles/treasure-glow.css";
 
 export function TreasureBalance() {
   const { t } = useTranslation();
@@ -44,7 +45,7 @@ export function TreasureBalance() {
         src={treasureImage}
         alt={t("credits.balance")}
         ref={imgRef}
-        className="w-12 h-16 rounded object-cover border border-amber-500/50 shadow-lg flex-shrink-0 cursor-pointer hover:border-amber-400 transition-colors"
+        className="w-12 h-16 rounded object-cover border border-amber-500/50 shadow-lg flex-shrink-0 cursor-pointer hover:border-amber-400 transition-colors treasure-glow"
         onClick={() => {
           if (imgRef.current) {
             setOriginRect(imgRef.current.getBoundingClientRect());

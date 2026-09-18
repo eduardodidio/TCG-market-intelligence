@@ -129,7 +129,7 @@ describe("TreasureModal", () => {
     const tiltWrapper = screen.getByTestId("tilt-wrapper");
     const props = JSON.parse(tiltWrapper.getAttribute("data-props") || "{}");
     expect(props.glareEnable).toBe(true);
-    expect(props.glareMaxOpacity).toBe(0.15);
+    expect(props.glareMaxOpacity).toBe(0.35);
   });
 
   it("renders foil-shimmer wrapper around image", () => {

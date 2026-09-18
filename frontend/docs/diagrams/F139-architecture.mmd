@@ -1,0 +1,20 @@
+graph TD
+    subgraph Backend
+        A[UserRow.role<br/>VARCHAR 20, default admin] -->|mapped in| B[auth/dependencies.py<br/>get_current_user]
+        B --> C[GET /auth/me<br/>UserProfile.role]
+    end
+
+    subgraph Frontend
+        C -->|fetched by| D[AuthContext<br/>hasBetaAccess]
+        D -->|controls| E[Layout.tsx<br/>Beta nav items]
+        D -->|controls| F[BetaRoute.tsx<br/>Route guard]
+        E -->|guest: disabled span| G[Toast: blocked message]
+        E -->|admin: Link| H[Normal navigation]
+        F -->|guest| I[Blocked card]
+        F -->|admin| J[Page content]
+    end
+
+    subgraph CLI
+        K[seed-users] -->|creates| L[guest user<br/>role=guest]
+        K -->|creates| M[admin user<br/>role=admin]
+    end

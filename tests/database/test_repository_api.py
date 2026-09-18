@@ -229,19 +229,293 @@ class TestListSets:
 
 
 class TestGetMovers:
-    def test_identifies_gainers_and_losers(self, seeded_repo):
-        """Lightning Bolt went 5.50->6.00 (+9.09%),
-        Counterspell has only one observation so no change."""
-        gainers, losers = seeded_repo.get_movers(days=30)
+    def test_identifies_gainers_and_losers(self, repo):
+        """Lightning Bolt went 5.00->6.00 (+20%), using relative dates."""
+        today = date.today()
+        engine = repo.engine
+        with Session(engine) as session:
+            c1 = CardRow(
+                game="magic",
+                name_en="Lightning Bolt",
+                name_pt="Raio",
+                set_code="2XM",
+                collector_number="1",
+            )
+            c2 = CardRow(
+                game="magic",
+                name_en="Counterspell",
+                name_pt="Contrafeitico",
+                set_code="2XM",
+                collector_number="2",
+            )
+            session.add_all([c1, c2])
+            session.flush()
+
+            sc1 = SourceCardRow(
+                source="myp",
+                external_id="mv_ext1",
+                card_id=c1.id,
+                url="https://myp/mv_ext1",
+                name_en="Lightning Bolt",
+                set_code="2XM",
+                collector_number="1",
+            )
+            sc2 = SourceCardRow(
+                source="myp",
+                external_id="mv_ext2",
+                card_id=c2.id,
+                url="https://myp/mv_ext2",
+                name_en="Counterspell",
+                set_code="2XM",
+                collector_number="2",
+            )
+            session.add_all([sc1, sc2])
+            session.flush()
+
+            # Lightning Bolt: price went up 5.00 -> 6.00
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="mv_ext1",
+                    observed_at=today - timedelta(days=10),
+                    median_price=Decimal("5.00"),
+                    currency="BRL",
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="mv_ext1",
+                    observed_at=today - timedelta(days=1),
+                    median_price=Decimal("6.00"),
+                    currency="BRL",
+                )
+            )
+            # Counterspell: only one observation (no change possible)
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="mv_ext2",
+                    observed_at=today - timedelta(days=5),
+                    median_price=Decimal("3.00"),
+                    currency="BRL",
+                )
+            )
+            session.commit()
+
+        gainers, losers = repo.get_movers(days=30)
         # Lightning Bolt is a gainer (price went up)
         assert len(gainers) >= 1
         assert gainers[0][1] == "Lightning Bolt"
-        assert gainers[0][5] > 0  # positive change
+        assert float(gainers[0][6]) > 0  # positive change_pct
+
+    def test_identifies_losers(self, repo):
+        """Card that went down in price should appear in losers."""
+        today = date.today()
+        engine = repo.engine
+        with Session(engine) as session:
+            c = CardRow(
+                game="magic",
+                name_en="Falling Star",
+                name_pt="Estrela",
+                set_code="LEG",
+                collector_number="1",
+            )
+            session.add(c)
+            session.flush()
+            sc = SourceCardRow(
+                source="myp",
+                external_id="fall_ext",
+                card_id=c.id,
+                url="https://myp/fall",
+                name_en="Falling Star",
+                set_code="LEG",
+                collector_number="1",
+            )
+            session.add(sc)
+            session.flush()
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="fall_ext",
+                    observed_at=today - timedelta(days=10),
+                    median_price=Decimal("10.00"),
+                    currency="BRL",
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="fall_ext",
+                    observed_at=today - timedelta(days=1),
+                    median_price=Decimal("7.00"),
+                    currency="BRL",
+                )
+            )
+            session.commit()
+
+        gainers, losers = repo.get_movers(days=30)
+        assert len(losers) >= 1
+        assert losers[0][1] == "Falling Star"
+        assert float(losers[0][6]) < 0  # negative change_pct
+
+    def test_excludes_zero_start_price(self, repo):
+        """Cards with zero starting price are excluded."""
+        today = date.today()
+        engine = repo.engine
+        with Session(engine) as session:
+            c = CardRow(
+                game="magic",
+                name_en="Zero Card",
+                name_pt="Zero",
+                set_code="TST",
+                collector_number="1",
+            )
+            session.add(c)
+            session.flush()
+            sc = SourceCardRow(
+                source="myp",
+                external_id="zero_ext",
+                card_id=c.id,
+                url="https://myp/zero",
+                name_en="Zero Card",
+                set_code="TST",
+                collector_number="1",
+            )
+            session.add(sc)
+            session.flush()
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="zero_ext",
+                    observed_at=today - timedelta(days=10),
+                    median_price=Decimal("0.00"),
+                    currency="BRL",
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="zero_ext",
+                    observed_at=today - timedelta(days=1),
+                    median_price=Decimal("5.00"),
+                    currency="BRL",
+                )
+            )
+            session.commit()
+
+        gainers, losers = repo.get_movers(days=30)
+        all_ids = [m[1] for m in gainers + losers]
+        assert "Zero Card" not in all_ids
+
+    def test_excludes_card_with_only_pre_cutoff_prices(self, repo):
+        """Cards with prices only before cutoff should be excluded."""
+        today = date.today()
+        engine = repo.engine
+        with Session(engine) as session:
+            c = CardRow(
+                game="magic",
+                name_en="Old Card",
+                name_pt="Velho",
+                set_code="OLD",
+                collector_number="1",
+            )
+            session.add(c)
+            session.flush()
+            sc = SourceCardRow(
+                source="myp",
+                external_id="old_ext",
+                card_id=c.id,
+                url="https://myp/old",
+                name_en="Old Card",
+                set_code="OLD",
+                collector_number="1",
+            )
+            session.add(sc)
+            session.flush()
+            # Both observations before cutoff (days=5 -> cutoff = today - 5)
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="old_ext",
+                    observed_at=today - timedelta(days=20),
+                    median_price=Decimal("10.00"),
+                    currency="BRL",
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="old_ext",
+                    observed_at=today - timedelta(days=15),
+                    median_price=Decimal("12.00"),
+                    currency="BRL",
+                )
+            )
+            session.commit()
+
+        gainers, losers = repo.get_movers(days=5)
+        all_ids = [m[1] for m in gainers + losers]
+        assert "Old Card" not in all_ids
 
     def test_empty_db(self, repo):
         gainers, losers = repo.get_movers(days=30)
         assert gainers == []
         assert losers == []
+
+    def test_return_shape(self, repo):
+        """Each tuple has 7 elements: card_id, name_en, name_pt, set_code,
+        price_start, price_end, change_pct."""
+        today = date.today()
+        engine = repo.engine
+        with Session(engine) as session:
+            c = CardRow(
+                game="magic",
+                name_en="Shape Test",
+                name_pt="Forma",
+                set_code="TST",
+                collector_number="1",
+            )
+            session.add(c)
+            session.flush()
+            sc = SourceCardRow(
+                source="myp",
+                external_id="shape_ext",
+                card_id=c.id,
+                url="https://myp/shape",
+                name_en="Shape Test",
+                set_code="TST",
+                collector_number="1",
+            )
+            session.add(sc)
+            session.flush()
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="shape_ext",
+                    observed_at=today - timedelta(days=10),
+                    median_price=Decimal("5.00"),
+                    currency="BRL",
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id="shape_ext",
+                    observed_at=today - timedelta(days=1),
+                    median_price=Decimal("8.00"),
+                    currency="BRL",
+                )
+            )
+            session.commit()
+
+        gainers, losers = repo.get_movers(days=30)
+        for mover in gainers + losers:
+            assert len(mover) == 7
+            card_id, name_en, name_pt, set_code, price_start, price_end, change_pct = mover
+            assert isinstance(card_id, int)
+            assert isinstance(name_en, str)
+            assert price_start > 0
 
 
 class TestGetMarketStats:

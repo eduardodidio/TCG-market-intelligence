@@ -783,3 +783,113 @@ async def test_foil_card_no_fallback_to_normal():
 
     # Must be None -- foil card with no foil prices should NOT store normal prices
     assert result is None
+
+
+# ── on_complete callback tests (F147-T01) ─────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_on_complete_called_with_processed_external_ids():
+    """on_complete callback fires once at end with all processed external_ids."""
+    cards = _make_cards(3)
+    mock_repo = MagicMock()
+    mock_repo.get_cards_for_liga_scan.return_value = cards
+    mock_repo.insert_price_observations.return_value = 1
+
+    mock_provider = _mock_provider_search()
+    on_complete = MagicMock()
+
+    with (
+        patch("src.collectors.liga_sweep.Repository", return_value=mock_repo),
+        patch("src.collectors.liga_sweep.get_db_url", return_value="sqlite:///:memory:"),
+        patch("src.providers.liga.provider.LigaMagicProvider", return_value=mock_provider),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        result = await run_liga_sweep(
+            db_url="sqlite:///:memory:",
+            delay=0,
+            on_complete=on_complete,
+        )
+
+    assert result.prices_found == 3
+    on_complete.assert_called_once()
+    call_args = on_complete.call_args
+    scan_run = call_args[0][0]
+    external_ids = call_args[0][1]
+    assert scan_run.scan_type == "liga_sweep"
+    assert scan_run.status == "completed"
+    assert set(external_ids) == {"liga_1", "liga_2", "liga_3"}
+
+
+@pytest.mark.asyncio
+async def test_on_complete_not_called_on_dry_run():
+    """on_complete should NOT fire during dry_run."""
+    cards = _make_cards(5)
+    mock_repo = MagicMock()
+    mock_repo.get_cards_for_liga_scan.return_value = cards
+
+    on_complete = MagicMock()
+
+    with (
+        patch("src.collectors.liga_sweep.Repository", return_value=mock_repo),
+        patch("src.collectors.liga_sweep.get_db_url", return_value="sqlite:///:memory:"),
+    ):
+        result = await run_liga_sweep(
+            db_url="sqlite:///:memory:",
+            dry_run=True,
+            on_complete=on_complete,
+        )
+
+    assert result.dry_run is True
+    on_complete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_on_complete_not_called_when_no_prices_found():
+    """on_complete should NOT fire when no cards were successfully priced."""
+    cards = _make_cards(2)
+    mock_repo = MagicMock()
+    mock_repo.get_cards_for_liga_scan.return_value = cards
+
+    mock_provider = _mock_provider_search({"Card 1": None, "Card 2": None})
+    on_complete = MagicMock()
+
+    with (
+        patch("src.collectors.liga_sweep.Repository", return_value=mock_repo),
+        patch("src.collectors.liga_sweep.get_db_url", return_value="sqlite:///:memory:"),
+        patch("src.providers.liga.provider.LigaMagicProvider", return_value=mock_provider),
+    ):
+        result = await run_liga_sweep(
+            db_url="sqlite:///:memory:",
+            delay=0,
+            on_complete=on_complete,
+        )
+
+    assert result.prices_found == 0
+    on_complete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_on_complete_error_does_not_crash_sweep():
+    """If on_complete raises, sweep should still return its result."""
+    cards = _make_cards(1)
+    mock_repo = MagicMock()
+    mock_repo.get_cards_for_liga_scan.return_value = cards
+    mock_repo.insert_price_observations.return_value = 1
+
+    mock_provider = _mock_provider_search()
+    on_complete = MagicMock(side_effect=RuntimeError("hook exploded"))
+
+    with (
+        patch("src.collectors.liga_sweep.Repository", return_value=mock_repo),
+        patch("src.collectors.liga_sweep.get_db_url", return_value="sqlite:///:memory:"),
+        patch("src.providers.liga.provider.LigaMagicProvider", return_value=mock_provider),
+    ):
+        result = await run_liga_sweep(
+            db_url="sqlite:///:memory:",
+            delay=0,
+            on_complete=on_complete,
+        )
+
+    assert result.prices_found == 1
+    on_complete.assert_called_once()

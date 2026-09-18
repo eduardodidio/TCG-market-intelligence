@@ -317,6 +317,198 @@ class TestNotifications:
         assert data["notifications"][0]["is_read"] is False
 
 
+class TestUpdateAlert:
+    def test_patch_target_price(self, client, card_id):
+        """PATCH with valid target_price returns updated alert."""
+        resp = client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 10.0, "direction": "below"},
+        )
+        alert_id = resp.json()["data"]["id"]
+
+        resp = client.patch(
+            f"/api/v1/alerts/{alert_id}",
+            json={"target_price": 25.0},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["target_price"] == 25.0
+        assert data["direction"] == "below"  # unchanged
+
+    def test_patch_direction(self, client, card_id):
+        """PATCH with valid direction returns updated alert."""
+        resp = client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 10.0, "direction": "below"},
+        )
+        alert_id = resp.json()["data"]["id"]
+
+        resp = client.patch(
+            f"/api/v1/alerts/{alert_id}",
+            json={"direction": "above"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["direction"] == "above"
+        assert data["target_price"] == 10.0  # unchanged
+
+    def test_patch_both_fields(self, client, card_id):
+        """PATCH with both target_price and direction."""
+        resp = client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 10.0, "direction": "below"},
+        )
+        alert_id = resp.json()["data"]["id"]
+
+        resp = client.patch(
+            f"/api/v1/alerts/{alert_id}",
+            json={"target_price": 50.0, "direction": "above"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["target_price"] == 50.0
+        assert data["direction"] == "above"
+
+    def test_patch_empty_body(self, client, card_id):
+        """PATCH with empty body is a no-op, returns 200."""
+        resp = client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 10.0, "direction": "below"},
+        )
+        alert_id = resp.json()["data"]["id"]
+
+        resp = client.patch(
+            f"/api/v1/alerts/{alert_id}",
+            json={},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["target_price"] == 10.0
+
+    def test_patch_not_found(self, client):
+        resp = client.patch(
+            "/api/v1/alerts/99999",
+            json={"target_price": 25.0},
+        )
+        assert resp.status_code == 404
+
+    def test_patch_wrong_user(self, client, card_id, repo):
+        """Another user's alert cannot be updated."""
+        resp = client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 10.0, "direction": "below"},
+        )
+        alert_id = resp.json()["data"]["id"]
+
+        user2 = _make_user(user_id=2)
+        repo.create_user(email="user2@example.com", display_name="User 2")
+        app2 = FastAPI()
+        app2.include_router(router, prefix="/api/v1")
+        app2.dependency_overrides[get_db] = lambda: repo
+        app2.dependency_overrides[get_current_user] = lambda: user2
+        client2 = TestClient(app2)
+
+        resp = client2.patch(
+            f"/api/v1/alerts/{alert_id}",
+            json={"target_price": 25.0},
+        )
+        assert resp.status_code == 403
+
+    def test_patch_triggered_alert(self, client, card_id, repo):
+        """Cannot edit a triggered (inactive) alert."""
+        resp = client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 10.0, "direction": "below"},
+        )
+        alert_id = resp.json()["data"]["id"]
+
+        # Manually trigger the alert
+        from src.database.models import PriceAlertRow
+
+        with Session(repo.engine) as session:
+            alert = session.get(PriceAlertRow, alert_id)
+            alert.is_active = 0
+            alert.triggered_at = datetime.now()
+            session.commit()
+
+        resp = client.patch(
+            f"/api/v1/alerts/{alert_id}",
+            json={"target_price": 25.0},
+        )
+        assert resp.status_code == 409
+
+    def test_patch_invalid_price(self, client, card_id):
+        """PATCH with negative target_price returns 422."""
+        resp = client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 10.0, "direction": "below"},
+        )
+        alert_id = resp.json()["data"]["id"]
+
+        resp = client.patch(
+            f"/api/v1/alerts/{alert_id}",
+            json={"target_price": -5.0},
+        )
+        assert resp.status_code == 422
+
+    def test_patch_invalid_direction(self, client, card_id):
+        """PATCH with invalid direction returns 422."""
+        resp = client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 10.0, "direction": "below"},
+        )
+        alert_id = resp.json()["data"]["id"]
+
+        resp = client.patch(
+            f"/api/v1/alerts/{alert_id}",
+            json={"direction": "sideways"},
+        )
+        assert resp.status_code == 422
+
+
+class TestCurrentPrice:
+    def test_list_alerts_includes_current_price(self, client, card_id, repo):
+        """Current price is included when a price observation exists."""
+        # Add a price observation
+        from src.database.models import PriceObservationRow
+
+        with Session(repo.engine) as session:
+            obs = PriceObservationRow(
+                source="liga",
+                external_id=f"liga_{card_id}",
+                observed_at=datetime.now().date(),
+                median_price=Decimal("18.50"),
+                currency="BRL",
+            )
+            session.add(obs)
+            session.commit()
+
+        # Create an alert
+        client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 15.0, "direction": "below"},
+        )
+
+        resp = client.get("/api/v1/alerts?status=active")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 1
+        assert data[0]["current_price"] == 18.50
+
+    def test_list_alerts_current_price_null(self, client, card_id):
+        """Current price is null when no price observation exists."""
+        client.post(
+            "/api/v1/alerts",
+            json={"card_id": card_id, "target_price": 15.0, "direction": "below"},
+        )
+
+        resp = client.get("/api/v1/alerts?status=active")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 1
+        assert data[0]["current_price"] is None
+
+
 class TestNoAuth:
     def test_endpoints_require_auth(self, repo):
         """Endpoints should return 401/422 when no auth is provided."""
@@ -332,6 +524,7 @@ class TestNoAuth:
             ("GET", "/api/v1/alerts"),
             ("GET", "/api/v1/alerts/notifications"),
             ("DELETE", "/api/v1/alerts/1"),
+            ("PATCH", "/api/v1/alerts/1"),
             ("PATCH", "/api/v1/alerts/notifications/read"),
         ]:
             resp = getattr(client, method.lower())(path)

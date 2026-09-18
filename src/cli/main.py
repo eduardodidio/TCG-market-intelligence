@@ -1170,10 +1170,20 @@ def _print_canonize_summary(result):
 def liga_sweep(db, batch_size, batch_pause, delay, max_age_days, limit, dry_run, set_filter):
     """Sweep entire collection through LigaMagic with configurable pacing."""
     from src.collectors.liga_sweep import run_liga_sweep
+    from src.config import get_db_url
+    from src.database.repository import Repository
+    from src.services.alert_checker import make_alert_checker_hook
+    from src.services.scan_hooks import default_registry
+
+    # Register alert checker hook for CLI path
+    db_url = db or get_db_url()
+    repo = Repository(db_url)
+    alert_hook = make_alert_checker_hook(repo)
+    default_registry.register(alert_hook)
 
     result = asyncio.run(
         run_liga_sweep(
-            db_url=db,
+            db_url=db_url,
             batch_size=batch_size,
             batch_pause=batch_pause,
             delay=delay,
@@ -1181,6 +1191,7 @@ def liga_sweep(db, batch_size, batch_pause, delay, max_age_days, limit, dry_run,
             limit=limit,
             dry_run=dry_run,
             set_filter=set_filter,
+            on_complete=default_registry.notify,
         )
     )
     _print_liga_sweep_summary(result)
@@ -2076,8 +2087,16 @@ def catalog_seed(db, skip_download, batch_size, dry_run):
 def catalog_scan(db, set_code, limit, delay, batch_size, batch_pause, max_age_days, dry_run):
     """Scan Liga prices for catalog cards in a specific set."""
     from src.collectors.liga_sweep import run_liga_sweep
+    from src.database.repository import Repository
+    from src.services.alert_checker import make_alert_checker_hook
+    from src.services.scan_hooks import default_registry
 
     click.echo(f"Catalog scan: set={set_code}, limit={limit}, delay={delay}s")
+
+    # Register alert checker hook for CLI path
+    repo = Repository(db)
+    alert_hook = make_alert_checker_hook(repo)
+    default_registry.register(alert_hook)
 
     result = asyncio.run(
         run_liga_sweep(
@@ -2090,6 +2109,7 @@ def catalog_scan(db, set_code, limit, delay, batch_size, batch_pause, max_age_da
             dry_run=dry_run,
             set_filter=set_code,
             collection_only=False,
+            on_complete=default_registry.notify,
         )
     )
     _print_liga_sweep_summary(result)

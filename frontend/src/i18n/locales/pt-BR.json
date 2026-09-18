@@ -86,7 +86,11 @@
     "refreshAllSet": "Atualizar Toda a Colecao",
     "refreshAllSetAction": "Enfileirar atualizacao de precos para todas as cartas de {{set}}",
     "scanQueued": "{{count}} cartas de {{set}} enfileiradas para atualizacao de preco",
-    "scanError": "Falha ao enfileirar atualizacao"
+    "scanError": "Falha ao enfileirar atualizacao",
+    "filterOwnership": "Posse",
+    "filterAll": "Todas",
+    "filterOwned": "Possui",
+    "filterNotOwned": "Nao Possui"
   },
   "admin": {
     "title": "Painel Admin",
@@ -242,7 +246,7 @@
     "topLosers": "Maiores Baixas",
     "collectionErrorTitle": "Nao foi possivel carregar a colecao",
     "collectionErrorDesc": "Houve um problema ao carregar os dados da sua colecao. Isso pode ocorrer apos uma atualizacao do servidor — tente novamente ou faca login novamente.",
-    "investmentTitle": "Investimento",
+    "investmentTitle": "Investimento Catalogado",
     "investmentProgress": "{{count}} de {{total}} cards com valor pago",
     "investmentEmptyTitle": "Acompanhe a valorizacao da sua colecao",
     "investmentEmptyDesc": "Informe o valor pago dos seus cards para ver o investido e o P&L.",
@@ -594,7 +598,9 @@
     "dateNewest": "Data (Mais Recente)",
     "dateOldest": "Data (Mais Antigo)",
     "priceHighLow": "Preco (Maior-Menor)",
-    "priceLowHigh": "Preco (Menor-Maior)"
+    "priceLowHigh": "Preco (Menor-Maior)",
+    "rarityMythicFirst": "Raridade (Mitica primeiro)",
+    "rarityCommonFirst": "Raridade (Comum primeiro)"
   },
   "card": {
     "foil": "Foil",
@@ -1119,7 +1125,15 @@
     "createdAt": "Criado",
     "triggeredAt": "Disparado",
     "dismiss": "Dispensar",
-    "loginRequired": "Entre para gerenciar seus alertas de preco."
+    "loginRequired": "Entre para gerenciar seus alertas de preco.",
+    "createAlert": "Criar Alerta",
+    "searchCard": "Buscar carta...",
+    "selectCard": "Selecione uma carta para criar alerta",
+    "noResults": "Nenhuma carta encontrada",
+    "backToSearch": "Voltar para busca",
+    "currentPrice": "Atual: R$ {{price}}",
+    "editTargetPrice": "Editar preco alvo",
+    "priceUpdated": "Preco alvo atualizado"
   },
   "pwa": {
     "updateAvailable": "Uma nova versao esta disponivel!",
@@ -1151,7 +1165,8 @@
     "gainers": "Maiores Altas",
     "losers": "Maiores Baixas",
     "noData": "Historico de precos insuficiente",
-    "change": "Variacao"
+    "change": "Variacao",
+    "error": "Erro ao carregar movimentacoes"
   },
   "errorCodes": {
     "authInvalidCredentials": "Email ou senha invalidos.",

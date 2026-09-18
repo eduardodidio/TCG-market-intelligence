@@ -86,7 +86,11 @@
     "refreshAllSet": "Refresh All Set",
     "refreshAllSetAction": "Queue price updates for all cards in {{set}}",
     "scanQueued": "Queued {{count}} cards from {{set}} for price update",
-    "scanError": "Failed to queue scan"
+    "scanError": "Failed to queue scan",
+    "filterOwnership": "Ownership",
+    "filterAll": "All",
+    "filterOwned": "Owned",
+    "filterNotOwned": "Not Owned"
   },
   "admin": {
     "title": "Admin Panel",
@@ -242,7 +246,7 @@
     "topLosers": "Top Losers",
     "collectionErrorTitle": "Could not load collection",
     "collectionErrorDesc": "There was a problem loading your collection data. This may happen after a server update — try again or re-login.",
-    "investmentTitle": "Investment",
+    "investmentTitle": "Cataloged Investment",
     "investmentProgress": "{{count}} of {{total}} cards with paid price",
     "investmentEmptyTitle": "Track your collection's appreciation",
     "investmentEmptyDesc": "Set the paid price on your cards to see invested value and P&L.",
@@ -594,7 +598,9 @@
     "dateNewest": "Date Added (Newest)",
     "dateOldest": "Date Added (Oldest)",
     "priceHighLow": "Price (High-Low)",
-    "priceLowHigh": "Price (Low-High)"
+    "priceLowHigh": "Price (Low-High)",
+    "rarityMythicFirst": "Rarity (Mythic first)",
+    "rarityCommonFirst": "Rarity (Common first)"
   },
   "card": {
     "foil": "Foil",
@@ -1119,7 +1125,15 @@
     "createdAt": "Created",
     "triggeredAt": "Triggered",
     "dismiss": "Dismiss",
-    "loginRequired": "Please sign in to manage your price alerts."
+    "loginRequired": "Please sign in to manage your price alerts.",
+    "createAlert": "Create Alert",
+    "searchCard": "Search for a card...",
+    "selectCard": "Select a card to set an alert",
+    "noResults": "No cards found",
+    "backToSearch": "Back to search",
+    "currentPrice": "Current: R$ {{price}}",
+    "editTargetPrice": "Edit target price",
+    "priceUpdated": "Target price updated"
   },
   "pwa": {
     "updateAvailable": "A new version is available!",
@@ -1151,7 +1165,8 @@
     "gainers": "Top Gainers",
     "losers": "Top Losers",
     "noData": "Not enough price history yet",
-    "change": "Change"
+    "change": "Change",
+    "error": "Failed to load movers"
   },
   "errorCodes": {
     "authInvalidCredentials": "Invalid email or password.",

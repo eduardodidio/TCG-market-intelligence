@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { refreshCardPrice } from "../api/cards";
@@ -12,7 +12,9 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { GridSizeToggle } from "../components/GridSizeToggle";
 import { SearchBar } from "../components/SearchBar";
+import { SetIconFilter } from "../components/SetIconFilter";
 import { SkeletonCard } from "../components/Skeleton";
+import { SortSelect, CATALOG_SORT_OPTIONS } from "../components/SortSelect";
 import { useAuth } from "../hooks/useAuth";
 import { useCatalogCards } from "../hooks/useCatalogCards";
 import type { CatalogCard } from "../hooks/useCatalogCards";
@@ -24,6 +26,7 @@ import { useGridSize } from "../hooks/useGridSize";
 import { usePriceRequestPolling } from "../hooks/usePriceRequestPolling";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { GRID_SIZE_CONFIG } from "../utils/constants";
+import { isPromoCard } from "../utils/promo";
 
 const RARITY_OPTIONS = [
   { value: "C", label: "C" },
@@ -47,6 +50,8 @@ const RARITY_COLORS: Record<string, string> = {
   r: "bg-amber-600 text-amber-100",
   m: "bg-orange-600 text-orange-100",
 };
+
+type OwnedFilter = "all" | "owned" | "not_owned";
 
 function RarityBadge({ rarity }: { rarity: string | null }) {
   if (!rarity) return null;
@@ -277,6 +282,7 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
       <CardPreviewModal
         imageUrl={card.image_uri}
         cardName={displayName}
+        isPromo={isPromoCard(card.set_code, null)}
         onClose={() => setPreviewOpen(false)}
       />
     )}
@@ -300,7 +306,9 @@ export function CatalogPage() {
 
   // Initialize filters from URL search params
   const [searchTerm, setSearchTerm] = useState(searchParams.get("name") ?? "");
-  const [selectedSet, setSelectedSet] = useState(searchParams.get("set_code") ?? "");
+  const [selectedSet, setSelectedSet] = useState<string | null>(
+    searchParams.get("set_code") || null,
+  );
   const [selectedRarities, setSelectedRarities] = useState<Set<string>>(
     () => new Set(searchParams.get("rarity")?.split(",").filter(Boolean) ?? []),
   );
@@ -309,26 +317,37 @@ export function CatalogPage() {
   );
   const [hasPrice, setHasPrice] = useState(searchParams.get("has_price") ?? "");
   const [sortBy, setSortBy] = useState(searchParams.get("sort_by") ?? "name");
-  const [sortDir, setSortDir] = useState(searchParams.get("sort_dir") ?? "asc");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(
+    (searchParams.get("sort_dir") as "asc" | "desc") ?? "asc",
+  );
+  const [ownedFilter, setOwnedFilter] = useState<OwnedFilter>(
+    () => (searchParams.get("owned_filter") as OwnedFilter) ?? "all",
+  );
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Sync filters to URL search params
   useEffect(() => {
     const params: Record<string, string> = {};
     if (searchTerm) params.name = searchTerm;
-    if (selectedSet) params.set_code = selectedSet;
+    if (selectedSet !== null) params.set_code = selectedSet;
     if (selectedRarities.size > 0) params.rarity = [...selectedRarities].join(",");
     if (selectedColors.size > 0) params.color = [...selectedColors].join(",");
     if (hasPrice) params.has_price = hasPrice;
     if (sortBy && sortBy !== "name") params.sort_by = sortBy;
     if (sortDir && sortDir !== "asc") params.sort_dir = sortDir;
     if (ownedView) params.owned_view = "1";
+    if (ownedFilter !== "all") params.owned_filter = ownedFilter;
     setSearchParams(params, { replace: true });
-  }, [searchTerm, selectedSet, selectedRarities, selectedColors, hasPrice, sortBy, sortDir, setSearchParams]);
+  }, [searchTerm, selectedSet, selectedRarities, selectedColors, hasPrice, sortBy, sortDir, ownedFilter, setSearchParams, ownedView]);
+
+  const { isAuthenticated } = useAuth();
+
+  // Determine if we need ownership data from API
+  const needsOwnership = ownedView || (ownedFilter !== "all" && isAuthenticated);
 
   const filters = {
     name: searchTerm,
-    set_code: selectedSet,
+    set_code: selectedSet ?? "",
     rarity: [...selectedRarities].join(","),
     color: [...selectedColors].join(","),
     has_price: hasPrice,
@@ -336,14 +355,21 @@ export function CatalogPage() {
     max_price: "",
     sort_by: sortBy,
     sort_dir: sortDir,
-    with_ownership: ownedView ? "true" : "",
+    with_ownership: needsOwnership ? "true" : "",
   };
 
-  const { cards, total, loading, loadingMore, error, hasMore, loadMore } = useCatalogCards(filters);
+  const { cards: rawCards, total, loading, loadingMore, error, hasMore, loadMore } = useCatalogCards(filters);
   const { sets } = useCatalogSets();
   const { stats } = useCatalogStats();
-  const { isAuthenticated } = useAuth();
   const { balance, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
+
+  // Client-side owned filter
+  const cards = useMemo(() => {
+    if (ownedFilter === "all" || !isAuthenticated) return rawCards;
+    if (ownedFilter === "owned") return rawCards.filter((c) => c.owned === true);
+    // "not_owned" — treat null as not owned
+    return rawCards.filter((c) => c.owned !== true);
+  }, [rawCards, ownedFilter, isAuthenticated]);
 
   // Refresh All Set state
   const [scanModalOpen, setScanModalOpen] = useState(false);
@@ -413,25 +439,43 @@ export function CatalogPage() {
 
   const handleClearFilters = useCallback(() => {
     setSearchTerm("");
-    setSelectedSet("");
+    setSelectedSet(null);
     setSelectedRarities(new Set());
     setSelectedColors(new Set());
     setHasPrice("");
     setSortBy("name");
     setSortDir("asc");
+    setOwnedFilter("all");
   }, []);
 
   const hasActiveFilters =
     searchTerm !== "" ||
-    selectedSet !== "" ||
+    selectedSet !== null ||
     selectedRarities.size > 0 ||
     selectedColors.size > 0 ||
-    hasPrice !== "";
+    hasPrice !== "" ||
+    ownedFilter !== "all";
 
-  const setOptions = sets.map((s) => ({
+  // Count of active filters for the badge
+  const activeFilterCount = [
+    selectedSet !== null,
+    selectedRarities.size > 0,
+    selectedColors.size > 0,
+    hasPrice !== "",
+    ownedFilter !== "all",
+  ].filter(Boolean).length;
+
+  const setIconOptions = sets.map((s) => ({
+    label: s.set_code,
     value: s.set_code,
-    label: `${s.set_code} (${s.card_count})`,
   }));
+
+  const sortValue = `${sortBy}-${sortDir}`;
+
+  const handleSortChange = useCallback((newSortBy: string, newSortDir: "asc" | "desc") => {
+    setSortBy(newSortBy);
+    setSortDir(newSortDir);
+  }, []);
 
   return (
     <div data-testid="page-catalog">
@@ -457,6 +501,7 @@ export function CatalogPage() {
 
       {/* Search and filters — sticky bar */}
       <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm pb-4 pt-2 -mx-6 px-6 border-b border-slate-700/50 space-y-4 mb-6" data-testid="sticky-filter-bar">
+        {/* Row 1: Search + SortSelect + Filters toggle + GridSizeToggle */}
         <div className="flex gap-3 items-center">
           <div className="flex-1">
             <SearchBar
@@ -465,6 +510,11 @@ export function CatalogPage() {
               placeholder={t("catalog.searchPlaceholderBilingual")}
             />
           </div>
+          <SortSelect
+            options={CATALOG_SORT_OPTIONS}
+            value={sortValue}
+            onChange={handleSortChange}
+          />
           <button
             onClick={() => setFiltersOpen((prev) => !prev)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -476,155 +526,149 @@ export function CatalogPage() {
             aria-expanded={filtersOpen}
           >
             {t("catalog.filters")}
-            {hasActiveFilters && (
-              <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-white text-cyan-600 rounded-full">
-                {
-                  [selectedSet, selectedRarities.size > 0, selectedColors.size > 0, hasPrice].filter(
-                    Boolean,
-                  ).length
-                }
+            {activeFilterCount > 0 && (
+              <span
+                className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-white text-cyan-600 rounded-full"
+                data-testid="filter-badge"
+              >
+                {activeFilterCount}
               </span>
             )}
           </button>
           <GridSizeToggle value={gridSize} onChange={setGridSize} />
         </div>
 
+        {/* Row 2: SetIconFilter */}
+        {setIconOptions.length > 0 && (
+          <SetIconFilter
+            options={setIconOptions}
+            selected={selectedSet}
+            onSelect={setSelectedSet}
+          />
+        )}
+
         {/* Collapsible filter section */}
         {filtersOpen && (
           <div
-            className="bg-slate-800 border border-slate-700 rounded-lg p-4 space-y-4"
+            className="bg-slate-800 border border-slate-700 rounded-lg p-4"
             data-testid="filter-section"
           >
-            {/* Set filter */}
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                {t("catalog.setFilter")}
-              </label>
-              <select
-                value={selectedSet}
-                onChange={(e) => setSelectedSet(e.target.value)}
-                className="w-full bg-slate-700 text-white border border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                data-testid="set-select"
-              >
-                <option value="">{t("common.all")}</option>
-                {setOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4">
+              {/* Rarity chips */}
+              <div className="min-w-0">
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  {t("catalog.rarityFilter")}
+                </label>
+                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                  {RARITY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleRarity(opt.value)}
+                      className={`px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm rounded-md font-medium transition-colors ${
+                        selectedRarities.has(opt.value)
+                          ? "bg-cyan-500 text-white"
+                          : "bg-slate-700 text-slate-400 hover:text-white"
+                      }`}
+                      data-testid={`rarity-chip-${opt.value}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            {/* Rarity chips */}
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                {t("catalog.rarityFilter")}
-              </label>
-              <div className="flex gap-2 flex-wrap">
-                {RARITY_OPTIONS.map((opt) => (
+              {/* Color identity chips */}
+              <div className="min-w-0">
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  {t("catalog.colorFilter")}
+                </label>
+                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                  {COLOR_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleColor(opt.value)}
+                      className={`px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm rounded-full font-bold transition-colors ${
+                        selectedColors.has(opt.value)
+                          ? "ring-2 ring-cyan-400 " + opt.color
+                          : opt.color + " opacity-50 hover:opacity-75"
+                      }`}
+                      data-testid={`color-chip-${opt.value}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Has price toggle */}
+              <div className="min-w-0">
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  {t("catalog.priceFilter")}
+                </label>
+                <div className="flex gap-1.5 sm:gap-2">
                   <button
-                    key={opt.value}
-                    onClick={() => toggleRarity(opt.value)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      selectedRarities.has(opt.value)
+                    onClick={() => setHasPrice(hasPrice === "true" ? "" : "true")}
+                    className={`px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm rounded-md font-medium transition-colors ${
+                      hasPrice === "true"
                         ? "bg-cyan-500 text-white"
                         : "bg-slate-700 text-slate-400 hover:text-white"
                     }`}
-                    data-testid={`rarity-chip-${opt.value}`}
+                    data-testid="has-price-btn"
                   >
-                    {opt.label}
+                    {t("catalog.hasPrice")}
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Color identity chips */}
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                {t("catalog.colorFilter")}
-              </label>
-              <div className="flex gap-2 flex-wrap">
-                {COLOR_OPTIONS.map((opt) => (
                   <button
-                    key={opt.value}
-                    onClick={() => toggleColor(opt.value)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-bold transition-colors ${
-                      selectedColors.has(opt.value)
-                        ? "ring-2 ring-cyan-400 " + opt.color
-                        : opt.color + " opacity-50 hover:opacity-75"
+                    onClick={() => setHasPrice(hasPrice === "false" ? "" : "false")}
+                    className={`px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm rounded-md font-medium transition-colors ${
+                      hasPrice === "false"
+                        ? "bg-cyan-500 text-white"
+                        : "bg-slate-700 text-slate-400 hover:text-white"
                     }`}
-                    data-testid={`color-chip-${opt.value}`}
+                    data-testid="no-price-btn"
                   >
-                    {opt.label}
+                    {t("catalog.noPrice")}
                   </button>
-                ))}
+                </div>
               </div>
-            </div>
 
-            {/* Has price toggle */}
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                {t("catalog.priceFilter")}
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setHasPrice(hasPrice === "true" ? "" : "true")}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    hasPrice === "true"
-                      ? "bg-cyan-500 text-white"
-                      : "bg-slate-700 text-slate-400 hover:text-white"
-                  }`}
-                  data-testid="has-price-btn"
-                >
-                  {t("catalog.hasPrice")}
-                </button>
-                <button
-                  onClick={() => setHasPrice(hasPrice === "false" ? "" : "false")}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    hasPrice === "false"
-                      ? "bg-cyan-500 text-white"
-                      : "bg-slate-700 text-slate-400 hover:text-white"
-                  }`}
-                  data-testid="no-price-btn"
-                >
-                  {t("catalog.noPrice")}
-                </button>
-              </div>
-            </div>
-
-            {/* Sort options */}
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                {t("catalog.sortBy")}
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="bg-slate-700 text-white border border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  data-testid="sort-by-select"
-                >
-                  <option value="name">{t("catalog.sortName")}</option>
-                  <option value="set_code">{t("catalog.sortSet")}</option>
-                  <option value="price">{t("catalog.sortPrice")}</option>
-                </select>
-                <select
-                  value={sortDir}
-                  onChange={(e) => setSortDir(e.target.value)}
-                  className="bg-slate-700 text-white border border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  data-testid="sort-dir-select"
-                >
-                  <option value="asc">{t("catalog.sortAsc")}</option>
-                  <option value="desc">{t("catalog.sortDesc")}</option>
-                </select>
-              </div>
+              {/* Owned filter — only for authenticated users */}
+              {isAuthenticated && (
+                <div className="min-w-0" data-testid="owned-filter-section">
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                    {t("catalog.filterOwnership")}
+                  </label>
+                  <div className="flex gap-1.5 sm:gap-2">
+                    {(["all", "owned", "not_owned"] as const).map((value) => {
+                      const labelMap: Record<OwnedFilter, string> = {
+                        all: t("catalog.filterAll"),
+                        owned: t("catalog.filterOwned"),
+                        not_owned: t("catalog.filterNotOwned"),
+                      };
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => setOwnedFilter(value)}
+                          className={`px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm rounded-md font-medium transition-colors ${
+                            ownedFilter === value
+                              ? "bg-cyan-500 text-white"
+                              : "bg-slate-700 text-slate-400 hover:text-white"
+                          }`}
+                          data-testid={`owned-chip-${value}`}
+                        >
+                          {labelMap[value]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Clear filters */}
             {hasActiveFilters && (
               <button
                 onClick={handleClearFilters}
-                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors mt-4"
                 data-testid="clear-filters-btn"
               >
                 {t("common.clearFilters")}

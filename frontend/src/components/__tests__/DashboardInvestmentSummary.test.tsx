@@ -8,7 +8,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) => {
       const translations: Record<string, string> = {
-        "dashboard.investmentTitle": "Investment",
+        "dashboard.investmentTitle": "Cataloged Investment",
         "dashboard.investmentProgress": "{{count}} of {{total}} cards with paid price",
         "dashboard.investmentEmptyTitle": "Track your collection's appreciation",
         "dashboard.investmentEmptyDesc":

@@ -67,7 +67,7 @@ class TestCardDetailLigaUrl:
 
         assert data["ligamagic_url"] is not None
         assert "Lightning+Bolt" in data["ligamagic_url"]
-        assert "&show=1" in data["ligamagic_url"]
+        assert "view=cards/card" in data["ligamagic_url"]
 
     def test_split_card_uses_front_face_only(self) -> None:
         mock_repo = MagicMock()
@@ -81,9 +81,10 @@ class TestCardDetailLigaUrl:
         resp = client.get("/cards/1")
         data = resp.json()["data"]
 
+        # Liga requires full name (including back face) for correct card page
         assert "Painter%27s+Studio" in data["ligamagic_url"]
-        assert "Defaced" not in data["ligamagic_url"]
-        assert "&show=1" in data["ligamagic_url"]
+        assert "Defaced+Gallery" in data["ligamagic_url"]
+        assert "view=cards/card" in data["ligamagic_url"]
 
     def test_card_with_comma(self) -> None:
         mock_repo = MagicMock()
@@ -98,7 +99,7 @@ class TestCardDetailLigaUrl:
         data = resp.json()["data"]
 
         assert "Thalia%2C+Guardian+of+Thraben" in data["ligamagic_url"]
-        assert "&show=1" in data["ligamagic_url"]
+        assert "view=cards/card" in data["ligamagic_url"]
 
     def test_dfc_with_comma(self) -> None:
         mock_repo = MagicMock()
@@ -112,8 +113,9 @@ class TestCardDetailLigaUrl:
         resp = client.get("/cards/1")
         data = resp.json()["data"]
 
+        # Liga requires full name (including back face) for correct card page
         assert "Beorn%2C+Reluctant+Host" in data["ligamagic_url"]
-        assert "Till" not in data["ligamagic_url"]
+        assert "Till+and+Tend" in data["ligamagic_url"]
 
     def test_card_with_apostrophe(self) -> None:
         mock_repo = MagicMock()
