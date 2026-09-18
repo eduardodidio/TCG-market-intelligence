@@ -8,6 +8,23 @@ export interface CatalogScanResponse {
   total_cost: number;
 }
 
+export interface ImportLigaResponse {
+  status: string;
+  card_id: number;
+  card_name: string;
+  message: string;
+}
+
+export function importLigaCard(
+  url: string,
+): Promise<ApiResponse<ImportLigaResponse>> {
+  return apiPost<ImportLigaResponse>(
+    "/api/v1/catalog/import-liga",
+    { url },
+    { timeoutMs: 15_000 },
+  );
+}
+
 export function refreshCatalogSet(
   setCode: string,
 ): Promise<ApiResponse<CatalogScanResponse>> {

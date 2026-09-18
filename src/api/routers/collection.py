@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import quote_plus
 
@@ -1976,3 +1976,106 @@ async def _run_snapshot_job(
         )
     except Exception as e:
         job_tracker.fail(job_id, str(e))
+
+
+# ---------------------------------------------------------------------------
+# Bulk refresh (queue-based) — F148-T04
+# ---------------------------------------------------------------------------
+
+MAX_BULK_REFRESH_CARDS = 500
+
+
+@router.post("/refresh-all-prices")
+def refresh_all_collection_prices(
+    repo: Repository = Depends(get_db),
+    user: User = Depends(get_current_user),
+    credit_svc: CreditService = Depends(get_credit_service),
+):
+    """Queue price update requests for all cards in the user's collection.
+
+    Creates ``PriceUpdateRequestRow`` entries for each distinct card_id in the
+    user's collection.  Deduplicates against pending requests created within the
+    last 24 hours.  Safety cap: 500 cards per request.  Cost: 1 credit per card.
+    """
+    from sqlalchemy import select as sa_select
+    from sqlalchemy.orm import Session as SaSession
+
+    from src.database.models import PriceUpdateRequestRow, UserCollectionRow
+
+    user_id_str = str(user.id)
+
+    # 1. Fetch all distinct card_ids from user_collection
+    with SaSession(repo.engine) as session:
+        card_ids = list(
+            session.execute(
+                sa_select(UserCollectionRow.card_id)
+                .where(
+                    UserCollectionRow.user_id == user_id_str,
+                    UserCollectionRow.card_id.isnot(None),
+                )
+                .distinct()
+            )
+            .scalars()
+            .all()
+        )
+
+    if not card_ids:
+        return success_response(
+            data={"status": "queued", "card_count": 0, "total_cost": 0, "skipped": 0}
+        )
+
+    # 2. Safety cap
+    capped = card_ids[:MAX_BULK_REFRESH_CARDS]
+
+    # 3. Deduplicate against pending requests created < 24h ago
+    cutoff = datetime.now() - timedelta(hours=24)
+    with SaSession(repo.engine) as session:
+        existing_ids = set(
+            session.execute(
+                sa_select(PriceUpdateRequestRow.card_id).where(
+                    PriceUpdateRequestRow.card_id.in_(capped),
+                    PriceUpdateRequestRow.status == "pending",
+                    PriceUpdateRequestRow.requested_at >= cutoff,
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    to_enqueue = [cid for cid in capped if cid not in existing_ids]
+    skipped = len(capped) - len(to_enqueue)
+
+    if not to_enqueue:
+        return success_response(
+            data={"status": "queued", "card_count": 0, "total_cost": 0, "skipped": skipped}
+        )
+
+    # 4. Credit guard
+    total_cost = len(to_enqueue) * CARD_REFRESH_COST
+    if not credit_svc.check_sufficient(user.id, total_cost):
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
+
+    # 5. Deduct credits
+    credit_svc.deduct(user.id, total_cost, "bulk_refresh", reference_id="collection")
+
+    # 6. Create PriceUpdateRequestRow entries
+    with SaSession(repo.engine) as session:
+        rows_to_insert = [
+            PriceUpdateRequestRow(
+                card_id=cid,
+                user_id=user.id,
+                status="pending",
+            )
+            for cid in to_enqueue
+        ]
+        session.add_all(rows_to_insert)
+        session.commit()
+
+    return success_response(
+        data={
+            "status": "queued",
+            "card_count": len(to_enqueue),
+            "total_cost": total_cost,
+            "skipped": skipped,
+        }
+    )

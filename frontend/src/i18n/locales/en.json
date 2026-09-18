@@ -90,7 +90,12 @@
     "filterOwnership": "Ownership",
     "filterAll": "All",
     "filterOwned": "Owned",
-    "filterNotOwned": "Not Owned"
+    "filterNotOwned": "Not Owned",
+    "importPlaceholder": "Paste Liga Magic URL...",
+    "importBtn": "Import",
+    "importSuccess": "{{name}} queued for price update",
+    "importError": "Failed to import card",
+    "clickToFetch": "Click to fetch price"
   },
   "admin": {
     "title": "Admin Panel",
@@ -321,6 +326,9 @@
     "refreshError": "Failed to refresh price",
     "notLinkedRefresh": "Card not linked to a price source",
     "refreshAll": "Refresh All",
+    "queueRefreshAll": "Queue Refresh",
+    "queueRefreshAction": "Queue price updates for all collection cards",
+    "queueRefreshSuccess": "{{count}} cards queued for price update",
     "refreshComplete": "Prices updated!",
     "refreshCancel": "Cancel",
     "canonize": "Link to price tracking",

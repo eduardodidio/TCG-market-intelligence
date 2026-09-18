@@ -90,7 +90,12 @@
     "filterOwnership": "Posse",
     "filterAll": "Todas",
     "filterOwned": "Possui",
-    "filterNotOwned": "Nao Possui"
+    "filterNotOwned": "Nao Possui",
+    "importPlaceholder": "Cole o link da Liga Magic...",
+    "importBtn": "Importar",
+    "importSuccess": "{{name}} enfileirado para atualizacao de preco",
+    "importError": "Falha ao importar carta",
+    "clickToFetch": "Clique para buscar preco"
   },
   "admin": {
     "title": "Painel Admin",
@@ -321,6 +326,9 @@
     "refreshError": "Falha ao atualizar preco",
     "notLinkedRefresh": "Carta nao vinculada a uma fonte de preco",
     "refreshAll": "Atualizar Todos",
+    "queueRefreshAll": "Enfileirar Atualizacao",
+    "queueRefreshAction": "Enfileirar atualizacao de precos para todas as cartas da colecao",
+    "queueRefreshSuccess": "{{count}} cartas enfileiradas para atualizacao de preco",
     "refreshComplete": "Precos atualizados!",
     "refreshCancel": "Cancelar",
     "canonize": "Vincular a rastreamento de preco",

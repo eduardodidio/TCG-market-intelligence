@@ -293,3 +293,20 @@ export async function importCollectionCsv(
   });
   return res.json();
 }
+
+// --- Bulk refresh all collection prices (queue-based) ---
+
+export interface BulkRefreshResult {
+  status: string;
+  card_count: number;
+  total_cost: number;
+  skipped: number;
+}
+
+export function refreshAllCollectionPrices(): Promise<ApiResponse<BulkRefreshResult>> {
+  return apiPost<BulkRefreshResult>(
+    "/api/v1/collection/refresh-all-prices",
+    {},
+    { timeoutMs: 30000 },
+  );
+}

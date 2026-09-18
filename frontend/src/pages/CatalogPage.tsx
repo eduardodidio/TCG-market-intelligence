@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { refreshCardPrice } from "../api/cards";
-import { refreshCatalogSet } from "../api/catalog";
+import { importLigaCard, refreshCatalogSet } from "../api/catalog";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
@@ -125,7 +125,8 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
 
   // Determine the visual state of the refresh button
   const pollingTimedOut = queued && !isPolling && requestStatus !== "completed" && requestStatus !== "failed";
-  const showAlwaysVisible = refreshError || queued || completed || failed;
+  const isUnpriced = card.liga_price == null;
+  const showAlwaysVisible = refreshError || queued || completed || failed || isUnpriced;
 
   const buttonColor = refreshError || failed
     ? "text-red-400"
@@ -235,7 +236,25 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
             </span>
           )}
           <RarityBadge rarity={card.rarity} />
+          {card.collector_number && (
+            <span
+              className="inline-block px-1 py-0.5 text-xs font-mono text-slate-500"
+              data-testid="collector-number"
+            >
+              #{card.collector_number}
+            </span>
+          )}
         </div>
+
+        {card.type_line && (
+          <p
+            className="text-xs text-slate-500 truncate mt-0.5"
+            title={card.type_line}
+            data-testid="type-line"
+          >
+            {card.type_line}
+          </p>
+        )}
 
         {isUnowned && (
           <span
@@ -251,9 +270,16 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
             R$ {card.liga_price.toFixed(2)}
           </p>
         ) : (
-          <p className="mt-2 text-sm text-slate-500" data-testid="card-price">
-            {t("common.noPriceData")}
-          </p>
+          <div className="mt-2">
+            <p className="text-sm text-slate-500" data-testid="card-price">
+              {t("common.noPriceData")}
+            </p>
+            {isAuthenticated && !queued && !completed && !failed && (
+              <p className="text-xs text-slate-600 mt-0.5" data-testid="fetch-price-hint">
+                {t("catalog.clickToFetch", { defaultValue: "Click to fetch price" })}
+              </p>
+            )}
+          </div>
         )}
         {(queued && isPolling) && (
           <span className="text-xs text-cyan-400 mt-1 block" data-testid="queued-feedback">
@@ -290,6 +316,78 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
   );
 }
 
+function ImportLigaLink() {
+  const { t } = useTranslation();
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const isValidUrl = url.includes("ligamagic.com.br");
+
+  const handleImport = async () => {
+    if (!isValidUrl || loading) return;
+    setLoading(true);
+    setFeedback(null);
+    try {
+      const res = await importLigaCard(url.trim());
+      if (res.errors && res.errors.length > 0) {
+        setFeedback({ type: "error", text: res.errors.map((e) => e.message).join("; ") });
+      } else if (res.data) {
+        setFeedback({
+          type: "success",
+          text: t("catalog.importSuccess", {
+            name: res.data.card_name,
+            defaultValue: "{{name}} queued for price update",
+          }),
+        });
+        setUrl("");
+      }
+    } catch {
+      setFeedback({ type: "error", text: t("catalog.importError", { defaultValue: "Failed to import card" }) });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setFeedback(null), 6000);
+    }
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center" data-testid="import-liga-section">
+      <div className="flex gap-2 items-center flex-1 w-full sm:w-auto">
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder={t("catalog.importPlaceholder", { defaultValue: "Paste Liga Magic URL..." })}
+          className="flex-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded-md
+            text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-400
+            focus:border-cyan-400"
+          data-testid="import-liga-input"
+        />
+        <button
+          onClick={handleImport}
+          disabled={!isValidUrl || loading}
+          className="px-4 py-1.5 text-sm font-medium bg-cyan-600 hover:bg-cyan-500 text-white
+            rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+            whitespace-nowrap"
+          data-testid="import-liga-btn"
+        >
+          {loading
+            ? t("common.loading")
+            : t("catalog.importBtn", { defaultValue: "Importar" })}
+        </button>
+      </div>
+      {feedback && (
+        <span
+          className={`text-sm ${feedback.type === "success" ? "text-green-400" : "text-red-400"}`}
+          data-testid="import-liga-feedback"
+        >
+          {feedback.text}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function CatalogPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -316,9 +414,9 @@ export function CatalogPage() {
     () => new Set(searchParams.get("color")?.split(",").filter(Boolean) ?? []),
   );
   const [hasPrice, setHasPrice] = useState(searchParams.get("has_price") ?? "");
-  const [sortBy, setSortBy] = useState(searchParams.get("sort_by") ?? "name");
+  const [sortBy, setSortBy] = useState(searchParams.get("sort_by") ?? "price");
   const [sortDir, setSortDir] = useState<"asc" | "desc">(
-    (searchParams.get("sort_dir") as "asc" | "desc") ?? "asc",
+    (searchParams.get("sort_dir") as "asc" | "desc") ?? "desc",
   );
   const [ownedFilter, setOwnedFilter] = useState<OwnedFilter>(
     () => (searchParams.get("owned_filter") as OwnedFilter) ?? "all",
@@ -333,8 +431,8 @@ export function CatalogPage() {
     if (selectedRarities.size > 0) params.rarity = [...selectedRarities].join(",");
     if (selectedColors.size > 0) params.color = [...selectedColors].join(",");
     if (hasPrice) params.has_price = hasPrice;
-    if (sortBy && sortBy !== "name") params.sort_by = sortBy;
-    if (sortDir && sortDir !== "asc") params.sort_dir = sortDir;
+    if (sortBy && sortBy !== "price") params.sort_by = sortBy;
+    if (sortDir && sortDir !== "desc") params.sort_dir = sortDir;
     if (ownedView) params.owned_view = "1";
     if (ownedFilter !== "all") params.owned_filter = ownedFilter;
     setSearchParams(params, { replace: true });
@@ -443,8 +541,8 @@ export function CatalogPage() {
     setSelectedRarities(new Set());
     setSelectedColors(new Set());
     setHasPrice("");
-    setSortBy("name");
-    setSortDir("asc");
+    setSortBy("price");
+    setSortDir("desc");
     setOwnedFilter("all");
   }, []);
 
@@ -497,6 +595,13 @@ export function CatalogPage() {
             priced: stats.cards_with_price.toLocaleString(),
           })}
         </p>
+      )}
+
+      {/* Import via Liga link */}
+      {isAuthenticated && (
+        <div className="mb-4">
+          <ImportLigaLink />
+        </div>
       )}
 
       {/* Search and filters — sticky bar */}
