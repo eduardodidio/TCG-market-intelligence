@@ -27,6 +27,7 @@ import { PriceChart } from "../components/PriceChart";
 import { Card3DTilt } from "../components/Card3DTilt";
 import { CardPreviewModal } from "../components/CardPreviewModal";
 import { FoilBadge } from "../components/FoilBadge";
+import { isPromoCard } from "../utils/promo";
 import { PriceSourceBadge } from "../components/PriceSourceBadge";
 import { QuantityStepper } from "../components/QuantityStepper";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
@@ -714,6 +715,7 @@ export function CollectionCardDetail() {
           imageUrl={imageUrl}
           cardName={displayName}
           isFoil={entry.is_foil}
+          isPromo={isPromoCard(entry.set_code, entry.extras)}
           onClose={() => setPreviewOpen(false)}
         />
       )}

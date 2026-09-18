@@ -21,6 +21,7 @@ import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { useDebounce } from "../hooks/useDebounce";
 import { formatCurrency } from "../utils/format";
+import { isPromoCard } from "../utils/promo";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
 function SharedCardTile({
@@ -127,6 +128,7 @@ function SharedCardTile({
         imageUrl={currentUrl}
         cardName={displayName}
         isFoil={false}
+        isPromo={isPromoCard(listing.set_code, null)}
         onClose={() => setPreviewOpen(false)}
       />
     )}

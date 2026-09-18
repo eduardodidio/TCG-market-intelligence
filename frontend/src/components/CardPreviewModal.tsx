@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Card3DTilt } from "./Card3DTilt";
+import { PromoBadge } from "./PromoBadge";
 
 interface CardPreviewModalProps {
   imageUrl: string;
   cardName: string;
   isFoil?: boolean;
+  isPromo?: boolean;
   onClose: () => void;
 }
 
@@ -13,6 +15,7 @@ export function CardPreviewModal({
   imageUrl,
   cardName,
   isFoil = false,
+  isPromo = false,
   onClose,
 }: CardPreviewModalProps) {
   const [visible, setVisible] = useState(false);
@@ -62,13 +65,16 @@ export function CardPreviewModal({
           &#x2715;
         </button>
 
-        <Card3DTilt tiltMaxAngle={18} scale={1.08} foil={isFoil}>
-          <img
-            src={imageUrl}
-            alt={cardName}
-            className="rounded-xl shadow-2xl w-full max-h-[80vh]"
-            draggable={false}
-          />
+        <Card3DTilt tiltMaxAngle={18} scale={1.08} foil={isFoil} glowBorder={isFoil}>
+          <div className="relative">
+            <img
+              src={imageUrl}
+              alt={cardName}
+              className="rounded-xl shadow-2xl w-full max-h-[80vh]"
+              draggable={false}
+            />
+            {isPromo && <PromoBadge />}
+          </div>
         </Card3DTilt>
 
         <p className="text-white text-center mt-3 text-lg font-medium drop-shadow-lg">

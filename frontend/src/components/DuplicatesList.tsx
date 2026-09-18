@@ -5,6 +5,7 @@ import type { DuplicateCard } from "../types/tradeMatch";
 import { Card3DTilt } from "./Card3DTilt";
 import { CardImage } from "./CardImage";
 import { CardPreviewModal } from "./CardPreviewModal";
+import { isPromoCard } from "../utils/promo";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 
 interface DuplicatesListProps {
@@ -83,6 +84,7 @@ function DuplicateCardTile({ card }: { card: DuplicateCard }) {
           imageUrl={imgSrc}
           cardName={card.name_en ?? "Card"}
           isFoil={false}
+          isPromo={isPromoCard(card.set_code, null)}
           onClose={() => setPreviewOpen(false)}
         />
       )}

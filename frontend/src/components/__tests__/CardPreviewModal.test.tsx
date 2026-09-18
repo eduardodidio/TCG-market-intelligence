@@ -124,4 +124,27 @@ describe("CardPreviewModal", () => {
     expect(tiltWrapper.style.overflow).toBe("hidden");
     expect(tiltWrapper.style.borderRadius).toBe("12px");
   });
+
+  it("renders PromoBadge when isPromo is true", () => {
+    render(<CardPreviewModal {...defaultProps} isPromo={true} />);
+    expect(document.body.querySelector('[data-testid="promo-badge"]')).toBeInTheDocument();
+  });
+
+  it("does NOT render PromoBadge when isPromo is false", () => {
+    render(<CardPreviewModal {...defaultProps} isPromo={false} />);
+    expect(document.body.querySelector('[data-testid="promo-badge"]')).not.toBeInTheDocument();
+  });
+
+  it("does NOT render PromoBadge when isPromo is not provided (defaults to false)", () => {
+    render(<CardPreviewModal {...defaultProps} />);
+    expect(document.body.querySelector('[data-testid="promo-badge"]')).not.toBeInTheDocument();
+  });
+
+  it("renders both foil shimmer and PromoBadge when isFoil and isPromo are both true", () => {
+    render(<CardPreviewModal {...defaultProps} isFoil={true} isPromo={true} />);
+    const shimmer = document.body.querySelector('[data-testid="foil-shimmer-wrapper"]');
+    const badge = document.body.querySelector('[data-testid="promo-badge"]');
+    expect(shimmer).toBeInTheDocument();
+    expect(badge).toBeInTheDocument();
+  });
 });

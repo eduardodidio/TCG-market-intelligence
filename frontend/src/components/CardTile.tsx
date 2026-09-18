@@ -10,6 +10,7 @@ import { useCurrency } from "../hooks/useCurrency";
 import { usePriceRequestPolling } from "../hooks/usePriceRequestPolling";
 import { formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { isPromoCard } from "../utils/promo";
 import { Card3DTilt } from "./Card3DTilt";
 import { CardPreviewModal } from "./CardPreviewModal";
 import { PriceSparkline } from "./PriceSparkline";
@@ -352,6 +353,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
         imageUrl={currentUrl}
         cardName={displayName}
         isFoil={isFoil}
+        isPromo={isPromoCard(card.set_code, null)}
         onClose={() => setPreviewOpen(false)}
       />
     )}
