@@ -32,6 +32,17 @@ export const EXPLORE_SORT_OPTIONS: SortOption[] = [
   { labelKey: "sort.priceLowHigh", sortBy: "price", sortDir: "asc" },
 ];
 
+export const CATALOG_SORT_OPTIONS: SortOption[] = [
+  { labelKey: "sort.nameAZ", sortBy: "name", sortDir: "asc" },
+  { labelKey: "sort.nameZA", sortBy: "name", sortDir: "desc" },
+  { labelKey: "sort.set", sortBy: "set_code", sortDir: "asc" },
+  { labelKey: "sort.priceHighLow", sortBy: "price", sortDir: "desc" },
+  { labelKey: "sort.priceLowHigh", sortBy: "price", sortDir: "asc" },
+  { labelKey: "sort.rarityMythicFirst", sortBy: "rarity", sortDir: "asc" },
+  { labelKey: "sort.rarityCommonFirst", sortBy: "rarity", sortDir: "desc" },
+  { labelKey: "sort.cardNumber", sortBy: "collector_number", sortDir: "asc" },
+];
+
 export function SortSelect({ options, value, onChange }: SortSelectProps) {
   const { t } = useTranslation();
   return (

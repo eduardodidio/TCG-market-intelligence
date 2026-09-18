@@ -1,0 +1,39 @@
+graph LR
+    A[User opens Catalog] --> B{See sticky bar}
+    B --> C[Row 1: Search + Sort + Filters + Grid]
+    B --> D[Row 2: Set icon buttons]
+
+    D --> E[Click set icon]
+    E --> F[Cards filter to set]
+    F --> G[URL updates with set_code]
+
+    C --> H[Change SortSelect]
+    H --> I[Cards re-sort]
+    I --> J[URL updates sort_by + sort_dir]
+
+    C --> K[Click Filters button]
+    K --> L{Filter panel opens}
+    L --> M[Rarity chips]
+    L --> N[Color chips]
+    L --> O[Price toggle]
+    L --> P{Authenticated?}
+
+    P -->|Yes| Q[Owned filter chips]
+    Q --> R[Click Owned]
+    R --> S[API fetches with_ownership=true]
+    S --> T[Client filters to owned cards]
+
+    Q --> U[Click Not Owned]
+    U --> V[Shows missing cards]
+
+    P -->|No| W[No owned filter shown]
+
+    L --> X[Clear Filters]
+    X --> Y[All filters reset]
+    Y --> Z[Badge count = 0]
+
+    M --> AA[Badge count updates]
+    N --> AA
+    O --> AA
+    Q --> AA
+    E --> AA
