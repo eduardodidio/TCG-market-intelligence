@@ -96,8 +96,12 @@ def _decode_cursor(cursor: str) -> int | None:
 
 
 def _scryfall_image_url(set_code: str, collector_number: str) -> str:
+    import re
+
     mapped = map_to_scryfall_set_code(set_code)
-    return f"https://api.scryfall.com/cards/{mapped}/{collector_number}?format=image&version=normal"
+    # Strip trailing letter suffix for art cards (e.g. 44a -> 44)
+    base_number = re.sub(r"[a-zA-Z]+$", "", collector_number) or collector_number
+    return f"https://api.scryfall.com/cards/{mapped}/{base_number}?format=image&version=normal"
 
 
 @router.get("", response_model=ApiResponse[list[CollectionCard]])
@@ -189,7 +193,9 @@ def list_collection(
                 latest_price=price,
                 price_source=price_source,
                 currency=currency,
-                image_url=_scryfall_image_url(r.set_code, r.collector_number),
+                image_url=getattr(r, "image_uri", None)
+                or fallback_image_uri(r.set_code, r.collector_number)
+                or _scryfall_image_url(r.set_code, r.collector_number),
             )
         )
 
@@ -405,59 +411,35 @@ def collection_movers(
     user_id: str = Depends(require_auth_or_api_key),
 ):
     """Return top gainers and losers in the user's collection by price change %."""
-    trending = repo.get_trending_price_data_for_user(user_id, days)
+    uid = int(user_id) if str(user_id).isdigit() else 0
+    gainers_raw, losers_raw = repo.get_collection_movers_optimized(
+        uid,
+        days,
+        limit,
+        investment_only,
+    )
 
-    # When investment_only, filter to cards that have acquisition prices
-    if investment_only:
-        entries = repo.get_collection_entries_with_acquisition(user_id)
-        investment_card_ids = {e.card_id for e in entries if e.card_id is not None}
-        trending = {cid: series for cid, series in trending.items() if cid in investment_card_ids}
-
-    # Compute change for each card that has at least 2 data points
-    changes: list[tuple[int, float, float, float, float]] = []
-    for card_id, series in trending.items():
-        if len(series) < 2:
-            continue
-        price_start = float(series[0][1])
-        price_end = float(series[-1][1])
-        if price_start == 0:
-            continue
-        change_abs = price_end - price_start
-        change_pct = (change_abs / price_start) * 100
-        changes.append((card_id, price_start, price_end, change_abs, change_pct))
-
-    if not changes:
-        return success_response(
-            data=CollectionMoversResponse(gainers=[], losers=[], period_days=days)
+    def _build_mover(r: tuple) -> CollectionMover:
+        card_id, card_name, set_code, collector_number, image_uri = (
+            r[0],
+            r[1],
+            r[2],
+            r[3],
+            r[4],
         )
-
-    # Sort for gainers (desc) and losers (asc)
-    sorted_desc = sorted(changes, key=lambda x: x[4], reverse=True)
-    sorted_asc = sorted(changes, key=lambda x: x[4])
-
-    top_gainers_raw = [c for c in sorted_desc[:limit] if c[4] > 0]
-    top_losers_raw = [c for c in sorted_asc[:limit] if c[4] < 0]
-
-    # Batch-fetch card info with image
-    all_card_ids = [c[0] for c in top_gainers_raw + top_losers_raw]
-    card_info = repo.get_card_info_with_image_batch(all_card_ids) if all_card_ids else {}
-
-    def _build_mover(raw: tuple[int, float, float, float, float]) -> CollectionMover:
-        cid, ps, pe, ca, cp = raw
-        info = card_info.get(cid)
         return CollectionMover(
-            card_id=cid,
-            card_name=info[0] if info else f"Card #{cid}",
-            set_code=info[1] if info else None,
-            image_uri=(info[3] or fallback_image_uri(info[1], info[2])) if info else None,
-            price_start=round(ps, 2),
-            price_end=round(pe, 2),
-            change_abs=round(ca, 2),
-            change_pct=round(cp, 2),
+            card_id=card_id,
+            card_name=card_name or f"Card #{card_id}",
+            set_code=set_code,
+            image_uri=image_uri or fallback_image_uri(set_code, collector_number),
+            price_start=round(r[5], 2),
+            price_end=round(r[6], 2),
+            change_abs=round(r[7], 2),
+            change_pct=round(r[8], 2),
         )
 
-    gainers = [_build_mover(c) for c in top_gainers_raw]
-    losers = [_build_mover(c) for c in top_losers_raw]
+    gainers = [_build_mover(r) for r in gainers_raw]
+    losers = [_build_mover(r) for r in losers_raw]
 
     return success_response(
         data=CollectionMoversResponse(gainers=gainers, losers=losers, period_days=days)
@@ -666,7 +648,9 @@ def list_liga_missing(
             rarity=c["rarity"],
             color=c["color"],
             extras=c["extras"],
-            image_url=_scryfall_image_url(c["set_code"], c["collector_number"]),
+            image_url=c.get("image_uri")
+            or fallback_image_uri(c["set_code"], c["collector_number"])
+            or _scryfall_image_url(c["set_code"], c["collector_number"]),
         )
         for c in cards
     ]
@@ -1655,7 +1639,11 @@ def _build_collection_detail(
     if not entry or entry.user_id != user_id:
         raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
 
-    image_url = _scryfall_image_url(entry.set_code, entry.collector_number)
+    image_url = (
+        getattr(entry, "image_uri", None)
+        or fallback_image_uri(entry.set_code, entry.collector_number)
+        or _scryfall_image_url(entry.set_code, entry.collector_number)
+    )
     latest_price = None
     price_source = None
     source_cards_data: list[SourceCardSchema] = []

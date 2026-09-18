@@ -1202,6 +1202,185 @@ class Repository:
 
         return result
 
+    def get_collection_movers_optimized(
+        self,
+        user_id: int,
+        days: int,
+        limit: int = 5,
+        investment_only: bool = False,
+    ) -> tuple[list[tuple], list[tuple]]:
+        """Optimized collection movers using window functions.
+
+        Returns (gainers, losers) as lists of tuples:
+        (card_id, card_name, set_code, collector_number, image_uri,
+         price_start, price_end, change_abs, change_pct)
+
+        Uses CTEs with ROW_NUMBER() to find earliest/latest prices in SQL,
+        avoiding the N+1 pattern of fetching all price history to Python.
+        Includes both source_cards-based and direct Liga/manual prices.
+        """
+        from sqlalchemy import String as SAString
+        from sqlalchemy import cast as sa_cast
+        from sqlalchemy import union_all
+
+        cutoff = date.today() - timedelta(days=days)
+
+        with Session(self.engine) as session:
+            if "postgresql" in str(self.engine.url):
+                session.execute(text("SET LOCAL statement_timeout = '10s'"))
+
+            # Subquery: user's collection card_ids
+            uc_filter = select(
+                func.distinct(UserCollectionRow.card_id).label("card_id"),
+            ).where(
+                UserCollectionRow.user_id == user_id,
+                UserCollectionRow.card_id.isnot(None),
+            )
+            if investment_only:
+                uc_filter = uc_filter.where(
+                    UserCollectionRow.acquisition_price.isnot(None),
+                )
+            user_cards = uc_filter.cte("user_cards")
+
+            # Union of two price sources for user's cards:
+            # Source 1: source_cards -> price_observations
+            source_prices = (
+                select(
+                    SourceCardRow.card_id.label("card_id"),
+                    PriceObservationRow.observed_at.label("observed_at"),
+                    PriceObservationRow.median_price.label("median_price"),
+                )
+                .join(
+                    PriceObservationRow,
+                    (PriceObservationRow.external_id == SourceCardRow.external_id)
+                    & PriceObservationRow.source.in_([SourceCardRow.source, "jsonld_snapshot"]),
+                )
+                .join(user_cards, user_cards.c.card_id == SourceCardRow.card_id)
+                .where(
+                    SourceCardRow.card_id.isnot(None),
+                    PriceObservationRow.median_price.isnot(None),
+                )
+            )
+
+            # Source 2: direct Liga/manual patterns (liga_{id}, liga_{id}_foil, manual_{id})
+            # Build external_id from card_id using concat
+            liga_prefix = text("'liga_'")
+            liga_foil_suffix = text("'_foil'")
+            manual_prefix = text("'manual_'")
+
+            card_id_str = sa_cast(user_cards.c.card_id, SAString)
+
+            liga_ext = func.concat(liga_prefix, card_id_str)
+            liga_foil_ext = func.concat(liga_prefix, card_id_str, liga_foil_suffix)
+            manual_ext = func.concat(manual_prefix, card_id_str)
+
+            direct_prices = (
+                select(
+                    user_cards.c.card_id.label("card_id"),
+                    PriceObservationRow.observed_at.label("observed_at"),
+                    PriceObservationRow.median_price.label("median_price"),
+                )
+                .join(
+                    PriceObservationRow,
+                    or_(
+                        PriceObservationRow.external_id == liga_ext,
+                        PriceObservationRow.external_id == liga_foil_ext,
+                        PriceObservationRow.external_id == manual_ext,
+                    ),
+                )
+                .where(
+                    PriceObservationRow.median_price.isnot(None),
+                )
+            )
+
+            all_prices = union_all(source_prices, direct_prices).cte("all_prices")
+
+            # CTE: earliest price AFTER cutoff per card
+            earliest_sub = (
+                select(
+                    all_prices.c.card_id,
+                    all_prices.c.median_price.label("price_start"),
+                    func.row_number()
+                    .over(
+                        partition_by=all_prices.c.card_id,
+                        order_by=all_prices.c.observed_at.asc(),
+                    )
+                    .label("rn"),
+                ).where(all_prices.c.observed_at >= cutoff)
+            ).cte("earliest_cte")
+
+            earliest = (
+                select(
+                    earliest_sub.c.card_id,
+                    earliest_sub.c.price_start,
+                ).where(earliest_sub.c.rn == 1)
+            ).cte("earliest")
+
+            # CTE: latest price per card (no cutoff)
+            latest_sub = (
+                select(
+                    all_prices.c.card_id,
+                    all_prices.c.median_price.label("price_end"),
+                    func.row_number()
+                    .over(
+                        partition_by=all_prices.c.card_id,
+                        order_by=all_prices.c.observed_at.desc(),
+                    )
+                    .label("rn"),
+                )
+            ).cte("latest_cte")
+
+            latest = (
+                select(
+                    latest_sub.c.card_id,
+                    latest_sub.c.price_end,
+                ).where(latest_sub.c.rn == 1)
+            ).cte("latest")
+
+            # Main query: join earliest + latest + cards
+            change_pct_expr = (
+                (latest.c.price_end - earliest.c.price_start) / earliest.c.price_start * 100
+            )
+            change_abs_expr = latest.c.price_end - earliest.c.price_start
+
+            stmt = (
+                select(
+                    CardRow.id,
+                    CardRow.name_en,
+                    CardRow.set_code,
+                    CardRow.collector_number,
+                    CardRow.image_uri,
+                    earliest.c.price_start,
+                    latest.c.price_end,
+                    change_abs_expr.label("change_abs"),
+                    change_pct_expr.label("change_pct"),
+                )
+                .join(earliest, earliest.c.card_id == CardRow.id)
+                .join(latest, latest.c.card_id == CardRow.id)
+                .where(
+                    earliest.c.price_start > 0,
+                    earliest.c.price_start != latest.c.price_end,
+                )
+            )
+
+            rows = session.execute(stmt).all()
+            movers = [
+                (r[0], r[1], r[2], r[3], r[4], float(r[5]), float(r[6]), float(r[7]), float(r[8]))
+                for r in rows
+            ]
+
+            gainers = sorted(
+                [m for m in movers if m[8] > 0],
+                key=lambda x: x[8],
+                reverse=True,
+            )[:limit]
+            losers = sorted(
+                [m for m in movers if m[8] < 0],
+                key=lambda x: x[8],
+            )[:limit]
+
+            return gainers, losers
+
     def get_card_info_batch(
         self, card_ids: list[int]
     ) -> dict[int, tuple[str, str | None, str | None, str | None]]:

@@ -64,7 +64,6 @@ const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/import-purchases", labelKey: "nav.importPurchases", requiresAuth: true, icon: ICONS.arrowUpTray },
   { to: "/wishlist", labelKey: "nav.wishlist", requiresAuth: true, icon: ICONS.heart },
   { to: "/cards", labelKey: "nav.exploreCards", requiresAuth: false, icon: ICONS.search },
-  { to: "/catalog", labelKey: "nav.catalog", requiresAuth: false, icon: ICONS.book },
   { to: "/alerts", labelKey: "nav.alerts", requiresAuth: true, icon: ICONS.bell },
   { to: "/settings", labelKey: "nav.settings", requiresAuth: true, icon: ICONS.cog },
   { to: "/admin", labelKey: "nav.admin", requiresAuth: true, requiresAdmin: true, icon: ICONS.shield },
@@ -230,8 +229,13 @@ export function Layout() {
               </div>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate flex items-center">
                     {displayName}
+                    {hasBetaAccess && (
+                      <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-cyan-500/20 text-cyan-400 rounded-full leading-none">
+                        Beta
+                      </span>
+                    )}
                   </p>
                   <button
                     onClick={async () => {
