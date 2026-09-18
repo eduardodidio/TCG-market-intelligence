@@ -86,7 +86,11 @@
     "refreshAllSet": "Refresh All Set",
     "refreshAllSetAction": "Queue price updates for all cards in {{set}}",
     "scanQueued": "Queued {{count}} cards from {{set}} for price update",
-    "scanError": "Failed to queue scan"
+    "scanError": "Failed to queue scan",
+    "filterOwnership": "Ownership",
+    "filterAll": "All",
+    "filterOwned": "Owned",
+    "filterNotOwned": "Not Owned"
   },
   "admin": {
     "title": "Admin Panel",
@@ -594,7 +598,9 @@
     "dateNewest": "Date Added (Newest)",
     "dateOldest": "Date Added (Oldest)",
     "priceHighLow": "Price (High-Low)",
-    "priceLowHigh": "Price (Low-High)"
+    "priceLowHigh": "Price (Low-High)",
+    "rarityMythicFirst": "Rarity (Mythic first)",
+    "rarityCommonFirst": "Rarity (Common first)"
   },
   "card": {
     "foil": "Foil",

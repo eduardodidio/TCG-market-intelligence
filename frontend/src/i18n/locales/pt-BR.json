@@ -86,7 +86,11 @@
     "refreshAllSet": "Atualizar Toda a Colecao",
     "refreshAllSetAction": "Enfileirar atualizacao de precos para todas as cartas de {{set}}",
     "scanQueued": "{{count}} cartas de {{set}} enfileiradas para atualizacao de preco",
-    "scanError": "Falha ao enfileirar atualizacao"
+    "scanError": "Falha ao enfileirar atualizacao",
+    "filterOwnership": "Posse",
+    "filterAll": "Todas",
+    "filterOwned": "Possui",
+    "filterNotOwned": "Nao Possui"
   },
   "admin": {
     "title": "Painel Admin",
@@ -594,7 +598,9 @@
     "dateNewest": "Data (Mais Recente)",
     "dateOldest": "Data (Mais Antigo)",
     "priceHighLow": "Preco (Maior-Menor)",
-    "priceLowHigh": "Preco (Menor-Maior)"
+    "priceLowHigh": "Preco (Menor-Maior)",
+    "rarityMythicFirst": "Raridade (Mitica primeiro)",
+    "rarityCommonFirst": "Raridade (Comum primeiro)"
   },
   "card": {
     "foil": "Foil",

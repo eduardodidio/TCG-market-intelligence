@@ -246,7 +246,6 @@ describe("CatalogPage", () => {
 
     // Filter section should now be visible
     expect(screen.getByTestId("filter-section")).toBeInTheDocument();
-    expect(screen.getByTestId("set-select")).toBeInTheDocument();
   });
 
   it("rarity chips toggle on click", async () => {
@@ -349,7 +348,9 @@ describe("CatalogPage", () => {
       expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
     });
 
-    const images = screen.getAllByRole("img");
+    // Only check card images inside the grid, not set icon images
+    const grid = screen.getByTestId("catalog-grid");
+    const images = grid.querySelectorAll("img");
     images.forEach((img) => {
       expect(img).toHaveAttribute("loading", "lazy");
     });
@@ -458,5 +459,164 @@ describe("CatalogPage", () => {
       const cardCalls = calls.filter((u: string) => u.includes("/catalog/cards"));
       expect(cardCalls.some((u: string) => u.includes("with_ownership=true"))).toBe(true);
     });
+  });
+
+  // --- New tests for F145 ---
+
+  it("renders SetIconFilter in the sticky bar", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    // SetIconFilter should be rendered
+    expect(screen.getByTestId("set-icon-filter")).toBeInTheDocument();
+    // Individual set icons should be present
+    expect(screen.getByTestId("set-icon-DMR")).toBeInTheDocument();
+    expect(screen.getByTestId("set-icon-MH2")).toBeInTheDocument();
+  });
+
+  it("renders SortSelect in the sticky bar", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    // SortSelect should be rendered
+    expect(screen.getByTestId("sort-select")).toBeInTheDocument();
+    // Old sort selects should NOT be present
+    expect(screen.queryByTestId("sort-by-select")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sort-dir-select")).not.toBeInTheDocument();
+  });
+
+  it("SortSelect has all 8 CATALOG_SORT_OPTIONS", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    const sortSelect = screen.getByTestId("sort-select");
+    const options = sortSelect.querySelectorAll("option");
+    expect(options.length).toBe(8);
+  });
+
+  it("changing sort updates URL params", async () => {
+    const mockFetch = createMockFetch();
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    const sortSelect = screen.getByTestId("sort-select");
+    fireEvent.change(sortSelect, { target: { value: "price-desc" } });
+
+    await waitFor(() => {
+      const calls = mockFetch.mock.calls.map((c: unknown[]) => String(c[0]));
+      const cardCalls = calls.filter((u: string) => u.includes("/catalog/cards"));
+      const lastCall = cardCalls[cardCalls.length - 1];
+      expect(lastCall).toContain("sort_by=price");
+      expect(lastCall).toContain("sort_dir=desc");
+    });
+  });
+
+  it("clicking a set icon filters to that set", async () => {
+    const mockFetch = createMockFetch();
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    // Click on the DMR set icon
+    fireEvent.click(screen.getByTestId("set-icon-DMR"));
+
+    await waitFor(() => {
+      const calls = mockFetch.mock.calls.map((c: unknown[]) => String(c[0]));
+      const cardCalls = calls.filter((u: string) => u.includes("/catalog/cards"));
+      const lastCall = cardCalls[cardCalls.length - 1];
+      expect(lastCall).toContain("set_code=DMR");
+    });
+  });
+
+  it("collapsible filter panel does NOT contain set dropdown or sort selects", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("toggle-filters-btn"));
+
+    // Old set-select and sort-by-select should not be inside the filter section
+    expect(screen.queryByTestId("set-select")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sort-by-select")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sort-dir-select")).not.toBeInTheDocument();
+  });
+
+  it("filter badge count reflects active filters", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    // No active filters initially — no badge
+    expect(screen.queryByTestId("filter-badge")).not.toBeInTheDocument();
+
+    // Click a set icon to activate a filter
+    fireEvent.click(screen.getByTestId("set-icon-DMR"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("filter-badge")).toBeInTheDocument();
+      expect(screen.getByTestId("filter-badge")).toHaveTextContent("1");
+    });
+  });
+
+  it("clear filters resets all filters including set and owned", async () => {
+    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    // Activate a set filter
+    fireEvent.click(screen.getByTestId("set-icon-DMR"));
+
+    // Open filters and click clear
+    fireEvent.click(screen.getByTestId("toggle-filters-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("clear-filters-btn")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("clear-filters-btn"));
+
+    // Badge should disappear
+    await waitFor(() => {
+      expect(screen.queryByTestId("filter-badge")).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not render SetIconFilter when no sets available", async () => {
+    globalThis.fetch = createMockFetch({ sets: [] }) as unknown as typeof fetch;
+    renderCatalog();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-grid")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("set-icon-filter")).not.toBeInTheDocument();
   });
 });

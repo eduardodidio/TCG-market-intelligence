@@ -68,6 +68,8 @@ class SortByEnum(str, Enum):
     name = "name"
     set_code = "set_code"
     price = "price"
+    rarity = "rarity"
+    collector_number = "collector_number"
 
 
 class SortDirEnum(str, Enum):
@@ -208,10 +210,16 @@ def list_catalog_cards(
         filter_clause = " AND " + " AND ".join(filters)
 
     # Sort mapping
+    rarity_case = (
+        "CASE c.rarity "
+        "WHEN 'M' THEN 0 WHEN 'R' THEN 1 WHEN 'U' THEN 2 WHEN 'C' THEN 3 ELSE 4 END"
+    )
     sort_col_map = {
         SortByEnum.name: "c.name_en",
         SortByEnum.set_code: "c.set_code",
         SortByEnum.price: "po.median_price",
+        SortByEnum.rarity: rarity_case,
+        SortByEnum.collector_number: "c.collector_number",
     }
     sort_column = sort_col_map[sort_by]
     direction = "ASC" if sort_dir == SortDirEnum.asc else "DESC"
@@ -219,6 +227,12 @@ def list_catalog_cards(
     # For price sort with nulls, push nulls to end
     if sort_by == SortByEnum.price:
         null_sort = "CASE WHEN po.median_price IS NULL THEN 1 ELSE 0 END"
+        order_clause = f" ORDER BY {null_sort}, {sort_column} {direction}"
+    elif sort_by == SortByEnum.rarity:
+        null_sort = "CASE WHEN c.rarity IS NULL THEN 1 ELSE 0 END"
+        order_clause = f" ORDER BY {null_sort}, {sort_column} {direction}"
+    elif sort_by == SortByEnum.collector_number:
+        null_sort = "CASE WHEN c.collector_number IS NULL THEN 1 ELSE 0 END"
         order_clause = f" ORDER BY {null_sort}, {sort_column} {direction}"
     else:
         order_clause = f" ORDER BY {sort_column} {direction}"

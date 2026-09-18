@@ -1,0 +1,66 @@
+graph TB
+    subgraph Frontend
+        CP[CatalogPage.tsx]
+        SIF[SetIconFilter]
+        SS[SortSelect]
+        GST[GridSizeToggle]
+        SB[SearchBar]
+
+        CP -->|Row 1| SB
+        CP -->|Row 1| SS
+        CP -->|Row 1| GST
+        CP -->|Row 2| SIF
+
+        subgraph "Collapsible Filter Panel"
+            RC[Rarity Chips]
+            CC[Color Chips]
+            HP[Has Price Toggle]
+            OF[Owned Filter Chips]
+            CF[Clear Filters]
+        end
+
+        CP --> RC
+        CP --> CC
+        CP --> HP
+        CP -->|auth only| OF
+        CP --> CF
+    end
+
+    subgraph "Sort Options (CATALOG_SORT_OPTIONS)"
+        SO1["name asc/desc"]
+        SO2["set_code asc"]
+        SO3["price asc/desc"]
+        SO4["rarity asc/desc"]
+        SO5["collector_number asc"]
+    end
+
+    SS --> SO1
+    SS --> SO2
+    SS --> SO3
+    SS --> SO4
+    SS --> SO5
+
+    subgraph Backend
+        CR[catalog.py router]
+        SBE[SortByEnum]
+        SCM[sort_col_map]
+
+        SBE -->|name| SCM
+        SBE -->|set_code| SCM
+        SBE -->|price| SCM
+        SBE -->|rarity| SCM
+        SBE -->|collector_number| SCM
+
+        SCM -->|rarity| CASE["CASE M>R>U>C"]
+        SCM -->|price/rarity/cn| NULL["NULL-last ordering"]
+    end
+
+    CP -->|API call| CR
+
+    subgraph "URL State"
+        UP[search params]
+        UP -->|set_code| SIF
+        UP -->|sort_by + sort_dir| SS
+        UP -->|owned_filter| OF
+        UP -->|rarity,color,has_price| RC
+    end
