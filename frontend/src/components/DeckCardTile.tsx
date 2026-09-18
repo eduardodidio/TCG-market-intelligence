@@ -54,7 +54,7 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
           <img
             src={card.image_url}
             alt={displayName}
-            className={`w-full h-full object-cover ${
+            className={`w-full h-full object-cover rounded-t-lg ${
               !card.in_collection ? "opacity-50" : ""
             }`}
             loading="lazy"

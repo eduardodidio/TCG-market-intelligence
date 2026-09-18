@@ -248,7 +248,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
           <img
             src={currentUrl}
             alt={displayName}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover rounded-t-lg"
             loading="lazy"
             onError={() => {
               if (!imgError) {

@@ -27,14 +27,14 @@ export function CardImage({ src, fallbackSrc, alt, className = "" }: CardImagePr
           {/* Skeleton overlay while loading */}
           {!loaded && (
             <div
-              className="absolute inset-0 animate-pulse bg-slate-700 rounded"
+              className="absolute inset-0 animate-pulse bg-slate-700 rounded-lg"
               data-testid="card-image-skeleton"
             />
           )}
           <img
             src={currentSrc}
             alt={alt}
-            className={`w-full h-full object-cover transition-opacity duration-200 ${
+            className={`w-full h-full object-cover rounded-lg transition-opacity duration-200 ${
               loaded ? "opacity-100" : "opacity-0"
             }`}
             loading="lazy"

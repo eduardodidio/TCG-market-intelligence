@@ -18,6 +18,7 @@ from src.credits.service import CreditService
 from src.database.models import CardRow, PriceUpdateRequestRow
 from src.database.repository import Repository
 from src.domain.models import User
+from src.utils.image_fallback import fallback_image_uri
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -252,7 +253,7 @@ def list_catalog_cards(
                 color_identity=row.color_identity,
                 mana_cost=row.mana_cost,
                 type_line=row.type_line,
-                image_uri=row.image_uri,
+                image_uri=row.image_uri or fallback_image_uri(row.set_code, row.collector_number),
                 liga_price=liga_price,
                 liga_price_date=liga_price_date,
                 owned=owned_flag,
@@ -304,7 +305,7 @@ def get_catalog_card(
         color_identity=row.color_identity,
         mana_cost=row.mana_cost,
         type_line=row.type_line,
-        image_uri=row.image_uri,
+        image_uri=row.image_uri or fallback_image_uri(row.set_code, row.collector_number),
         liga_price=liga_price,
         liga_price_date=liga_price_date,
     )

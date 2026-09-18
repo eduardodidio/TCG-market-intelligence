@@ -76,6 +76,7 @@ from src.domain.models import CardAnalytics, HistoricalPrice, User
 from src.providers.liga.url import liga_url_for_card_name
 from src.services import ban_analyzer
 from src.services.currency import CurrencyConverter
+from src.utils.image_fallback import fallback_image_uri
 from src.utils.set_code_map import map_to_scryfall_set_code
 
 log = structlog.get_logger()
@@ -448,7 +449,7 @@ def collection_movers(
             card_id=cid,
             card_name=info[0] if info else f"Card #{cid}",
             set_code=info[1] if info else None,
-            image_uri=info[3] if info else None,
+            image_uri=(info[3] or fallback_image_uri(info[1], info[2])) if info else None,
             price_start=round(ps, 2),
             price_end=round(pe, 2),
             change_abs=round(ca, 2),
