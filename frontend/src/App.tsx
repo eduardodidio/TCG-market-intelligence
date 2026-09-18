@@ -83,9 +83,6 @@ const ChangePassword = lazy(() =>
 const Evaluations = lazy(() =>
   import("./pages/Evaluations").then((m) => ({ default: m.Evaluations })),
 );
-const CatalogPage = lazy(() =>
-  import("./pages/CatalogPage").then((m) => ({ default: m.CatalogPage })),
-);
 const AlertsPage = lazy(() =>
   import("./pages/AlertsPage").then((m) => ({ default: m.AlertsPage })),
 );
@@ -292,13 +289,7 @@ export default function App() {
               />
               <Route
                 path="/catalog"
-                element={
-                  <Suspense
-                    fallback={<LoadingSpinner message="Loading page..." />}
-                  >
-                    <CatalogPage />
-                  </Suspense>
-                }
+                element={<Navigate to="/cards" replace />}
               />
               <Route
                 path="/collection"

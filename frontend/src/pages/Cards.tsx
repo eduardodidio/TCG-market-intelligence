@@ -183,11 +183,20 @@ export function Cards() {
       });
   }, [cursor, loadingMore, debouncedSearch, selectedSet, sortBy, sortDir, currency]);
 
-  const setOptions = sets.map((s) => ({
-    label: s.set_code,
-    value: s.set_code,
-    icon: scryfallSetIconUrl(s.set_code),
-  }));
+  // Set search filter state
+  const [setSearch, setSetSearch] = useState("");
+  const [setSearchOpen, setSetSearchOpen] = useState(false);
+
+  const setOptions = useMemo(() => {
+    const all = sets.map((s) => ({
+      label: s.set_code,
+      value: s.set_code,
+      icon: scryfallSetIconUrl(s.set_code),
+    }));
+    if (!setSearch.trim()) return all;
+    const q = setSearch.trim().toLowerCase();
+    return all.filter((s) => s.value.toLowerCase().includes(q));
+  }, [sets, setSearch]);
 
   const sentinelRef = useInfiniteScroll(handleLoadMore, {
     enabled: !!cursor && !loadingMore,
@@ -361,13 +370,54 @@ export function Cards() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="flex-1 overflow-x-auto">
+              {/* Set filter toggle + search input */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSetSearchOpen((v) => !v);
+                  if (setSearchOpen) setSetSearch("");
+                }}
+                className={`shrink-0 flex items-center justify-center w-8 h-8 rounded-md transition-colors ${
+                  setSearchOpen
+                    ? "bg-cyan-500/20 text-cyan-400"
+                    : "bg-slate-800 text-slate-400 hover:text-white"
+                }`}
+                title={t("cards.filterSets", "Filter sets")}
+                data-testid="set-search-toggle"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+              </button>
+              {setSearchOpen && (
+                <input
+                  type="text"
+                  value={setSearch}
+                  onChange={(e) => setSetSearch(e.target.value)}
+                  placeholder={t("cards.setSearchPlaceholder", "Type set code...")}
+                  className="shrink-0 w-32 sm:w-40 bg-slate-800 text-white text-sm border border-slate-700 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  autoFocus
+                  data-testid="set-search-input"
+                />
+              )}
+              <div className="flex-1 overflow-x-auto min-w-0">
                 {setOptions.length > 0 && (
                   <FilterChips
                     options={setOptions}
                     selected={selectedSet}
-                    onSelect={setSelectedSet}
+                    onSelect={(val) => {
+                      setSelectedSet(val);
+                      if (val) {
+                        setSetSearch("");
+                        setSetSearchOpen(false);
+                      }
+                    }}
                   />
+                )}
+                {setSearchOpen && setSearch.trim() && setOptions.length === 0 && (
+                  <span className="text-sm text-slate-500 italic" data-testid="set-search-no-match">
+                    {t("cards.noSetsMatch", "No sets match")}
+                  </span>
                 )}
               </div>
 

@@ -1,9 +1,7 @@
-"""Tests for GET /collection/movers endpoint."""
+"""Tests for GET /collection/movers endpoint (optimized CTE version)."""
 
 from __future__ import annotations
 
-from datetime import date, timedelta
-from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,7 +11,7 @@ from fastapi.testclient import TestClient
 from src.api.deps import get_db, require_auth_or_api_key
 from src.api.routers.collection import router
 
-_TEST_USER_ID = "test-user"
+_TEST_USER_ID = "42"
 
 
 @pytest.fixture()
@@ -32,9 +30,9 @@ def client():
 
 
 class TestCollectionMovers:
-    def test_empty_when_no_trending_data(self, client):
+    def test_empty_when_no_movers(self, client):
         tc, repo = client
-        repo.get_trending_price_data_for_user.return_value = {}
+        repo.get_collection_movers_optimized.return_value = ([], [])
 
         resp = tc.get("/collection/movers")
         assert resp.status_code == 200
@@ -44,37 +42,18 @@ class TestCollectionMovers:
         assert data["losers"] == []
         assert data["period_days"] == 7
 
-    def test_empty_when_only_single_data_points(self, client):
+    def test_gainers_returned_correctly(self, client):
         tc, repo = client
-        today = date.today()
-        repo.get_trending_price_data_for_user.return_value = {
-            1: [(today, Decimal("10.00"))],
-            2: [(today, Decimal("20.00"))],
-        }
-
-        resp = tc.get("/collection/movers")
-        assert resp.status_code == 200
-
-        data = resp.json()["data"]
-        assert data["gainers"] == []
-        assert data["losers"] == []
-
-    def test_gainers_sorted_by_pct_desc(self, client):
-        tc, repo = client
-        today = date.today()
-        yesterday = today - timedelta(days=1)
-
-        repo.get_trending_price_data_for_user.return_value = {
-            1: [(yesterday, Decimal("10.00")), (today, Decimal("15.00"))],  # +50%
-            2: [(yesterday, Decimal("20.00")), (today, Decimal("24.00"))],  # +20%
-            3: [(yesterday, Decimal("5.00")), (today, Decimal("10.00"))],  # +100%
-        }
-        # (name_en, set_code, collector_number, image_uri)
-        repo.get_card_info_with_image_batch.return_value = {
-            1: ("Card A", "SET1", "001", "http://img/1.jpg"),
-            2: ("Card B", "SET2", "002", "http://img/2.jpg"),
-            3: ("Card C", "SET3", "003", "http://img/3.jpg"),
-        }
+        # (card_id, card_name, set_code, collector_number, image_uri,
+        #  price_start, price_end, change_abs, change_pct)
+        repo.get_collection_movers_optimized.return_value = (
+            [
+                (3, "Card C", "SET3", "003", "http://img/3.jpg", 5.0, 10.0, 5.0, 100.0),
+                (1, "Card A", "SET1", "001", "http://img/1.jpg", 10.0, 15.0, 5.0, 50.0),
+                (2, "Card B", "SET2", "002", "http://img/2.jpg", 20.0, 24.0, 4.0, 20.0),
+            ],
+            [],
+        )
 
         resp = tc.get("/collection/movers")
         assert resp.status_code == 200
@@ -82,7 +61,6 @@ class TestCollectionMovers:
 
         gainers = data["gainers"]
         assert len(gainers) == 3
-        # Sorted by % change desc: 100%, 50%, 20%
         assert gainers[0]["card_name"] == "Card C"
         assert gainers[0]["change_pct"] == 100.0
         assert gainers[0]["image_uri"] == "http://img/3.jpg"
@@ -91,19 +69,15 @@ class TestCollectionMovers:
         assert gainers[2]["card_name"] == "Card B"
         assert gainers[2]["change_pct"] == 20.0
 
-    def test_losers_sorted_by_pct_asc(self, client):
+    def test_losers_returned_correctly(self, client):
         tc, repo = client
-        today = date.today()
-        yesterday = today - timedelta(days=1)
-
-        repo.get_trending_price_data_for_user.return_value = {
-            1: [(yesterday, Decimal("10.00")), (today, Decimal("8.00"))],  # -20%
-            2: [(yesterday, Decimal("20.00")), (today, Decimal("10.00"))],  # -50%
-        }
-        repo.get_card_info_with_image_batch.return_value = {
-            1: ("Card A", "SET1", "001", None),
-            2: ("Card B", "SET2", "002", None),
-        }
+        repo.get_collection_movers_optimized.return_value = (
+            [],
+            [
+                (2, "Card B", "SET2", "002", None, 20.0, 10.0, -10.0, -50.0),
+                (1, "Card A", "SET1", "001", None, 10.0, 8.0, -2.0, -20.0),
+            ],
+        )
 
         resp = tc.get("/collection/movers")
         assert resp.status_code == 200
@@ -112,7 +86,6 @@ class TestCollectionMovers:
         assert data["gainers"] == []
         losers = data["losers"]
         assert len(losers) == 2
-        # Sorted by % change asc: -50%, -20%
         assert losers[0]["card_name"] == "Card B"
         assert losers[0]["change_pct"] == -50.0
         assert losers[1]["card_name"] == "Card A"
@@ -120,18 +93,10 @@ class TestCollectionMovers:
 
     def test_mixed_gainers_and_losers(self, client):
         tc, repo = client
-        today = date.today()
-        yesterday = today - timedelta(days=1)
-
-        repo.get_trending_price_data_for_user.return_value = {
-            1: [(yesterday, Decimal("10.00")), (today, Decimal("15.00"))],  # +50%
-            2: [(yesterday, Decimal("20.00")), (today, Decimal("10.00"))],  # -50%
-            3: [(yesterday, Decimal("5.00")), (today, Decimal("5.00"))],  # 0% (neither)
-        }
-        repo.get_card_info_with_image_batch.return_value = {
-            1: ("Gainer Card", "SET1", "001", None),
-            2: ("Loser Card", "SET2", "002", None),
-        }
+        repo.get_collection_movers_optimized.return_value = (
+            [(1, "Gainer Card", "SET1", "001", None, 10.0, 15.0, 5.0, 50.0)],
+            [(2, "Loser Card", "SET2", "002", None, 20.0, 10.0, -10.0, -50.0)],
+        )
 
         resp = tc.get("/collection/movers")
         assert resp.status_code == 200
@@ -144,14 +109,19 @@ class TestCollectionMovers:
 
     def test_custom_days_and_limit(self, client):
         tc, repo = client
-        repo.get_trending_price_data_for_user.return_value = {}
+        repo.get_collection_movers_optimized.return_value = ([], [])
 
         resp = tc.get("/collection/movers?days=30&limit=10")
         assert resp.status_code == 200
 
         data = resp.json()["data"]
         assert data["period_days"] == 30
-        repo.get_trending_price_data_for_user.assert_called_once_with(_TEST_USER_ID, 30)
+        repo.get_collection_movers_optimized.assert_called_once_with(
+            42,
+            30,
+            10,
+            False,
+        )
 
     def test_days_validation_max_90(self, client):
         tc, repo = client
@@ -163,42 +133,27 @@ class TestCollectionMovers:
         resp = tc.get("/collection/movers?limit=25")
         assert resp.status_code == 422
 
-    def test_limit_caps_results(self, client):
+    def test_investment_only_passed_to_repo(self, client):
         tc, repo = client
-        today = date.today()
-        yesterday = today - timedelta(days=1)
+        repo.get_collection_movers_optimized.return_value = ([], [])
 
-        # Create 10 gainers
-        trending = {}
-        card_info = {}
-        for i in range(1, 11):
-            trending[i] = [
-                (yesterday, Decimal("10.00")),
-                (today, Decimal(str(10 + i))),
-            ]
-            # (name_en, set_code, collector_number, image_uri)
-            card_info[i] = (f"Card {i}", "SET", str(i), None)
-
-        repo.get_trending_price_data_for_user.return_value = trending
-        repo.get_card_info_with_image_batch.return_value = card_info
-
-        resp = tc.get("/collection/movers?limit=3")
+        resp = tc.get("/collection/movers?investment_only=true")
         assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert len(data["gainers"]) == 3
+        repo.get_collection_movers_optimized.assert_called_once_with(
+            42,
+            7,
+            5,
+            True,
+        )
 
-    def test_zero_start_price_excluded(self, client):
+    def test_null_card_name_falls_back(self, client):
         tc, repo = client
-        today = date.today()
-        yesterday = today - timedelta(days=1)
-
-        repo.get_trending_price_data_for_user.return_value = {
-            1: [(yesterday, Decimal("0.00")), (today, Decimal("10.00"))],
-        }
+        repo.get_collection_movers_optimized.return_value = (
+            [(99, None, "SET1", "001", None, 10.0, 15.0, 5.0, 50.0)],
+            [],
+        )
 
         resp = tc.get("/collection/movers")
         assert resp.status_code == 200
-
         data = resp.json()["data"]
-        assert data["gainers"] == []
-        assert data["losers"] == []
+        assert data["gainers"][0]["card_name"] == "Card #99"

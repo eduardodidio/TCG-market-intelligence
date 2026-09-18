@@ -787,3 +787,355 @@ class TestGetCollectionTotalValue:
 
         result = seeded_repo.get_collection_total_value("unlinked")
         assert result is None
+
+
+class TestCollectionMoversOptimized:
+    """Tests for get_collection_movers_optimized using real SQLite DB."""
+
+    def test_empty_collection_returns_empty(self, repo):
+        gainers, losers = repo.get_collection_movers_optimized(999, days=7)
+        assert gainers == []
+        assert losers == []
+
+    def test_single_price_point_excluded(self, repo):
+        """Cards with only one price observation should be excluded."""
+        engine = repo.engine
+        with Session(engine) as session:
+            card = CardRow(
+                game="magic",
+                name_en="Solo Card",
+                set_code="TST",
+                collector_number="1",
+            )
+            session.add(card)
+            session.flush()
+
+            uc = UserCollectionRow(
+                user_id="1",
+                card_id=card.id,
+                set_code="TST",
+                collector_number="1",
+                name_en="Solo Card",
+                quantity=1,
+            )
+            session.add(uc)
+
+            sc = SourceCardRow(
+                source="myp",
+                external_id="myp_solo",
+                card_id=card.id,
+                url="http://test/solo",
+            )
+            session.add(sc)
+            session.flush()
+
+            obs = PriceObservationRow(
+                source="myp",
+                external_id="myp_solo",
+                observed_at=date.today(),
+                median_price=Decimal("10.00"),
+            )
+            session.add(obs)
+            session.commit()
+
+        # Only one observation in the period, so earliest == latest => excluded
+        gainers, losers = repo.get_collection_movers_optimized(1, days=7)
+        assert gainers == []
+        assert losers == []
+
+    def test_gainer_and_loser_detected(self, repo):
+        """Cards with price increase/decrease are correctly classified."""
+        engine = repo.engine
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        with Session(engine) as session:
+            # Gainer card: 10 -> 20
+            c1 = CardRow(
+                game="magic",
+                name_en="Gainer",
+                set_code="TST",
+                collector_number="1",
+            )
+            # Loser card: 20 -> 10
+            c2 = CardRow(
+                game="magic",
+                name_en="Loser",
+                set_code="TST",
+                collector_number="2",
+            )
+            session.add_all([c1, c2])
+            session.flush()
+
+            for card in [c1, c2]:
+                uc = UserCollectionRow(
+                    user_id="1",
+                    card_id=card.id,
+                    set_code="TST",
+                    collector_number=card.collector_number,
+                    name_en=card.name_en,
+                    quantity=1,
+                )
+                session.add(uc)
+
+                sc = SourceCardRow(
+                    source="myp",
+                    external_id=f"myp_{card.id}",
+                    card_id=card.id,
+                    url=f"http://test/{card.id}",
+                )
+                session.add(sc)
+
+            session.flush()
+
+            # Gainer prices
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id=f"myp_{c1.id}",
+                    observed_at=yesterday,
+                    median_price=Decimal("10.00"),
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id=f"myp_{c1.id}",
+                    observed_at=today,
+                    median_price=Decimal("20.00"),
+                )
+            )
+
+            # Loser prices
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id=f"myp_{c2.id}",
+                    observed_at=yesterday,
+                    median_price=Decimal("20.00"),
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id=f"myp_{c2.id}",
+                    observed_at=today,
+                    median_price=Decimal("10.00"),
+                )
+            )
+            session.commit()
+
+            gainer_id = c1.id
+            loser_id = c2.id
+
+        gainers, losers = repo.get_collection_movers_optimized(1, days=7)
+
+        assert len(gainers) == 1
+        assert gainers[0][0] == gainer_id
+        assert gainers[0][1] == "Gainer"
+        assert gainers[0][8] == pytest.approx(100.0, abs=0.01)
+
+        assert len(losers) == 1
+        assert losers[0][0] == loser_id
+        assert losers[0][1] == "Loser"
+        assert losers[0][8] == pytest.approx(-50.0, abs=0.01)
+
+    def test_direct_liga_prices_included(self, repo):
+        """Direct liga_{card_id} pattern prices are picked up."""
+        engine = repo.engine
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        with Session(engine) as session:
+            card = CardRow(
+                game="magic",
+                name_en="Liga Card",
+                set_code="TST",
+                collector_number="1",
+            )
+            session.add(card)
+            session.flush()
+
+            uc = UserCollectionRow(
+                user_id="1",
+                card_id=card.id,
+                set_code="TST",
+                collector_number="1",
+                name_en="Liga Card",
+                quantity=1,
+            )
+            session.add(uc)
+
+            # No source_card, only direct liga prices
+            session.add(
+                PriceObservationRow(
+                    source="liga",
+                    external_id=f"liga_{card.id}",
+                    observed_at=yesterday,
+                    median_price=Decimal("5.00"),
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="liga",
+                    external_id=f"liga_{card.id}",
+                    observed_at=today,
+                    median_price=Decimal("15.00"),
+                )
+            )
+            session.commit()
+            card_id = card.id
+
+        gainers, losers = repo.get_collection_movers_optimized(1, days=7)
+
+        assert len(gainers) == 1
+        assert gainers[0][0] == card_id
+        assert gainers[0][8] == pytest.approx(200.0, abs=0.01)
+
+    def test_investment_only_filter(self, repo):
+        """investment_only=True excludes cards without acquisition_price."""
+        engine = repo.engine
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        with Session(engine) as session:
+            c1 = CardRow(
+                game="magic",
+                name_en="Invested",
+                set_code="TST",
+                collector_number="1",
+            )
+            c2 = CardRow(
+                game="magic",
+                name_en="Not Invested",
+                set_code="TST",
+                collector_number="2",
+            )
+            session.add_all([c1, c2])
+            session.flush()
+
+            # c1 has acquisition_price, c2 does not
+            uc1 = UserCollectionRow(
+                user_id="1",
+                card_id=c1.id,
+                set_code="TST",
+                collector_number="1",
+                name_en="Invested",
+                quantity=1,
+                acquisition_price=Decimal("5.00"),
+            )
+            uc2 = UserCollectionRow(
+                user_id="1",
+                card_id=c2.id,
+                set_code="TST",
+                collector_number="2",
+                name_en="Not Invested",
+                quantity=1,
+            )
+            session.add_all([uc1, uc2])
+
+            for card in [c1, c2]:
+                sc = SourceCardRow(
+                    source="myp",
+                    external_id=f"myp_{card.id}",
+                    card_id=card.id,
+                    url=f"http://test/{card.id}",
+                )
+                session.add(sc)
+                session.add(
+                    PriceObservationRow(
+                        source="myp",
+                        external_id=f"myp_{card.id}",
+                        observed_at=yesterday,
+                        median_price=Decimal("10.00"),
+                    )
+                )
+                session.add(
+                    PriceObservationRow(
+                        source="myp",
+                        external_id=f"myp_{card.id}",
+                        observed_at=today,
+                        median_price=Decimal("20.00"),
+                    )
+                )
+            session.commit()
+            invested_id = c1.id
+
+        # Without investment_only: both cards
+        gainers_all, _ = repo.get_collection_movers_optimized(1, days=7)
+        assert len(gainers_all) == 2
+
+        # With investment_only: only invested card
+        gainers_inv, _ = repo.get_collection_movers_optimized(
+            1,
+            days=7,
+            investment_only=True,
+        )
+        assert len(gainers_inv) == 1
+        assert gainers_inv[0][0] == invested_id
+
+    def test_result_tuple_shape(self, repo):
+        """Each result tuple has 9 elements."""
+        engine = repo.engine
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        with Session(engine) as session:
+            card = CardRow(
+                game="magic",
+                name_en="Shape Test",
+                set_code="TST",
+                collector_number="42",
+                image_uri="http://img/42.jpg",
+            )
+            session.add(card)
+            session.flush()
+
+            uc = UserCollectionRow(
+                user_id="1",
+                card_id=card.id,
+                set_code="TST",
+                collector_number="42",
+                name_en="Shape Test",
+                quantity=1,
+            )
+            sc = SourceCardRow(
+                source="myp",
+                external_id=f"myp_{card.id}",
+                card_id=card.id,
+                url="http://test",
+            )
+            session.add_all([uc, sc])
+            session.flush()
+
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id=f"myp_{card.id}",
+                    observed_at=yesterday,
+                    median_price=Decimal("10.00"),
+                )
+            )
+            session.add(
+                PriceObservationRow(
+                    source="myp",
+                    external_id=f"myp_{card.id}",
+                    observed_at=today,
+                    median_price=Decimal("15.00"),
+                )
+            )
+            session.commit()
+
+        gainers, _ = repo.get_collection_movers_optimized(1, days=7)
+        assert len(gainers) == 1
+        t = gainers[0]
+        assert len(t) == 9
+        # card_id, card_name, set_code, collector_number, image_uri,
+        # price_start, price_end, change_abs, change_pct
+        assert isinstance(t[0], int)
+        assert t[1] == "Shape Test"
+        assert t[2] == "TST"
+        assert t[3] == "42"
+        assert t[4] == "http://img/42.jpg"
+        assert isinstance(t[5], float)
+        assert isinstance(t[6], float)

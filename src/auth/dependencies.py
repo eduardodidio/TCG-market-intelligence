@@ -163,6 +163,11 @@ def require_auth_or_api_key(
             if user_id:
                 user_row = repo.get_user_by_id(int(user_id))
                 if user_row and user_row.is_active:
+                    # Guest users proxy to primary admin's data
+                    if getattr(user_row, "role", "admin") == "guest":
+                        admin_ids = repo.get_admin_user_ids()
+                        if admin_ids:
+                            return str(admin_ids[0])
                     return str(user_row.id)
         except JWTError:
             pass

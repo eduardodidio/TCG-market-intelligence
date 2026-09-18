@@ -123,18 +123,13 @@ class TestPortfolioConsistency:
         mock_repo.get_collection_entries_with_acquisition.assert_called_once_with(_TEST_USER_ID)
 
     def test_movers_investment_only_excludes_non_investment(self) -> None:
-        """investment_only=true excludes cards without acquisition from movers."""
+        """investment_only=true is forwarded to the optimized repo method."""
         mock_repo = MagicMock()
-        mock_repo.get_trending_price_data_for_user.return_value = {
-            42: [(date(2026, 9, 1), Decimal("5.00")), (date(2026, 9, 7), Decimal("10.00"))],
-            99: [(date(2026, 9, 1), Decimal("3.00")), (date(2026, 9, 7), Decimal("6.00"))],
-        }
-        # Only card 42 has acquisition price
-        entry = _make_row(card_id=42, acquisition_price=Decimal("5.00"))
-        mock_repo.get_collection_entries_with_acquisition.return_value = [entry]
-        mock_repo.get_card_info_with_image_batch.return_value = {
-            42: ("Lightning Bolt", "DMR", "123", None),
-        }
+        # The optimized method already handles investment_only filtering
+        mock_repo.get_collection_movers_optimized.return_value = (
+            [(42, "Lightning Bolt", "DMR", "123", None, 5.0, 10.0, 5.0, 100.0)],
+            [],
+        )
 
         client = TestClient(_make_app(mock_repo))
         resp = client.get("/collection/movers?investment_only=true")
@@ -142,7 +137,7 @@ class TestPortfolioConsistency:
         assert resp.status_code == 200
         data = resp.json()["data"]
         gainers = [g["card_id"] for g in data["gainers"]]
-        losers = [x["card_id"] for x in data["losers"]]
-        all_card_ids = gainers + losers
-        assert 42 in all_card_ids
-        assert 99 not in all_card_ids
+        assert 42 in gainers
+        # Verify investment_only=True was passed to the optimized method
+        call_args = mock_repo.get_collection_movers_optimized.call_args
+        assert call_args[0][3] is True  # investment_only positional arg
