@@ -15,6 +15,7 @@ import { Breadcrumb } from "../components/Breadcrumb";
 import { Card3DTilt } from "../components/Card3DTilt";
 import { CardPreviewModal } from "../components/CardPreviewModal";
 import { SetAlertModal } from "../components/SetAlertModal";
+import { isPromoCard } from "../utils/promo";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PriceChart } from "../components/PriceChart";
@@ -443,6 +444,7 @@ export function CardDetail() {
             imageUrl={previewImageUrl}
             cardName={getCardName(card.name_en, card.name_pt, t("common.unknownCard"))}
             isFoil={false}
+            isPromo={isPromoCard(card.set_code, null)}
             onClose={() => setPreviewOpen(false)}
           />
         ) : null;

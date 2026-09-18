@@ -5,6 +5,7 @@ import type { DeckCard } from "../types/api";
 import { useCardName } from "../hooks/useCardName";
 import { useCredits } from "../hooks/useCredits";
 import { formatBRL } from "../utils/format";
+import { isPromoCard } from "../utils/promo";
 import { Card3DTilt } from "./Card3DTilt";
 import { CardPreviewModal } from "./CardPreviewModal";
 import { CreditConfirmModal } from "./CreditConfirmModal";
@@ -190,6 +191,7 @@ export function DeckCardTile({ card, onRefresh }: DeckCardTileProps) {
     <CardPreviewModal
       imageUrl={card.image_url}
       cardName={displayName}
+      isPromo={isPromoCard(card.set_code, null)}
       onClose={() => setPreviewOpen(false)}
     />
   ) : null;

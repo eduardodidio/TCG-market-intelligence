@@ -39,6 +39,7 @@ import { fetchScanPreview } from "../api/scans";
 import { fetchSharingStatus, toggleSharing as apiToggleSharing } from "../api/marketplace";
 import { ValuationBadge } from "../components/ValuationBadge";
 import { formatCurrency } from "../utils/format";
+import { isPromoCard } from "../utils/promo";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
@@ -281,6 +282,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
           imageUrl={primaryUrl}
           cardName={displayName}
           isFoil={card.is_foil}
+          isPromo={isPromoCard(card.set_code, card.extras)}
           onClose={() => setPreviewOpen(false)}
         />
       )}

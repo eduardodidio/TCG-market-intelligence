@@ -24,6 +24,7 @@ import { useGridSize } from "../hooks/useGridSize";
 import { usePriceRequestPolling } from "../hooks/usePriceRequestPolling";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { GRID_SIZE_CONFIG } from "../utils/constants";
+import { isPromoCard } from "../utils/promo";
 
 const RARITY_OPTIONS = [
   { value: "C", label: "C" },
@@ -277,6 +278,7 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
       <CardPreviewModal
         imageUrl={card.image_uri}
         cardName={displayName}
+        isPromo={isPromoCard(card.set_code, null)}
         onClose={() => setPreviewOpen(false)}
       />
     )}

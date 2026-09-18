@@ -11,11 +11,36 @@
 }
 
 .foil-shimmer {
+  --mouse-x: 0.5;
+  --mouse-y: 0.5;
   position: relative;
   overflow: hidden;
   border-radius: inherit;
 }
 
+/* Specular highlight — follows mouse position */
+.foil-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%),
+    rgba(255, 255, 255, 0.25),
+    transparent 60%
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  z-index: 1;
+}
+
+/* Show specular highlight only when interactive (mouse is over) */
+.foil-shimmer--interactive::before {
+  opacity: 1;
+}
+
+/* Rainbow holographic overlay */
 .foil-shimmer::after {
   content: '';
   position: absolute;
@@ -37,18 +62,74 @@
   background-size: 200% 200%;
   mix-blend-mode: color-dodge;
   pointer-events: none;
+  border-radius: inherit;
   opacity: 1;
   animation: foil-shift 3.5s ease-in-out infinite;
   will-change: background-position;
+  z-index: 1;
 }
 
 .foil-shimmer:hover::after {
   opacity: 1;
 }
 
+/* Mouse-driven holographic — replaces keyframe animation */
+.foil-shimmer--interactive::after {
+  animation: none;
+  background: linear-gradient(
+    calc(135deg + (var(--mouse-x) - 0.5) * 60deg),
+    transparent 5%,
+    rgba(255, 0, 0, 0.2) 14%,
+    rgba(255, 150, 0, 0.25) 22%,
+    rgba(255, 255, 0, 0.2) 30%,
+    rgba(0, 255, 100, 0.25) 38%,
+    rgba(0, 220, 255, 0.3) 46%,
+    rgba(0, 100, 255, 0.25) 54%,
+    rgba(150, 0, 255, 0.3) 62%,
+    rgba(255, 0, 200, 0.25) 70%,
+    rgba(255, 255, 255, 0.2) 78%,
+    transparent 90%
+  );
+  background-size: 200% 200%;
+  background-position: calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%);
+}
+
+/* Holographic border glow for CardPreviewModal */
+.foil-shimmer--glow {
+  box-shadow: 0 0 20px 2px hsl(calc(var(--mouse-x) * 360), 80%, 60%);
+  transition: box-shadow 0.15s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .foil-shimmer::before {
+    opacity: 0 !important;
+  }
+
   .foil-shimmer::after {
     animation: none;
     background-position: 50% 50%;
+  }
+
+  .foil-shimmer--interactive::after {
+    background: linear-gradient(
+      135deg,
+      transparent 10%,
+      rgba(255, 0, 0, 0.2) 18%,
+      rgba(255, 150, 0, 0.25) 26%,
+      rgba(255, 255, 0, 0.2) 34%,
+      rgba(0, 255, 100, 0.25) 42%,
+      rgba(0, 220, 255, 0.3) 50%,
+      rgba(0, 100, 255, 0.25) 58%,
+      rgba(150, 0, 255, 0.3) 66%,
+      rgba(255, 0, 200, 0.25) 74%,
+      rgba(255, 255, 255, 0.2) 82%,
+      transparent 90%
+    );
+    background-size: 200% 200%;
+    background-position: 50% 50%;
+  }
+
+  .foil-shimmer--glow {
+    box-shadow: none;
   }
 }

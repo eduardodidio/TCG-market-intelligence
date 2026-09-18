@@ -14,6 +14,7 @@ import { CardImage } from "../components/CardImage";
 import { CardPreviewModal } from "../components/CardPreviewModal";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { isPromoCard } from "../utils/promo";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import type { WishlistItem } from "../types/wishlist";
 
@@ -308,6 +309,7 @@ function WishlistCard({
         imageUrl={imgSrc}
         cardName={item.name_en ?? "Card"}
         isFoil={false}
+        isPromo={isPromoCard(item.set_code, null)}
         onClose={() => setPreviewOpen(false)}
       />
     )}
