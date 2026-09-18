@@ -1,0 +1,6 @@
+graph TD
+  A[UserRow.role] --> B[GET /auth/me]
+  B --> C[UserProfile.role]
+  C --> D[AuthContext.hasBetaAccess]
+  D --> E[Layout: disabled nav items]
+  D --> F[BetaRoute: blocked page]

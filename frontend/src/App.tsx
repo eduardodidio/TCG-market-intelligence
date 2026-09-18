@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { AdminRoute } from "./components/AdminRoute";
+import { BetaRoute } from "./components/BetaRoute";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CurrencyProvider } from "./contexts/CurrencyContext";
@@ -247,7 +248,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <Trending />
+                    <BetaRoute requiresAuth={false}>
+                      <Trending />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -257,7 +260,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <MarketPage />
+                    <BetaRoute requiresAuth={false}>
+                      <MarketPage />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -267,7 +272,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <BanList />
+                    <BetaRoute requiresAuth={false}>
+                      <BanList />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -277,7 +284,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <BanHistory />
+                    <BetaRoute requiresAuth={false}>
+                      <BanHistory />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -327,7 +336,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <DeckList />
+                    <BetaRoute>
+                      <DeckList />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -337,7 +348,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <TopDecksPage />
+                    <BetaRoute>
+                      <TopDecksPage />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -347,7 +360,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <DeckBuildWizard />
+                    <BetaRoute>
+                      <DeckBuildWizard />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -361,7 +376,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <DeckView />
+                    <BetaRoute>
+                      <DeckView />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -399,7 +416,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <Marketplace />
+                    <BetaRoute>
+                      <Marketplace />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -419,7 +438,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <TradeMatchesPage />
+                    <BetaRoute>
+                      <TradeMatchesPage />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -429,7 +450,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <Evaluations />
+                    <BetaRoute>
+                      <Evaluations />
+                    </BetaRoute>
                   </Suspense>
                 }
               />
@@ -449,7 +472,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <AchievementsPage />
+                    <BetaRoute>
+                      <AchievementsPage />
+                    </BetaRoute>
                   </Suspense>
                 }
               />

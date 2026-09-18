@@ -94,6 +94,10 @@ class Repository:
                 with self.engine.begin() as conn:
                     sql = "ALTER TABLE users ADD COLUMN password_expires_at DATETIME"
                     conn.execute(text(sql))
+            if "role" not in columns:
+                with self.engine.begin() as conn:
+                    sql = "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'admin'"
+                    conn.execute(text(sql))
         if "user_collection" in insp.get_table_names():
             columns = {col["name"] for col in insp.get_columns("user_collection")}
             if "set_name_pt" not in columns:

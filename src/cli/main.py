@@ -785,40 +785,64 @@ def seed_users(db):
         {
             "email": "eduardorutkoskididio@gmail.com",
             "display_name": "Eduardo Didio",
+            "role": "admin",
+            "is_admin": True,
+        },
+        {
+            "email": "guest@tedhmarket.com.br",
+            "display_name": "Guest",
+            "role": "guest",
+            "is_admin": False,
+            "password": "mudar@12345",
         },
     ]
 
     repo = Repository(db_url=db)
     for user_data in SEED_USERS:
+        target_role = user_data.get("role", "admin")
+        target_is_admin = 1 if user_data.get("is_admin", False) else 0
+        user_password = user_data.get("password", password)
+
         existing = repo.get_user_by_email(user_data["email"])
         if existing:
-            # Ensure existing seed user has is_admin=1
-            if not getattr(existing, "is_admin", 0):
-                repo.update_user(existing.id, is_admin=1)
-                click.echo(f"  Updated is_admin=1: {user_data['email']}")
+            # Ensure existing seed user has correct is_admin and role
+            needs_update = {}
+            if getattr(existing, "is_admin", 0) != target_is_admin:
+                needs_update["is_admin"] = target_is_admin
+            if getattr(existing, "role", "admin") != target_role:
+                needs_update["role"] = target_role
+            if needs_update:
+                repo.update_user(existing.id, **needs_update)
+                click.echo(f"  Updated {needs_update}: {user_data['email']}")
             log.info("user_exists_skipped", email=user_data["email"])
             click.echo(f"  Skipped (exists): {user_data['email']}")
             continue
 
-        pw_hash = hash_password(password)
+        pw_hash = hash_password(user_password)
         user_row = repo.create_user(
             email=user_data["email"],
             display_name=user_data["display_name"],
             auth_provider="email",
             password_hash=pw_hash,
         )
-        # Set admin flag
-        repo.update_user(user_row.id, is_admin=1)
+        # Set role and admin flag
+        repo.update_user(user_row.id, is_admin=target_is_admin, role=target_role)
 
-        # Grant initial 10k credits for admin users
+        # Grant initial 10k credits
         repo.update_credit_balance(
             user_id=user_row.id,
             delta=10_000,
             reason="initial_credits",
         )
 
-        log.info("user_created", email=user_data["email"], is_admin=True, credits=10_000)
-        click.echo(f"  Created: {user_data['email']} (admin, 10000 credits)")
+        log.info(
+            "user_created",
+            email=user_data["email"],
+            role=target_role,
+            is_admin=bool(target_is_admin),
+            credits=10_000,
+        )
+        click.echo(f"  Created: {user_data['email']} ({target_role}, 10000 credits)")
 
     # Associate all collection entries with the primary (first) seed user
     primary = repo.get_user_by_email(SEED_USERS[0]["email"])

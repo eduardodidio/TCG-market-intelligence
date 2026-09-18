@@ -16,6 +16,7 @@ export interface UserProfile {
   preferred_language: string | null;
   is_active: boolean;
   is_admin: boolean;
+  role: string;
   must_change_password?: boolean;
 }
 

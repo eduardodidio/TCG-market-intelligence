@@ -108,6 +108,7 @@ describe("TradeMatchesPage", () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
+      hasBetaAccess: true,
       user: { id: 1, display_name: "Test" } as any,
       error: null,
       mustChangePassword: false,
@@ -115,6 +116,7 @@ describe("TradeMatchesPage", () => {
       loading: false,
       login: vi.fn(),
       logout: vi.fn(),
+      changePassword: vi.fn(),
     });
     mockFetchDuplicates.mockResolvedValue(emptyResponse);
     mockFetchTradeMatches.mockResolvedValue(emptyResponse);
@@ -173,6 +175,7 @@ describe("TradeMatchesPage", () => {
   it("shows login required when not authenticated", async () => {
     mockUseAuth.mockReturnValue({
       isAuthenticated: false,
+      hasBetaAccess: true,
       user: null,
       error: null,
       mustChangePassword: false,
@@ -180,6 +183,7 @@ describe("TradeMatchesPage", () => {
       loading: false,
       login: vi.fn(),
       logout: vi.fn(),
+      changePassword: vi.fn(),
     });
 
     renderPage();

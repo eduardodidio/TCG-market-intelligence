@@ -16,6 +16,7 @@ function renderLogin(
     loading: false,
     error: null,
     isAuthenticated: false,
+    hasBetaAccess: true,
     mustChangePassword: false,
     login: vi.fn().mockResolvedValue(null),
     register: vi.fn().mockResolvedValue(null),

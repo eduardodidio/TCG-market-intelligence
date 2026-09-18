@@ -1,0 +1,7 @@
+graph LR
+  A[Guest Login] --> B[Dashboard]
+  B --> C[Beta Section]
+  C -->|Click disabled item| D[Toast: blocked message]
+  C -->|Direct URL| E[BetaRoute: blocked card]
+  B --> F[Collection/Cards/etc]
+  F --> G[Normal access]

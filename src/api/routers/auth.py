@@ -118,6 +118,7 @@ def get_me(user: User = Depends(get_current_user)):
         preferred_language=user.preferred_language,
         is_active=user.is_active,
         is_admin=user.is_admin,
+        role=getattr(user, "role", "admin"),
         must_change_password=must_change,
     )
     return success_response(data=profile)
@@ -153,6 +154,7 @@ def update_preferences(
         preferred_language=updated.preferred_language,
         is_active=bool(updated.is_active),
         is_admin=bool(updated.is_admin),
+        role=getattr(updated, "role", "admin"),
     )
     return success_response(data=profile)
 

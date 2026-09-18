@@ -15,6 +15,7 @@ vi.mock("../../hooks/useAuth", () => ({
   useAuth: () => ({
     user: { id: 1, display_name: "Test User", email: "test@test.com", is_admin: false },
     isAuthenticated: true,
+    hasBetaAccess: true,
     logout: vi.fn(),
   }),
 }));

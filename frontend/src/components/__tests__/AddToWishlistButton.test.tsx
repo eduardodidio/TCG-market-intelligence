@@ -43,6 +43,7 @@ describe("AddToWishlistButton", () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
+      hasBetaAccess: true,
       user: { id: 1 } as any,
       error: null,
       mustChangePassword: false,
@@ -50,6 +51,7 @@ describe("AddToWishlistButton", () => {
       loading: false,
       login: vi.fn(),
       logout: vi.fn(),
+      changePassword: vi.fn(),
     });
   });
 
@@ -67,6 +69,7 @@ describe("AddToWishlistButton", () => {
   it("does not render when not authenticated", () => {
     mockUseAuth.mockReturnValue({
       isAuthenticated: false,
+      hasBetaAccess: true,
       user: null,
       error: null,
       mustChangePassword: false,
@@ -74,6 +77,7 @@ describe("AddToWishlistButton", () => {
       loading: false,
       login: vi.fn(),
       logout: vi.fn(),
+      changePassword: vi.fn(),
     });
 
     const { container } = render(<AddToWishlistButton cardId={1} />);

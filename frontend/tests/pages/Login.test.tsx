@@ -12,9 +12,12 @@ function renderLogin(authOverrides: Partial<AuthContextValue> = {}) {
     loading: false,
     error: null,
     isAuthenticated: false,
+    hasBetaAccess: true,
+    mustChangePassword: false,
     login: vi.fn().mockResolvedValue(null),
     register: vi.fn().mockResolvedValue(null),
     logout: vi.fn().mockResolvedValue(undefined),
+    changePassword: vi.fn().mockResolvedValue(null),
     ...authOverrides,
   };
 

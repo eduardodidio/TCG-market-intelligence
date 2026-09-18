@@ -1,0 +1,64 @@
+{
+  "id": "D-20260918-001",
+  "feature": "F139",
+  "type": "feature_start",
+  "requested_at": "2026-09-18T12:00:00-03:00",
+  "decided_at": "2026-09-18T12:15:00-03:00",
+  "options": [
+    {
+      "id": "A",
+      "label": "Proceed as planned (3 tasks, 2 waves)",
+      "pros": [
+        "Clean separation of concerns: T01 = model/schema, T02 = seed data, T03 = frontend guards",
+        "T02 and T03 run in parallel in Wave 1, maximizing concurrency",
+        "Each task has a single responsibility — easier to review, test, and roll back independently",
+        "Follows established project pattern where seed logic is separate from model changes",
+        "T02 has its own acceptance criteria (password, credits, idempotency, no collection reassignment) distinct from T01's schema concerns"
+      ],
+      "cons": [
+        "T02 is small (~20 lines of changes in 1 file) — overhead of a separate task context may feel disproportionate",
+        "Wave 1 parallelism between T02 and T03 saves little wall-clock time since T02 is very fast to implement",
+        "Slightly more orchestration overhead (3 developer handoffs instead of 2)"
+      ]
+    },
+    {
+      "id": "B",
+      "label": "Merge T02 into T01 (2 tasks, 2 waves)",
+      "pros": [
+        "Reduces developer handoffs from 3 to 2",
+        "T01+T02 combined is still a reasonably scoped task (model change + seed entry in one pass)",
+        "The seed logic directly exercises the new role column — testing them together gives faster feedback",
+        "Wave 1 becomes T03-only, which is fine since T03 is the heaviest task and cannot parallelize with anything anyway"
+      ],
+      "cons": [
+        "Merges two distinct concerns (schema vs. data seeding) into one task — muddies responsibility",
+        "T01 already touches 5 files; adding seed logic and its 5 acceptance criteria increases review surface",
+        "Loses the ability to run T02 and T03 in parallel (marginal impact given T02's small size)",
+        "Seed-specific edge cases (guest password, no collection reassignment) may get less focused testing attention inside a larger task"
+      ]
+    },
+    {
+      "id": "C",
+      "label": "Block/defer F139",
+      "pros": [
+        "Avoids introducing role-based access before a full RBAC design is finalized"
+      ],
+      "cons": [
+        "No technical blockers exist — all dependencies (auth, seed-users, frontend Layout, i18n) are in place",
+        "Feature scope is narrow and well-defined (2 role values, no permission matrix)",
+        "The guest user is explicitly requested for demo/sharing purposes — deferring blocks a user need",
+        "The role column defaults to 'admin', so backward compatibility risk is negligible"
+      ]
+    }
+  ],
+  "selected": "A",
+  "rationale": "Option A (proceed as planned, 3 tasks / 2 waves) is the best choice. While T02 is small, it carries its own distinct set of acceptance criteria — guest-specific password, idempotent role update, no collection reassignment, and 10k credits — that deserve focused implementation and testing. Merging T02 into T01 (Option B) would save one developer handoff but at the cost of mixing schema concerns with seed-data concerns in a single task, making code review less focused. The parallel execution of T02 and T03 in Wave 1 is a minor bonus (T02 is fast), but maintaining clean task boundaries aligns with the project's established pattern of small, single-responsibility tasks. There are no technical blockers or architectural concerns that would justify deferral (Option C). The feature is well-scoped: only two role values ('admin'/'guest'), no complex permission matrix, full backward compatibility via default='admin', and all required infrastructure (auth, seed-users CLI, frontend Layout with beta section, i18n) already exists.",
+  "actions": [
+    {
+      "type": "create-feature",
+      "feature": "F139",
+      "notes": "Proceed with 3-task / 2-wave plan as specified in F139-README.md. Wave 0: T01 (role column + schema + API + frontend type). Wave 1: T02 (seed guest user) + T03 (frontend beta access control) in parallel. No new external dependencies required. Migration via ALTER TABLE (same pattern as F99). Guest password hardcoded as 'mudar@12345' per user specification."
+    }
+  ],
+  "status": "decided"
+}

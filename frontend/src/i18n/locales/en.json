@@ -1249,6 +1249,9 @@
     "addSuccess": "Added to wishlist",
     "removeSuccess": "Removed from wishlist"
   },
+  "beta": {
+    "blocked": "This feature is not available for the current profile"
+  },
   "tradeMatch": {
     "title": "Trade Matches",
     "loginRequired": "Sign in to find trade matches.",

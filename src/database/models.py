@@ -225,6 +225,7 @@ class UserRow(Base):
     preferred_language: Mapped[str] = mapped_column(String(10), default="en")
     is_active: Mapped[int] = mapped_column(Integer, default=1)
     is_admin: Mapped[int] = mapped_column(Integer, default=0)
+    role: Mapped[str] = mapped_column(String(20), default="admin")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now

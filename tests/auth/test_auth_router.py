@@ -26,6 +26,8 @@ def _mock_user_row(**overrides):
         "preferred_currency": "BRL",
         "preferred_language": "en",
         "is_active": 1,
+        "is_admin": 0,
+        "role": "admin",
     }
     defaults.update(overrides)
     row = MagicMock(spec=UserRow)

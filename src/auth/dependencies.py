@@ -64,6 +64,7 @@ def get_current_user(
         preferred_language=getattr(user_row, "preferred_language", "en"),
         is_active=bool(user_row.is_active),
         is_admin=bool(getattr(user_row, "is_admin", 0)),
+        role=getattr(user_row, "role", "admin"),
         password_expires_at=getattr(user_row, "password_expires_at", None),
     )
 
@@ -100,6 +101,7 @@ def get_optional_user(
         preferred_language=getattr(user_row, "preferred_language", "en"),
         is_active=bool(user_row.is_active),
         is_admin=bool(getattr(user_row, "is_admin", 0)),
+        role=getattr(user_row, "role", "admin"),
         password_expires_at=getattr(user_row, "password_expires_at", None),
     )
 

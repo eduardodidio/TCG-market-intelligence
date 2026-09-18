@@ -1249,6 +1249,9 @@
     "addSuccess": "Adicionada a lista de desejos",
     "removeSuccess": "Removida da lista de desejos"
   },
+  "beta": {
+    "blocked": "Esta funcao nao esta habilitada para o perfil atual"
+  },
   "tradeMatch": {
     "title": "Trocas",
     "loginRequired": "Entre para encontrar parceiros de troca.",

@@ -16,6 +16,7 @@ const defaultAuth: AuthContextValue = {
   loading: false,
   error: null,
   isAuthenticated: false,
+  hasBetaAccess: true,
   mustChangePassword: false,
   login: async () => null,
   register: async () => null,

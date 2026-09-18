@@ -102,14 +102,14 @@ describe("CardTile", () => {
     const { useAuth } = await import("../../hooks/useAuth");
     vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: false,
+      hasBetaAccess: true,
       user: null,
       login: vi.fn(),
       logout: vi.fn(),
       loading: false,
       error: null,
       register: vi.fn(),
-      fetchProfile: vi.fn(),
-      updateProfile: vi.fn(),
+      mustChangePassword: false,
       changePassword: vi.fn(),
     } as ReturnType<typeof useAuth>);
 

@@ -953,6 +953,20 @@ Full gap analysis: [`docs/gap-analysis-2026-09-02.md`](docs/gap-analysis-2026-09
   API falls back to a name-based search URL when no stored URL exists yet
   (it fills in on the next sweep, bounded by `max_age_days`).
 
+### F139 -- Guest User Profile (2026-09-18)
+
+Added a guest/demo login and role-based beta access control:
+
+- **User roles** -- new `role` column on `users` table (VARCHAR(20), default
+  "admin"). Guest user seeded via `seed-users` CLI with hardcoded demo
+  credentials. Role drift auto-correction on re-seed.
+- **Beta access gating** -- `BetaRoute` component blocks guest users from
+  beta features (decks, achievements, alerts, import). Sidebar items for
+  beta sections are visually disabled with a toast message on click.
+- **AuthContext** -- `hasBetaAccess` derived from `user.role !== "guest"`.
+  Unauthenticated users are not blocked (public beta routes remain open).
+- **Architecture decision:** [ADR-0013](docs/adr/0013-guest-user-role-system.md)
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).

@@ -14,6 +14,7 @@ function renderWithAuth(
     loading: false,
     error: null,
     isAuthenticated: false,
+    hasBetaAccess: true,
     login: vi.fn().mockResolvedValue(null),
     register: vi.fn().mockResolvedValue(null),
     logout: vi.fn().mockResolvedValue(undefined),
@@ -57,6 +58,7 @@ const adminUser = {
   preferred_language: null,
   is_active: true,
   is_admin: true,
+  role: "admin",
 };
 
 const regularUser = {
@@ -68,6 +70,7 @@ const regularUser = {
   preferred_language: null,
   is_active: true,
   is_admin: false,
+  role: "admin",
 };
 
 describe("AdminRoute", () => {

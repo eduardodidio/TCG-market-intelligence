@@ -14,6 +14,7 @@ function renderWithAuth(
     loading: false,
     error: null,
     isAuthenticated: false,
+    hasBetaAccess: true,
     login: vi.fn().mockResolvedValue(null),
     register: vi.fn().mockResolvedValue(null),
     logout: vi.fn().mockResolvedValue(undefined),
@@ -57,6 +58,7 @@ describe("ProtectedRoute", () => {
         preferred_language: null,
         is_active: true,
         is_admin: false,
+        role: "admin",
       },
     });
 

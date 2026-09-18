@@ -21,6 +21,7 @@ const mockAuthUnauthenticated: AuthContextValue = {
   loading: false,
   error: null,
   isAuthenticated: false,
+  hasBetaAccess: true,
   login: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(null),
   logout: vi.fn().mockResolvedValue(undefined),
@@ -38,10 +39,12 @@ const mockAuthAuthenticated: AuthContextValue = {
     preferred_language: null,
     is_active: true,
     is_admin: false,
+    role: "admin",
   },
   loading: false,
   error: null,
   isAuthenticated: true,
+  hasBetaAccess: true,
   login: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(null),
   logout: vi.fn().mockResolvedValue(undefined),
@@ -59,10 +62,35 @@ const mockAuthAdmin: AuthContextValue = {
     preferred_language: null,
     is_active: true,
     is_admin: true,
+    role: "admin",
   },
   loading: false,
   error: null,
   isAuthenticated: true,
+  hasBetaAccess: true,
+  login: vi.fn().mockResolvedValue(null),
+  register: vi.fn().mockResolvedValue(null),
+  logout: vi.fn().mockResolvedValue(undefined),
+  mustChangePassword: false,
+  changePassword: vi.fn().mockResolvedValue(null),
+};
+
+const mockAuthGuest: AuthContextValue = {
+  user: {
+    id: 99,
+    email: "guest@example.com",
+    display_name: "Guest User",
+    avatar_url: null,
+    auth_provider: "email",
+    preferred_language: null,
+    is_active: true,
+    is_admin: false,
+    role: "guest",
+  },
+  loading: false,
+  error: null,
+  isAuthenticated: true,
+  hasBetaAccess: false,
   login: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(null),
   logout: vi.fn().mockResolvedValue(undefined),
@@ -485,5 +513,59 @@ describe("Layout", () => {
     // Expanded: rotate-90
     fireEvent.click(toggle);
     expect(svg?.getAttribute("class")).toContain("rotate-90");
+  });
+
+  // --- Guest beta access control tests ---
+
+  it("renders beta items as disabled spans for guest user", () => {
+    renderLayout("/", mockAuthGuest);
+    expandBeta();
+
+    const betaContainer = screen.getByTestId("beta-nav-items");
+    // Guest sees beta items as spans (not links)
+    const spans = betaContainer.querySelectorAll("span[role='button']");
+    expect(spans.length).toBeGreaterThan(0);
+    // No links inside beta section for guests
+    const links = betaContainer.querySelectorAll("a");
+    expect(links).toHaveLength(0);
+  });
+
+  it("beta items have opacity-50 and cursor-not-allowed for guest user", () => {
+    renderLayout("/", mockAuthGuest);
+    expandBeta();
+
+    const betaContainer = screen.getByTestId("beta-nav-items");
+    const spans = betaContainer.querySelectorAll("span[role='button']");
+    spans.forEach((span) => {
+      expect(span.className).toContain("opacity-50");
+      expect(span.className).toContain("cursor-not-allowed");
+    });
+  });
+
+  it("clicking disabled beta item shows toast message for guest user", () => {
+    renderLayout("/", mockAuthGuest);
+    expandBeta();
+
+    const betaContainer = screen.getByTestId("beta-nav-items");
+    const firstSpan = betaContainer.querySelector("span[role='button']");
+    expect(firstSpan).toBeDefined();
+
+    fireEvent.click(firstSpan!);
+
+    const toast = screen.getByTestId("beta-blocked-toast");
+    expect(toast).toBeDefined();
+    expect(toast.textContent).toContain("This feature is not available for the current profile");
+  });
+
+  it("beta items render as links for admin user (existing behavior preserved)", () => {
+    renderLayout("/", mockAuthAdmin);
+    expandBeta();
+
+    const betaContainer = screen.getByTestId("beta-nav-items");
+    const links = betaContainer.querySelectorAll("a");
+    expect(links.length).toBeGreaterThan(0);
+    // No disabled spans
+    const spans = betaContainer.querySelectorAll("span[role='button']");
+    expect(spans).toHaveLength(0);
   });
 });

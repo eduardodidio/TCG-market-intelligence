@@ -98,6 +98,7 @@ describe("WishlistPage", () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
+      hasBetaAccess: true,
       user: { id: 1, display_name: "Test" } as any,
       error: null,
       mustChangePassword: false,
@@ -105,6 +106,7 @@ describe("WishlistPage", () => {
       loading: false,
       login: vi.fn(),
       logout: vi.fn(),
+      changePassword: vi.fn(),
     });
   });
 
@@ -151,6 +153,7 @@ describe("WishlistPage", () => {
   it("shows login required when not authenticated", async () => {
     mockUseAuth.mockReturnValue({
       isAuthenticated: false,
+      hasBetaAccess: true,
       user: null,
       error: null,
       mustChangePassword: false,
@@ -158,6 +161,7 @@ describe("WishlistPage", () => {
       loading: false,
       login: vi.fn(),
       logout: vi.fn(),
+      changePassword: vi.fn(),
     });
 
     renderPage();

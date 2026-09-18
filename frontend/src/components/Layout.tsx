@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -117,7 +117,18 @@ export function Layout() {
   });
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, hasBetaAccess, logout } = useAuth();
+  const [betaToast, setBetaToast] = useState(false);
+
+  const showBetaBlockedToast = useCallback(() => {
+    setBetaToast(true);
+  }, []);
+
+  useEffect(() => {
+    if (!betaToast) return;
+    const timer = setTimeout(() => setBetaToast(false), 3000);
+    return () => clearTimeout(timer);
+  }, [betaToast]);
 
   // Persist collapsed state
   useEffect(() => {
@@ -328,6 +339,31 @@ export function Layout() {
                   {visibleBetaItems.map((item) => {
                     const isActive = location.pathname === item.to;
                     const label = t(item.labelKey);
+
+                    if (!hasBetaAccess) {
+                      return (
+                        <span
+                          key={item.to}
+                          role="button"
+                          tabIndex={0}
+                          title={collapsed ? label : undefined}
+                          data-testid={`beta-disabled-${item.to.replace(/\//g, "-")}`}
+                          className={`
+                            flex items-center ${collapsed ? "justify-center px-2" : "px-6 gap-3"} py-2 mb-1 rounded-md text-sm font-medium
+                            transition-all duration-200 opacity-50 cursor-not-allowed
+                            text-gray-500 dark:text-slate-400
+                          `}
+                          onClick={showBetaBlockedToast}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") showBetaBlockedToast();
+                          }}
+                        >
+                          {item.icon}
+                          {!collapsed && <span className="whitespace-nowrap overflow-hidden">{label}</span>}
+                        </span>
+                      );
+                    }
+
                     return (
                       <Link
                         key={item.to}
@@ -429,6 +465,17 @@ export function Layout() {
             await executeDelete();
           }}
         />
+      )}
+
+      {/* Beta blocked toast for guest users */}
+      {betaToast && (
+        <div
+          data-testid="beta-blocked-toast"
+          className="fixed bottom-4 right-4 z-50 bg-gray-800 dark:bg-slate-700 text-white px-4 py-3 rounded-lg shadow-lg text-sm max-w-sm animate-fade-in"
+          role="alert"
+        >
+          {t("beta.blocked")}
+        </div>
       )}
 
     </div>

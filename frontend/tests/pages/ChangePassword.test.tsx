@@ -20,6 +20,7 @@ function createAuthValue(overrides?: Partial<AuthContextValue>): AuthContextValu
     loading: false,
     error: null,
     isAuthenticated: false,
+    hasBetaAccess: true,
     mustChangePassword: true,
     login: vi.fn().mockResolvedValue(null),
     register: vi.fn().mockResolvedValue(null),

@@ -22,9 +22,12 @@ const mockAuth = {
   loading: false,
   error: null,
   isAuthenticated: true,
+  hasBetaAccess: true,
+  mustChangePassword: false,
   login: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
+  changePassword: vi.fn(),
 };
 
 function renderSettings() {

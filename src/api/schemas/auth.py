@@ -36,6 +36,7 @@ class UserProfile(BaseModel):
     preferred_language: str = "en"
     is_active: bool
     is_admin: bool = False
+    role: str = "admin"
     must_change_password: bool = False
 
 

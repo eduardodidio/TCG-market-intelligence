@@ -26,6 +26,7 @@ export interface AuthContextValue {
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  hasBetaAccess: boolean;
   mustChangePassword: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   register: (
@@ -42,6 +43,7 @@ export const AuthContext = createContext<AuthContextValue>({
   loading: true,
   error: null,
   isAuthenticated: false,
+  hasBetaAccess: true,
   mustChangePassword: false,
   login: async () => null,
   register: async () => null,
@@ -193,19 +195,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMustChangePassword(false);
   }, []);
 
+  const hasBetaAccess = !user || user.role !== "guest";
+
   const value = useMemo(
     () => ({
       user,
       loading,
       error,
       isAuthenticated: user !== null,
+      hasBetaAccess,
       mustChangePassword,
       login,
       register,
       logout,
       changePassword,
     }),
-    [user, loading, error, mustChangePassword, login, register, logout, changePassword],
+    [user, loading, error, hasBetaAccess, mustChangePassword, login, register, logout, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
