@@ -242,7 +242,7 @@
     "topLosers": "Top Losers",
     "collectionErrorTitle": "Could not load collection",
     "collectionErrorDesc": "There was a problem loading your collection data. This may happen after a server update — try again or re-login.",
-    "investmentTitle": "Investment",
+    "investmentTitle": "Cataloged Investment",
     "investmentProgress": "{{count}} of {{total}} cards with paid price",
     "investmentEmptyTitle": "Track your collection's appreciation",
     "investmentEmptyDesc": "Set the paid price on your cards to see invested value and P&L.",
@@ -1151,7 +1151,8 @@
     "gainers": "Top Gainers",
     "losers": "Top Losers",
     "noData": "Not enough price history yet",
-    "change": "Change"
+    "change": "Change",
+    "error": "Failed to load movers"
   },
   "errorCodes": {
     "authInvalidCredentials": "Invalid email or password.",

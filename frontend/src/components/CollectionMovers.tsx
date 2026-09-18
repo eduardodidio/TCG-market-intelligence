@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   fetchCollectionMovers,
@@ -58,15 +58,24 @@ export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }
   const { t } = useTranslation();
   const [data, setData] = useState<CollectionMoversData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     setLoading(true);
+    setError(false);
     fetchCollectionMovers(days, limit, investmentOnly)
       .then((res) => {
         if (res.data) setData(res.data);
       })
+      .catch(() => {
+        setError(true);
+      })
       .finally(() => setLoading(false));
   }, [days, limit, investmentOnly]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   if (loading) {
     return (
@@ -74,6 +83,23 @@ export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }
         {[1, 2].map((i) => (
           <div key={i} className="animate-pulse bg-slate-700/50 rounded-lg h-48" />
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="bg-slate-800/50 border border-red-500/30 rounded-lg p-4 text-center"
+        data-testid="movers-error"
+      >
+        <p className="text-sm text-red-400">{t("movers.error")}</p>
+        <button
+          onClick={fetchData}
+          className="mt-2 text-xs text-indigo-400 hover:text-indigo-300"
+        >
+          {t("common.retry")}
+        </button>
       </div>
     );
   }

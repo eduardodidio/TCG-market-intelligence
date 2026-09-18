@@ -242,7 +242,7 @@
     "topLosers": "Maiores Baixas",
     "collectionErrorTitle": "Nao foi possivel carregar a colecao",
     "collectionErrorDesc": "Houve um problema ao carregar os dados da sua colecao. Isso pode ocorrer apos uma atualizacao do servidor — tente novamente ou faca login novamente.",
-    "investmentTitle": "Investimento",
+    "investmentTitle": "Investimento Catalogado",
     "investmentProgress": "{{count}} de {{total}} cards com valor pago",
     "investmentEmptyTitle": "Acompanhe a valorizacao da sua colecao",
     "investmentEmptyDesc": "Informe o valor pago dos seus cards para ver o investido e o P&L.",
@@ -1151,7 +1151,8 @@
     "gainers": "Maiores Altas",
     "losers": "Maiores Baixas",
     "noData": "Historico de precos insuficiente",
-    "change": "Variacao"
+    "change": "Variacao",
+    "error": "Erro ao carregar movimentacoes"
   },
   "errorCodes": {
     "authInvalidCredentials": "Email ou senha invalidos.",

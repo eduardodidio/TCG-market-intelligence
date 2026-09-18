@@ -964,69 +964,98 @@ class Repository:
 
         Returns (gainers, losers) as lists of tuples:
         (card_id, name_en, name_pt, set_code, price_start, price_end, change_pct)
-        """
-        from decimal import Decimal
 
+        Uses window functions to compute earliest price (after cutoff) and
+        latest price (ever) per card in two CTEs, then JOINs to cards.
+        This replaces the previous N+1 query pattern.
+        """
         cutoff = date.today() - timedelta(days=days)
 
         with Session(self.engine) as session:
-            cards = session.execute(select(CardRow)).scalars().all()
-
-            movers: list[tuple] = []
-            for card in cards:
-                source_cards = (
-                    session.execute(select(SourceCardRow).where(SourceCardRow.card_id == card.id))
-                    .scalars()
-                    .all()
-                )
-
-                if not source_cards:
-                    continue
-
-                earliest_price = None
-                latest_price = None
-
-                for sc in source_cards:
-                    early = session.execute(
-                        select(PriceObservationRow)
-                        .where(
-                            PriceObservationRow.source.in_([sc.source, "jsonld_snapshot"]),
-                            PriceObservationRow.external_id == sc.external_id,
-                            PriceObservationRow.observed_at >= cutoff,
-                            PriceObservationRow.median_price.isnot(None),
-                        )
-                        .order_by(PriceObservationRow.observed_at.asc())
-                        .limit(1)
-                    ).scalar_one_or_none()
-
-                    late = session.execute(
-                        select(PriceObservationRow)
-                        .where(
-                            PriceObservationRow.source.in_([sc.source, "jsonld_snapshot"]),
-                            PriceObservationRow.external_id == sc.external_id,
-                            PriceObservationRow.median_price.isnot(None),
-                        )
-                        .order_by(PriceObservationRow.observed_at.desc())
-                        .limit(1)
-                    ).scalar_one_or_none()
-
-                    if early and late and early.median_price and late.median_price:
-                        earliest_price = early.median_price
-                        latest_price = late.median_price
-
-                if earliest_price and latest_price and earliest_price != Decimal("0"):
-                    change_pct = ((latest_price - earliest_price) / earliest_price) * 100
-                    movers.append(
-                        (
-                            card.id,
-                            card.name_en,
-                            card.name_pt,
-                            card.set_code,
-                            earliest_price,
-                            latest_price,
-                            change_pct,
-                        )
+            # CTE 1: earliest price AFTER cutoff per card
+            earliest_sub = (
+                select(
+                    SourceCardRow.card_id,
+                    PriceObservationRow.median_price.label("price_start"),
+                    func.row_number()
+                    .over(
+                        partition_by=SourceCardRow.card_id,
+                        order_by=PriceObservationRow.observed_at.asc(),
                     )
+                    .label("rn"),
+                )
+                .join(
+                    PriceObservationRow,
+                    (PriceObservationRow.external_id == SourceCardRow.external_id)
+                    & PriceObservationRow.source.in_([SourceCardRow.source, "jsonld_snapshot"]),
+                )
+                .where(
+                    PriceObservationRow.observed_at >= cutoff,
+                    PriceObservationRow.median_price.isnot(None),
+                    SourceCardRow.card_id.isnot(None),
+                )
+            ).cte("earliest_cte")
+
+            earliest = (
+                select(
+                    earliest_sub.c.card_id,
+                    earliest_sub.c.price_start,
+                ).where(earliest_sub.c.rn == 1)
+            ).cte("earliest")
+
+            # CTE 2: latest price EVER per card (no cutoff)
+            latest_sub = (
+                select(
+                    SourceCardRow.card_id,
+                    PriceObservationRow.median_price.label("price_end"),
+                    func.row_number()
+                    .over(
+                        partition_by=SourceCardRow.card_id,
+                        order_by=PriceObservationRow.observed_at.desc(),
+                    )
+                    .label("rn"),
+                )
+                .join(
+                    PriceObservationRow,
+                    (PriceObservationRow.external_id == SourceCardRow.external_id)
+                    & PriceObservationRow.source.in_([SourceCardRow.source, "jsonld_snapshot"]),
+                )
+                .where(
+                    PriceObservationRow.median_price.isnot(None),
+                    SourceCardRow.card_id.isnot(None),
+                )
+            ).cte("latest_cte")
+
+            latest = (
+                select(
+                    latest_sub.c.card_id,
+                    latest_sub.c.price_end,
+                ).where(latest_sub.c.rn == 1)
+            ).cte("latest")
+
+            # Main query: join earliest + latest + cards, compute change_pct
+            stmt = (
+                select(
+                    CardRow.id,
+                    CardRow.name_en,
+                    CardRow.name_pt,
+                    CardRow.set_code,
+                    earliest.c.price_start,
+                    latest.c.price_end,
+                    (
+                        (latest.c.price_end - earliest.c.price_start) / earliest.c.price_start * 100
+                    ).label("change_pct"),
+                )
+                .join(earliest, earliest.c.card_id == CardRow.id)
+                .join(latest, latest.c.card_id == CardRow.id)
+                .where(
+                    earliest.c.price_start > 0,
+                    earliest.c.price_start != latest.c.price_end,
+                )
+            )
+
+            rows = session.execute(stmt).all()
+            movers = [(r[0], r[1], r[2], r[3], r[4], r[5], r[6]) for r in rows]
 
             gainers = sorted(movers, key=lambda x: x[6], reverse=True)[:limit]
             losers = sorted(movers, key=lambda x: x[6])[:limit]
