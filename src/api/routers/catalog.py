@@ -89,6 +89,17 @@ class CatalogScanResponse(BaseModel):
     total_cost: int
 
 
+class ImportLigaRequest(BaseModel):
+    url: str
+
+
+class ImportLigaResponse(BaseModel):
+    status: str
+    card_id: int
+    card_name: str
+    message: str
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -211,8 +222,7 @@ def list_catalog_cards(
 
     # Sort mapping
     rarity_case = (
-        "CASE c.rarity "
-        "WHEN 'M' THEN 0 WHEN 'R' THEN 1 WHEN 'U' THEN 2 WHEN 'C' THEN 3 ELSE 4 END"
+        "CASE c.rarity WHEN 'M' THEN 0 WHEN 'R' THEN 1 WHEN 'U' THEN 2 WHEN 'C' THEN 3 ELSE 4 END"
     )
     sort_col_map = {
         SortByEnum.name: "c.name_en",
@@ -493,5 +503,106 @@ def scan_catalog_set(
         set_code=set_code,
         card_count=queued_count,
         total_cost=total_cost,
+    )
+    return success_response(data=data)
+
+
+@router.post("/import-liga", response_model=ApiResponse[ImportLigaResponse])
+def import_liga_card(
+    body: ImportLigaRequest,
+    repo: Repository = Depends(get_db),
+    user: User = Depends(get_current_user),
+    credit_svc: CreditService = Depends(get_credit_service),
+):
+    """Import a card from a Liga Magic URL into the catalog.
+
+    Parses the card name (and optional set code) from the URL, searches
+    the catalog, and queues a price update request.  If the card does not
+    exist in the catalog, a new ``CardRow`` is created first.
+
+    Cost: 1 credit.
+    """
+    from src.providers.liga.url import parse_liga_card_url
+
+    # Parse the URL
+    try:
+        card_name, set_code = parse_liga_card_url(body.url.strip())
+    except ValueError as exc:
+        raise api_error(422, ErrorCode.VALIDATION_ERROR, str(exc))
+
+    # Credit guard
+    cost = CARD_REFRESH_COST
+    if not credit_svc.check_sufficient(user.id, cost):
+        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
+
+    with Session(repo.engine) as session:
+        # Search for existing card by name (case-insensitive) + optional set_code
+        query = select(CardRow).where(
+            CardRow.game == "magic",
+        )
+        # Use LOWER for case-insensitive comparison (works on both SQLite and PG)
+        query = query.where(CardRow.name_en.ilike(card_name))
+        if set_code:
+            query = query.where(CardRow.set_code == set_code.lower())
+        query = query.limit(1)
+
+        card = session.execute(query).scalars().first()
+        message = "Solicitacao enfileirada"
+
+        if card is None:
+            # Create a new card entry
+            card = CardRow(
+                game="magic",
+                name_en=card_name,
+                set_code=set_code.lower() if set_code else None,
+            )
+            session.add(card)
+            session.flush()  # get the new card.id
+            message = "Card adicionado e preco enfileirado"
+
+        card_id = card.id
+        card_name_result = card.name_en
+
+        # Deduplicate: skip if pending request exists within 24h
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        existing = (
+            session.execute(
+                select(PriceUpdateRequestRow).where(
+                    PriceUpdateRequestRow.card_id == card_id,
+                    PriceUpdateRequestRow.status.in_(["pending", "processing"]),
+                    PriceUpdateRequestRow.requested_at >= cutoff,
+                )
+            )
+            .scalars()
+            .first()
+        )
+
+        if existing:
+            data = ImportLigaResponse(
+                status="queued",
+                card_id=card_id,
+                card_name=card_name_result,
+                message="Solicitacao ja enfileirada",
+            )
+            return success_response(data=data)
+
+        # Deduct credit before creating request
+        credit_svc.deduct(user.id, cost, "import_liga", reference_id=str(card_id))
+
+        # Create price update request
+        session.add(
+            PriceUpdateRequestRow(
+                card_id=card_id,
+                user_id=user.id,
+                status="pending",
+            )
+        )
+        session.commit()
+
+    data = ImportLigaResponse(
+        status="queued",
+        card_id=card_id,
+        card_name=card_name_result,
+        message=message,
     )
     return success_response(data=data)

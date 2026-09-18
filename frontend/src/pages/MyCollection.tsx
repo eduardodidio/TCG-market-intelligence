@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { fetchCollectionBanned } from "../api/banEngine";
-import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPriceLiga, bulkUpdateEntries, bulkDeleteEntries } from "../api/collection";
+import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPriceLiga, bulkUpdateEntries, bulkDeleteEntries, refreshAllCollectionPrices } from "../api/collection";
 import { BanAlertBanner } from "../components/BanAlertBanner";
 import { BulkCanonizeButton } from "../components/BulkCanonizeButton";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
@@ -339,6 +339,10 @@ export function MyCollection() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const { balance: creditBalance, isAdmin: creditIsAdmin, bonusEligible: creditBonusEligible, claimBonus: creditClaimBonus, refetch: creditRefetch } = useCredits();
 
+  // Queue-based bulk refresh (F148-T04)
+  const [queueRefreshModalOpen, setQueueRefreshModalOpen] = useState(false);
+  const [queueRefreshLoading, setQueueRefreshLoading] = useState(false);
+
   // Set completion
   const [setCompletionData, setSetCompletionData] = useState<SetCompletionEntry[]>([]);
 
@@ -451,6 +455,23 @@ export function MyCollection() {
     setPreviewMaxAgeDays(newValue);
     await loadPreview(newValue);
   }, [loadPreview]);
+
+  const handleQueueRefreshConfirm = useCallback(async () => {
+    setQueueRefreshModalOpen(false);
+    setQueueRefreshLoading(true);
+    try {
+      const res = await refreshAllCollectionPrices();
+      if (res.data) {
+        const msg = t("collection.queueRefreshSuccess", { count: res.data.card_count });
+        alert(msg);
+        creditRefetch();
+      }
+    } catch {
+      // error handled by apiPost
+    } finally {
+      setQueueRefreshLoading(false);
+    }
+  }, [t, creditRefetch]);
 
   // Live card updates: when lastScannedCard changes, update the local cards state
   useEffect(() => {
@@ -889,6 +910,26 @@ export function MyCollection() {
             </button>
           )}
 
+          {/* Queue Refresh All Prices button (F148-T04) */}
+          {!isRefreshing && !refreshDone && !refreshError && summary && summary.total_unique > 0 && (
+            <button
+              type="button"
+              onClick={() => setQueueRefreshModalOpen(true)}
+              disabled={queueRefreshLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
+                bg-amber-600 hover:bg-amber-500 text-white rounded-lg
+                transition-colors duration-200
+                disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="queue-refresh-all-btn"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="hidden sm:inline">{t("collection.queueRefreshAll")}</span>
+              <CostBadge cost={Math.min(summary.total_unique, 500)} balance={creditBalance} />
+            </button>
+          )}
+
           <GridSizeToggle value={gridSize} onChange={setGridSize} />
         </div>
 
@@ -1044,6 +1085,19 @@ export function MyCollection() {
           disabled={previewLoading}
         />
       </CreditConfirmModal>
+
+      <CreditConfirmModal
+        isOpen={queueRefreshModalOpen}
+        onCancel={() => setQueueRefreshModalOpen(false)}
+        onConfirm={handleQueueRefreshConfirm}
+        cost={Math.min(summary?.total_unique ?? 0, 500)}
+        balance={creditBalance ?? 0}
+        actionLabel={t("collection.queueRefreshAction")}
+        isAdmin={creditIsAdmin}
+        cardCount={Math.min(summary?.total_unique ?? 0, 500)}
+        bonusEligible={creditBonusEligible}
+        onClaimBonus={async () => { await creditClaimBonus(); creditRefetch(); }}
+      />
 
       <BatchAddModal
         isOpen={batchAddOpen}
