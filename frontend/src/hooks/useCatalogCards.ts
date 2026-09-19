@@ -48,6 +48,9 @@ export function useCatalogCards(filters: CatalogFilters) {
 
   const debouncedName = useDebounce(filters.name, 300);
   const fetchIdRef = useRef(0);
+  const [retryKey, setRetryKey] = useState(0);
+
+  const refetch = useCallback(() => setRetryKey((k) => k + 1), []);
 
   const buildParams = useCallback(
     (offset = 0): Record<string, string> => {
@@ -110,7 +113,7 @@ export function useCatalogCards(filters: CatalogFilters) {
           setLoading(false);
         }
       });
-  }, [buildParams]);
+  }, [buildParams, retryKey]);
 
   // Load more handler
   const loadMore = useCallback(() => {
@@ -155,5 +158,6 @@ export function useCatalogCards(filters: CatalogFilters) {
     error,
     hasMore,
     loadMore,
+    refetch,
   };
 }

@@ -518,7 +518,8 @@
     "changePasswordBtn": "Change Password",
     "passwordMismatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 8 characters",
-    "sessionExpired": "Your session has expired. Please log in again."
+    "sessionExpired": "Your session has expired. Please log in again.",
+    "guestViewing": "Viewing shared collection"
   },
   "scans": {
     "title": "Price Scans",

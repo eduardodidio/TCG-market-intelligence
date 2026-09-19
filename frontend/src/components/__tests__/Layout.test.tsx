@@ -193,9 +193,11 @@ describe("Layout — collapsible sidebar", () => {
     renderLayout();
 
     const nav = screen.getByTestId("sidebar-nav");
-    // Text spans should not be rendered in collapsed mode
+    // Text spans should be sr-only in collapsed mode (accessible but visually hidden)
     const spans = nav.querySelectorAll("a span");
-    expect(spans.length).toBe(0);
+    spans.forEach((span) => {
+      expect(span.className).toContain("sr-only");
+    });
   });
 
   it("shows nav item text when expanded", () => {

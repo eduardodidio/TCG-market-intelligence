@@ -237,6 +237,11 @@ export function Layout() {
                       </span>
                     )}
                   </p>
+                  {user?.role === "guest" && (
+                    <p className="text-xs text-amber-400/80 mt-0.5" data-testid="guest-indicator">
+                      {t("auth.guestViewing")}
+                    </p>
+                  )}
                   <button
                     onClick={async () => {
                       await logout();
@@ -311,7 +316,7 @@ export function Layout() {
                 `}
               >
                 {item.icon}
-                {!collapsed && <span className="whitespace-nowrap overflow-hidden">{label}</span>}
+                {collapsed ? <span className="sr-only">{label}</span> : <span className="whitespace-nowrap overflow-hidden">{label}</span>}
               </Link>
             );
           })}
@@ -336,7 +341,7 @@ export function Layout() {
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
-                {!collapsed && t("nav.betaTest")}
+                {collapsed ? <span className="sr-only">{t("nav.betaTest")}</span> : t("nav.betaTest")}
               </button>
               {betaOpen && (
                 <div data-testid="beta-nav-items">
@@ -363,7 +368,7 @@ export function Layout() {
                           }}
                         >
                           {item.icon}
-                          {!collapsed && <span className="whitespace-nowrap overflow-hidden">{label}</span>}
+                          {collapsed ? <span className="sr-only">{label}</span> : <span className="whitespace-nowrap overflow-hidden">{label}</span>}
                         </span>
                       );
                     }
@@ -384,7 +389,7 @@ export function Layout() {
                         `}
                       >
                         {item.icon}
-                        {!collapsed && <span className="whitespace-nowrap overflow-hidden">{label}</span>}
+                        {collapsed ? <span className="sr-only">{label}</span> : <span className="whitespace-nowrap overflow-hidden">{label}</span>}
                       </Link>
                     );
                   })}

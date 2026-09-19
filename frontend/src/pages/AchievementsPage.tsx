@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchAchievements } from "../api/achievements";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { ErrorBanner } from "../components/ErrorBanner";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import type { AchievementItem } from "../types/achievements";
 
@@ -53,28 +54,26 @@ export function AchievementsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadAchievements = useCallback(async () => {
     setLoading(true);
-    fetchAchievements()
-      .then((resp) => {
-        if (cancelled) return;
-        if (resp.data) {
-          setAchievements(resp.data);
-        } else if (resp.errors?.length > 0) {
-          setError(resp.errors[0].message);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || "Unknown error");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    setError(null);
+    try {
+      const resp = await fetchAchievements();
+      if (resp.data) {
+        setAchievements(resp.data);
+      } else if (resp.errors?.length > 0) {
+        setError(resp.errors[0].message);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadAchievements();
+  }, [loadAchievements]);
 
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const totalCount = achievements.length;
@@ -85,9 +84,7 @@ export function AchievementsPage() {
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-400">{error}</p>
-      </div>
+      <ErrorBanner message={error} variant="full" onRetry={loadAchievements} />
     );
   }
 

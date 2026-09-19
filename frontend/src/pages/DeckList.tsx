@@ -5,6 +5,7 @@ import { fetchDecks } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckImportModal } from "../components/DeckImportModal";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorBanner } from "../components/ErrorBanner";
 import type { DeckSummary } from "../types/api";
 
 export function DeckList() {
@@ -64,12 +65,7 @@ export function DeckList() {
       )}
 
       {error && (
-        <div
-          className="mb-4 p-3 rounded-md bg-red-900/20 border border-red-700/50 text-red-400 text-sm"
-          data-testid="deck-list-error"
-        >
-          {error}
-        </div>
+        <ErrorBanner message={error} variant="full" onRetry={loadDecks} />
       )}
 
       {loading && (
