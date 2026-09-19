@@ -411,7 +411,7 @@ def collection_movers(
     user_id: str = Depends(require_auth_or_api_key),
 ):
     """Return top gainers and losers in the user's collection by price change %."""
-    from sqlalchemy.exc import OperationalError
+    import structlog
 
     uid = int(user_id) if str(user_id).isdigit() else 0
     try:
@@ -421,7 +421,13 @@ def collection_movers(
             limit,
             investment_only,
         )
-    except OperationalError:
+    except Exception as exc:
+        structlog.get_logger().warning(
+            "collection_movers_error",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            user_id=uid,
+        )
         return success_response(
             data=CollectionMoversResponse(gainers=[], losers=[], period_days=days)
         )
