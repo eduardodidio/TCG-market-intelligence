@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   type ApplyMatch,
@@ -16,9 +17,11 @@ import {
 function ConfidenceBadge({
   confidence,
   method,
+  t,
 }: {
   confidence: number;
   method: string;
+  t: (key: string) => string;
 }) {
   const color =
     confidence >= 0.95
@@ -28,10 +31,10 @@ function ConfidenceBadge({
         : "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
   const label =
     confidence >= 0.95
-      ? "Exact"
+      ? t("import.confidenceExact")
       : confidence >= 0.85
-        ? "High"
-        : "Partial";
+        ? t("import.confidenceHigh")
+        : t("import.confidencePartial");
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${color}`}
@@ -53,6 +56,7 @@ type PageState = "upload" | "preview" | "result";
 /* ------------------------------------------------------------------ */
 
 export function ImportPurchasesPage() {
+  const { t } = useTranslation();
   const [state, setState] = useState<PageState>("upload");
   const [files, setFiles] = useState<File[]>([]);
   const [overwrite, setOverwrite] = useState(false);
@@ -79,13 +83,13 @@ export function ImportPurchasesPage() {
         f.name.toLowerCase().endsWith(".htm"),
     );
     if (htmlFiles.length < newFiles.length) {
-      setError("Only .html and .htm files are accepted");
+      setError(t("import.onlyHtmlAccepted"));
     }
     if (htmlFiles.length > 0) {
       setFiles((prev) => [...prev, ...htmlFiles]);
       setError(null);
     }
-  }, []);
+  }, [t]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -129,11 +133,11 @@ export function ImportPurchasesPage() {
       setEditedPrices(prices);
       setState("preview");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(err instanceof Error ? err.message : t("import.uploadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [files, overwrite]);
+  }, [files, overwrite, t]);
 
   /* ---- Apply ---- */
 
@@ -154,11 +158,11 @@ export function ImportPurchasesPage() {
       setResult(res);
       setState("result");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Apply failed");
+      setError(err instanceof Error ? err.message : t("import.applyFailed"));
     } finally {
       setLoading(false);
     }
-  }, [preview, selected, editedPrices]);
+  }, [preview, selected, editedPrices, t]);
 
   /* ---- Select helpers ---- */
 
@@ -199,17 +203,17 @@ export function ImportPurchasesPage() {
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 dark:text-slate-400 mb-4">
         <Link to="/" className="hover:underline">
-          Home
+          {t("import.breadcrumbHome")}
         </Link>{" "}
         &gt;{" "}
         <Link to="/collection" className="hover:underline">
-          Collection
+          {t("import.breadcrumbCollection")}
         </Link>{" "}
-        &gt; Import Purchases
+        &gt; {t("import.breadcrumbImport")}
       </nav>
 
       <h1 className="text-2xl font-bold mb-6 dark:text-white">
-        Import Purchases
+        {t("import.title")}
       </h1>
 
       {error && (
@@ -262,10 +266,10 @@ export function ImportPurchasesPage() {
               />
             </svg>
             <p className="mt-2 text-gray-600 dark:text-slate-300">
-              Drop HTML files here or click to browse
+              {t("import.dropZoneText")}
             </p>
             <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
-              Accepts .html and .htm files from Nerdz Cards and Liga Magic
+              {t("import.dropZoneHint")}
             </p>
             <input
               ref={fileInputRef}
@@ -298,9 +302,9 @@ export function ImportPurchasesPage() {
                       removeFile(i);
                     }}
                     className="text-red-500 hover:text-red-700 text-sm ml-2"
-                    aria-label={`Remove ${f.name}`}
+                    aria-label={`${t("import.remove")} ${f.name}`}
                   >
-                    Remove
+                    {t("import.remove")}
                   </button>
                 </div>
               ))}
@@ -315,7 +319,7 @@ export function ImportPurchasesPage() {
               onChange={(e) => setOverwrite(e.target.checked)}
               data-testid="overwrite-checkbox"
             />
-            Overwrite existing acquisition prices
+            {t("import.overwriteLabel")}
           </label>
 
           {/* Upload button */}
@@ -325,7 +329,7 @@ export function ImportPurchasesPage() {
             className="mt-4 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="upload-button"
           >
-            {loading ? "Uploading..." : "Upload & Preview"}
+            {loading ? t("import.uploading") : t("import.uploadAndPreview")}
           </button>
         </div>
       )}
@@ -336,14 +340,12 @@ export function ImportPurchasesPage() {
           {/* Summary */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded p-4 mb-4">
             <p className="font-medium dark:text-blue-200">
-              {preview.total_items_parsed} items parsed from{" "}
-              {preview.total_orders} order(s)
+              {t("import.itemsParsed", { totalItems: preview.total_items_parsed, totalOrders: preview.total_orders })}
             </p>
             <p className="text-sm text-gray-600 dark:text-blue-300">
-              {preview.total_items_matched} matched |{" "}
-              {preview.total_items_unmatched} unmatched
+              {t("import.matchedUnmatched", { matched: preview.total_items_matched, unmatched: preview.total_items_unmatched })}
               {preview.total_sealed_skipped > 0 &&
-                ` | ${preview.total_sealed_skipped} sealed products skipped`}
+                ` ${t("import.sealedSkipped", { count: preview.total_sealed_skipped })}`}
             </p>
           </div>
 
@@ -354,7 +356,7 @@ export function ImportPurchasesPage() {
               data-testid="warnings-section"
             >
               <p className="font-medium text-yellow-800 dark:text-yellow-200 text-sm">
-                Warnings
+                {t("import.warnings")}
               </p>
               <ul className="list-disc list-inside text-sm text-yellow-700 dark:text-yellow-300 mt-1">
                 {preview.warnings.map((w, i) => (
@@ -371,11 +373,10 @@ export function ImportPurchasesPage() {
               data-testid="empty-matches"
             >
               <p className="text-lg font-medium">
-                No matching cards found in your collection
+                {t("import.noMatchingCards")}
               </p>
               <p className="text-sm mt-1">
-                Make sure the cards from your purchase orders are in your
-                collection.
+                {t("import.noMatchingCardsHint")}
               </p>
             </div>
           )}
@@ -389,14 +390,14 @@ export function ImportPurchasesPage() {
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                   data-testid="select-all"
                 >
-                  Select All
+                  {t("import.selectAll")}
                 </button>
                 <button
                   onClick={() => toggleAll(false)}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                   data-testid="deselect-all"
                 >
-                  Deselect All
+                  {t("import.deselectAll")}
                 </button>
               </div>
 
@@ -408,25 +409,25 @@ export function ImportPurchasesPage() {
                         <span className="sr-only">Select</span>
                       </th>
                       <th scope="col" className="py-2 px-2 text-left">
-                        Parsed Name
+                        {t("import.colParsedName")}
                       </th>
                       <th scope="col" className="py-2 px-2 text-left">
-                        Matched To
+                        {t("import.colMatchedTo")}
                       </th>
                       <th scope="col" className="py-2 px-2 text-left">
-                        Set
+                        {t("import.colSet")}
                       </th>
                       <th scope="col" className="py-2 px-2 text-right">
-                        Price
+                        {t("import.colPrice")}
                       </th>
                       <th scope="col" className="py-2 px-2 text-left">
-                        Date
+                        {t("import.colDate")}
                       </th>
                       <th scope="col" className="py-2 px-2 text-left">
-                        Store
+                        {t("import.colStore")}
                       </th>
                       <th scope="col" className="py-2 px-2 text-center">
-                        Confidence
+                        {t("import.colConfidence")}
                       </th>
                     </tr>
                   </thead>
@@ -460,7 +461,7 @@ export function ImportPurchasesPage() {
                           {m.already_has_price && (
                             <span
                               className="ml-1 text-yellow-600 dark:text-yellow-400"
-                              title={`Already has price: R$ ${m.current_acquisition_price}`}
+                              title={t("import.alreadyHasPrice", { price: m.current_acquisition_price })}
                               data-testid="has-price-indicator"
                             >
                               !
@@ -498,6 +499,7 @@ export function ImportPurchasesPage() {
                           <ConfidenceBadge
                             confidence={m.confidence}
                             method={m.match_method}
+                            t={t}
                           />
                         </td>
                       </tr>
@@ -512,7 +514,7 @@ export function ImportPurchasesPage() {
           {preview.unmatched.length > 0 && (
             <details className="mt-4" data-testid="unmatched-section">
               <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-slate-400">
-                {preview.unmatched.length} unmatched item(s)
+                {t("import.unmatchedItems", { count: preview.unmatched.length })}
               </summary>
               <div className="mt-2 space-y-1">
                 {preview.unmatched.map((u, i) => (
@@ -536,15 +538,15 @@ export function ImportPurchasesPage() {
               data-testid="apply-button"
             >
               {loading
-                ? "Applying..."
-                : `Apply Selected (${selectedCount})`}
+                ? t("import.applying")
+                : t("import.applySelected", { count: selectedCount })}
             </button>
             <button
               onClick={resetToUpload}
               className="px-6 py-2 border border-gray-300 dark:border-slate-600 rounded text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"
               data-testid="back-button"
             >
-              Back to Upload
+              {t("import.backToUpload")}
             </button>
           </div>
         </div>
@@ -555,14 +557,14 @@ export function ImportPurchasesPage() {
         <div data-testid="result-state">
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded p-4 mb-4">
             <p className="font-medium text-green-800 dark:text-green-200">
-              {result.total_applied} acquisition price(s) updated
+              {t("import.resultApplied", { count: result.total_applied })}
             </p>
           </div>
 
           {result.total_skipped > 0 && (
             <div className="mb-4">
               <p className="text-sm font-medium text-gray-600 dark:text-slate-400 mb-2">
-                {result.total_skipped} skipped:
+                {t("import.resultSkipped", { count: result.total_skipped })}
               </p>
               <ul className="list-disc list-inside text-sm text-gray-500 dark:text-slate-400">
                 {result.skipped.map((s, i) => (
@@ -580,13 +582,13 @@ export function ImportPurchasesPage() {
               className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               data-testid="import-more-button"
             >
-              Import More
+              {t("import.importMore")}
             </button>
             <Link
               to="/collection"
               className="px-6 py-2 border border-gray-300 dark:border-slate-600 rounded text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 no-underline inline-flex items-center"
             >
-              Go to Collection
+              {t("import.goToCollection")}
             </Link>
           </div>
         </div>

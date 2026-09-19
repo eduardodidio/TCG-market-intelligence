@@ -1156,6 +1156,7 @@
     "update": "Update",
     "dismiss": "Dismiss",
     "offlineMessage": "Offline mode -- data may be outdated",
+    "lastSynced": "Last synced {{time}}",
     "installMessage": "Install TEDHC Market for a better experience",
     "install": "Install"
   },
@@ -1281,7 +1282,8 @@
     "removeSuccess": "Removed from wishlist"
   },
   "beta": {
-    "blocked": "This feature is not available for the current profile"
+    "blocked": "This feature is not available for the current profile",
+    "blockedHint": "This feature is in beta testing. Contact your administrator to request access."
   },
   "tradeMatch": {
     "title": "Trade Matches",
@@ -1301,5 +1303,47 @@
     "viewCollection": "View collection",
     "goToWishlist": "Go to Wishlist",
     "shareToMatch": "Share your collection and have duplicates to appear in matches."
+  },
+  "import": {
+    "title": "Import Purchases",
+    "breadcrumbHome": "Home",
+    "breadcrumbCollection": "Collection",
+    "breadcrumbImport": "Import Purchases",
+    "dropZoneText": "Drop HTML files here or click to browse",
+    "dropZoneHint": "Accepts .html and .htm files from Nerdz Cards and Liga Magic",
+    "onlyHtmlAccepted": "Only .html and .htm files are accepted",
+    "remove": "Remove",
+    "overwriteLabel": "Overwrite existing acquisition prices",
+    "uploading": "Uploading...",
+    "uploadAndPreview": "Upload & Preview",
+    "uploadFailed": "Upload failed",
+    "applyFailed": "Apply failed",
+    "itemsParsed": "{{totalItems}} items parsed from {{totalOrders}} order(s)",
+    "matchedUnmatched": "{{matched}} matched | {{unmatched}} unmatched",
+    "sealedSkipped": "| {{count}} sealed products skipped",
+    "warnings": "Warnings",
+    "noMatchingCards": "No matching cards found in your collection",
+    "noMatchingCardsHint": "Make sure the cards from your purchase orders are in your collection.",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "colParsedName": "Parsed Name",
+    "colMatchedTo": "Matched To",
+    "colSet": "Set",
+    "colPrice": "Price",
+    "colDate": "Date",
+    "colStore": "Store",
+    "colConfidence": "Confidence",
+    "confidenceExact": "Exact",
+    "confidenceHigh": "High",
+    "confidencePartial": "Partial",
+    "alreadyHasPrice": "Already has price: R$ {{price}}",
+    "unmatchedItems": "{{count}} unmatched item(s)",
+    "applying": "Applying...",
+    "applySelected": "Apply Selected ({{count}})",
+    "backToUpload": "Back to Upload",
+    "resultApplied": "{{count}} acquisition price(s) updated",
+    "resultSkipped": "{{count}} skipped:",
+    "importMore": "Import More",
+    "goToCollection": "Go to Collection"
   }
 }

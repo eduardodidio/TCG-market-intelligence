@@ -27,8 +27,11 @@ export function BetaRoute({ children, requiresAuth = true }: BetaRouteProps) {
       <div className="flex items-center justify-center h-full p-8">
         <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-lg shadow-lg max-w-md" data-testid="beta-blocked-message">
           <div className="text-4xl mb-4" aria-hidden="true">&#x1F512;</div>
-          <p className="text-gray-600 dark:text-slate-400 text-lg">
+          <p className="text-gray-600 dark:text-slate-300 text-lg font-medium mb-2">
             {t("beta.blocked")}
+          </p>
+          <p className="text-gray-500 dark:text-slate-400 text-sm">
+            {t("beta.blockedHint")}
           </p>
         </div>
       </div>
