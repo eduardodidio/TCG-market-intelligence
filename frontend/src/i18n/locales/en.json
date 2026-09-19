@@ -308,7 +308,9 @@
     "viewOnLigaMagic": "View on LigaMagic",
     "rarity": "Rarity",
     "addToCollection": "Add to Collection",
-    "signInToAdd": "Sign in to add to collection"
+    "signInToAdd": "Sign in to add to collection",
+    "seeOnMarket": "Market Movers",
+    "seeTrending": "Price Trends"
   },
   "collection": {
     "title": "My Collection",

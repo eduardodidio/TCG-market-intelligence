@@ -179,39 +179,6 @@ export function Login() {
                 : t("auth.dontHaveAccount")}
             </button>
           </div>
-
-          {/* OAuth buttons placeholder */}
-          <div className="mt-6 pt-6 border-t border-slate-600">
-            <p className="text-xs text-slate-500 text-center mb-3">
-              {t("auth.orContinueWith")}
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                disabled
-                className="flex-1 py-2 px-3 bg-slate-800 border border-slate-600 rounded-md text-slate-500 text-sm font-medium cursor-not-allowed opacity-50"
-                data-testid="oauth-google"
-              >
-                Google
-              </button>
-              <button
-                type="button"
-                disabled
-                className="flex-1 py-2 px-3 bg-slate-800 border border-slate-600 rounded-md text-slate-500 text-sm font-medium cursor-not-allowed opacity-50"
-                data-testid="oauth-microsoft"
-              >
-                Microsoft
-              </button>
-              <button
-                type="button"
-                disabled
-                className="flex-1 py-2 px-3 bg-slate-800 border border-slate-600 rounded-md text-slate-500 text-sm font-medium cursor-not-allowed opacity-50"
-                data-testid="oauth-apple"
-              >
-                Apple
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
