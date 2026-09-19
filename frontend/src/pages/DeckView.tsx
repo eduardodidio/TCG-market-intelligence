@@ -9,6 +9,7 @@ import { BatchAddModal } from "../components/BatchAddModal";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckCardTile } from "../components/DeckCardTile";
 import { DeckEvaluationPanel } from "../components/DeckEvaluationPanel";
+import { ErrorBanner } from "../components/ErrorBanner";
 import type { DeckDetail, DeckValueDetail } from "../types/api";
 
 export function DeckView() {
@@ -101,12 +102,7 @@ export function DeckView() {
   if (error) {
     return (
       <div data-testid="page-deck-view">
-        <div
-          className="p-4 rounded-md bg-red-900/20 border border-red-700/50 text-red-400"
-          data-testid="deck-view-error"
-        >
-          {error}
-        </div>
+        <ErrorBanner message={error} variant="full" onRetry={loadDeck} />
       </div>
     );
   }

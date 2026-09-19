@@ -518,7 +518,8 @@
     "changePasswordBtn": "Alterar Senha",
     "passwordMismatch": "As senhas nao coincidem",
     "passwordTooShort": "A senha deve ter pelo menos 8 caracteres",
-    "sessionExpired": "Sua sessao expirou. Faca login novamente."
+    "sessionExpired": "Sua sessao expirou. Faca login novamente.",
+    "guestViewing": "Visualizando colecao compartilhada"
   },
   "scans": {
     "title": "Scans de Preco",

@@ -140,7 +140,7 @@ export function SetAlertModal({ cardId, cardName, onClose }: SetAlertModalProps)
                 <button
                   type="button"
                   onClick={() => setDirection("below")}
-                  className={`flex-1 px-3 py-2 text-sm rounded-md transition-colors ${
+                  className={`flex-1 px-3 py-2 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                     direction === "below"
                       ? "bg-green-600 text-white"
                       : "bg-slate-700 text-slate-300 hover:bg-slate-600"
@@ -152,7 +152,7 @@ export function SetAlertModal({ cardId, cardName, onClose }: SetAlertModalProps)
                 <button
                   type="button"
                   onClick={() => setDirection("above")}
-                  className={`flex-1 px-3 py-2 text-sm rounded-md transition-colors ${
+                  className={`flex-1 px-3 py-2 text-sm rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                     direction === "above"
                       ? "bg-red-600 text-white"
                       : "bg-slate-700 text-slate-300 hover:bg-slate-600"
@@ -207,7 +207,7 @@ export function SetAlertModal({ cardId, cardName, onClose }: SetAlertModalProps)
             <button
               type="submit"
               disabled={submitting}
-              className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+              className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
               data-testid="submit-alert"
             >
               {submitting ? t("common.pleaseWait") : t("alerts.setAlertButton")}
@@ -233,7 +233,7 @@ export function SetAlertModal({ cardId, cardName, onClose }: SetAlertModalProps)
                     </span>
                     <button
                       onClick={() => handleDelete(alert.id)}
-                      className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                      className="text-xs text-red-400 hover:text-red-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                       data-testid="delete-existing-alert"
                     >
                       {t("common.delete")}

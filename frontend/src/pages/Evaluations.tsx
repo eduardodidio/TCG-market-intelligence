@@ -7,6 +7,7 @@ import {
   promoteEvaluation,
 } from "../api/evaluations";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorBanner } from "../components/ErrorBanner";
 import type { EvalEntry } from "../api/evaluations";
 import { Breadcrumb } from "../components/Breadcrumb";
 
@@ -107,12 +108,7 @@ export function Evaluations() {
       )}
 
       {error && (
-        <div
-          className="mb-4 px-4 py-2 rounded-md bg-red-800/50 text-red-300 text-sm"
-          data-testid="eval-error"
-        >
-          {error}
-        </div>
+        <ErrorBanner message={error} variant="full" onRetry={loadEntries} />
       )}
 
       {loading ? (

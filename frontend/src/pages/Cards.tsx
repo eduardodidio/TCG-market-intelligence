@@ -75,6 +75,8 @@ export function Cards() {
   const refreshAllAbortRef = useRef(false);
   const { balance: creditBalance, isAdmin: creditIsAdmin, bonusEligible: creditBonusEligible, claimBonus: creditClaimBonus, refetch: creditRefetch } = useCredits();
 
+  const [retryKey, setRetryKey] = useState(0);
+
   useScrollRestoration("cards");
 
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -149,7 +151,7 @@ export function Cards() {
           setLoading(false);
         }
       });
-  }, [debouncedSearch, selectedSet, sortBy, sortDir, currency, mode]);
+  }, [debouncedSearch, selectedSet, sortBy, sortDir, currency, mode, retryKey]);
 
   // Load more handler (local mode)
   const handleLoadMore = useCallback(() => {
@@ -455,7 +457,7 @@ export function Cards() {
           {/* Error state */}
           {error && (
             <div className="mb-6">
-              <ErrorBanner message={error} variant="inline" />
+              <ErrorBanner message={error} variant="inline" onRetry={() => setRetryKey((k) => k + 1)} />
             </div>
           )}
 

@@ -456,7 +456,7 @@ export function CatalogPage() {
     with_ownership: needsOwnership ? "true" : "",
   };
 
-  const { cards: rawCards, total, loading, loadingMore, error, hasMore, loadMore } = useCatalogCards(filters);
+  const { cards: rawCards, total, loading, loadingMore, error, hasMore, loadMore, refetch } = useCatalogCards(filters);
   const { sets } = useCatalogSets();
   const { stats } = useCatalogStats();
   const { balance, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
@@ -807,7 +807,7 @@ export function CatalogPage() {
       {/* Error state */}
       {error && (
         <div className="mb-6">
-          <ErrorBanner message={error} variant="inline" />
+          <ErrorBanner message={error} variant="inline" onRetry={refetch} />
         </div>
       )}
 

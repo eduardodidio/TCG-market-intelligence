@@ -5,6 +5,7 @@ import { fetchDeckRanking } from "../api/deckRanking";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckSparkline } from "../components/DeckSparkline";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorBanner } from "../components/ErrorBanner";
 import type { DeckRankingEntry, DeckRankingResponse } from "../types/api";
 
 const SORT_OPTIONS = [
@@ -121,12 +122,7 @@ export function TopDecksPage() {
 
       {/* Error */}
       {error && (
-        <div
-          className="mb-4 p-3 rounded-md bg-red-900/20 border border-red-700/50 text-red-400 text-sm"
-          data-testid="ranking-error"
-        >
-          {error}
-        </div>
+        <ErrorBanner message={error} variant="full" onRetry={() => loadDecks(0, false)} />
       )}
 
       {/* Loading skeleton */}

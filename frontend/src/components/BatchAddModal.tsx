@@ -165,7 +165,7 @@ export function BatchAddModal({ isOpen, onClose, onSuccess, initialText }: Batch
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 rounded-md text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                className="px-4 py-2 rounded-md text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 data-testid="batch-cancel-btn"
                 disabled={loading}
               >
@@ -175,7 +175,7 @@ export function BatchAddModal({ isOpen, onClose, onSuccess, initialText }: Batch
                 type="button"
                 onClick={handlePreview}
                 disabled={loading || !text.trim() || overLimit}
-                className="px-4 py-2 rounded-md text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
+                className="px-4 py-2 rounded-md text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 data-testid="batch-preview-btn"
               >
                 {loading ? t("common.loading") : t("batchAdd.preview")}

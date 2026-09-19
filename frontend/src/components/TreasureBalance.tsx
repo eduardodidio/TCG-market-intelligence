@@ -95,7 +95,7 @@ export function TreasureBalance() {
         {bonusEligible && (
           <button
             onClick={handleClaim}
-            className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors text-left mt-0.5"
+            className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors text-left mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             data-testid="claim-bonus-button"
           >
             {t("credits.claimBonus")}
