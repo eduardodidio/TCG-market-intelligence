@@ -15,6 +15,7 @@ export interface AlertResponse {
 export interface AlertNotificationResponse {
   id: number;
   alert_id: number;
+  card_id: number;
   card_name: string;
   old_price: number | null;
   new_price: number;

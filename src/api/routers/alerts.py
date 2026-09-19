@@ -54,6 +54,7 @@ class AlertResponse(BaseModel):
 class AlertNotificationResponse(BaseModel):
     id: int
     alert_id: int
+    card_id: int
     card_name: str
     old_price: float | None = None
     new_price: float
@@ -190,7 +191,7 @@ def list_notifications(
     """List alert notifications for the current user."""
     with Session(repo.engine) as session:
         query = (
-            select(AlertNotificationRow)
+            select(AlertNotificationRow, PriceAlertRow.card_id)
             .join(PriceAlertRow, AlertNotificationRow.alert_id == PriceAlertRow.id)
             .where(PriceAlertRow.user_id == user.id)
         )
@@ -199,7 +200,7 @@ def list_notifications(
             query = query.where(AlertNotificationRow.is_read == 0)
 
         query = query.order_by(AlertNotificationRow.notified_at.desc()).limit(limit)
-        rows = session.scalars(query).all()
+        rows = session.execute(query).all()
 
         # Unread count (always full, not filtered by limit)
         unread_count = (
@@ -218,13 +219,14 @@ def list_notifications(
             AlertNotificationResponse(
                 id=n.id,
                 alert_id=n.alert_id,
+                card_id=card_id,
                 card_name=n.card_name,
                 old_price=float(n.old_price) if n.old_price is not None else None,
                 new_price=float(n.new_price),
                 is_read=bool(n.is_read),
                 notified_at=n.notified_at.isoformat(),
             )
-            for n in rows
+            for n, card_id in rows
         ]
 
         return success_response(

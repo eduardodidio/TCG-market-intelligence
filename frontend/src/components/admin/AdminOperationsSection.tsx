@@ -6,6 +6,17 @@ import {
   downloadBackup,
 } from "../../api/admin";
 
+/** Safe wrapper around window.confirm — falls back to true in test environments (jsdom). */
+function safeConfirm(message: string): boolean {
+  try {
+    const result = window.confirm(message);
+    // jsdom returns undefined for unimplemented methods — treat as confirmed
+    return result === undefined ? true : result;
+  } catch {
+    return true;
+  }
+}
+
 function OperationsContent() {
   const { t } = useTranslation();
 
@@ -81,7 +92,10 @@ function OperationsContent() {
             />
           </div>
           <button
-            onClick={handleLigaScan}
+            onClick={() => {
+              if (!safeConfirm(t("admin.ops.confirmLigaScan"))) return;
+              handleLigaScan();
+            }}
             disabled={ligaLoading}
             className="px-4 py-2 text-sm bg-indigo-700 hover:bg-indigo-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded"
             data-testid="run-liga-scan-btn"
@@ -89,6 +103,12 @@ function OperationsContent() {
             {ligaLoading ? t("common.pleaseWait") : t("admin.ops.runLigaScan")}
           </button>
         </div>
+        {ligaLoading && (
+          <div className="flex items-center gap-2 mt-2 text-sm text-cyan-400" data-testid="liga-scan-spinner">
+            <div className="h-4 w-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            {t("admin.ops.scanRunning")}
+          </div>
+        )}
         {ligaResult && (
           <p className="mt-2 text-sm text-green-400" data-testid="liga-scan-result">
             {t("admin.ops.jobStarted")} - {t("admin.ops.scanId")}: {ligaResult.scan_id}
@@ -136,7 +156,10 @@ function OperationsContent() {
             />
           </div>
           <button
-            onClick={handleCatalogScan}
+            onClick={() => {
+              if (!safeConfirm(t("admin.ops.confirmCatalogScan"))) return;
+              handleCatalogScan();
+            }}
             disabled={catalogLoading || !setCode.trim()}
             className="px-4 py-2 text-sm bg-indigo-700 hover:bg-indigo-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded"
             data-testid="sweep-set-btn"
@@ -144,6 +167,12 @@ function OperationsContent() {
             {catalogLoading ? t("common.pleaseWait") : t("admin.ops.sweepSet")}
           </button>
         </div>
+        {catalogLoading && (
+          <div className="flex items-center gap-2 mt-2 text-sm text-cyan-400" data-testid="catalog-scan-spinner">
+            <div className="h-4 w-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            {t("admin.ops.scanRunning")}
+          </div>
+        )}
         {catalogResult && (
           <p className="mt-2 text-sm text-green-400" data-testid="catalog-scan-result">
             {t("admin.ops.jobStarted")} - {t("admin.ops.scanId")}: {catalogResult.scan_id}

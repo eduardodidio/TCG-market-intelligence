@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { fetchCards, refreshCardPrice, searchCardsWeb } from "../api/cards";
 import { fetchSets } from "../api/sets";
 import { apiPost } from "../api/client";
@@ -629,11 +629,16 @@ export function Cards() {
                       data-testid="add-to-collection-btn"
                     >
                       {addedIdxs.has(idx)
-                        ? "Added"
+                        ? t("cards.added")
                         : addingIdx === idx
-                          ? "..."
+                          ? t("common.loading")
                           : t("cards.addToCollection")}
                     </button>
+                    {addedIdxs.has(idx) && (
+                      <Link to="/collection" className="text-xs text-cyan-400 hover:underline text-center">
+                        {t("cards.viewInCollection")}
+                      </Link>
+                    )}
                     <button
                       className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                         evalAddedIdxs.has(idx)
@@ -649,7 +654,7 @@ export function Cards() {
                       {evalAddedIdxs.has(idx)
                         ? t("evaluations.addSuccess")
                         : evalAddingIdx === idx
-                          ? "..."
+                          ? t("common.loading")
                           : t("cards.addToEvaluation")}
                     </button>
                   </div>

@@ -180,6 +180,9 @@
       "delay": "Delay (s)",
       "dbBackup": "Database Backup",
       "downloadBackup": "Download Backup",
+      "confirmLigaScan": "Start Liga price scan? This may take several minutes.",
+      "confirmCatalogScan": "Start catalog scan for this set? This may take several minutes.",
+      "scanRunning": "Scan running... this may take a few minutes",
       "jobStarted": "Job started",
       "scanId": "Scan ID"
     },
@@ -273,6 +276,8 @@
     "searching": "Searching...",
     "noWebResults": "No results found",
     "addToCollection": "Add to Collection",
+    "added": "Added",
+    "viewInCollection": "View in Collection",
     "addToEvaluation": "Add to Evaluation",
     "searchCooldown": "Wait before searching again",
     "webSearchCost": "Costs 1 token",

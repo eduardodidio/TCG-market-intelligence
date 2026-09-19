@@ -180,6 +180,9 @@
       "delay": "Atraso (s)",
       "dbBackup": "Backup do Banco",
       "downloadBackup": "Baixar Backup",
+      "confirmLigaScan": "Iniciar scan de precos Liga? Pode levar alguns minutos.",
+      "confirmCatalogScan": "Iniciar scan do catalogo para este set? Pode levar alguns minutos.",
+      "scanRunning": "Scan em execucao... pode levar alguns minutos",
       "jobStarted": "Job iniciado",
       "scanId": "ID do Scan"
     },
@@ -273,6 +276,8 @@
     "searching": "Buscando...",
     "noWebResults": "Nenhum resultado encontrado",
     "addToCollection": "Adicionar a Colecao",
+    "added": "Adicionado",
+    "viewInCollection": "Ver na Colecao",
     "addToEvaluation": "Adicionar a Avaliacao",
     "searchCooldown": "Aguarde antes de buscar novamente",
     "webSearchCost": "Custa 1 token",

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 interface BreadcrumbItem {
   label: string;
@@ -10,9 +10,25 @@ interface BreadcrumbProps {
 }
 
 export function Breadcrumb({ items }: BreadcrumbProps) {
+  const navigate = useNavigate();
+  const parent = items.length >= 2 ? items[items.length - 2] : null;
+
   return (
     <nav aria-label="Breadcrumb" className="mb-4" data-testid="breadcrumb">
-      <ol className="flex items-center gap-1 text-sm text-gray-500 dark:text-slate-400">
+      {parent?.to && (
+        <button
+          onClick={() => navigate(parent.to!)}
+          className="sm:hidden flex items-center gap-1 text-sm text-slate-400 hover:text-white mb-2 transition-colors"
+          aria-label={parent.label}
+          data-testid="breadcrumb-back"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          {parent.label}
+        </button>
+      )}
+      <ol className="hidden sm:flex items-center gap-1 text-sm text-gray-500 dark:text-slate-400">
         {items.map((item, i) => (
           <li key={i} className="flex items-center gap-1">
             {i > 0 && (
