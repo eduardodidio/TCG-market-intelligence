@@ -205,7 +205,10 @@ def get_summary(
 
     # Get ALL movers for the period to compute directional counts
     days = MOVERS_PERIOD_MAP[period]
-    gainers_raw, losers_raw = repo.get_movers(days=days, limit=9999)
+    try:
+        gainers_raw, losers_raw = repo.get_movers(days=days, limit=9999)
+    except Exception:
+        gainers_raw, losers_raw = [], []
 
     # Each tuple: (card_id, name_en, name_pt, set_code, price_start, price_end, change_pct)
     all_movers = gainers_raw + losers_raw

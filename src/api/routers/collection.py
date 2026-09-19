@@ -411,13 +411,20 @@ def collection_movers(
     user_id: str = Depends(require_auth_or_api_key),
 ):
     """Return top gainers and losers in the user's collection by price change %."""
+    from sqlalchemy.exc import OperationalError
+
     uid = int(user_id) if str(user_id).isdigit() else 0
-    gainers_raw, losers_raw = repo.get_collection_movers_optimized(
-        uid,
-        days,
-        limit,
-        investment_only,
-    )
+    try:
+        gainers_raw, losers_raw = repo.get_collection_movers_optimized(
+            uid,
+            days,
+            limit,
+            investment_only,
+        )
+    except OperationalError:
+        return success_response(
+            data=CollectionMoversResponse(gainers=[], losers=[], period_days=days)
+        )
 
     def _build_mover(r: tuple) -> CollectionMover:
         card_id, card_name, set_code, collector_number, image_uri = (

@@ -180,7 +180,7 @@ export function TreasureModal({
         onClick={(e) => e.stopPropagation()}
         data-testid="treasure-modal-content"
       >
-        <Card3DTilt tiltMaxAngle={18} scale={1.08} foil>
+        <Card3DTilt tiltMaxAngle={18} scale={1.08}>
           <div className={isOpen ? "treasure-golden-shimmer" : ""} data-testid="treasure-shimmer-wrapper">
             <img
               src={treasureImage}

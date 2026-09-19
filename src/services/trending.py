@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
+import structlog
+from sqlalchemy.exc import OperationalError
+
 from src.analytics.trending import compute_trending_score, rank_trending
 from src.api.schemas.trending import TrendingCardEntry, TrendingResponse
 from src.database.repository import Repository
 from src.services.currency import CurrencyConverter
 from src.utils.set_code_map import map_to_scryfall_set_code
+
+log = structlog.get_logger()
 
 
 def _scryfall_image_url(set_code: str | None, collector_number: str | None) -> str | None:
@@ -50,10 +55,14 @@ class TrendingService:
                 )
 
         # Cache miss: compute fresh data
-        if user_id is not None:
-            price_data = self._repo.get_trending_price_data_for_user(user_id, period_days)
-        else:
-            price_data = self._repo.get_trending_price_data(period_days)
+        try:
+            if user_id is not None:
+                price_data = self._repo.get_trending_price_data_for_user(user_id, period_days)
+            else:
+                price_data = self._repo.get_trending_price_data(period_days)
+        except OperationalError as exc:
+            log.warning("trending_query_timeout", error=str(exc), period_days=period_days)
+            price_data = {}
 
         scores = []
         for card_id, card_prices in price_data.items():

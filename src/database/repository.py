@@ -972,6 +972,9 @@ class Repository:
         cutoff = date.today() - timedelta(days=days)
 
         with Session(self.engine) as session:
+            if "postgresql" in str(self.engine.url):
+                session.execute(text("SET LOCAL statement_timeout = '8s'"))
+
             # CTE 1: earliest price AFTER cutoff per card
             earliest_sub = (
                 select(
@@ -1072,6 +1075,9 @@ class Repository:
         cutoff = date.today() - timedelta(days=period_days)
 
         with Session(self.engine) as session:
+            if "postgresql" in str(self.engine.url):
+                session.execute(text("SET LOCAL statement_timeout = '8s'"))
+
             stmt = (
                 select(
                     SourceCardRow.card_id,
@@ -1120,6 +1126,9 @@ class Repository:
         cutoff = date.today() - timedelta(days=period_days)
 
         with Session(self.engine) as session:
+            if "postgresql" in str(self.engine.url):
+                session.execute(text("SET LOCAL statement_timeout = '8s'"))
+
             # 1. Source-cards-based prices (MYP, jsonld_snapshot, etc.)
             stmt = (
                 select(

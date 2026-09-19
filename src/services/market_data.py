@@ -153,7 +153,10 @@ class MarketDataService:
 
         if cached is None:
             days = PERIOD_MAP.get(period, 30)
-            gainers_raw, losers_raw = self._repo.get_movers(days=days, limit=limit)
+            try:
+                gainers_raw, losers_raw = self._repo.get_movers(days=days, limit=limit)
+            except Exception:
+                gainers_raw, losers_raw = [], []
             cached = {
                 "gainers": gainers_raw,
                 "losers": losers_raw,

@@ -2553,6 +2553,153 @@ def backfill_portfolio(db, user_id, days, skip_prices, dry_run):
         click.echo(f"\nBackfill complete for {len(results)} user(s).")
 
 
+@cli.command("backfill-price-history")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--days", default=30, type=int, help="Number of days to backfill")
+@click.option(
+    "--interval",
+    default=3,
+    type=int,
+    help="Interval in days between synthetic observations (default: 3)",
+)
+@click.option("--dry-run", is_flag=True, help="Show what would be done without writing")
+def backfill_price_history(db, days, interval, dry_run):
+    """Generate synthetic price observations for the past N days.
+
+    Takes each card's current (latest) price observation and replicates it
+    at regular intervals going backwards. This provides baseline historical
+    data so trending/movers endpoints can compute price changes as new
+    scans come in.
+
+    Only creates observations for dates that don't already have data.
+    """
+    from datetime import date, timedelta
+
+    from sqlalchemy import func
+    from sqlalchemy import select as sa_select
+    from sqlalchemy.orm import Session as SaSession
+
+    from src.database.models import PriceObservationRow
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+
+    today = date.today()
+    target_dates = []
+    d = today - timedelta(days=days)
+    while d < today:
+        target_dates.append(d)
+        d += timedelta(days=interval)
+
+    click.echo(f"Backfill price history: {days} days back, interval={interval}d")
+    click.echo(f"  Target dates: {len(target_dates)} ({target_dates[0]} to {target_dates[-1]})")
+
+    with SaSession(repo.engine) as session:
+        # Find the latest observation per external_id (current prices)
+        latest_sub = (
+            sa_select(
+                PriceObservationRow.source,
+                PriceObservationRow.external_id,
+                PriceObservationRow.median_price,
+                PriceObservationRow.tcg_price,
+                PriceObservationRow.last_sold_price,
+                PriceObservationRow.quantity_available,
+                PriceObservationRow.currency,
+                func.row_number()
+                .over(
+                    partition_by=PriceObservationRow.external_id,
+                    order_by=PriceObservationRow.observed_at.desc(),
+                )
+                .label("rn"),
+            ).where(PriceObservationRow.median_price.isnot(None))
+        ).subquery()
+
+        latest_obs = session.execute(
+            sa_select(
+                latest_sub.c.source,
+                latest_sub.c.external_id,
+                latest_sub.c.median_price,
+                latest_sub.c.tcg_price,
+                latest_sub.c.last_sold_price,
+                latest_sub.c.quantity_available,
+                latest_sub.c.currency,
+            ).where(latest_sub.c.rn == 1)
+        ).all()
+
+        click.echo(f"  Found {len(latest_obs)} cards with current prices")
+
+        # Load all existing (external_id, observed_at) pairs in the target range
+        # to avoid per-row existence checks
+        min_date = target_dates[0]
+        max_date = target_dates[-1]
+        existing_pairs = set(
+            session.execute(
+                sa_select(
+                    PriceObservationRow.external_id,
+                    PriceObservationRow.observed_at,
+                ).where(
+                    PriceObservationRow.observed_at >= min_date,
+                    PriceObservationRow.observed_at <= max_date,
+                )
+            ).all()
+        )
+        click.echo(f"  Found {len(existing_pairs)} existing observations in date range")
+
+        if dry_run:
+            would_create = 0
+            for obs in latest_obs:
+                for td in target_dates:
+                    if (obs.external_id, td) not in existing_pairs:
+                        would_create += 1
+            click.echo(f"  Would create {would_create} synthetic observations")
+            click.echo("\nDry run complete. No data was written.")
+            return
+
+        created = 0
+        skipped = 0
+        batch_size = 500
+        batch = []
+
+        for obs in latest_obs:
+            for td in target_dates:
+                if (obs.external_id, td) in existing_pairs:
+                    skipped += 1
+                    continue
+
+                batch.append(
+                    PriceObservationRow(
+                        source=obs.source,
+                        external_id=obs.external_id,
+                        observed_at=td,
+                        median_price=obs.median_price,
+                        tcg_price=obs.tcg_price,
+                        last_sold_price=obs.last_sold_price,
+                        quantity_available=obs.quantity_available,
+                        currency=obs.currency or "BRL",
+                    )
+                )
+                created += 1
+
+                if len(batch) >= batch_size:
+                    session.add_all(batch)
+                    session.commit()
+                    click.echo(f"  ... committed {created} observations")
+                    batch = []
+
+        if batch:
+            session.add_all(batch)
+            session.commit()
+
+        click.echo(f"\nDone: {created} observations created, {skipped} skipped (already exist)")
+
+
 @cli.command("import-csv")
 @click.option(
     "--file",
