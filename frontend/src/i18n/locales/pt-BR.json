@@ -1156,6 +1156,7 @@
     "update": "Atualizar",
     "dismiss": "Dispensar",
     "offlineMessage": "Modo offline -- os dados podem estar desatualizados",
+    "lastSynced": "Ultima sincronizacao {{time}}",
     "installMessage": "Instale o TEDHC Market para uma experiencia melhor",
     "install": "Instalar"
   },
@@ -1281,7 +1282,8 @@
     "removeSuccess": "Removida da lista de desejos"
   },
   "beta": {
-    "blocked": "Esta funcao nao esta habilitada para o perfil atual"
+    "blocked": "Esta funcao nao esta habilitada para o perfil atual",
+    "blockedHint": "Esta funcionalidade esta em fase de testes. Entre em contato com o administrador para solicitar acesso."
   },
   "tradeMatch": {
     "title": "Trocas",
@@ -1301,5 +1303,47 @@
     "viewCollection": "Ver colecao",
     "goToWishlist": "Ir para Lista de Desejos",
     "shareToMatch": "Compartilhe sua colecao e tenha duplicatas para aparecer em trocas."
+  },
+  "import": {
+    "title": "Importar Compras",
+    "breadcrumbHome": "Inicio",
+    "breadcrumbCollection": "Colecao",
+    "breadcrumbImport": "Importar Compras",
+    "dropZoneText": "Arraste arquivos HTML aqui ou clique para selecionar",
+    "dropZoneHint": "Aceita arquivos .html e .htm do Nerdz Cards e Liga Magic",
+    "onlyHtmlAccepted": "Apenas arquivos .html e .htm sao aceitos",
+    "remove": "Remover",
+    "overwriteLabel": "Sobrescrever precos de aquisicao existentes",
+    "uploading": "Enviando...",
+    "uploadAndPreview": "Enviar e Visualizar",
+    "uploadFailed": "Falha no envio",
+    "applyFailed": "Falha ao aplicar",
+    "itemsParsed": "{{totalItems}} itens analisados de {{totalOrders}} pedido(s)",
+    "matchedUnmatched": "{{matched}} correspondidos | {{unmatched}} nao correspondidos",
+    "sealedSkipped": "| {{count}} produtos selados ignorados",
+    "warnings": "Avisos",
+    "noMatchingCards": "Nenhuma carta correspondente encontrada na sua colecao",
+    "noMatchingCardsHint": "Certifique-se de que as cartas dos seus pedidos estao na sua colecao.",
+    "selectAll": "Selecionar Todos",
+    "deselectAll": "Desmarcar Todos",
+    "colParsedName": "Nome Original",
+    "colMatchedTo": "Correspondencia",
+    "colSet": "Edicao",
+    "colPrice": "Preco",
+    "colDate": "Data",
+    "colStore": "Loja",
+    "colConfidence": "Confianca",
+    "confidenceExact": "Exata",
+    "confidenceHigh": "Alta",
+    "confidencePartial": "Parcial",
+    "alreadyHasPrice": "Ja possui preco: R$ {{price}}",
+    "unmatchedItems": "{{count}} item(ns) nao correspondido(s)",
+    "applying": "Aplicando...",
+    "applySelected": "Aplicar Selecionados ({{count}})",
+    "backToUpload": "Voltar ao Envio",
+    "resultApplied": "{{count}} preco(s) de aquisicao atualizado(s)",
+    "resultSkipped": "{{count}} ignorado(s):",
+    "importMore": "Importar Mais",
+    "goToCollection": "Ir para Colecao"
   }
 }
