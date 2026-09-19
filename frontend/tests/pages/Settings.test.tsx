@@ -65,8 +65,6 @@ describe("Settings page", () => {
     expect(screen.getByTestId("page-settings")).toBeDefined();
     expect(screen.getByTestId("settings-account")).toBeDefined();
     expect(screen.getByTestId("settings-preferences")).toBeDefined();
-    expect(screen.getByTestId("settings-api-keys")).toBeDefined();
-    expect(screen.getByTestId("settings-export")).toBeDefined();
   });
 
   it("shows user email and display name", () => {

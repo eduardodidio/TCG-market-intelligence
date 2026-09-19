@@ -308,7 +308,9 @@
     "viewOnLigaMagic": "Ver no LigaMagic",
     "rarity": "Raridade",
     "addToCollection": "Adicionar a Colecao",
-    "signInToAdd": "Entre para adicionar a colecao"
+    "signInToAdd": "Entre para adicionar a colecao",
+    "seeOnMarket": "Movimentacao de Mercado",
+    "seeTrending": "Tendencias de Preco"
   },
   "collection": {
     "title": "Minha Colecao",

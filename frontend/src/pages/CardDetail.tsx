@@ -280,6 +280,16 @@ export function CardDetail() {
             </div>
           )}
 
+          {/* Market cross-links */}
+          <div className="flex gap-4 mb-6" data-testid="market-links">
+            <Link to="/market/movers" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+              {t("cardDetail.seeOnMarket")}
+            </Link>
+            <Link to="/market/trending" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+              {t("cardDetail.seeTrending")}
+            </Link>
+          </div>
+
           {/* Source links */}
           {card.source_cards.length > 0 && (
             <div className="mb-6">

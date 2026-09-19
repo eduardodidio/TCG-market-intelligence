@@ -78,21 +78,6 @@ export function Settings() {
           </p>
         )}
       </section>
-
-      {/* Placeholder sections */}
-      <section className="mb-8" data-testid="settings-api-keys">
-        <h3 className="text-lg font-semibold text-white mb-4">{t("settings.apiKeys")}</h3>
-        <div className="bg-slate-800 border border-slate-600 rounded-lg p-4">
-          <p className="text-sm text-slate-500">{t("settings.comingSoon")}</p>
-        </div>
-      </section>
-
-      <section className="mb-8" data-testid="settings-export">
-        <h3 className="text-lg font-semibold text-white mb-4">{t("settings.dataExport")}</h3>
-        <div className="bg-slate-800 border border-slate-600 rounded-lg p-4">
-          <p className="text-sm text-slate-500">{t("settings.comingSoon")}</p>
-        </div>
-      </section>
     </div>
   );
 }
