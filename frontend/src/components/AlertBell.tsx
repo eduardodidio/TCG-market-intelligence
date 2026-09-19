@@ -100,9 +100,11 @@ export function AlertBell() {
               </div>
             ) : (
               notifications.map((n) => (
-                <div
+                <Link
                   key={n.id}
-                  className={`px-4 py-3 border-b border-slate-700 last:border-0 ${
+                  to={`/cards/${n.card_id}`}
+                  onClick={() => setOpen(false)}
+                  className={`block px-4 py-3 border-b border-slate-700 last:border-0 hover:bg-slate-700/50 transition-colors ${
                     !n.is_read ? "bg-slate-750" : ""
                   }`}
                   data-testid="alert-notification-item"
@@ -123,7 +125,7 @@ export function AlertBell() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>

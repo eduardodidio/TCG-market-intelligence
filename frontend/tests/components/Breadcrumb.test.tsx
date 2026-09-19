@@ -29,9 +29,10 @@ describe("Breadcrumb", () => {
       { label: "Lightning Bolt" },
     ]);
 
-    const link = screen.getByText("Collection");
-    expect(link.tagName).toBe("A");
-    expect(link.getAttribute("href")).toBe("/collection");
+    const links = screen.getAllByText("Collection");
+    const link = links.find((el) => el.tagName === "A");
+    expect(link).toBeDefined();
+    expect(link!.getAttribute("href")).toBe("/collection");
   });
 
   it("renders final item as text (not link)", () => {
@@ -59,8 +60,9 @@ describe("Breadcrumb", () => {
       { label: "C" },
     ]);
 
-    // 2 separators for 3 items
-    const svgs = screen.getByTestId("breadcrumb").querySelectorAll("svg");
+    // 2 separators for 3 items + 1 back-button chevron on mobile
+    const ol = screen.getByTestId("breadcrumb").querySelector("ol")!;
+    const svgs = ol.querySelectorAll("svg");
     expect(svgs).toHaveLength(2);
   });
 });
