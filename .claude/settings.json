@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "HIGHLANDER MODE — activates Claude Code Auto Mode on startup so Waves run autonomously without permission prompts. Liberal allow-list is kept as a fallback for sessions where auto mode is unavailable. Use only in sandboxed projects without secrets. Copy this over settings.json to activate.",
+  "_comment": "HIGHLANDER MODE \u00e2\u20ac\u201d activates Claude Code Auto Mode on startup so Waves run autonomously without permission prompts. Liberal allow-list is kept as a fallback for sessions where auto mode is unavailable. Use only in sandboxed projects without secrets. Copy this over settings.json to activate.",
   "permissions": {
     "defaultMode": "auto",
     "allow": [
@@ -26,14 +26,32 @@
       "Bash(curl:*)",
       "Read(./**)",
       "Write(./**)",
-      "Edit(./**)"
+      "Edit(./**)",
+      "Bash(didio-spawn-agent*)",
+      "Bash(didio-run-wave*)",
+      "Bash(didio-dashboard*)",
+      "Bash(git init:*)",
+      "Bash(git -c user.name=*)",
+      "Bash(mkdir -p:*)",
+      "Bash(cp -r:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run *)",
+      "Write(tasks/**)",
+      "Write(docs/**)",
+      "Write(logs/**)",
+      "WebSearch",
+      "WebFetch",
+      "AskUserQuestion"
     ]
   },
   "useAutoModeDuringPlan": true,
   "mcpServers": {
     "second-brain": {
       "command": "bun",
-      "args": ["run", "/c/Workspace/didio-second-brain-claude/mcp-server/src/index.ts"],
+      "args": [
+        "run",
+        "/c/Workspace/didio-second-brain-claude/mcp-server/src/index.ts"
+      ],
       "env": {}
     }
   },
@@ -45,6 +63,10 @@
           {
             "type": "command",
             "command": "bash /c/Workspace/didio-second-brain-claude/patterns/hooks/feature-end-digest/hook.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ${DIDIO_HOME:-$HOME/.claude-didio-config}/patterns/hooks/feature-end-digest/hook.sh"
           }
         ]
       }
@@ -56,6 +78,10 @@
           {
             "type": "command",
             "command": "bash /c/Workspace/claude-didio-config/bin/hooks/didio-pre-tool.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ${DIDIO_HOME:-$HOME/.claude-didio-config}/bin/hooks/didio-pre-tool.sh"
           }
         ]
       }
@@ -67,6 +93,10 @@
           {
             "type": "command",
             "command": "bash /c/Workspace/claude-didio-config/bin/hooks/didio-post-tool.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ${DIDIO_HOME:-$HOME/.claude-didio-config}/bin/hooks/didio-post-tool.sh"
           }
         ]
       }
