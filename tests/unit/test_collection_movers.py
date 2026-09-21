@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 from src.api.deps import get_db, require_auth_or_api_key
 from src.api.routers.collection import router
+from src.database.models import (
+    Base,
+    CardRow,
+    PriceObservationRow,
+    UserCollectionRow,
+)
+from src.database.repository import Repository
 
 _TEST_USER_ID = "42"
 
@@ -128,9 +139,27 @@ class TestCollectionMovers:
         resp = tc.get("/collection/movers?days=100")
         assert resp.status_code == 422
 
-    def test_limit_validation_max_20(self, client):
+    def test_limit_validation_max_100(self, client):
         tc, repo = client
-        resp = tc.get("/collection/movers?limit=25")
+        resp = tc.get("/collection/movers?limit=101")
+        assert resp.status_code == 422
+
+    def test_movers_limit_100_accepted(self, client):
+        tc, repo = client
+        repo.get_collection_movers_optimized.return_value = ([], [])
+
+        resp = tc.get("/collection/movers?limit=100")
+        assert resp.status_code == 200
+        repo.get_collection_movers_optimized.assert_called_once_with(
+            42,
+            7,
+            100,
+            False,
+        )
+
+    def test_movers_limit_101_rejected(self, client):
+        tc, repo = client
+        resp = tc.get("/collection/movers?limit=101")
         assert resp.status_code == 422
 
     def test_investment_only_passed_to_repo(self, client):
@@ -157,3 +186,102 @@ class TestCollectionMovers:
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["gainers"][0]["card_name"] == "Card #99"
+
+
+def _seed_card_with_prices(
+    session: Session,
+    card_id: int,
+    name: str,
+    price_start: Decimal,
+    price_end: Decimal,
+    days_ago: int = 5,
+) -> None:
+    card = CardRow(
+        id=card_id,
+        game="mtg",
+        name_en=name,
+        set_code="tst",
+        collector_number=str(card_id).zfill(3),
+    )
+    session.add(card)
+    session.flush()
+
+    session.add(
+        UserCollectionRow(
+            user_id="1",
+            card_id=card_id,
+            set_code="tst",
+            collector_number=str(card_id).zfill(3),
+            name_en=name,
+        )
+    )
+
+    today = date.today()
+    ext_id = f"liga_{card_id}"
+    session.add(
+        PriceObservationRow(
+            source="liga",
+            external_id=ext_id,
+            observed_at=today - timedelta(days=days_ago),
+            median_price=price_start,
+        )
+    )
+    session.add(
+        PriceObservationRow(
+            source="liga",
+            external_id=ext_id,
+            observed_at=today,
+            median_price=price_end,
+        )
+    )
+    session.flush()
+
+
+@pytest.fixture()
+def repo_db():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    repo = Repository.__new__(Repository)
+    repo.engine = engine
+    return repo, engine
+
+
+class TestMoversFilters:
+    def test_movers_filters_low_price_start(self, repo_db):
+        repo, engine = repo_db
+        with Session(engine) as session:
+            _seed_card_with_prices(session, 1, "Cheap Card", Decimal("0.10"), Decimal("1.00"))
+            _seed_card_with_prices(session, 2, "Normal Card", Decimal("5.00"), Decimal("10.00"))
+            session.commit()
+
+        gainers, losers = repo.get_collection_movers_optimized(1, 7)
+        all_names = [m[1] for m in gainers + losers]
+        assert "Cheap Card" not in all_names
+        assert "Normal Card" in all_names
+
+    def test_movers_filters_extreme_percentage(self, repo_db):
+        repo, engine = repo_db
+        with Session(engine) as session:
+            _seed_card_with_prices(session, 1, "Extreme Card", Decimal("0.50"), Decimal("100.00"))
+            _seed_card_with_prices(session, 2, "Moderate Card", Decimal("5.00"), Decimal("10.00"))
+            session.commit()
+
+        gainers, losers = repo.get_collection_movers_optimized(1, 7)
+        all_names = [m[1] for m in gainers + losers]
+        assert "Extreme Card" not in all_names
+        assert "Moderate Card" in all_names
+
+    def test_movers_keeps_reasonable_changes(self, repo_db):
+        repo, engine = repo_db
+        with Session(engine) as session:
+            _seed_card_with_prices(session, 1, "Gainer", Decimal("10.00"), Decimal("15.00"))
+            _seed_card_with_prices(session, 2, "Loser", Decimal("20.00"), Decimal("12.00"))
+            _seed_card_with_prices(session, 3, "Big Gainer", Decimal("1.00"), Decimal("10.00"))
+            session.commit()
+
+        gainers, losers = repo.get_collection_movers_optimized(1, 7)
+        gainer_names = [m[1] for m in gainers]
+        loser_names = [m[1] for m in losers]
+        assert "Gainer" in gainer_names
+        assert "Big Gainer" in gainer_names
+        assert "Loser" in loser_names

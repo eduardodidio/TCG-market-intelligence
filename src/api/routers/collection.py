@@ -402,7 +402,7 @@ def portfolio_history(
 @router.get("/movers", response_model=ApiResponse[CollectionMoversResponse])
 def collection_movers(
     days: int = Query(default=7, ge=1, le=90),
-    limit: int = Query(default=5, ge=1, le=20),
+    limit: int = Query(default=5, ge=1, le=100),
     investment_only: bool = Query(
         default=False,
         description="When true, only include cards with acquisition_price in movers",

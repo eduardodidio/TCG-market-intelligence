@@ -59,11 +59,12 @@ export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }
   const [data, setData] = useState<CollectionMoversData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [currentLimit, setCurrentLimit] = useState(limit);
 
   const fetchData = useCallback(() => {
     setLoading(true);
     setError(false);
-    fetchCollectionMovers(days, limit, investmentOnly)
+    fetchCollectionMovers(days, currentLimit, investmentOnly)
       .then((res) => {
         if (res.data) setData(res.data);
       })
@@ -71,7 +72,7 @@ export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }
         setError(true);
       })
       .finally(() => setLoading(false));
-  }, [days, limit, investmentOnly]);
+  }, [days, currentLimit, investmentOnly]);
 
   useEffect(() => {
     fetchData();
@@ -154,6 +155,35 @@ export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }
             <p className="text-xs text-slate-500 py-2">{t("movers.noData")}</p>
           )}
         </div>
+      </div>
+      <div className="flex justify-center gap-3 mt-3">
+        {currentLimit < 10 && (
+          <button
+            onClick={() => setCurrentLimit(10)}
+            className="text-xs text-indigo-400 hover:text-indigo-300"
+            data-testid="movers-show-top10"
+          >
+            {t("movers.showTop10")}
+          </button>
+        )}
+        {currentLimit >= 10 && currentLimit < 100 && (
+          <button
+            onClick={() => setCurrentLimit(100)}
+            className="text-xs text-indigo-400 hover:text-indigo-300"
+            data-testid="movers-show-top100"
+          >
+            {t("movers.showTop100")}
+          </button>
+        )}
+        {currentLimit > limit && (
+          <button
+            onClick={() => setCurrentLimit(limit)}
+            className="text-xs text-slate-500 hover:text-slate-400"
+            data-testid="movers-collapse"
+          >
+            {t("movers.collapse")}
+          </button>
+        )}
       </div>
     </div>
   );

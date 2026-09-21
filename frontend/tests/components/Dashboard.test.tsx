@@ -225,7 +225,7 @@ describe("Dashboard", () => {
     const moversMock = screen.getByTestId("collection-movers-mock");
     expect(moversMock).toBeDefined();
     expect(moversMock.getAttribute("data-days")).toBe("7");
-    expect(moversMock.getAttribute("data-limit")).toBe("3");
+    expect(moversMock.getAttribute("data-limit")).toBe("5");
   });
 
   it("renders normally (no full-page error) when only the unused market stats endpoint fails", async () => {

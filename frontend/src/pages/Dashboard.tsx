@@ -166,7 +166,7 @@ export function Dashboard() {
           )}
           {/* Collection movers (gainers/losers) */}
           <div className="mb-8" data-testid="dashboard-movers">
-            <CollectionMovers days={7} limit={3} investmentOnly />
+            <CollectionMovers days={7} limit={5} investmentOnly />
           </div>
         </>
       ) : collectionSummary.error && !summaryData ? (
