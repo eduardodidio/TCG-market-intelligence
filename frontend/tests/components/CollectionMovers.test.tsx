@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { CollectionMovers } from "../../src/components/CollectionMovers";
 
 vi.mock("react-i18next", () => ({
@@ -40,7 +41,7 @@ beforeEach(() => {
 describe("CollectionMovers", () => {
   it("shows loading skeleton initially", () => {
     mockFetchCollectionMovers.mockReturnValue(new Promise(() => {}));
-    render(<CollectionMovers />);
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
     expect(screen.getByTestId("movers-loading")).toBeInTheDocument();
   });
 
@@ -49,7 +50,7 @@ describe("CollectionMovers", () => {
       data: { gainers: [], losers: [], period_days: 7 },
     });
 
-    render(<CollectionMovers />);
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-empty")).toBeInTheDocument();
@@ -60,7 +61,7 @@ describe("CollectionMovers", () => {
   it("shows empty state when data is null", async () => {
     mockFetchCollectionMovers.mockResolvedValue({ data: null });
 
-    render(<CollectionMovers />);
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-empty")).toBeInTheDocument();
@@ -98,7 +99,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers />);
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("collection-movers")).toBeInTheDocument();
@@ -132,7 +133,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers />);
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
 
     await waitFor(() => {
       const gainerRows = screen.getAllByTestId("mover-row-gainer");
@@ -163,7 +164,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers />);
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
 
     await waitFor(() => {
       const loserRows = screen.getAllByTestId("mover-row-loser");
@@ -194,7 +195,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers />);
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByText("mh3")).toBeInTheDocument();
@@ -206,7 +207,7 @@ describe("CollectionMovers", () => {
       data: { gainers: [], losers: [], period_days: 30 },
     });
 
-    render(<CollectionMovers days={30} limit={10} />);
+    render(<MemoryRouter><CollectionMovers days={30} limit={10} /></MemoryRouter>);
 
     await waitFor(() => {
       expect(mockFetchCollectionMovers).toHaveBeenCalledWith(30, 10, false);
@@ -233,7 +234,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers />);
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
 
     await waitFor(() => {
       const img = screen.getByAltText("Image Card");
@@ -251,7 +252,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers limit={5} />);
+    render(<MemoryRouter><CollectionMovers limit={5} /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
@@ -268,7 +269,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers limit={5} />);
+    render(<MemoryRouter><CollectionMovers limit={5} /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
@@ -299,7 +300,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers limit={5} />);
+    render(<MemoryRouter><CollectionMovers limit={5} /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
@@ -322,7 +323,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers limit={5} />);
+    render(<MemoryRouter><CollectionMovers limit={5} /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
@@ -360,7 +361,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers limit={5} />);
+    render(<MemoryRouter><CollectionMovers limit={5} /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
@@ -400,7 +401,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers limit={5} />);
+    render(<MemoryRouter><CollectionMovers limit={5} /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
@@ -430,7 +431,7 @@ describe("CollectionMovers", () => {
       },
     });
 
-    render(<CollectionMovers limit={5} />);
+    render(<MemoryRouter><CollectionMovers limit={5} /></MemoryRouter>);
 
     await waitFor(() => {
       expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
@@ -462,5 +463,89 @@ describe("CollectionMovers", () => {
       expect(mockFetchCollectionMovers).toHaveBeenCalledWith(7, 10, false);
       expect(screen.getByTestId("collection-movers")).toBeInTheDocument();
     });
+  });
+
+  it("mover rows render as links to card detail page", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [
+          { card_id: 42, card_name: "Link Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 },
+        ],
+        losers: [
+          { card_id: 99, card_name: "Loser Link", set_code: "SET2", image_uri: null, price_start: 20, price_end: 10, change_abs: -10, change_pct: -50 },
+        ],
+        period_days: 7,
+      },
+    });
+
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
+
+    await waitFor(() => {
+      const gainerRow = screen.getByTestId("mover-row-gainer");
+      expect(gainerRow.tagName).toBe("A");
+      expect(gainerRow).toHaveAttribute("href", "/cards/42");
+
+      const loserRow = screen.getByTestId("mover-row-loser");
+      expect(loserRow.tagName).toBe("A");
+      expect(loserRow).toHaveAttribute("href", "/cards/99");
+    });
+  });
+
+  it("gainers link to correct card_id", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [
+          { card_id: 101, card_name: "G1", set_code: "A", image_uri: null, price_start: 1, price_end: 2, change_abs: 1, change_pct: 100 },
+          { card_id: 202, card_name: "G2", set_code: "B", image_uri: null, price_start: 5, price_end: 8, change_abs: 3, change_pct: 60 },
+        ],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
+
+    await waitFor(() => {
+      const rows = screen.getAllByTestId("mover-row-gainer");
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toHaveAttribute("href", "/cards/101");
+      expect(rows[1]).toHaveAttribute("href", "/cards/202");
+    });
+  });
+
+  it("losers link to correct card_id", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [],
+        losers: [
+          { card_id: 301, card_name: "L1", set_code: "X", image_uri: null, price_start: 20, price_end: 10, change_abs: -10, change_pct: -50 },
+          { card_id: 402, card_name: "L2", set_code: "Y", image_uri: null, price_start: 30, price_end: 15, change_abs: -15, change_pct: -50 },
+        ],
+        period_days: 7,
+      },
+    });
+
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
+
+    await waitFor(() => {
+      const rows = screen.getAllByTestId("mover-row-loser");
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toHaveAttribute("href", "/cards/301");
+      expect(rows[1]).toHaveAttribute("href", "/cards/402");
+    });
+  });
+
+  it("empty state does not render links", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: { gainers: [], losers: [], period_days: 7 },
+    });
+
+    render(<MemoryRouter><CollectionMovers /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-empty")).toBeInTheDocument();
+    });
+
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 });

@@ -57,7 +57,8 @@
     "tradeMatches": "Trade Matches",
     "importPurchases": "Import Purchases",
     "buildDeck": "Build Deck",
-    "deckEvaluator": "Deck Evaluator"
+    "deckEvaluator": "Deck Evaluator",
+    "news": "News"
   },
   "catalog": {
     "title": "Card Catalog",
@@ -1351,5 +1352,21 @@
     "resultSkipped": "{{count}} skipped:",
     "importMore": "Import More",
     "goToCollection": "Go to Collection"
+  },
+  "news": {
+    "title": "MTG News",
+    "filterUnread": "Unread",
+    "filterRead": "Read",
+    "filterAll": "All",
+    "category_all": "All",
+    "category_ban": "Bans",
+    "category_release": "Releases",
+    "category_event": "Events",
+    "category_reprint": "Reprints",
+    "category_other": "Other",
+    "emptyTitle": "No news yet",
+    "emptyDescription": "News will appear here after the feed is fetched. Ask an admin to run the fetch-news command.",
+    "markUnread": "Mark unread",
+    "showing": "Showing {{from}}-{{to}} of {{total}}"
   }
 }

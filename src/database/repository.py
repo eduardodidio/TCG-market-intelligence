@@ -24,6 +24,7 @@ from src.database.models import (
     ExchangeRateRow,
     LegalityHistoryRow,
     LigaCardUrlRow,  # noqa: F401 (needed for create_all)
+    NewsItemRow,  # noqa: F401 (needed for create_all)
     PortfolioSnapshotRow,
     PriceAlertRow,  # noqa: F401 (needed for create_all)
     PriceObservationRow,
@@ -35,6 +36,7 @@ from src.database.models import (
     TradeAgreementRow,
     TradeInterestRow,
     UserCollectionRow,
+    UserNewsReadRow,  # noqa: F401 (needed for create_all)
     UserRow,
     WishlistRow,  # noqa: F401 (needed for create_all)
 )
@@ -5024,3 +5026,146 @@ class Repository:
             for s in ("pending", "processing", "completed", "failed"):
                 counts.setdefault(s, 0)
             return counts
+
+    # ── News feed (F166) ──────────────────────────────────────────
+
+    def list_news_items(
+        self,
+        user_id: int | str,
+        *,
+        filter: str = "all",
+        limit: int = 20,
+        offset: int = 0,
+        category: str | None = None,
+    ) -> list[dict]:
+        """Return news items with is_read flag for the given user.
+
+        filter: "all" | "unread" | "read"
+        """
+        uid = str(user_id)
+        with Session(self.engine) as session:
+            query = select(
+                NewsItemRow,
+                UserNewsReadRow.id.label("read_id"),
+            ).outerjoin(
+                UserNewsReadRow,
+                (UserNewsReadRow.news_item_id == NewsItemRow.id) & (UserNewsReadRow.user_id == uid),
+            )
+
+            if filter == "unread":
+                query = query.where(UserNewsReadRow.id.is_(None))
+            elif filter == "read":
+                query = query.where(UserNewsReadRow.id.isnot(None))
+
+            if category and category != "all":
+                query = query.where(NewsItemRow.category == category)
+
+            query = (
+                query.order_by(NewsItemRow.published_at.desc().nullslast())
+                .offset(offset)
+                .limit(limit)
+            )
+
+            rows = session.execute(query).all()
+            return [
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "summary": item.summary,
+                    "source_url": item.source_url,
+                    "source_name": item.source_name,
+                    "category": item.category,
+                    "image_url": item.image_url,
+                    "published_at": item.published_at.isoformat() if item.published_at else None,
+                    "fetched_at": item.fetched_at.isoformat() if item.fetched_at else None,
+                    "is_read": read_id is not None,
+                }
+                for item, read_id in rows
+            ]
+
+    def count_news_items(
+        self,
+        user_id: int | str,
+        *,
+        filter: str = "all",
+        category: str | None = None,
+    ) -> int:
+        """Count news items matching the filter."""
+        uid = str(user_id)
+        with Session(self.engine) as session:
+            query = select(func.count(NewsItemRow.id)).select_from(NewsItemRow)
+
+            if filter in ("unread", "read"):
+                query = select(func.count(NewsItemRow.id)).outerjoin(
+                    UserNewsReadRow,
+                    (UserNewsReadRow.news_item_id == NewsItemRow.id)
+                    & (UserNewsReadRow.user_id == uid),
+                )
+                if filter == "unread":
+                    query = query.where(UserNewsReadRow.id.is_(None))
+                elif filter == "read":
+                    query = query.where(UserNewsReadRow.id.isnot(None))
+
+            if category and category != "all":
+                query = query.where(NewsItemRow.category == category)
+
+            return session.scalar(query) or 0
+
+    def mark_news_read(self, user_id: int | str, news_item_id: int) -> None:
+        """Mark a news item as read for the given user (idempotent)."""
+        uid = str(user_id)
+        with Session(self.engine) as session:
+            existing = session.scalar(
+                select(UserNewsReadRow.id).where(
+                    UserNewsReadRow.user_id == uid,
+                    UserNewsReadRow.news_item_id == news_item_id,
+                )
+            )
+            if existing is None:
+                session.add(
+                    UserNewsReadRow(
+                        user_id=uid,
+                        news_item_id=news_item_id,
+                        read_at=datetime.now(),
+                    )
+                )
+                session.commit()
+
+    def mark_news_unread(self, user_id: int | str, news_item_id: int) -> None:
+        """Remove the read mark for a news item (idempotent)."""
+        uid = str(user_id)
+        with Session(self.engine) as session:
+            row = session.scalar(
+                select(UserNewsReadRow).where(
+                    UserNewsReadRow.user_id == uid,
+                    UserNewsReadRow.news_item_id == news_item_id,
+                )
+            )
+            if row is not None:
+                session.delete(row)
+                session.commit()
+
+    def upsert_news_item(self, data: dict) -> bool:
+        """Insert a news item if source_url doesn't exist. Return True if new."""
+        with Session(self.engine) as session:
+            existing = session.scalar(
+                select(NewsItemRow.id).where(NewsItemRow.source_url == data["source_url"])
+            )
+            if existing is not None:
+                return False
+            session.add(NewsItemRow(**data))
+            session.commit()
+            return True
+
+    def count_unread_news(self, user_id: int | str) -> int:
+        """Count unread news items for the given user."""
+        uid = str(user_id)
+        with Session(self.engine) as session:
+            total = session.scalar(select(func.count(NewsItemRow.id))) or 0
+            read = (
+                session.scalar(
+                    select(func.count(UserNewsReadRow.id)).where(UserNewsReadRow.user_id == uid)
+                )
+                or 0
+            )
+            return max(total - read, 0)

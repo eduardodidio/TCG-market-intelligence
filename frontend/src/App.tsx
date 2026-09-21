@@ -111,6 +111,9 @@ const ImportPurchasesPage = lazy(() =>
     default: m.ImportPurchasesPage,
   })),
 );
+const NewsPage = lazy(() =>
+  import("./pages/NewsPage").then((m) => ({ default: m.NewsPage })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
@@ -465,6 +468,18 @@ export default function App() {
                   >
                     <BetaRoute>
                       <AchievementsPage />
+                    </BetaRoute>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/news"
+                element={
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading page..." />}
+                  >
+                    <BetaRoute>
+                      <NewsPage />
                     </BetaRoute>
                   </Suspense>
                 }

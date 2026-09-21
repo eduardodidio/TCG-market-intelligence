@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import {
   fetchCollectionMovers,
   type CollectionMoverData,
@@ -17,8 +18,10 @@ function MoverRow({ mover, type }: MoverRowProps) {
   const sign = type === "gainer" ? "+" : "";
 
   return (
-    <div
-      className="flex items-center gap-3 py-2 border-b border-slate-700/50 last:border-0"
+    <Link
+      to={`/cards/${mover.card_id}`}
+      className="flex items-center gap-3 py-2 border-b border-slate-700/50 last:border-0
+        hover:bg-slate-700/30 rounded px-1 -mx-1 transition-colors no-underline"
       data-testid={`mover-row-${type}`}
     >
       {mover.image_uri ? (
@@ -44,7 +47,7 @@ function MoverRow({ mover, type }: MoverRowProps) {
           {sign}{mover.change_pct.toFixed(1)}%
         </p>
       </div>
-    </div>
+    </Link>
   );
 }
 

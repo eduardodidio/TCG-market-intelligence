@@ -629,3 +629,38 @@ class PriceUpdateRequestRow(Base):
         Index("ix_price_update_req_user", "user_id"),
         Index("ix_price_update_req_requested", "requested_at"),
     )
+
+
+class NewsItemRow(Base):
+    __tablename__ = "news_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_url: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    source_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    category: Mapped[str] = mapped_column(String(50), nullable=False, default="other")
+    image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
+
+    __table_args__ = (
+        Index("ix_news_items_published", "published_at"),
+        Index("ix_news_items_category", "category"),
+    )
+
+
+class UserNewsReadRow(Base):
+    __tablename__ = "user_news_reads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    news_item_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("news_items.id", ondelete="CASCADE"), nullable=False
+    )
+    read_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "news_item_id", name="uq_user_news_read"),
+        Index("ix_user_news_reads_user", "user_id"),
+    )

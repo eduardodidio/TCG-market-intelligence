@@ -291,6 +291,10 @@ _OPENAPI_TAGS = [
         "name": "sets",
         "description": "MTG set listing.",
     },
+    {
+        "name": "news",
+        "description": "MTG news feed from RSS sources.",
+    },
 ]
 
 
@@ -351,6 +355,7 @@ def create_app() -> FastAPI:
     from src.api.routers.exchange_rates import router as exchange_rates_router
     from src.api.routers.market import router as market_router
     from src.api.routers.marketplace import router as marketplace_router
+    from src.api.routers.news import router as news_router
     from src.api.routers.price_ingest import router as price_ingest_router
     from src.api.routers.purchases import router as purchases_router
     from src.api.routers.scans import router as scans_router
@@ -383,6 +388,7 @@ def create_app() -> FastAPI:
     app.include_router(wishlist_router, prefix="/api/v1")
     app.include_router(purchases_router, prefix="/api/v1")
     app.include_router(trade_match_router, prefix="/api/v1")
+    app.include_router(news_router, prefix="/api/v1")
 
     # Health check (outside /api/v1)
     @app.get("/health")
