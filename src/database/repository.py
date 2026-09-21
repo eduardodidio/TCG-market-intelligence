@@ -1144,7 +1144,7 @@ class Repository:
                 .join(
                     UserCollectionRow,
                     (UserCollectionRow.card_id == SourceCardRow.card_id)
-                    & (UserCollectionRow.user_id == user_id),
+                    & (UserCollectionRow.user_id == str(user_id)),
                 )
                 .where(
                     SourceCardRow.card_id.isnot(None),
@@ -1165,7 +1165,7 @@ class Repository:
             user_card_ids = (
                 session.execute(
                     select(func.distinct(UserCollectionRow.card_id)).where(
-                        UserCollectionRow.user_id == user_id,
+                        UserCollectionRow.user_id == str(user_id),
                         UserCollectionRow.card_id.isnot(None),
                     )
                 )
@@ -1247,7 +1247,7 @@ class Repository:
             uc_filter = select(
                 func.distinct(UserCollectionRow.card_id).label("card_id"),
             ).where(
-                UserCollectionRow.user_id == user_id,
+                UserCollectionRow.user_id == str(user_id),
                 UserCollectionRow.card_id.isnot(None),
             )
             if investment_only:
