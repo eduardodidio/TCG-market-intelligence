@@ -2126,6 +2126,51 @@ class Repository:
                 )
             return results
 
+    def get_all_latest_prices(self) -> list[tuple[str, str, Decimal]]:
+        """Return (source, external_id, median_price) for every card with a price.
+
+        Uses ROW_NUMBER() partitioned by external_id, ordered by observed_at DESC
+        to pick the most recent non-null median_price per card.
+        """
+        from sqlalchemy import literal_column
+
+        cte = (
+            select(
+                PriceObservationRow.source,
+                PriceObservationRow.external_id,
+                PriceObservationRow.median_price,
+                func.row_number()
+                .over(
+                    partition_by=PriceObservationRow.external_id,
+                    order_by=PriceObservationRow.observed_at.desc(),
+                )
+                .label("rn"),
+            )
+            .where(PriceObservationRow.median_price.is_not(None))
+            .cte("latest")
+        )
+
+        stmt = select(
+            cte.c.source,
+            cte.c.external_id,
+            cte.c.median_price,
+        ).where(cte.c.rn == literal_column("1"))
+
+        with Session(self.engine) as session:
+            rows = session.execute(stmt).all()
+            return [(r[0], r[1], r[2]) for r in rows]
+
+    def get_external_ids_with_source(self, source: str) -> set[str]:
+        """Return set of external_ids that have at least one observation for the given source."""
+        with Session(self.engine) as session:
+            stmt = (
+                select(PriceObservationRow.external_id)
+                .where(PriceObservationRow.source == source)
+                .distinct()
+            )
+            rows = session.execute(stmt).all()
+            return {r[0] for r in rows}
+
     def has_snapshot_for_date(self, external_id: str, obs_date: date) -> bool:
         """Check if a jsonld_snapshot observation exists for this card+date."""
         with Session(self.engine) as session:

@@ -573,6 +573,8 @@
     "noHistory": "Sem historico de precos disponivel",
     "sparseData": "Construindo historico de precos -- {{count}} ponto de dados ate agora. Snapshots diarios preencherao este grafico com o tempo.",
     "sparseData_other": "Construindo historico de precos -- {{count}} pontos de dados ate agora. Snapshots diarios preencherao este grafico com o tempo.",
+    "singlePoint": "Preco atual em {{date}}",
+    "sparseDataRange": "Construindo historico de precos -- {{count}} pontos de dados de {{from}} a {{to}}. Snapshots diarios preencherao este grafico com o tempo.",
     "median": "Mediana",
     "tcg": "TCG",
     "lastSold": "Ultima Venda",

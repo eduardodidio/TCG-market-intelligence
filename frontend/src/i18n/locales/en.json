@@ -573,6 +573,8 @@
     "noHistory": "No price history available",
     "sparseData": "Building price history -- {{count}} data point so far. Daily snapshots will fill this chart over time.",
     "sparseData_other": "Building price history -- {{count}} data points so far. Daily snapshots will fill this chart over time.",
+    "singlePoint": "Current price as of {{date}}",
+    "sparseDataRange": "Building price history -- {{count}} data points from {{from}} to {{to}}. Daily snapshots will fill this chart over time.",
     "median": "Median",
     "tcg": "TCG",
     "lastSold": "Last Sold",
