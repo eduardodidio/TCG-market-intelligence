@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 import structlog
-from sqlalchemy.exc import OperationalError
 
 from src.analytics.trending import compute_trending_score, rank_trending
 from src.api.schemas.trending import TrendingCardEntry, TrendingResponse
@@ -60,8 +59,14 @@ class TrendingService:
                 price_data = self._repo.get_trending_price_data_for_user(user_id, period_days)
             else:
                 price_data = self._repo.get_trending_price_data(period_days)
-        except OperationalError as exc:
-            log.warning("trending_query_timeout", error=str(exc), period_days=period_days)
+        except Exception as exc:
+            log.warning(
+                "trending_query_error",
+                error=str(exc),
+                error_type=type(exc).__name__,
+                period_days=period_days,
+                user_id=user_id,
+            )
             price_data = {}
 
         scores = []

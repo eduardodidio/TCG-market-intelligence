@@ -148,8 +148,18 @@ def get_trending_gainers(
         )
     days = TRENDING_PERIOD_MAP[period]
     user_id = user.id if collection_only and user else None
-    data = service.get_trending("up", days, limit, converter, currency, user_id=user_id)
-    data.period = period
+    try:
+        data = service.get_trending("up", days, limit, converter, currency, user_id=user_id)
+        data.period = period
+    except Exception as exc:
+        logger.warning("trending_gainers_error: %s (%s)", exc, type(exc).__name__)
+        data = TrendingResponse(
+            cards=[],
+            period=period,
+            direction="up",
+            computed_at=datetime.now(),
+            cached=False,
+        )
     return success_response(data=data)
 
 
@@ -171,8 +181,18 @@ def get_trending_losers(
         )
     days = TRENDING_PERIOD_MAP[period]
     user_id = user.id if collection_only and user else None
-    data = service.get_trending("down", days, limit, converter, currency, user_id=user_id)
-    data.period = period
+    try:
+        data = service.get_trending("down", days, limit, converter, currency, user_id=user_id)
+        data.period = period
+    except Exception as exc:
+        logger.warning("trending_losers_error: %s (%s)", exc, type(exc).__name__)
+        data = TrendingResponse(
+            cards=[],
+            period=period,
+            direction="down",
+            computed_at=datetime.now(),
+            cached=False,
+        )
     return success_response(data=data)
 
 
@@ -301,27 +321,31 @@ def get_volatile(
     except Exception:
         logger.warning("TrendingService failed for volatile endpoint, falling back to movers")
         # Fallback: use repo.get_movers sorted by |change_pct|
-        gainers_raw, losers_raw = repo.get_movers(days=days, limit=9999)
-        all_movers = gainers_raw + losers_raw
-        all_movers.sort(key=lambda m: abs(float(m[6])), reverse=True)
+        try:
+            gainers_raw, losers_raw = repo.get_movers(days=days, limit=9999)
+            all_movers = gainers_raw + losers_raw
+            all_movers.sort(key=lambda m: abs(float(m[6])), reverse=True)
 
-        volatile_cards = [
-            TrendingCardEntry(
-                card_id=m[0],
-                name_en=m[1],
-                name_pt=m[2],
-                set_code=m[3],
-                price_start=float(m[4]) if m[4] is not None else 0.0,
-                price_end=float(m[5]) if m[5] is not None else 0.0,
-                change_pct=float(m[6]),
-                change_abs=float(m[5] - m[4]) if m[4] is not None and m[5] is not None else 0.0,
-                consistency=0.0,
-                composite_score=0.0,
-                observation_count=0,
-                currency=currency,
-            )
-            for m in all_movers[:limit]
-        ]
+            volatile_cards = [
+                TrendingCardEntry(
+                    card_id=m[0],
+                    name_en=m[1],
+                    name_pt=m[2],
+                    set_code=m[3],
+                    price_start=float(m[4]) if m[4] is not None else 0.0,
+                    price_end=float(m[5]) if m[5] is not None else 0.0,
+                    change_pct=float(m[6]),
+                    change_abs=float(m[5] - m[4]) if m[4] is not None and m[5] is not None else 0.0,
+                    consistency=0.0,
+                    composite_score=0.0,
+                    observation_count=0,
+                    currency=currency,
+                )
+                for m in all_movers[:limit]
+            ]
+        except Exception as exc2:
+            logger.warning("volatile_fallback_error: %s (%s)", exc2, type(exc2).__name__)
+            volatile_cards = []
 
     data = TrendingResponse(
         cards=volatile_cards,

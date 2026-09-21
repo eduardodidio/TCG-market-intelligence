@@ -1127,7 +1127,7 @@ class Repository:
 
         with Session(self.engine) as session:
             if "postgresql" in str(self.engine.url):
-                session.execute(text("SET LOCAL statement_timeout = '8s'"))
+                session.execute(text("SET LOCAL statement_timeout = '12s'"))
 
             # 1. Source-cards-based prices (MYP, jsonld_snapshot, etc.)
             stmt = (
@@ -1180,26 +1180,31 @@ class Repository:
                     direct_patterns[f"liga_{cid}_foil"] = cid
                     direct_patterns[f"manual_{cid}"] = cid
 
-                direct_obs = session.execute(
-                    select(
-                        PriceObservationRow.external_id,
-                        PriceObservationRow.observed_at,
-                        PriceObservationRow.median_price,
-                    )
-                    .where(
-                        PriceObservationRow.external_id.in_(list(direct_patterns.keys())),
-                        PriceObservationRow.observed_at >= cutoff,
-                        PriceObservationRow.median_price.isnot(None),
-                    )
-                    .order_by(PriceObservationRow.observed_at.asc())
-                ).all()
+                # Batch IN clause to avoid huge query plans on PostgreSQL
+                all_keys = list(direct_patterns.keys())
+                _CHUNK = 500
+                for i in range(0, len(all_keys), _CHUNK):
+                    chunk_keys = all_keys[i : i + _CHUNK]
+                    direct_obs = session.execute(
+                        select(
+                            PriceObservationRow.external_id,
+                            PriceObservationRow.observed_at,
+                            PriceObservationRow.median_price,
+                        )
+                        .where(
+                            PriceObservationRow.external_id.in_(chunk_keys),
+                            PriceObservationRow.observed_at >= cutoff,
+                            PriceObservationRow.median_price.isnot(None),
+                        )
+                        .order_by(PriceObservationRow.observed_at.asc())
+                    ).all()
 
-                for ext_id, obs_date, median_price in direct_obs:
-                    cid = direct_patterns.get(ext_id)
-                    if cid is not None:
-                        if cid not in result:
-                            result[cid] = []
-                        result[cid].append((obs_date, Decimal(str(median_price))))
+                    for ext_id, obs_date, median_price in direct_obs:
+                        cid = direct_patterns.get(ext_id)
+                        if cid is not None:
+                            if cid not in result:
+                                result[cid] = []
+                            result[cid].append((obs_date, Decimal(str(median_price))))
 
         # Deduplicate within each card: same date keeps max price
         for card_id in result:
