@@ -1186,7 +1186,10 @@
     "losers": "Top Losers",
     "noData": "Not enough price history yet",
     "change": "Change",
-    "error": "Failed to load movers"
+    "error": "Failed to load movers",
+    "showTop10": "Show Top 10",
+    "showTop100": "Show Top 100",
+    "collapse": "Collapse"
   },
   "errorCodes": {
     "authInvalidCredentials": "Invalid email or password.",

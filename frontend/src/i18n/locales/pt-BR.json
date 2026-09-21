@@ -1186,7 +1186,10 @@
     "losers": "Maiores Baixas",
     "noData": "Historico de precos insuficiente",
     "change": "Variacao",
-    "error": "Erro ao carregar movimentacoes"
+    "error": "Erro ao carregar movimentacoes",
+    "showTop10": "Ver Top 10",
+    "showTop100": "Ver Top 100",
+    "collapse": "Recolher"
   },
   "errorCodes": {
     "authInvalidCredentials": "Email ou senha invalidos.",

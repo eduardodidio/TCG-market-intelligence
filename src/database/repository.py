@@ -1372,7 +1372,7 @@ class Repository:
                 .join(earliest, earliest.c.card_id == CardRow.id)
                 .join(latest, latest.c.card_id == CardRow.id)
                 .where(
-                    earliest.c.price_start > 0,
+                    earliest.c.price_start >= 0.5,
                     earliest.c.price_start != latest.c.price_end,
                 )
             )
@@ -1382,6 +1382,7 @@ class Repository:
                 (r[0], r[1], r[2], r[3], r[4], float(r[5]), float(r[6]), float(r[7]), float(r[8]))
                 for r in rows
             ]
+            movers = [m for m in movers if abs(m[8]) <= 1000.0]
 
             gainers = sorted(
                 [m for m in movers if m[8] > 0],

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { CollectionMovers } from "../../src/components/CollectionMovers";
 
 vi.mock("react-i18next", () => ({
@@ -11,6 +11,9 @@ vi.mock("react-i18next", () => ({
         "movers.losers": "Top Losers",
         "movers.noData": "Not enough price history yet",
         "movers.change": "Change",
+        "movers.showTop10": "Show Top 10",
+        "movers.showTop100": "Show Top 100",
+        "movers.collapse": "Collapse",
       };
       return map[key] || key;
     },
@@ -236,6 +239,228 @@ describe("CollectionMovers", () => {
       const img = screen.getByAltText("Image Card");
       expect(img).toBeInTheDocument();
       expect(img).toHaveAttribute("src", "https://example.com/card.jpg");
+    });
+  });
+
+  it("shows top 10 button by default", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    render(<CollectionMovers limit={5} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
+      expect(screen.getByText("Show Top 10")).toBeInTheDocument();
+    });
+  });
+
+  it("expand to top 10 re-fetches", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    render(<CollectionMovers limit={5} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
+    });
+
+    mockFetchCollectionMovers.mockClear();
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    fireEvent.click(screen.getByTestId("movers-show-top10"));
+
+    await waitFor(() => {
+      expect(mockFetchCollectionMovers).toHaveBeenCalledWith(7, 10, false);
+    });
+  });
+
+  it("shows top 100 button after expanding to 10", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    render(<CollectionMovers limit={5} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("movers-show-top10"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-show-top100")).toBeInTheDocument();
+      expect(screen.getByText("Show Top 100")).toBeInTheDocument();
+    });
+  });
+
+  it("collapse button returns to initial limit", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    render(<CollectionMovers limit={5} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("movers-show-top10"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-collapse")).toBeInTheDocument();
+    });
+
+    mockFetchCollectionMovers.mockClear();
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    fireEvent.click(screen.getByTestId("movers-collapse"));
+
+    await waitFor(() => {
+      expect(mockFetchCollectionMovers).toHaveBeenCalledWith(7, 5, false);
+    });
+  });
+
+  it("handles expand when API returns fewer items than the limit", async () => {
+    // Initial render with limit=5 returns 1 item
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Only Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    render(<CollectionMovers limit={5} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
+    });
+
+    // Expand to top 10, but API still returns only 1 item
+    mockFetchCollectionMovers.mockClear();
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Only Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    fireEvent.click(screen.getByTestId("movers-show-top10"));
+
+    await waitFor(() => {
+      expect(mockFetchCollectionMovers).toHaveBeenCalledWith(7, 10, false);
+      // Component still renders fine with fewer items than the limit
+      expect(screen.getByTestId("collection-movers")).toBeInTheDocument();
+      expect(screen.getAllByTestId("mover-row-gainer")).toHaveLength(1);
+      // Show Top 100 button should appear (since we are at limit=10)
+      expect(screen.getByTestId("movers-show-top100")).toBeInTheDocument();
+      // Collapse button should appear
+      expect(screen.getByTestId("movers-collapse")).toBeInTheDocument();
+    });
+  });
+
+  it("shows error state when re-fetch after expand fails", async () => {
+    // Initial render succeeds
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    render(<CollectionMovers limit={5} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
+    });
+
+    // Expand to top 10 fails
+    mockFetchCollectionMovers.mockClear();
+    mockFetchCollectionMovers.mockRejectedValue(new Error("Network error"));
+
+    fireEvent.click(screen.getByTestId("movers-show-top10"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-error")).toBeInTheDocument();
+    });
+
+    // Retry button should be visible
+    expect(screen.getByText("common.retry")).toBeInTheDocument();
+  });
+
+  it("retry from error state re-fetches with current limit", async () => {
+    // Initial render succeeds
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    render(<CollectionMovers limit={5} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-show-top10")).toBeInTheDocument();
+    });
+
+    // Expand to top 10 fails
+    mockFetchCollectionMovers.mockClear();
+    mockFetchCollectionMovers.mockRejectedValue(new Error("Network error"));
+
+    fireEvent.click(screen.getByTestId("movers-show-top10"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("movers-error")).toBeInTheDocument();
+    });
+
+    // Retry should re-fetch with the expanded limit (10)
+    mockFetchCollectionMovers.mockClear();
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [{ card_id: 1, card_name: "Card", set_code: "SET", image_uri: null, price_start: 10, price_end: 15, change_abs: 5, change_pct: 50 }],
+        losers: [],
+        period_days: 7,
+      },
+    });
+
+    fireEvent.click(screen.getByText("common.retry"));
+
+    await waitFor(() => {
+      expect(mockFetchCollectionMovers).toHaveBeenCalledWith(7, 10, false);
+      expect(screen.getByTestId("collection-movers")).toBeInTheDocument();
     });
   });
 });
