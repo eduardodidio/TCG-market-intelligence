@@ -7,7 +7,6 @@ import { refreshCardPrice } from "../api/cards";
 import { useAuth } from "../hooks/useAuth";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
-import { usePriceRequestPolling } from "../hooks/usePriceRequestPolling";
 import { formatPriceOrFallback } from "../utils/format";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import { isPromoCard } from "../utils/promo";
@@ -35,30 +34,9 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
   const [imgError, setImgError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [queued, setQueued] = useState(false);
+  const [enqueued, setEnqueued] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [failed, setFailed] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-
-  // Poll for price request status after queuing
-  const { status: requestStatus, isPolling } = usePriceRequestPolling({
-    cardId: card.id,
-    enabled: queued,
-    onCompleted: (price) => {
-      setQueued(false);
-      setCompleted(true);
-      setTimeout(() => setCompleted(false), 1500);
-      if (price !== null && onPriceRefreshed) {
-        onPriceRefreshed(card.id, price);
-      }
-    },
-    onFailed: () => {
-      setQueued(false);
-      setFailed(true);
-      setTimeout(() => setFailed(false), 3000);
-    },
-  });
 
   // Primary: set/collector_number URL. Fallback: name-based URL.
   const primaryUrl =
@@ -75,7 +53,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
   const handleRefresh = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (refreshing || queued || completed || failed) return;
+    if (refreshing) return;
 
     setRefreshing(true);
     setRefreshError(false);
@@ -87,7 +65,8 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
         return;
       }
       if (res.data?.status === "queued") {
-        setQueued(true);
+        setEnqueued(true);
+        setTimeout(() => setEnqueued(false), 1500);
       }
     } catch {
       setRefreshError(true);
@@ -97,33 +76,21 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
     }
   };
 
-  // Determine the visual state of the refresh button
-  const pollingTimedOut = queued && !isPolling && requestStatus !== "completed" && requestStatus !== "failed";
-  const showAlwaysVisible = refreshError || queued || completed || failed;
-
   // Button color
-  const buttonColor = refreshError || failed
+  const buttonColor = refreshError
     ? "text-red-400"
-    : completed
+    : enqueued
       ? "text-green-400"
-      : queued
-        ? pollingTimedOut
-          ? "text-yellow-400"
-          : "text-cyan-400"
-        : "text-slate-300 hover:text-cyan-400";
+      : "text-slate-300 hover:text-cyan-400";
 
   // Button title
   const buttonTitle = refreshError
     ? t("cards.priceRefreshError")
-    : failed
-      ? t("cards.priceUpdateFailed")
-      : completed
-        ? t("cards.priceUpdateCompleted")
-        : pollingTimedOut
-          ? t("cards.priceUpdateTimeout")
-          : queued
-            ? t("cards.priceUpdateProcessing")
-            : t("credits.refreshCostTooltip", { cost: 1 });
+    : enqueued
+      ? t("cards.priceEnqueued")
+      : t("credits.refreshCostTooltip", { cost: 1 });
+
+  const showAlwaysVisible = refreshError || enqueued;
 
   return (
     <Card3DTilt foil={isFoil ?? false} className="w-full">
@@ -139,7 +106,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
         <button
           data-testid={`refresh-card-price-${card.id}`}
           onClick={handleRefresh}
-          disabled={refreshing || queued || refreshError || completed || failed}
+          disabled={refreshing}
           title={buttonTitle}
           className={`absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-full
             bg-black/60 ${buttonColor} hover:bg-black/80
@@ -147,7 +114,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
             disabled:opacity-100 disabled:cursor-not-allowed
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400`}
         >
-          {refreshError || failed ? (
+          {refreshError ? (
             <svg
               className="h-3.5 w-3.5"
               fill="none"
@@ -163,7 +130,7 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          ) : completed ? (
+          ) : enqueued ? (
             <svg
               className="h-3.5 w-3.5"
               fill="none"
@@ -177,38 +144,6 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M5 13l4 4L19 7"
-              />
-            </svg>
-          ) : queued && isPolling ? (
-            <svg
-              className="h-3.5 w-3.5 animate-spin"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              data-testid="spinner-icon"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          ) : pollingTimedOut ? (
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              data-testid="clock-icon"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
           ) : (
@@ -316,24 +251,9 @@ export function CardTile({ card, trend, onPriceRefreshed, linkTo, isFoil }: Card
             <TrendBadge changePct={trend.change_pct} />
           )}
         </div>
-        {(queued && isPolling) && (
-          <span className="text-xs text-cyan-500 dark:text-cyan-400 mt-1 block" data-testid="queued-feedback">
-            {t("cards.priceUpdateProcessing")}
-          </span>
-        )}
-        {pollingTimedOut && (
-          <span className="text-xs text-yellow-500 dark:text-yellow-400 mt-1 block" data-testid="queued-feedback">
-            {t("cards.priceUpdateTimeout")}
-          </span>
-        )}
-        {completed && (
-          <span className="text-xs text-green-500 dark:text-green-400 mt-1 block" data-testid="completed-feedback">
-            {t("cards.priceUpdateCompleted")}
-          </span>
-        )}
-        {failed && (
-          <span className="text-xs text-red-500 dark:text-red-400 mt-1 block" data-testid="failed-feedback">
-            {t("cards.priceUpdateFailed")}
+        {enqueued && (
+          <span className="text-xs text-green-500 dark:text-green-400 mt-1 block" data-testid="enqueued-feedback">
+            {t("cards.priceEnqueued")}
           </span>
         )}
         {refreshError && (

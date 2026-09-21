@@ -156,3 +156,36 @@ confirmacao explicita do usuario.
 **Quando em duvida: pare e pergunte ao usuario.** O custo de uma pausa e
 baixo; o custo de uma acao destrutiva nao autorizada e alto.
 
+
+## Guardrails de Segurança
+
+Regras que o Claude Code DEVE seguir neste projeto. Nenhuma exceção sem
+confirmação explícita do usuário.
+
+**Git**
+- NUNCA rodar `git rebase` em branches compartilhadas (`main`, `master`,
+  `develop`)
+- NUNCA rodar `git push --force` ou `--force-with-lease` sem pedir
+- NUNCA rodar `git reset --hard` sobre trabalho não commitado
+- NUNCA usar `--no-verify` para pular hooks (pre-commit, pre-push)
+- NUNCA usar `git add -A` ou `git add .` — stage arquivo por arquivo
+- NUNCA commitar arquivos com segredos (`.env`, `credentials.*`, chaves
+  privadas, tokens, `*.pem`, `*.key`)
+- NUNCA amendar commits já pushados a uma branch compartilhada
+
+**Código**
+- NUNCA desabilitar validação, auth ou testes "só pra fazer funcionar"
+- NUNCA hardcodear secrets — sempre variáveis de ambiente
+- Validar input nas fronteiras do sistema (user input, APIs externas)
+- Não introduzir dependências novas sem confirmação
+
+**Infra / operações destrutivas**
+- NUNCA modificar CI/CD sem confirmação explícita
+- NUNCA rodar `rm -rf`, `DROP TABLE`, `kill -9` sem confirmar
+- Mudanças em estado compartilhado (Slack, PRs, GitHub Issues,
+  infraestrutura) exigem confirmação explícita antes de cada ação
+
+**Quando em dúvida: pare e pergunte ao usuário.** O custo de uma pausa é
+baixo; o custo de uma ação destrutiva não autorizada é alto.
+
+{{EXTRA_PROJECT_NOTES}}

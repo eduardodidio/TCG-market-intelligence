@@ -57,7 +57,8 @@
     "tradeMatches": "Trocas",
     "importPurchases": "Importar Compras",
     "buildDeck": "Montar Deck",
-    "deckEvaluator": "Avaliador de Deck"
+    "deckEvaluator": "Avaliador de Deck",
+    "news": "Noticias"
   },
   "catalog": {
     "title": "Catalogo de Cartas",
@@ -1351,5 +1352,21 @@
     "resultSkipped": "{{count}} ignorado(s):",
     "importMore": "Importar Mais",
     "goToCollection": "Ir para Colecao"
+  },
+  "news": {
+    "title": "Noticias MTG",
+    "filterUnread": "Nao lidas",
+    "filterRead": "Lidas",
+    "filterAll": "Todas",
+    "category_all": "Todas",
+    "category_ban": "Banimentos",
+    "category_release": "Lancamentos",
+    "category_event": "Eventos",
+    "category_reprint": "Reimpressoes",
+    "category_other": "Outras",
+    "emptyTitle": "Nenhuma noticia ainda",
+    "emptyDescription": "As noticias aparecerao aqui apos o feed ser buscado. Peca a um admin para rodar o comando fetch-news.",
+    "markUnread": "Marcar como nao lida",
+    "showing": "Mostrando {{from}}-{{to}} de {{total}}"
   }
 }

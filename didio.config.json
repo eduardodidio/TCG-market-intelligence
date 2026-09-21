@@ -4,8 +4,13 @@
   "highlander": true,
   "max_parallel": 0,
   "providers": {
-    "claude": { "bin": "claude", "default": true },
-    "codex": { "bin": "codex" }
+    "claude": {
+      "bin": "claude",
+      "default": true
+    },
+    "codex": {
+      "bin": "codex"
+    }
   },
   "_comment_provider_per_role": "Optional 'provider' key inside any models.<role> or models_economy.<role> entry selects 'claude' (default, used when absent) or 'codex' for that role, e.g. \"techlead\": { \"provider\": \"codex\", \"model\": \"gpt-5-codex\" }.",
   "models": {
@@ -121,8 +126,15 @@
     "enabled": true
   },
   "meta_agents": {
-    "t800": { "enabled": true, "auto_governance": true },
-    "t1000": { "enabled": true, "review_mode": "post-decision", "escalation_blocks_pipeline": true }
+    "t800": {
+      "enabled": true,
+      "auto_governance": true
+    },
+    "t1000": {
+      "enabled": true,
+      "review_mode": "post-decision",
+      "escalation_blocks_pipeline": true
+    }
   },
   "research": {
     "web_search_budget": 5,
@@ -133,5 +145,14 @@
     "smoke_timeout_secs": 30,
     "install_timeout_secs": 180,
     "build_timeout_secs": 60
+  },
+  "graphify": {
+    "enabled": false,
+    "auto_index": false,
+    "output_dir": "graphify-out",
+    "query_before_read": true
+  },
+  "rtk": {
+    "enabled": false
   }
 }

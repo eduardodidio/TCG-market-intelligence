@@ -56,6 +56,7 @@ const ICONS = {
   arrowUpTray: <NavIcon d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />,
   wrench: <NavIcon d="M11.42 15.17l-4.655 4.655a2.121 2.121 0 01-3-3l4.655-4.655m3-3l4.655-4.655a2.121 2.121 0 013 3l-4.655 4.655m-3 3l-3-3m7.5-3l-3-3" />,
   beaker: <NavIcon d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5.24 14.26a2.25 2.25 0 00-.659 1.59v.1c0 1.243 1.007 2.25 2.25 2.25h10.338c1.243 0 2.25-1.007 2.25-2.25v-.1a2.25 2.25 0 00-.66-1.59l-3.85-3.851a2.25 2.25 0 01-.659-1.591V3.104M9.75 3h4.5" />,
+  newspaper: <NavIcon d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z" />,
 };
 
 const PRIMARY_NAV_ITEMS: ReadonlyArray<NavItem> = [
@@ -82,6 +83,7 @@ const BETA_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/trade-matches", labelKey: "nav.tradeMatches", requiresAuth: true, icon: ICONS.arrowsRightLeft },
   { to: "/achievements", labelKey: "nav.achievements", requiresAuth: true, icon: ICONS.trophy },
   { to: "/evaluations", labelKey: "nav.evaluations", requiresAuth: true, icon: ICONS.clipboardCheck },
+  { to: "/news", labelKey: "nav.news", requiresAuth: true, icon: ICONS.newspaper },
 ];
 
 const BETA_NAV_STORAGE_KEY = "tcg_beta_nav_open";

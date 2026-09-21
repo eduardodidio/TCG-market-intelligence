@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { CardTile } from "../CardTile";
 import type { CardSummary } from "../../types/api";
@@ -7,7 +7,6 @@ import type { CardSummary } from "../../types/api";
 // Mock dependencies
 vi.mock("../../api/cards", () => ({
   refreshCardPrice: vi.fn(),
-  fetchPriceRequestStatus: vi.fn(),
 }));
 
 vi.mock("../../hooks/useAuth", () => ({
@@ -83,6 +82,11 @@ function renderTile(
 describe("CardTile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders card name and price", () => {
@@ -123,38 +127,75 @@ describe("CardTile", () => {
     } as ReturnType<typeof useAuth>);
   });
 
-  it("calls refreshCardPrice and shows queued feedback on success", async () => {
+  it("calls refreshCardPrice and shows enqueued feedback on success", async () => {
     const { refreshCardPrice } = await import("../../api/cards");
     vi.mocked(refreshCardPrice).mockResolvedValue({
       data: { status: "queued", request_id: 123, card_id: 42 },
       error: null,
     } as Awaited<ReturnType<typeof refreshCardPrice>>);
 
-    // Mock polling to return pending so it keeps polling
-    const { fetchPriceRequestStatus } = await import("../../api/cards");
-    vi.mocked(fetchPriceRequestStatus).mockResolvedValue({
-      data: { status: "pending" },
-      meta: { cursor: null, total: null, offset: null, request_id: "" },
-      errors: [],
-    } as Awaited<ReturnType<typeof fetchPriceRequestStatus>>);
+    renderTile();
 
-    const onRefreshed = vi.fn();
-    renderTile({ onPriceRefreshed: onRefreshed });
-
-    fireEvent.click(screen.getByTestId("refresh-card-price-42"));
-
-    await waitFor(() => {
-      expect(refreshCardPrice).toHaveBeenCalledWith(42);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("refresh-card-price-42"));
     });
 
-    // Should NOT call onPriceRefreshed for queued responses (only on completed)
-    expect(onRefreshed).not.toHaveBeenCalled();
+    expect(refreshCardPrice).toHaveBeenCalledWith(42);
+
+    // Should show enqueued feedback
+    expect(screen.getByTestId("enqueued-feedback")).toBeInTheDocument();
+    expect(screen.getByTestId("check-icon")).toBeInTheDocument();
 
     // Price should remain unchanged
     expect(screen.getByTestId("card-price")).toHaveTextContent("R$ 3.50");
   });
 
-  it("disables button while refreshing", async () => {
+  it("shows enqueued feedback for 1.5s then resets", async () => {
+    const { refreshCardPrice } = await import("../../api/cards");
+    vi.mocked(refreshCardPrice).mockResolvedValue({
+      data: { status: "queued", request_id: 123, card_id: 42 },
+      error: null,
+    } as Awaited<ReturnType<typeof refreshCardPrice>>);
+
+    renderTile();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("refresh-card-price-42"));
+    });
+
+    // Enqueued feedback visible
+    expect(screen.getByTestId("enqueued-feedback")).toBeInTheDocument();
+    expect(screen.getByTestId("check-icon")).toBeInTheDocument();
+
+    // Advance 1.5s — feedback should disappear
+    act(() => {
+      vi.advanceTimersByTime(1500);
+    });
+
+    expect(screen.queryByTestId("enqueued-feedback")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("check-icon")).not.toBeInTheDocument();
+  });
+
+  it("button is clickable again immediately after enqueue (not disabled during feedback)", async () => {
+    const { refreshCardPrice } = await import("../../api/cards");
+    vi.mocked(refreshCardPrice).mockResolvedValue({
+      data: { status: "queued", request_id: 123, card_id: 42 },
+      error: null,
+    } as Awaited<ReturnType<typeof refreshCardPrice>>);
+
+    renderTile();
+    const btn = screen.getByTestId("refresh-card-price-42");
+
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    // Enqueued feedback is showing, but button should NOT be disabled
+    expect(screen.getByTestId("enqueued-feedback")).toBeInTheDocument();
+    expect(btn).not.toBeDisabled();
+  });
+
+  it("disables button only while refreshing (API call in progress)", async () => {
     const { refreshCardPrice } = await import("../../api/cards");
     let resolvePromise: (v: unknown) => void;
     vi.mocked(refreshCardPrice).mockReturnValue(
@@ -167,47 +208,63 @@ describe("CardTile", () => {
     const btn = screen.getByTestId("refresh-card-price-42");
 
     fireEvent.click(btn);
+    // Disabled during API call
     expect(btn).toBeDisabled();
 
-    // Resolve with queued response — button stays disabled because queued=true
-    resolvePromise!({ data: { status: "queued", request_id: 1, card_id: 42 }, error: null });
-    await waitFor(() => {
-      // Button remains disabled during the queued/polling window
-      expect(btn).toBeDisabled();
+    // Resolve with queued response — button re-enables
+    await act(async () => {
+      resolvePromise!({ data: { status: "queued", request_id: 1, card_id: 42 }, error: null });
     });
+
+    expect(btn).not.toBeDisabled();
   });
 
-  it("disables refresh button when queued", async () => {
+  it("does not use usePriceRequestPolling", async () => {
+    // Verify that usePriceRequestPolling is not imported/used in CardTile
+    // by checking that fetchPriceRequestStatus is never called
     const { refreshCardPrice } = await import("../../api/cards");
     vi.mocked(refreshCardPrice).mockResolvedValue({
       data: { status: "queued", request_id: 123, card_id: 42 },
       error: null,
     } as Awaited<ReturnType<typeof refreshCardPrice>>);
 
-    // Mock polling to return pending
-    const { fetchPriceRequestStatus } = await import("../../api/cards");
-    vi.mocked(fetchPriceRequestStatus).mockResolvedValue({
-      data: { status: "pending" },
-      meta: { cursor: null, total: null, offset: null, request_id: "" },
-      errors: [],
-    } as Awaited<ReturnType<typeof fetchPriceRequestStatus>>);
+    renderTile();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("refresh-card-price-42"));
+    });
+
+    // No spinner-icon (polling indicator) should appear
+    expect(screen.queryByTestId("spinner-icon")).not.toBeInTheDocument();
+    // No clock-icon (timeout indicator) should appear
+    expect(screen.queryByTestId("clock-icon")).not.toBeInTheDocument();
+  });
+
+  it("handles rapid double-click (debounce during refreshing)", async () => {
+    const { refreshCardPrice } = await import("../../api/cards");
+    let resolvePromise: (v: unknown) => void;
+    vi.mocked(refreshCardPrice).mockReturnValue(
+      new Promise((resolve) => {
+        resolvePromise = resolve;
+      }) as ReturnType<typeof refreshCardPrice>,
+    );
 
     renderTile();
     const btn = screen.getByTestId("refresh-card-price-42");
 
+    // First click
+    fireEvent.click(btn);
+    // Second click while refreshing — should be ignored (button is disabled)
     fireEvent.click(btn);
 
-    await waitFor(() => {
-      expect(btn).toBeDisabled();
-    });
+    expect(refreshCardPrice).toHaveBeenCalledTimes(1);
 
-    // Should show spinner icon while polling
-    await waitFor(() => {
-      expect(screen.getByTestId("spinner-icon")).toBeInTheDocument();
+    await act(async () => {
+      resolvePromise!({ data: { status: "queued", request_id: 1, card_id: 42 }, error: null });
     });
   });
 
-  it("shows error icon and feedback on refresh failure", async () => {
+  it("shows error icon and feedback on refresh failure (errors in response)", async () => {
     const { refreshCardPrice } = await import("../../api/cards");
     vi.mocked(refreshCardPrice).mockResolvedValue({
       data: null,
@@ -216,13 +273,11 @@ describe("CardTile", () => {
     } as Awaited<ReturnType<typeof refreshCardPrice>>);
 
     renderTile();
-    fireEvent.click(screen.getByTestId("refresh-card-price-42"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("error-icon")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("refresh-card-price-42"));
     });
 
-    // Should show error feedback text
+    expect(screen.getByTestId("error-icon")).toBeInTheDocument();
     expect(screen.getByTestId("refresh-error-feedback")).toBeInTheDocument();
   });
 
@@ -231,16 +286,36 @@ describe("CardTile", () => {
     vi.mocked(refreshCardPrice).mockRejectedValue(new Error("Network error"));
 
     renderTile();
-    fireEvent.click(screen.getByTestId("refresh-card-price-42"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("error-icon")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("refresh-card-price-42"));
     });
 
+    expect(screen.getByTestId("error-icon")).toBeInTheDocument();
     expect(screen.getByTestId("refresh-error-feedback")).toBeInTheDocument();
 
     // Price should remain unchanged
     expect(screen.getByTestId("card-price")).toHaveTextContent("R$ 3.50");
+  });
+
+  it("error state clears after 3s", async () => {
+    const { refreshCardPrice } = await import("../../api/cards");
+    vi.mocked(refreshCardPrice).mockRejectedValue(new Error("Network error"));
+
+    renderTile();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("refresh-card-price-42"));
+    });
+
+    expect(screen.getByTestId("error-icon")).toBeInTheDocument();
+    expect(screen.getByTestId("refresh-error-feedback")).toBeInTheDocument();
+
+    // Advance 3s — error should clear
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(screen.queryByTestId("error-icon")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("refresh-error-feedback")).not.toBeInTheDocument();
   });
 
   it("shows set code badge", () => {
