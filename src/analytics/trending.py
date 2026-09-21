@@ -115,7 +115,7 @@ def rank_trending(
     direction: str,
     min_observations: int = 3,
     min_price: Decimal = Decimal("1.00"),
-    min_consistency: Decimal = Decimal("0.50"),
+    min_consistency: Decimal = Decimal("0.25"),
     limit: int = 20,
 ) -> list[TrendingScore]:
     """Filter and rank trending cards by composite score.
