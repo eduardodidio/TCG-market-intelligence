@@ -7,6 +7,7 @@ import {
   Line,
   LineChart,
   ReferenceArea,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -277,14 +278,30 @@ export function PriceChart({
 
       {!loading && !error && observations.length > 0 && (() => {
         const isSparse = observations.length < 7;
+        const isSinglePoint = observations.length === 1;
         const displayData = getZoomedData(observations);
+        const sparseNotice = (() => {
+          if (!isSparse) return null;
+          if (isSinglePoint) {
+            const dateStr = formatChartDate(observations[0].observed_at);
+            return (
+              <p data-testid="sparse-data-notice" className="text-sm text-amber-400/80 mb-3">
+                {t("chart.singlePoint", { date: dateStr })}
+              </p>
+            );
+          }
+          const fromDate = formatChartDate(observations[0].observed_at);
+          const toDate = formatChartDate(observations[observations.length - 1].observed_at);
+          return (
+            <p data-testid="sparse-data-notice" className="text-sm text-amber-400/80 mb-3">
+              {t("chart.sparseDataRange", { count: observations.length, from: fromDate, to: toDate })}
+            </p>
+          );
+        })();
+        const sparseDotRadius = isSparse ? (observations.length <= 6 ? 5 : 3) : undefined;
         return (
           <>
-            {isSparse && (
-              <p data-testid="sparse-data-notice" className="text-sm text-amber-400/80 mb-3">
-                {t("chart.sparseData", { count: observations.length })}
-              </p>
-            )}
+            {sparseNotice}
             <div data-testid="chart-container" className="w-full h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
@@ -313,35 +330,55 @@ export function PriceChart({
                   <Legend
                     wrapperStyle={{ color: "#e2e8f0" }}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="median_price"
-                    name={t("chart.median")}
-                    stroke="#22d3ee"
-                    strokeWidth={2}
-                    dot={isSparse ? { r: 3, fill: "#22d3ee" } : false}
-                    connectNulls
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="tcg_price"
-                    name={t("chart.tcg")}
-                    stroke="#8494a7"
-                    strokeWidth={1.5}
-                    strokeDasharray="5 5"
-                    dot={isSparse ? { r: 3, fill: "#8494a7" } : false}
-                    connectNulls
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="last_sold_price"
-                    name={t("chart.lastSold")}
-                    stroke="#4ade80"
-                    strokeWidth={1.5}
-                    strokeDasharray="2 2"
-                    dot={isSparse ? { r: 3, fill: "#4ade80" } : false}
-                    connectNulls
-                  />
+                  {isSinglePoint && (
+                    <ReferenceLine
+                      y={observations[0].median_price ?? 0}
+                      stroke="#22d3ee"
+                      strokeDasharray="6 4"
+                      strokeWidth={2}
+                      label={{
+                        value: formatCurrency(observations[0].median_price, currency),
+                        fill: "#22d3ee",
+                        fontSize: 14,
+                        position: "right",
+                      }}
+                    />
+                  )}
+                  {!isSinglePoint && (
+                    <Line
+                      type="monotone"
+                      dataKey="median_price"
+                      name={t("chart.median")}
+                      stroke="#22d3ee"
+                      strokeWidth={2}
+                      dot={isSparse ? { r: sparseDotRadius!, fill: "#22d3ee" } : false}
+                      connectNulls
+                    />
+                  )}
+                  {!isSinglePoint && (
+                    <Line
+                      type="monotone"
+                      dataKey="tcg_price"
+                      name={t("chart.tcg")}
+                      stroke="#8494a7"
+                      strokeWidth={1.5}
+                      strokeDasharray="5 5"
+                      dot={isSparse ? { r: sparseDotRadius!, fill: "#8494a7" } : false}
+                      connectNulls
+                    />
+                  )}
+                  {!isSinglePoint && (
+                    <Line
+                      type="monotone"
+                      dataKey="last_sold_price"
+                      name={t("chart.lastSold")}
+                      stroke="#4ade80"
+                      strokeWidth={1.5}
+                      strokeDasharray="2 2"
+                      dot={isSparse ? { r: sparseDotRadius!, fill: "#4ade80" } : false}
+                      connectNulls
+                    />
+                  )}
                   {!isZoomed && observations.length > 14 && (
                     <Brush
                       dataKey="observed_at"

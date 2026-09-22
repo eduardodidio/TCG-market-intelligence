@@ -229,7 +229,7 @@ def get_history(
     all_observations = []
     for sc in source_cards:
         prices = repo.get_price_series(
-            source=[sc.source, "jsonld_snapshot"],
+            source=[sc.source, "jsonld_snapshot", "daily_snapshot"],
             external_id=sc.external_id,
             days=days,
         )

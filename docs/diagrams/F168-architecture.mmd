@@ -1,0 +1,42 @@
+graph TD
+  subgraph Sources["Existing Price Sources"]
+    LIGA[Liga Magic sweep]
+    MYP[MYP Cards snapshot]
+    JSONLD[JSON-LD snapshot]
+  end
+
+  subgraph Storage["Database"]
+    SC[source_cards]
+    PO[price_observations]
+  end
+
+  subgraph Snapshot["Daily Snapshot Service"]
+    SVC[price_snapshot.py]
+    LATEST[get_all_latest_prices]
+    INSERT[insert_price_observations]
+  end
+
+  subgraph Triggers["Trigger Paths"]
+    CLI["CLI: daily-snapshot"]
+    BCLI["CLI: backfill-snapshots"]
+    ADMIN["Admin API: POST /admin/jobs/snapshot-prices"]
+    SCHED["Task Scheduler (cron/Windows)"]
+  end
+
+  LIGA --> PO
+  MYP --> PO
+  JSONLD --> PO
+
+  CLI --> SVC
+  BCLI --> SVC
+  ADMIN --> SVC
+  SCHED --> CLI
+
+  SVC --> LATEST
+  LATEST --> PO
+  SVC --> INSERT
+  INSERT -->|"source=daily_snapshot"| PO
+
+  PO -->|"history API"| HIST["GET /cards/{id}/history"]
+  PO -->|"price-trends API"| TRENDS["GET /cards/price-trends"]
+  SC -.->|"external_id mapping"| PO

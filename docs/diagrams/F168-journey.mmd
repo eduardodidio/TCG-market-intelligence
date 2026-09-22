@@ -1,0 +1,20 @@
+graph LR
+  A[User opens Dashboard] --> B[Collection Movers widget]
+  B -->|Clicks card| C[CardDetail page]
+  C --> D[PriceChart component]
+  D --> E["GET /cards/{id}/history"]
+  E --> F{Sources in DB}
+  F -->|liga| G[Liga sweep prices]
+  F -->|jsonld_snapshot| H[JSON-LD prices]
+  F -->|daily_snapshot| I[Snapshot prices]
+  G --> J[Merged + sorted timeline]
+  H --> J
+  I --> J
+  J --> K[Chart renders dense price history]
+  K --> L[User sees continuous price trend]
+
+  subgraph Background["Background (daily)"]
+    M["Task Scheduler / cron"] --> N["CLI: daily-snapshot"]
+    N --> O[Snapshot service reads latest prices]
+    O --> P["Writes daily_snapshot to price_observations"]
+  end

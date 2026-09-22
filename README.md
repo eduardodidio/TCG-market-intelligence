@@ -967,6 +967,25 @@ Added a guest/demo login and role-based beta access control:
   Unauthenticated users are not blocked (public beta routes remain open).
 - **Architecture decision:** [ADR-0013](docs/adr/0013-guest-user-role-system.md)
 
+### F168 -- Price History Densification (2026-09-21)
+
+Daily price snapshots that fill gaps in price history charts:
+
+- **Snapshot service** -- `src/collectors/price_snapshot.py` reads the latest
+  known price for every card and writes a `daily_snapshot` observation to
+  `price_observations`. Naturally idempotent via the unique constraint on
+  `(source, external_id, observed_at)`.
+- **CLI commands:**
+  - `daily-snapshot` -- run a single daily snapshot (schedule via Task
+    Scheduler or cron for continuous coverage).
+  - `backfill-snapshots --days N` -- backfill up to N days (max 90) of
+    snapshot history for cards that have prices but no snapshots yet.
+- **Admin API** -- `POST /api/v1/admin/jobs/snapshot-prices` triggers a
+  snapshot from the admin panel (requires admin auth).
+- **Chart integration** -- `GET /cards/{id}/history` and
+  `GET /cards/price-trends` now include `daily_snapshot` observations,
+  producing denser price charts over time.
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).

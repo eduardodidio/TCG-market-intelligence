@@ -279,7 +279,7 @@ describe("PriceChart", () => {
   });
 
   describe("sparse data handling", () => {
-    it("shows sparse-data-notice with 1 data point", async () => {
+    it("shows singlePoint message with 1 data point", async () => {
       globalThis.fetch = mockFetchHistory(mockPriceHistory(1)) as unknown as typeof fetch;
       renderPriceChart();
 
@@ -287,10 +287,26 @@ describe("PriceChart", () => {
         expect(screen.getByTestId("sparse-data-notice")).toBeDefined();
       });
 
+      // Single point shows "Current price as of DD/MM"
       expect(screen.getByTestId("sparse-data-notice").textContent).toContain(
-        "1 data point so far",
+        "Current price as of",
       );
-      // Chart should still render
+      // Chart container should still render (with ReferenceLine)
+      expect(screen.getByTestId("chart-container")).toBeDefined();
+    });
+
+    it("shows sparseDataRange notice with 3 data points", async () => {
+      globalThis.fetch = mockFetchHistory(mockPriceHistory(3)) as unknown as typeof fetch;
+      renderPriceChart();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sparse-data-notice")).toBeDefined();
+      });
+
+      const notice = screen.getByTestId("sparse-data-notice").textContent!;
+      // Should contain the count and date range
+      expect(notice).toContain("3 data points from");
+      expect(notice).toContain("to");
       expect(screen.getByTestId("chart-container")).toBeDefined();
     });
 
@@ -303,7 +319,7 @@ describe("PriceChart", () => {
       });
 
       expect(screen.getByTestId("sparse-data-notice").textContent).toContain(
-        "5 data points so far",
+        "5 data points from",
       );
       expect(screen.getByTestId("chart-container")).toBeDefined();
     });

@@ -560,6 +560,27 @@ def trigger_process_price_requests(
     )
 
 
+# ── Daily price snapshot (F168-T02) ──────────────────────────────────
+
+
+@router.post("/jobs/snapshot-prices")
+def trigger_snapshot_prices(
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+):
+    """Snapshot all current prices into daily observations (admin only).
+
+    Reads the latest known price for every card and inserts a
+    ``price_observations`` row with ``source='daily_snapshot'`` for today.
+    Idempotent -- running twice on the same day inserts zero new rows.
+    No credit cost.
+    """
+    from src.collectors.price_snapshot import run_daily_snapshot
+
+    count = run_daily_snapshot(repo)
+    return success_response(data={"observations_created": count})
+
+
 # ── Price request queue (F130-T05) ──────────────────────────────────
 
 

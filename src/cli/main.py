@@ -2818,5 +2818,49 @@ def fetch_news_cmd(db, max_per_source):
     click.echo("")
 
 
+@cli.command("daily-snapshot")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+def daily_snapshot(db):
+    """Record daily price snapshot for all priced cards."""
+    from src.collectors.price_snapshot import run_daily_snapshot
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    count = run_daily_snapshot(repo)
+    click.echo(f"Snapshot complete: {count} new observations recorded.")
+
+
+@cli.command("backfill-snapshots")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option(
+    "--days",
+    default=1,
+    type=int,
+    help="Number of days to backfill (default: 1 = today only)",
+)
+def backfill_snapshots_cmd(db, days):
+    """Backfill daily snapshots for cards missing price history."""
+    from src.collectors.price_snapshot import backfill_snapshots
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    count = backfill_snapshots(repo, days=days)
+    click.echo(f"Backfill complete: {count} observations created.")
+
+
 if __name__ == "__main__":
     cli()
