@@ -2837,6 +2837,309 @@ def daily_snapshot(db):
     click.echo(f"Snapshot complete: {count} new observations recorded.")
 
 
+@cli.command("liga-verify-links")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--limit", default=50, type=int, help="Max URLs to verify")
+@click.option("--dry-run", is_flag=True, help="Only show what would be verified")
+@click.option("--output", "output_file", default=None, help="Write results to JSON file")
+def liga_verify_links(db, limit, dry_run, output_file):
+    """Verify stored Liga URLs point to the expected cards."""
+    import json as json_mod
+
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    all_urls = repo.get_all_liga_card_urls()
+    click.echo(f"Found {len(all_urls)} stored Liga URLs.")
+
+    urls_to_check = all_urls[:limit]
+    results = []
+    match_count = 0
+    mismatch_count = 0
+    orphan_count = 0
+    error_count = 0
+
+    if dry_run:
+        for row in urls_to_check:
+            expected = repo.get_card_name_by_liga_external_id(row.external_id)
+            if expected is None:
+                click.echo(f"  [ORPHAN] {row.external_id} -> {row.url}")
+                orphan_count += 1
+            else:
+                click.echo(f"  Would verify: {row.external_id} ({expected}) -> {row.url}")
+        click.echo(
+            f"\nDry run complete. {len(urls_to_check)} URLs would be verified "
+            f"({orphan_count} orphans)."
+        )
+        return
+
+    # Lazy import Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        click.echo("ERROR: Playwright is not installed. Install with: pip install playwright")
+        click.echo("Then run: playwright install chromium")
+        raise SystemExit(1)
+
+    click.echo(f"Verifying up to {len(urls_to_check)} URLs with Playwright...")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+
+        for i, row in enumerate(urls_to_check, 1):
+            expected_name = repo.get_card_name_by_liga_external_id(row.external_id)
+
+            if expected_name is None:
+                click.echo(f"  [{i}/{len(urls_to_check)}] [ORPHAN] {row.external_id} -> {row.url}")
+                orphan_count += 1
+                results.append(
+                    {
+                        "external_id": row.external_id,
+                        "url": row.url,
+                        "status": "orphan",
+                        "expected_name": None,
+                        "found_name": None,
+                    }
+                )
+                continue
+
+            try:
+                page.goto(row.url, timeout=15000)
+                title = page.title() or ""
+
+                # Liga pages have titles like "Card Name - LigaMagic"
+                found_name = title.split(" - ")[0].strip() if " - " in title else title.strip()
+
+                # Also try h1 if title is not informative
+                if not found_name or found_name.lower() in ("ligamagic", "liga magic", ""):
+                    h1 = page.query_selector("h1")
+                    if h1:
+                        found_name = (h1.inner_text() or "").strip()
+
+                # Compare: case-insensitive, check if expected name appears in found name
+                is_match = (
+                    expected_name.lower() in found_name.lower()
+                    or found_name.lower() in expected_name.lower()
+                )
+
+                if is_match:
+                    click.echo(
+                        f"  [{i}/{len(urls_to_check)}] [MATCH] {row.external_id}: "
+                        f"expected='{expected_name}', found='{found_name}'"
+                    )
+                    match_count += 1
+                    status = "match"
+                else:
+                    click.echo(
+                        f"  [{i}/{len(urls_to_check)}] [MISMATCH] {row.external_id}: "
+                        f"expected='{expected_name}', found='{found_name}'"
+                    )
+                    mismatch_count += 1
+                    status = "mismatch"
+
+                results.append(
+                    {
+                        "external_id": row.external_id,
+                        "url": row.url,
+                        "status": status,
+                        "expected_name": expected_name,
+                        "found_name": found_name,
+                    }
+                )
+
+            except Exception as exc:
+                click.echo(f"  [{i}/{len(urls_to_check)}] [ERROR] {row.external_id}: {exc!s:.80}")
+                error_count += 1
+                results.append(
+                    {
+                        "external_id": row.external_id,
+                        "url": row.url,
+                        "status": "error",
+                        "expected_name": expected_name,
+                        "found_name": None,
+                        "error": str(exc)[:200],
+                    }
+                )
+
+        browser.close()
+
+    # Summary
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  LIGA VERIFY LINKS SUMMARY")
+    click.echo(f"  Total checked:  {len(urls_to_check)}")
+    click.echo(f"  Matches:        {match_count}")
+    click.echo(f"  Mismatches:     {mismatch_count}")
+    click.echo(f"  Orphans:        {orphan_count}")
+    click.echo(f"  Errors:         {error_count}")
+    click.echo("=" * 60)
+
+    if output_file:
+        with open(output_file, "w", encoding="utf-8") as f:
+            json_mod.dump(results, f, indent=2, ensure_ascii=False)
+        click.echo(f"\nResults written to {output_file}")
+
+
+@cli.command("liga-relink")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option(
+    "--input",
+    "input_file",
+    default=None,
+    help="JSON file from liga-verify-links --output",
+)
+@click.option("--external-ids", default=None, help="Comma-separated external_ids to relink")
+@click.option("--dry-run", is_flag=True, help="Show what would be relinked")
+@click.option("--delay", default=3.0, type=float, help="Delay between requests (seconds)")
+def liga_relink(db, input_file, external_ids, dry_run, delay):
+    """Re-fetch correct Liga URLs for mismatched cards."""
+    import json as json_mod
+    import time
+
+    from src.database.repository import Repository
+    from src.providers.liga.urls import is_valid_liga_card_url
+
+    repo = Repository(db_url=db)
+
+    # --- Resolve which external_ids to process ---
+    ids_to_relink: list[str] = []
+
+    if input_file and external_ids:
+        click.echo("ERROR: Use --input or --external-ids, not both.")
+        raise SystemExit(1)
+
+    if input_file:
+        try:
+            with open(input_file, encoding="utf-8") as f:
+                data = json_mod.load(f)
+        except (OSError, json_mod.JSONDecodeError) as exc:
+            click.echo(f"ERROR: Could not read input file: {exc}")
+            raise SystemExit(1)
+
+        for entry in data:
+            if entry.get("status") == "mismatch":
+                ids_to_relink.append(entry["external_id"])
+        click.echo(f"Loaded {len(ids_to_relink)} MISMATCH entries from {input_file}.")
+
+    elif external_ids:
+        ids_to_relink = [eid.strip() for eid in external_ids.split(",") if eid.strip()]
+        click.echo(f"Processing {len(ids_to_relink)} explicit external_id(s).")
+
+    else:
+        click.echo("ERROR: Provide --input or --external-ids.")
+        raise SystemExit(1)
+
+    if not ids_to_relink:
+        click.echo("Nothing to relink.")
+        return
+
+    # --- Counters ---
+    relinked = 0
+    skipped = 0
+    orphans = 0
+    errors = 0
+    total = len(ids_to_relink)
+
+    if dry_run:
+        for ext_id in ids_to_relink:
+            card_name = repo.get_card_name_by_liga_external_id(ext_id)
+            if card_name is None:
+                click.echo(f"  [ORPHAN]   {ext_id}  no card found")
+                orphans += 1
+            else:
+                click.echo(f'  [SKIPPED]  {ext_id}  "{card_name}"  dry-run')
+                skipped += 1
+        click.echo("")
+        click.echo("=" * 60)
+        click.echo("  LIGA RELINK SUMMARY (dry-run)")
+        click.echo(f"  Total:     {total}")
+        click.echo(f"  Skipped:   {skipped}")
+        click.echo(f"  Orphans:   {orphans}")
+        click.echo("=" * 60)
+        return
+
+    # --- Lazy import Playwright ---
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        click.echo("ERROR: Playwright is not installed. Install with: pip install playwright")
+        click.echo("Then run: playwright install chromium")
+        raise SystemExit(1)
+
+    click.echo(f"Relinking {total} URL(s) with Playwright...")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+
+        for i, ext_id in enumerate(ids_to_relink, 1):
+            card_name = repo.get_card_name_by_liga_external_id(ext_id)
+
+            if card_name is None:
+                click.echo(f"  [{i}/{total}] [ORPHAN]   {ext_id}  no card found")
+                orphans += 1
+                continue
+
+            try:
+                from src.providers.liga.url_resolver import resolve_liga_page_url_sync
+
+                new_url = resolve_liga_page_url_sync(card_name, page)
+
+                if new_url is None or not is_valid_liga_card_url(new_url):
+                    click.echo(
+                        f'  [{i}/{total}] [ERROR]    {ext_id}  "{card_name}"  '
+                        f"invalid URL: {new_url}"
+                    )
+                    errors += 1
+                    continue
+
+                # Fetch old URL for display
+                old_url = repo.get_liga_card_url(ext_id)
+
+                repo.upsert_liga_card_url(ext_id, new_url)
+                click.echo(
+                    f'  [{i}/{total}] [RELINKED] {ext_id}  "{card_name}"  '
+                    f"old={old_url}  new={new_url}"
+                )
+                relinked += 1
+
+            except Exception as exc:
+                click.echo(f'  [{i}/{total}] [ERROR]    {ext_id}  "{card_name}"  {exc!s:.80}')
+                errors += 1
+
+            # Delay between requests
+            if i < total:
+                time.sleep(delay)
+
+        browser.close()
+
+    # Summary
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  LIGA RELINK SUMMARY")
+    click.echo(f"  Total:     {total}")
+    click.echo(f"  Relinked:  {relinked}")
+    click.echo(f"  Skipped:   {skipped}")
+    click.echo(f"  Orphans:   {orphans}")
+    click.echo(f"  Errors:    {errors}")
+    click.echo("=" * 60)
+
+
 @cli.command("backfill-snapshots")
 @click.option(
     "--db",

@@ -5202,6 +5202,37 @@ class Repository:
             session.commit()
             return True
 
+    # ── Liga verify links (F169) ────────────────────────────────
+
+    def get_all_liga_card_urls(self) -> list[LigaCardUrlRow]:
+        """Return all stored Liga card URL records."""
+        with Session(self.engine) as session:
+            rows = session.execute(select(LigaCardUrlRow)).scalars().all()
+            for r in rows:
+                session.expunge(r)
+            return list(rows)
+
+    def get_card_name_by_liga_external_id(self, external_id: str) -> str | None:
+        """Resolve a Liga external_id (liga_{card_id} or liga_{card_id}_foil) to a card name.
+
+        The external_id encodes our database card_id directly, so we parse it
+        and look up cards.name_en.
+        """
+        # Parse card_id from external_id: liga_42 -> 42, liga_42_foil -> 42
+        stripped = external_id
+        if stripped.startswith("liga_"):
+            stripped = stripped[5:]
+        stripped = stripped.removesuffix("_foil")
+        try:
+            card_id = int(stripped)
+        except (ValueError, TypeError):
+            return None
+
+        with Session(self.engine) as session:
+            return session.execute(
+                select(CardRow.name_en).where(CardRow.id == card_id)
+            ).scalar_one_or_none()
+
     def count_unread_news(self, user_id: int | str) -> int:
         """Count unread news items for the given user."""
         uid = str(user_id)

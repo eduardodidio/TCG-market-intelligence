@@ -3,8 +3,10 @@
 Uses Playwright async API for browser automation since LigaMagic
 requires JavaScript rendering and blocks direct HTTP requests with 403.
 
-On Windows, falls back to Playwright's sync API running inside
-``asyncio.to_thread()`` to avoid event-loop compatibility issues.
+On Windows, falls back to Playwright's sync API running on a dedicated
+single-thread executor (``ThreadPoolExecutor(max_workers=1)``) to
+guarantee thread affinity — Playwright sync requires all operations
+to run on the same OS thread.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import structlog
@@ -99,6 +102,14 @@ class LigaMagicProvider(CardSourceProvider):
         self._lock = asyncio.Lock()
         self._unavailable = False
         self._last_page_url: str | None = None
+        self._executor: ThreadPoolExecutor | None = None
+
+    async def _run_sync(self, fn, *args):
+        """Run a sync function on the dedicated Playwright thread."""
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="liga-pw")
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, fn, *args)
 
     @property
     def source_name(self) -> str:
@@ -113,15 +124,15 @@ class LigaMagicProvider(CardSourceProvider):
         even when playwright is not installed (useful for tests
         that mock the browser layer).
 
-        On Windows, uses Playwright's sync API via ``asyncio.to_thread()``
-        to avoid event-loop compatibility issues with async subprocesses.
+        On Windows, uses Playwright's sync API via a dedicated single-thread
+        executor to guarantee thread affinity for Playwright operations.
         """
         if self._page is not None or self._sync_page is not None:
             return  # Already open
 
         if sys.platform == "win32":
             self._use_sync = True
-            await asyncio.to_thread(self._open_sync)
+            await self._run_sync(self._open_sync)
         else:
             from playwright.async_api import async_playwright
 
@@ -156,7 +167,10 @@ class LigaMagicProvider(CardSourceProvider):
     async def close(self) -> None:
         """Shut down the browser and release resources."""
         if self._use_sync:
-            await asyncio.to_thread(self._close_sync)
+            await self._run_sync(self._close_sync)
+            if self._executor:
+                self._executor.shutdown(wait=False)
+                self._executor = None
             log.info("liga_browser_closed", requests=self._request_count, sync=True)
             return
 
@@ -218,8 +232,13 @@ class LigaMagicProvider(CardSourceProvider):
     async def _reset_browser(self) -> None:
         """Best-effort browser cleanup for recovery after crashes."""
         if self._use_sync:
-            await asyncio.to_thread(self._reset_browser_sync)
+            await self._run_sync(self._reset_browser_sync)
             await asyncio.sleep(0.5)
+            try:
+                await self._run_sync(self._open_sync)
+                log.info("liga_browser_recovered", sync=True)
+            except Exception as e:
+                log.warning("liga_browser_recovery_failed", error=str(e))
             log.info("liga_browser_reset", sync=True)
             return
 
@@ -267,7 +286,7 @@ class LigaMagicProvider(CardSourceProvider):
         self._last_page_url = None
 
         if self._use_sync:
-            return await asyncio.to_thread(self._fetch_page_sync, url)
+            return await self._run_sync(self._fetch_page_sync, url)
 
         last_status = 0
         timeout_ms = int(self.config.timeout_seconds * 1000)
@@ -414,7 +433,7 @@ class LigaMagicProvider(CardSourceProvider):
         """Navigate to URL and return rendered HTML using sync Playwright.
 
         Mirrors the async ``_fetch_page`` logic but uses blocking calls
-        and ``time.sleep()`` for delays.  Runs inside ``asyncio.to_thread()``.
+        and ``time.sleep()`` for delays.  Runs on the dedicated executor thread.
         """
         self._last_page_url = None
         last_status = 0
@@ -428,12 +447,15 @@ class LigaMagicProvider(CardSourceProvider):
 
             try:
                 if self._sync_page is None:
-                    raise LigaError(
-                        "Sync page not available",
-                        url=url,
-                        status_code=0,
-                        attempts=attempt,
-                    )
+                    try:
+                        self._open_sync()
+                    except Exception:
+                        raise LigaError(
+                            "Sync page not available and recovery failed",
+                            url=url,
+                            status_code=0,
+                            attempts=attempt,
+                        )
                 page = self._sync_page
                 response = page.goto(
                     url,
@@ -871,7 +893,7 @@ class LigaMagicProvider(CardSourceProvider):
 
         try:
             if self._use_sync:
-                new_html = await asyncio.to_thread(self._select_edition_sync, edition_value)
+                new_html = await self._run_sync(self._select_edition_sync, edition_value)
                 return new_html, True
             else:
                 page = await self._ensure_page()
