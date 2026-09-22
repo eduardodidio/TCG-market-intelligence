@@ -73,7 +73,7 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import CardAnalytics, HistoricalPrice, User
-from src.providers.liga.url import liga_url_for_card_name
+from src.providers.liga.urls import resolve_liga_card_url
 from src.services import ban_analyzer
 from src.services.currency import CurrencyConverter
 from src.utils.image_fallback import fallback_image_uri
@@ -1686,17 +1686,19 @@ def _build_collection_detail(
 
     name = entry.name_en or entry.name_pt or ""
     scryfall_url = None
-    ligamagic_url = None
-    if canonical_name:
-        ligamagic_url = liga_url_for_card_name(canonical_name)
+    is_foil = is_foil_entry(entry.extras)
+    ligamagic_url = resolve_liga_card_url(
+        card_id=entry.card_id,
+        is_foil=is_foil,
+        fallback_name=canonical_name or name,
+        lookup=repo.get_liga_card_url,
+    )
     if name:
         encoded_name = quote_plus(name)
         scryfall_q = encoded_name
         if entry.set_code:
             scryfall_q += f"+set:{entry.set_code}"
         scryfall_url = f"https://scryfall.com/search?q={scryfall_q}"
-        if not ligamagic_url:
-            ligamagic_url = liga_url_for_card_name(name)
 
     data = CollectionCardDetail(
         id=entry.id,
@@ -1712,7 +1714,7 @@ def _build_collection_detail(
         rarity=entry.rarity,
         color=entry.color,
         extras=entry.extras,
-        is_foil=is_foil_entry(entry.extras),
+        is_foil=is_foil,
         latest_price=latest_price,
         price_source=price_source,
         currency=currency,
