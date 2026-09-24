@@ -1,6 +1,6 @@
 """Pure-function text parser for batch card entry.
 
-Format: [Qty[x]] CardName [[set_code]] [Quality] [Language] [Extras...]
+Format: [Qty[x]] CardName [[set_code]] [Quality] [Language] [Extras...] [Price]
 
 Examples::
 
@@ -9,6 +9,9 @@ Examples::
     2x Lightning Bolt [m15]
     2 Lightning Bolt [m15] NM EN Foil
     3x Swords to Plowshares [ice] SP BR
+    2 Lightning Bolt [m10] NM R$12,50
+    Sol Ring US$3.10
+    Lightning Bolt @ 5,00
     # this is a comment (skipped)
 """
 
@@ -16,6 +19,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal
+
+from src.currency.money import parse_money
 
 QUALITY_CODES = frozenset({"M", "NM", "SP", "MP", "HP", "D"})
 LANGUAGE_CODES = frozenset({"BR", "EN", "DE", "ES", "FR", "IT", "JP", "KO", "RU", "TW"})
@@ -30,6 +36,10 @@ EXTRAS_KEYWORDS = [
 # Pre-compiled patterns
 _QTY_RE = re.compile(r"^(\d+)x?\s+")
 _SET_RE = re.compile(r"\[([\w]+)\]")
+# Price token: currency symbol/code or "@" prefix followed by a number.
+# Card names never contain "$" and require a symbol or "@" to disambiguate
+# from digits that are part of the name (e.g. "Borrowing 100,000 Arrows").
+_PRICE_RE = re.compile(r"(?:(R\$|US\$|U\$|\$|BRL|USD)\s?|@\s?)(\d[\d.,]*)", re.IGNORECASE)
 # Quality/language must be standalone words (word boundaries) and uppercase
 _QUALITY_RE = re.compile(r"\b(" + "|".join(QUALITY_CODES) + r")\b")
 _LANGUAGE_RE = re.compile(r"\b(" + "|".join(LANGUAGE_CODES) + r")\b")
@@ -52,6 +62,8 @@ class ParsedLine:
     quality: str | None = None
     language: str | None = None
     extras: str | None = None
+    price: Decimal | None = None
+    price_currency: str | None = None
     error: str | None = None
 
 
@@ -95,6 +107,26 @@ def _parse_single_line(line_number: int, text: str) -> ParsedLine:
         set_code = m.group(1).lower()
         remaining = remaining[: m.start()] + remaining[m.end() :]
 
+    # 2.5 Extract price token (currency symbol/code or "@" + number). The
+    # last match wins when a line has more than one.
+    price: Decimal | None = None
+    price_currency: str | None = None
+    price_error: str | None = None
+    price_matches = list(_PRICE_RE.finditer(remaining))
+    if price_matches:
+        m = price_matches[-1]
+        number_token = m.group(2)
+        remaining = remaining[: m.start()] + remaining[m.end() :]
+        # "@" is not a currency symbol parse_money understands: pass only
+        # the number token so it isn't rejected as an invalid amount.
+        money_text = m.group(0) if m.group(1) else number_token
+        amount, currency = parse_money(money_text)
+        if amount is None:
+            price_error = f"Invalid price: {number_token}"
+        else:
+            price = amount
+            price_currency = currency
+
     # 3. Extract extras (before quality/language to avoid conflicts)
     extras_found: list[str] = []
     for m in _EXTRAS_RE.finditer(remaining):
@@ -130,7 +162,9 @@ def _parse_single_line(line_number: int, text: str) -> ParsedLine:
             quality=quality,
             language=language,
             extras=extras_str,
-            error="No card name found",
+            price=price,
+            price_currency=price_currency,
+            error=price_error or "No card name found",
         )
 
     return ParsedLine(
@@ -142,4 +176,7 @@ def _parse_single_line(line_number: int, text: str) -> ParsedLine:
         quality=quality,
         language=language,
         extras=extras_str,
+        price=price,
+        price_currency=price_currency,
+        error=price_error,
     )

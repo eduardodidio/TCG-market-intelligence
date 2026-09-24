@@ -445,6 +445,117 @@ describe("ImportPurchasesPage", () => {
     expect(screen.getByTestId("upload-state")).toBeDefined();
   });
 
+  /* ---- Currency conversion badge ---- */
+
+  it("shows a converted-currency badge only for USD rows", async () => {
+    const previewWithConversion = {
+      ...MOCK_PREVIEW,
+      matches: [
+        {
+          ...MOCK_PREVIEW.matches[0],
+          original_unit_price: "0.05",
+          original_currency: "USD",
+          exchange_rate: "5.00",
+        },
+        {
+          ...MOCK_PREVIEW.matches[1],
+          original_unit_price: "179.90",
+          original_currency: "BRL",
+          exchange_rate: null,
+        },
+      ],
+    };
+    mockUpload.mockResolvedValueOnce(previewWithConversion);
+    renderPage();
+
+    const input = screen.getByTestId("file-input") as HTMLInputElement;
+    uploadFile(input, createHtmlFile());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("upload-button"));
+    });
+
+    await waitFor(() => {
+      const badges = screen.getAllByTestId("purchase-converted-badge");
+      expect(badges.length).toBe(1);
+    });
+  });
+
+  it("does not show a badge when original_currency is absent (legacy response)", async () => {
+    mockUpload.mockResolvedValueOnce(MOCK_PREVIEW);
+    renderPage();
+
+    const input = screen.getByTestId("file-input") as HTMLInputElement;
+    uploadFile(input, createHtmlFile());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("upload-button"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("preview-state")).toBeDefined();
+    });
+    expect(screen.queryByTestId("purchase-converted-badge")).toBeNull();
+  });
+
+  it("shows the badge without a rate tooltip when exchange_rate is null", async () => {
+    const previewWithConversion = {
+      ...MOCK_PREVIEW,
+      matches: [
+        {
+          ...MOCK_PREVIEW.matches[0],
+          original_unit_price: "0.05",
+          original_currency: "USD",
+          exchange_rate: null,
+        },
+      ],
+    };
+    mockUpload.mockResolvedValueOnce(previewWithConversion);
+    renderPage();
+
+    const input = screen.getByTestId("file-input") as HTMLInputElement;
+    uploadFile(input, createHtmlFile());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("upload-button"));
+    });
+
+    await waitFor(() => {
+      const badge = screen.getByTestId("purchase-converted-badge");
+      expect(badge).toBeDefined();
+      expect(badge.getAttribute("title")).not.toContain("5.00");
+    });
+  });
+
+  it("shows the reason for an unmatched currency-conversion-failed row", async () => {
+    const previewWithFailedConversion = {
+      ...MOCK_PREVIEW,
+      unmatched: [
+        {
+          card_name_parsed: "Mana Drain",
+          set_code_parsed: "VMA",
+          unit_price: "0.00",
+          order_number: "#5282199",
+          skip_reason: "currency_conversion_failed",
+        },
+      ],
+    };
+    mockUpload.mockResolvedValueOnce(previewWithFailedConversion);
+    renderPage();
+
+    const input = screen.getByTestId("file-input") as HTMLInputElement;
+    uploadFile(input, createHtmlFile());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("upload-button"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("unmatched-section")).toBeDefined();
+    });
+    expect(screen.getByText(/currency_conversion_failed/)).toBeDefined();
+  });
+
   /* ---- Back to upload ---- */
 
   it("back button returns to upload state from preview", async () => {
