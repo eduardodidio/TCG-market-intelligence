@@ -134,3 +134,19 @@ chaves `liga_{card_id}` do sweep com o endpoint da coleção.
 
 ## ADR number (batch reservation)
 This feature's ADR number is **0017**, reserved in `tasks/features/EXECUTION-PLAN-F171-F179.md`. It overrides any "next free number" instruction in the task files.
+
+## Governance amendments (Saruman G-D-20260924-004: challenge → resolved)
+
+1. **Checkpoint after Wave 0.** The orchestrator reads `diagnosis.md` before Wave 1. It **stops and re-plans the affected tasks** if either of these holds:
+   - the root cause differs from the plan's hypothesis (key resolver / merge);
+   - the drift since F171/F175/F178 was merged is more than anchor-level.
+
+   Every Wave 1–4 developer must read the "Post-merge drift" section of `diagnosis.md` before editing.
+2. **Models.** T01, T03 and T07 run on Opus. The orchestrator sets `developer` to Opus for Waves 0–2 and does not commit that change.
+3. **Real-data evidence (pending-user).** T01 also delivers `scripts/diagnose_collection_history_neon.sql`, a read-only query set the user runs against Neon. It returns key-prefix counts and points per day for the cards the user reported. Its output is checked against `diagnosis.md` before the feature is promoted.
+4. **Definition of done.** QA PASSED requires one more pending-user step: on `homol`, with real data, the user confirms that the cards and views that failed before now show history. This step is **AC15**.
+5. **Backfill marking.** T05 marks forward-filled rows so they can be told apart and deleted. Use a dedicated `source` value such as `daily_snapshot_backfill`, or an equivalent marker documented in ADR 0017. Real snapshots must never look like backfill.
+6. **Scheduling.** `push-all.bat` is not in this repo. T06's automatic snapshot at the end of `liga-sweep` is the **primary** mechanism. `bats/daily-snapshot.bat` (T11) is only a manual or backfill fallback, and the README must say so.
+7. **F175 interaction.** F175 excludes foil from the *market trending* series. If ADR 0017 concludes that this must change, record it as a follow-up task and adjust T12's assertions. Do not lock the old behaviour in with tests.
+
+**AC15:** the user validates, on `homol` with real (Neon) data, that the originally reported collection cards show price history. This is pending-user and blocks promotion to `main`, not the QA verdict.
