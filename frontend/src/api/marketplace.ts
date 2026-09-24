@@ -93,6 +93,16 @@ export interface ListingsResponse {
   count: number;
 }
 
+export interface ListingSet {
+  set_code: string;
+  set_name: string | null;
+  count: number;
+}
+
+export interface ListingSetsResponse {
+  sets: ListingSet[];
+}
+
 export interface SharingStatus {
   is_shared: boolean;
   share_code: string | null;
@@ -164,6 +174,10 @@ export function toggleSharing(is_shared: boolean): Promise<SharingStatus> {
 
 export function fetchListings(params?: Record<string, string>): Promise<ListingsResponse> {
   return marketplaceGet<ListingsResponse>("/api/v1/marketplace/listings", params);
+}
+
+export function fetchListingSets(): Promise<ListingSetsResponse> {
+  return marketplaceGet<ListingSetsResponse>("/api/v1/marketplace/listings/sets");
 }
 
 export function fetchSharedCollection(

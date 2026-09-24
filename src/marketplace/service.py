@@ -11,6 +11,7 @@ from src.credits.exceptions import InsufficientCreditsError
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.marketplace.fees import calculate_trade_fee
+from src.marketplace.trade_queries import TradeQueries
 
 log = structlog.get_logger()
 
@@ -47,15 +48,23 @@ class MarketplaceService:
         set_code: str | None = None,
         search: str | None = None,
         exclude_user_id: int | None = None,
+        sort_by: str = "name",
+        sort_dir: str = "asc",
     ) -> list[dict]:
         """Browse marketplace listings (anonymized cards from shared collections)."""
-        return self.repo.list_marketplace_entries(
+        return TradeQueries(self.repo).list_listings(
             limit=limit,
             offset=offset,
             set_code=set_code,
             search=search,
             exclude_user_id=exclude_user_id,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
         )
+
+    def get_listing_sets(self, exclude_user_id: int | None = None) -> list[dict]:
+        """Return set facets for the marketplace listings."""
+        return TradeQueries(self.repo).list_listing_sets(exclude_user_id=exclude_user_id)
 
     def express_interest(
         self,

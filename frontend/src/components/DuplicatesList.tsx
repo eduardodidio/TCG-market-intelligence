@@ -11,6 +11,7 @@ import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 interface DuplicatesListProps {
   duplicates: DuplicateCard[];
   compact?: boolean;
+  gridClasses?: string;
 }
 
 function getImageSrc(card: DuplicateCard): string | null {
@@ -33,7 +34,7 @@ function DuplicateCardTile({ card }: { card: DuplicateCard }) {
     <Card3DTilt foil={false} className="w-full">
       <Link
         to={`/cards/${card.card_id}`}
-        className="relative flex flex-col bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors no-underline"
+        className="relative flex flex-col bg-slate-800 border border-slate-700 rounded-lg overflow-hidden hover:border-indigo-400 transition-colors no-underline"
         data-testid="duplicate-card"
       >
         {/* Surplus badge */}
@@ -45,7 +46,7 @@ function DuplicateCardTile({ card }: { card: DuplicateCard }) {
 
         {/* Card image */}
         <div
-          className={`aspect-[5/7] bg-gray-100 dark:bg-slate-700${imgSrc ? " cursor-zoom-in" : ""}`}
+          className={`aspect-[5/7] bg-slate-700${imgSrc ? " cursor-zoom-in" : ""}`}
           {...(imgSrc
             ? {
                 onClick: (e: React.MouseEvent) => {
@@ -65,16 +66,16 @@ function DuplicateCardTile({ card }: { card: DuplicateCard }) {
 
         {/* Card info */}
         <div className="p-2 flex-1">
-          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+          <p className="text-sm font-medium text-white truncate">
             {card.name_en ?? t("common.unknownCard")}
           </p>
           {card.set_code && (
-            <p className="text-xs text-gray-500 dark:text-slate-400 uppercase">
+            <p className="text-xs text-slate-400 uppercase">
               {card.set_code}
               {card.collector_number ? ` #${card.collector_number}` : ""}
             </p>
           )}
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+          <p className="text-xs text-green-400 mt-1">
             {t("tradeMatch.surplus")}: {card.surplus}
           </p>
         </div>
@@ -95,18 +96,21 @@ function DuplicateCardTile({ card }: { card: DuplicateCard }) {
 export function DuplicatesList({
   duplicates,
   compact = false,
+  gridClasses,
 }: DuplicatesListProps) {
   if (duplicates.length === 0) {
     return null;
   }
 
+  const resolvedGridClasses =
+    gridClasses ??
+    (compact
+      ? "gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+      : "gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5");
+
   return (
     <div
-      className={`grid gap-3 ${
-        compact
-          ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-          : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-      }`}
+      className={`grid ${resolvedGridClasses}`}
       data-testid="duplicates-list"
     >
       {duplicates.map((card) => (

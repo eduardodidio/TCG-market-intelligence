@@ -1446,5 +1446,23 @@
     "emptyPeriod": "No points in this period. History since {{date}} — try a longer period.",
     "snapshotPoint": "Repeated price (no new collection on this day)",
     "realVsSnapshot": "{{real}} real collections · {{snapshot}} repeated days"
+  },
+  "tradeFilters": {
+    "sortQuantityDesc": "Quantity (High-Low)",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "sortStatus": "Status",
+    "statusLabel": "Status",
+    "status": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "noResults": "No cards match the current filters.",
+    "noTradesBuyer": "You haven't expressed interest in any card yet.",
+    "noTradesSeller": "No one has requested your cards yet.",
+    "searchPlaceholder": "Search trades by card name..."
   }
 }
