@@ -10,6 +10,18 @@ export interface BanListEntry {
   status: string;
   effective_date: string | null;
   image_url: string | null;
+  printings: number;
+  owned: boolean;
+  owned_quantity: number;
+}
+
+export interface BanlistStatus {
+  last_synced_at: string | null;
+  legalities_count: number;
+  banned_count: number;
+  restricted_count: number;
+  history_count: number;
+  formats: number;
 }
 
 export interface CardLegality {

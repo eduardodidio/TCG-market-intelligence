@@ -17,6 +17,18 @@ class BanListEntry(BaseModel):
     status: str
     effective_date: date | None = None
     image_url: str | None = None
+    printings: int = 1
+    owned: bool = False
+    owned_quantity: int = 0
+
+
+class BanlistStatusSchema(BaseModel):
+    last_synced_at: datetime | None = None
+    legalities_count: int
+    banned_count: int
+    restricted_count: int
+    history_count: int
+    formats: int
 
 
 class CardLegalitySchema(BaseModel):
