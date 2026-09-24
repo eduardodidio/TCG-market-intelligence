@@ -1,0 +1,65 @@
+%% F175 — Tendências: user journey across market and collection modes
+flowchart LR
+  subgraph UserLane["👤 Usuário"]
+    U_START(["Abre /trending ou Dashboard"])
+    U_TOGGLE["Alterna 'Somente minha coleção'"]
+    U_SEES_LIST["Vê lista de gainers/losers"]
+    U_SEES_EMPTY["Vê EmptyState (trending.noTrending)"]
+    U_SEES_ERROR["Vê ErrorBanner com retry"]
+    U_RETRY["Clica em retry"]
+  end
+
+  subgraph Frontend["🖥️ Frontend"]
+    F_AUTH{"Usuário autenticado?"}
+    F_TOGGLE_ON{"Toggle 'minha coleção' ligado?"}
+    F_CALL["fetchTrending(params)\ncollection_only='true' só quando marcado"]
+    F_RENDER["Renderiza trending-list"]
+    F_ERR["Renderiza ErrorBanner"]
+  end
+
+  subgraph API_DB["🗄️ API + Serviço + Banco"]
+    A_CACHE{"Cache válido?\n(30min sucesso / 2min vazio)"}
+    A_QUERY{"Query ok?"}
+    A_SCOPE{"collection_only=true?"}
+    A_USER["get_trending_price_data_for_user"]
+    A_MARKET["load_market_trending_prices\n(source_cards ∪ liga_/manual_)"]
+    A_RANK{"Ranked (gainers/losers) vazio?"}
+    A_TIMEOUT["Timeout/exceção na query"]
+    A_NOCACHE["Não grava no cache (query_failed)"]
+    A_EMPTYCACHE["Grava vazio no cache (TTL 2min)"]
+    A_FULLCACHE["Grava resultado no cache (TTL 30min)"]
+  end
+
+  U_START --> F_AUTH
+  F_AUTH -->|não| F_TOGGLE_ON
+  F_AUTH -->|sim| F_TOGGLE_ON
+  U_TOGGLE --> F_TOGGLE_ON
+
+  F_TOGGLE_ON -->|"ligado + autenticado"| F_CALL
+  F_TOGGLE_ON -->|"desligado ou não autenticado"| F_CALL
+
+  F_CALL --> A_CACHE
+  A_CACHE -->|"hit"| F_RENDER
+  A_CACHE -->|"miss/expirado"| A_SCOPE
+
+  A_SCOPE -->|"sim"| A_USER
+  A_SCOPE -->|"não (modo mercado)"| A_MARKET
+
+  A_USER --> A_QUERY
+  A_MARKET --> A_QUERY
+
+  A_QUERY -->|"timeout/exceção"| A_TIMEOUT
+  A_TIMEOUT --> A_NOCACHE
+  A_NOCACHE --> U_SEES_ERROR
+  U_SEES_ERROR --> F_ERR
+  F_ERR --> U_RETRY
+  U_RETRY --> F_CALL
+
+  A_QUERY -->|"ok"| A_RANK
+  A_RANK -->|"vazio (sem histórico suficiente)"| A_EMPTYCACHE
+  A_EMPTYCACHE --> U_SEES_EMPTY
+  U_SEES_EMPTY --> F_RENDER
+
+  A_RANK -->|"não vazio"| A_FULLCACHE
+  A_FULLCACHE --> U_SEES_LIST
+  U_SEES_LIST --> F_RENDER

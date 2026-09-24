@@ -29,6 +29,7 @@ class TrendingService:
         self._repo = repo
         self._cache: dict[str, tuple[datetime, TrendingResponse]] = {}
         self._cache_ttl = timedelta(minutes=30)
+        self._empty_cache_ttl = timedelta(minutes=2)
 
     def get_trending(
         self,
@@ -47,19 +48,22 @@ class TrendingService:
         cached_entry = self._cache.get(cache_key)
         if cached_entry is not None:
             cached_at, cached_response = cached_entry
-            if now - cached_at < self._cache_ttl:
+            ttl = self._empty_cache_ttl if cached_response.cards == [] else self._cache_ttl
+            if now - cached_at < ttl:
                 # Return cached data with fresh currency conversion
                 return self._apply_currency(
                     cached_response, converter, currency, limit, cached=True
                 )
 
         # Cache miss: compute fresh data
+        query_failed = False
         try:
             if user_id is not None:
                 price_data = self._repo.get_trending_price_data_for_user(user_id, period_days)
             else:
                 price_data = self._repo.get_trending_price_data(period_days)
         except Exception as exc:
+            query_failed = True
             log.warning(
                 "trending_query_error",
                 error=str(exc),
@@ -113,8 +117,19 @@ class TrendingService:
             cached=False,
         )
 
-        # Cache the BRL-denominated result
-        self._cache[cache_key] = (now, response)
+        # Cache the BRL-denominated result, unless the query failed
+        if not query_failed:
+            self._cache[cache_key] = (now, response)
+
+        log.info(
+            "trending_computed",
+            scope=scope,
+            direction=direction,
+            period_days=period_days,
+            cards_with_prices=len(price_data),
+            ranked=len(ranked),
+            query_failed=query_failed,
+        )
 
         return self._apply_currency(response, converter, currency, limit, cached=False)
 
