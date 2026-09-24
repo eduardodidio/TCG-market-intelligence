@@ -2,7 +2,7 @@
 
 ## Status
 Accepted (2026-09-24) — live ToS/robots verification **pending-user** (see below).
-Approval of this ADR is the F173 spike gate before Wave 1.
+Approval of this ADR is the F173 spike gate before Wave 1. **Approved by the user on 2026-09-24.**
 
 ## Context
 F173 adds a "Mercado" tab to Top Decks: the top metagame decks per format
