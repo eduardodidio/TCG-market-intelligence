@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends
 
 from src.api.deps import get_current_user, get_db
 from src.api.schemas.envelope import success_response
+from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
 from src.services.achievements import (
-    check_achievements,
+    check_achievements_with_rewards,
     get_user_achievements,
 )
 
@@ -40,6 +41,9 @@ def list_achievements(
                 "icon": a["icon"],
                 "unlocked": a["unlocked"],
                 "unlocked_at": a["unlocked_at"],
+                "reward": a["reward"],
+                "tier": a["tier"],
+                "reward_credited": a["reward_credited"],
             }
         )
 
@@ -53,7 +57,16 @@ def trigger_check(
 ):
     """Trigger achievement check for current user.
 
-    Returns list of newly unlocked achievement keys.
+    Returns newly unlocked achievement keys, rewards credited, and balance.
     """
-    newly_unlocked = check_achievements(user.id, repo)
-    return success_response(data={"newly_unlocked": newly_unlocked})
+    check_result = check_achievements_with_rewards(user.id, repo)
+    balance = CreditService(repo).get_balance(user.id).balance
+    return success_response(
+        data={
+            "newly_unlocked": check_result["newly_unlocked"],
+            "rewards": check_result["rewards"],
+            "total_reward": check_result["total_reward"],
+            "backfilled": check_result["backfilled"],
+            "balance": balance,
+        }
+    )

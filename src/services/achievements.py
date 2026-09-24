@@ -16,6 +16,13 @@ from src.database.models import (
     UserCollectionRow,
 )
 from src.database.repository import Repository
+from src.services.achievement_rewards import (
+    backfill_user_rewards_in_session,
+    credit_reward_in_session,
+    credited_keys,
+    get_reward,
+    get_tier,
+)
 
 # PriceAlertRow may not exist yet (F106); import conditionally
 try:
@@ -175,7 +182,7 @@ def _get_user_stats(user_id: int, session: Session) -> dict:
             .select_from(CreditTransactionRow)
             .where(
                 CreditTransactionRow.user_id == user_id,
-                CreditTransactionRow.reason == "bonus",
+                CreditTransactionRow.reason.in_(("bonus", "bonus_claim")),
             )
         ).scalar()
         or 0
@@ -228,22 +235,18 @@ def _evaluate_achievements(stats: dict) -> list[str]:
     return earned
 
 
-def check_achievements(user_id: int, repo: Repository) -> list[str]:
-    """Check and grant achievements for a user.
+def check_achievements_with_rewards(user_id: int, repo: Repository) -> dict:
+    """Check and grant achievements for a user, crediting Treasure rewards.
 
-    Returns list of *newly* unlocked achievement keys.
+    Returns a dict with keys ``newly_unlocked`` (list[str]), ``rewards``
+    (list of {"key", "amount", "tier"}), ``total_reward`` (int) and
+    ``backfilled`` (int, Treasure credited for previously-unlocked
+    achievements that had no ledger row yet).
     """
     with Session(repo.engine) as session:
-        # Get current stats
         stats = _get_user_stats(user_id, session)
-
-        # Evaluate which achievements should be earned
         earned_keys = _evaluate_achievements(stats)
 
-        if not earned_keys:
-            return []
-
-        # Get already unlocked achievements
         existing = set(
             session.execute(
                 select(AchievementRow.achievement_key).where(AchievementRow.user_id == user_id)
@@ -252,23 +255,43 @@ def check_achievements(user_id: int, repo: Repository) -> list[str]:
             .all()
         )
 
-        # Insert new achievements (INSERT OR IGNORE for idempotency)
         newly_unlocked: list[str] = []
+        rewards: list[dict] = []
         for key in earned_keys:
-            if key not in existing:
-                stmt = dialect_insert(session.get_bind(), AchievementRow).values(
-                    user_id=user_id,
-                    achievement_key=key,
-                    unlocked_at=datetime.now(),
-                )
-                stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "achievement_key"])
-                session.execute(stmt)
+            if key in existing:
+                continue
+            stmt = dialect_insert(session.get_bind(), AchievementRow).values(
+                user_id=user_id,
+                achievement_key=key,
+                unlocked_at=datetime.now(),
+            )
+            stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "achievement_key"])
+            result = session.execute(stmt)
+            if (result.rowcount or 0) == 1:
                 newly_unlocked.append(key)
+                amount = credit_reward_in_session(session, user_id, key)
+                if amount > 0:
+                    rewards.append({"key": key, "amount": amount, "tier": get_tier(key)})
 
-        if newly_unlocked:
-            session.commit()
+        session.commit()
 
-        return newly_unlocked
+        backfilled = backfill_user_rewards_in_session(session, user_id)
+        session.commit()
+
+        return {
+            "newly_unlocked": newly_unlocked,
+            "rewards": rewards,
+            "total_reward": sum(r["amount"] for r in rewards),
+            "backfilled": backfilled,
+        }
+
+
+def check_achievements(user_id: int, repo: Repository) -> list[str]:
+    """Check and grant achievements for a user.
+
+    Returns list of *newly* unlocked achievement keys.
+    """
+    return check_achievements_with_rewards(user_id, repo)["newly_unlocked"]
 
 
 def grant_set_master(user_id: int, repo: Repository) -> bool:
@@ -285,6 +308,8 @@ def grant_set_master(user_id: int, repo: Repository) -> bool:
         )
         stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "achievement_key"])
         result = session.execute(stmt)
+        if (result.rowcount or 0) == 1:
+            credit_reward_in_session(session, user_id, "set_master")
         session.commit()
         return (result.rowcount or 0) > 0
 
@@ -300,6 +325,7 @@ def get_user_achievements(user_id: int, repo: Repository) -> list[dict]:
         ).all()
 
         unlocked_map = {row.achievement_key: row.unlocked_at for row in rows}
+        credited = credited_keys(session, user_id)
 
         result = []
         for defn in ACHIEVEMENT_DEFINITIONS:
@@ -314,6 +340,9 @@ def get_user_achievements(user_id: int, repo: Repository) -> list[dict]:
                     "icon": defn["icon"],
                     "unlocked": unlocked_at is not None,
                     "unlocked_at": (unlocked_at.isoformat() if unlocked_at else None),
+                    "reward": get_reward(defn["key"]),
+                    "tier": get_tier(defn["key"]),
+                    "reward_credited": defn["key"] in credited,
                 }
             )
 

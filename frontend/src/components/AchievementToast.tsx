@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface AchievementToastProps {
   title: string;
   description: string;
   icon: string;
+  reward?: number;
   durationMs?: number;
   onDismiss: () => void;
+  inline?: boolean;
 }
 
 const ICON_MAP: Record<string, string> = {
@@ -37,9 +40,12 @@ export function AchievementToast({
   title,
   description,
   icon,
+  reward,
   durationMs = 5000,
   onDismiss,
+  inline = false,
 }: AchievementToastProps) {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDismissRef = useRef(onDismiss);
@@ -64,7 +70,7 @@ export function AchievementToast({
   return (
     <div
       className={`
-        fixed top-4 left-1/2 -translate-x-1/2 z-[60]
+        ${inline ? "" : "fixed top-4 left-1/2 -translate-x-1/2 z-[60]"}
         bg-gradient-to-r from-amber-900/90 to-yellow-900/90
         border border-amber-500/50 rounded-lg shadow-lg shadow-amber-500/20
         px-4 py-3 flex items-center gap-3
@@ -84,6 +90,14 @@ export function AchievementToast({
           {title}
         </p>
         <p className="text-xs text-amber-100/80 truncate">{description}</p>
+        {!!reward && reward > 0 && (
+          <p
+            className="text-xs font-semibold text-amber-300 mt-0.5"
+            data-testid="achievement-toast-reward"
+          >
+            {t("achievements.toastReward", { amount: reward })}
+          </p>
+        )}
       </div>
       <button
         onClick={() => {
