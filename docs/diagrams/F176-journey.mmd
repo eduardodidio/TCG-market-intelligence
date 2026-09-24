@@ -1,0 +1,43 @@
+%% F176 — Collection price history: user journey (BPMN-style swimlanes).
+%% Happy path: linked card → history for the owned variant (foil / normal).
+%% Failure branches: unlinked card, empty period, never collected, API error.
+
+flowchart TD
+    subgraph UserLane["👤 Usuário"]
+        A(["Abre Minha Coleção"])
+        B["Clica no card"]
+        R["Clica em tentar novamente"]
+        Z(["Vê o histórico ou o motivo de não haver"])
+    end
+
+    subgraph SystemLane["🖥️ Sistema"]
+        C{"Card vinculado?"}
+        N["Mostra 'sem gráfico' + ação canonizar"]
+        D["GET /collection/{id}/history"]
+        E{"Variante foil?"}
+        F["Série liga_{id}_foil + manual<br/>+ snapshots da variante"]
+        G["Série liga_{id} + MYP + catálogo + manual<br/>+ snapshots da variante"]
+        MG["Merge por prioridade: 1 ponto/dia"]
+        HP{"Há pontos no período?"}
+        I["Gráfico + badge variante + fontes + desde"]
+        J["Estado vazio: tente um período maior"]
+        K["Estado vazio: histórico começa na próxima varredura"]
+        L["ErrorBanner com retry"]
+    end
+
+    subgraph ExternalLane["🌐 Coleta (offline)"]
+        SW["liga-sweep + daily_snapshot pós-sweep"]
+    end
+
+    A --> B --> C
+    C -->|não| N --> Z
+    C -->|sim| D
+    D -.->|erro| L --> R --> D
+    D --> E
+    E -->|sim| F --> MG
+    E -->|não| G --> MG
+    MG --> HP
+    HP -->|sim| I --> Z
+    HP -->|não, mas já houve coleta| J --> Z
+    HP -->|nunca coletado| K --> Z
+    SW -.->|alimenta price_observations| D

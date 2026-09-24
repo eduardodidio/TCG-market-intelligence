@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from src.collectors.price_snapshot import (
+    BACKFILL_SOURCE,
     MAX_BACKFILL_DAYS,
     SNAPSHOT_SOURCE,
     backfill_snapshots,
@@ -242,10 +243,15 @@ class TestGetAllLatestPrices:
 
 
 class TestBackfillSnapshots:
-    """Tests for backfill_snapshots()."""
+    """Tests for backfill_snapshots() (F176-T05: forward-fill from real observations).
+
+    F168's backfill copied the *current* price to every one of the last N days
+    and skipped ids that had any daily_snapshot.  F176 forward-fills only days
+    after the first real observation, with ``source=BACKFILL_SOURCE``.
+    """
 
     def test_happy_path_creates_observations(self, repo):
-        """Cards with prices but no snapshots -> creates observations."""
+        """Cards with a real price yesterday -> today is filled with that price."""
         yesterday = date.today() - timedelta(days=1)
 
         for i in range(1, 6):
@@ -263,15 +269,15 @@ class TestBackfillSnapshots:
         with Session(repo.engine) as session:
             snapshots = (
                 session.query(PriceObservationRow)
-                .filter(PriceObservationRow.source == SNAPSHOT_SOURCE)
+                .filter(PriceObservationRow.source == BACKFILL_SOURCE)
                 .all()
             )
             assert len(snapshots) == 5
             for snap in snapshots:
                 assert snap.observed_at == date.today()
 
-    def test_partial_backfill_skips_existing(self, repo):
-        """Cards that already have snapshots are skipped."""
+    def test_partial_backfill_skips_days_already_observed(self, repo):
+        """Days that already have an observation for the id are skipped."""
         yesterday = date.today() - timedelta(days=1)
 
         for i in range(1, 6):
@@ -283,7 +289,7 @@ class TestBackfillSnapshots:
                 median_price=Decimal(f"{i * 10}.00"),
             )
 
-        # Pre-create snapshots for 2 cards
+        # Pre-create today's snapshots for 2 cards
         _insert_observation(
             repo,
             source=SNAPSHOT_SOURCE,
@@ -302,8 +308,8 @@ class TestBackfillSnapshots:
         count = backfill_snapshots(repo, days=1)
         assert count == 3
 
-    def test_multi_day_creates_multiple_per_card(self, repo):
-        """days=3 creates 3 observations per card."""
+    def test_multi_day_never_before_first_real(self, repo):
+        """days=3 with a real price yesterday fills only today (not D-2)."""
         yesterday = date.today() - timedelta(days=1)
 
         _insert_observation(
@@ -317,32 +323,25 @@ class TestBackfillSnapshots:
             repo,
             source="liga",
             external_id="liga_2",
-            observed_at=yesterday,
+            observed_at=yesterday - timedelta(days=2),
             median_price=Decimal("20.00"),
         )
 
         count = backfill_snapshots(repo, days=3)
-        assert count == 6  # 2 cards x 3 days
+        # Window D-2..D. liga_1 (real D-1) -> D only; liga_2 (real D-3) -> D-2, D-1, D.
+        assert count == 4
 
         today = date.today()
         with Session(repo.engine) as session:
             snapshots = (
                 session.query(PriceObservationRow)
-                .filter(PriceObservationRow.source == SNAPSHOT_SOURCE)
-                .order_by(
-                    PriceObservationRow.external_id,
-                    PriceObservationRow.observed_at,
-                )
+                .filter(PriceObservationRow.source == BACKFILL_SOURCE)
                 .all()
             )
-            assert len(snapshots) == 6
-
-            # Verify dates: today, today-1, today-2 for each card
-            expected_dates = {today - timedelta(days=d) for d in range(3)}
             liga_1_dates = {s.observed_at for s in snapshots if s.external_id == "liga_1"}
             liga_2_dates = {s.observed_at for s in snapshots if s.external_id == "liga_2"}
-            assert liga_1_dates == expected_dates
-            assert liga_2_dates == expected_dates
+            assert liga_1_dates == {today}
+            assert liga_2_dates == {today - timedelta(days=d) for d in range(3)}
 
     def test_days_capped_at_max(self, repo, caplog):
         """days > MAX_BACKFILL_DAYS gets capped with a warning."""
@@ -360,8 +359,9 @@ class TestBackfillSnapshots:
         with caplog.at_level(logging.WARNING, logger="src.collectors.price_snapshot"):
             count = backfill_snapshots(repo, days=100)
 
-        # Should have capped at MAX_BACKFILL_DAYS
-        assert count == MAX_BACKFILL_DAYS  # 1 card x 90 days
+        # Only today follows the single real observation.
+        assert count == 1
+        assert MAX_BACKFILL_DAYS == 90
         assert "capping" in caplog.text.lower() or "exceeds" in caplog.text.lower()
 
     def test_idempotency_second_run_zero(self, repo):

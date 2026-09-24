@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
@@ -44,9 +45,21 @@ class CollectionCardDetail(CollectionCard):
     ligamagic_url: str | None = None
 
 
+class PriceHistoryMeta(BaseModel):
+    """Describes the price series behind a history response (variant, sources, coverage)."""
+
+    variant: Literal["foil", "normal"]
+    sources: list[str] = []
+    first_observed_at: date | None = None
+    last_observed_at: date | None = None
+    real_points: int = 0
+    snapshot_points: int = 0
+
+
 class CollectionHistoryResponse(BaseModel):
     observations: list[PriceObservation] = []
     summary: PriceChangeSummary | None = None
+    meta: PriceHistoryMeta | None = None
 
 
 class CollectionSummary(BaseModel):

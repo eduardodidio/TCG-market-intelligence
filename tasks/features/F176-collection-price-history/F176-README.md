@@ -2,6 +2,7 @@
 
 **Status:** planned
 **PRD:** [`docs/prd/F176-collection-price-history.md`](../../../docs/prd/F176-collection-price-history.md)
+**ADR:** [`docs/adr/0017-collection-price-history-keys.md`](../../../docs/adr/0017-collection-price-history-keys.md)
 **Brief (sharded):** `_brief/00-overview.md`, `01-diagnosis.md`, `02-key-resolution.md`, `03-snapshot-backfill.md`, `04-api-ui.md`
 **Lote:** F171–F179 (execução paralela entre features)
 

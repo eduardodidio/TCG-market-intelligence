@@ -54,6 +54,7 @@ class PriceObservation(BaseModel):
     last_sold_price: Decimal | None = None
     quantity_available: int | None = None
     currency: str = "BRL"
+    source: str | None = None
 
 
 class CardListParams(BaseModel):

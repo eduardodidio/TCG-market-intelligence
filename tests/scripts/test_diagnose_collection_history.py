@@ -197,12 +197,13 @@ class TestCollectEntryDiagnosis:
         assert d["last_daily_snapshot"] == TODAY.isoformat()
 
     def test_backfill_snapshots_detected_as_fabricated(self, repo):
-        from src.collectors.price_snapshot import backfill_snapshots
-
+        # Legacy (pre-F176) backfill_snapshots wrote daily_snapshot rows dated
+        # today..today-4 with the current price; F176-T05 replaced it with a
+        # forward-fill under its own source, so seed the legacy rows directly.
         card_id = _card(repo)
         entry_id = _entry(repo, card_id)
         _obs(repo, "liga", f"liga_{card_id}", [20])
-        backfill_snapshots(repo, days=5)
+        _obs(repo, "daily_snapshot", f"liga_{card_id}", [0, 1, 2, 3, 4])
 
         d = collect_entry_diagnosis(repo, entry_id, days=30)
 
