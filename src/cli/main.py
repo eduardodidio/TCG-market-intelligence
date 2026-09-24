@@ -3156,8 +3156,10 @@ def backfill_snapshots_cmd(db, days, dry_run):
         click.echo(f"Backfill complete: {count} observations created.")
 
 
+from src.cli.achievement_rewards import backfill_achievement_rewards_cmd  # noqa: E402  (F179)
 from src.cli.news_cmd import fetch_news_command  # noqa: E402  (F178)
 
+cli.add_command(backfill_achievement_rewards_cmd)
 cli.add_command(fetch_news_command)
 
 

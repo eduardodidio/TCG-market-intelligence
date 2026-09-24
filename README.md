@@ -1095,6 +1095,33 @@ converted once, at the import boundary, instead of being stored as-is:
   preview, then re-run without `--dry-run` to write (against the Neon
   database configured via `.env`).
 
+### F179 -- Achievement Treasure Rewards (2026-09-24)
+
+Achievements (F109) now credit Treasure tokens the first time each one
+unlocks, instead of giving nothing back:
+
+- **Reward tiers:** 50 / 100 / 250 / 500 / 1000 Treasure, one tier per
+  achievement based on difficulty. Crediting is idempotent -- exactly one
+  ledger row per (user, achievement), safe against duplicate/concurrent
+  `/check` calls.
+- **Backfill:** achievements unlocked before this feature are credited
+  lazily on the next `/api/v1/achievements/check` call for that user, or in
+  bulk via `python -m src.cli.main backfill-achievement-rewards
+  [--dry-run] [--user-id N]`.
+- **API:** `GET /api/v1/achievements` now returns `reward`, `tier`, and
+  `reward_credited` per achievement; `POST /api/v1/achievements/check`
+  returns the rewards credited in that call plus the updated Treasure
+  balance.
+- **Frontend:** `AchievementsPage` shows the reward per card and an
+  earned/total Treasure summary; the unlock toast shows "+N Tesouros" and
+  refreshes the Treasure balance. The achievement toast notifier is now
+  mounted app-wide (`AchievementNotifierHost` in `Layout.tsx`) instead of
+  being unreachable.
+- **Bug fix:** the `treasure_hunter` achievement checked for
+  `reason == "bonus"`, but `CreditService.claim_bonus` writes
+  `reason="bonus_claim"`, so it could never unlock. It now checks for
+  `bonus_claim` and is reachable.
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).

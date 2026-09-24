@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useGauchoEasterEgg } from "../hooks/useGauchoEasterEgg";
 import { usePendingDelete } from "../hooks/usePendingDelete";
+import { AchievementNotifierHost } from "./AchievementNotifierHost";
 import { AlertBell } from "./AlertBell";
 import { ChimarraoIcon } from "./ChimarraoIcon";
 import { CurrencyToggle } from "./CurrencyToggle";
@@ -488,6 +489,8 @@ export function Layout() {
           {t("beta.blocked")}
         </div>
       )}
+
+      <AchievementNotifierHost />
 
     </div>
   );
