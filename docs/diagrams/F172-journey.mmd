@@ -1,0 +1,83 @@
+%% F172 — User journey (BPMN-style): mode choice, manual build, deck suggestion.
+%% Swimlanes: Usuário / App (SPA/API) / Rotina diária / Claude.
+
+flowchart LR
+    subgraph U["👤 Usuário"]
+        U_START(["Abre Montar deck (/decks/build)"])
+        U_MODE{"Qual modo?"}
+        U_SEARCH["Busca o comandante"]
+        U_GEN["Clica em Gerar"]
+        U_REVIEW(["Revisa o deck gerado"])
+        U_FMT{"Formato?"}
+        U_CMDR["Escolhe o comandante + observações"]
+        U_COLORS["Escolhe cores + arquétipo + observações"]
+        U_BACK["Volta outro dia e abre a lista de pedidos"]
+        U_VIEW["Abre o resultado"]
+        U_SAVE["Clica em Salvar como deck"]
+        U_DONE(["Vê o deck no DeckView"])
+        U_RETRY(["Vê o erro e cria um novo pedido"])
+    end
+
+    subgraph APP["🖥️ App (SPA/API)"]
+        A_CHOOSER["DeckBuildModeChooser"]
+        A_CMDSEARCH["GET /decks/commanders"]
+        A_CMDSTATE{"Resultado da busca?"}
+        A_EMPTY["Estado vazio: nenhum comandante"]
+        A_ERR["Estado de erro + tentar de novo"]
+        A_BUILD["POST /decks/generate"]
+        A_VALID{"Pedido válido e menos de 5 abertos?"}
+        A_REJECT["Erro de validação / limite de 5 pedidos"]
+        A_SAVED["Status pending: pedido registrado (201)"]
+        A_LIST["SuggestionRequestList mostra o status"]
+        A_STATUS{"Status do pedido?"}
+        A_RESULT["SuggestionResultView: cartas da coleção vs faltantes + preços BRL"]
+        A_DECK["POST /deck-suggestions/{id}/save cria o deck"]
+    end
+
+    subgraph R["⏰ Rotina diária"]
+        R_RUN["deck-suggestions.bat roda process-deck-suggestions"]
+        R_CLAIM["claim_pending + coleção do usuário"]
+        R_ATTEMPTS{"Tentativas menor que 3?"}
+        R_PARSE{"Resposta válida?"}
+        R_DONE["mark_done: resultado enriquecido com preços"]
+        R_FAILED["mark_failed"]
+        R_REQUEUE["release_for_retry: volta para pending"]
+    end
+
+    subgraph CL["🤖 Claude"]
+        C_CALL{"Chamada ao Claude"}
+    end
+
+    U_START --> A_CHOOSER --> U_MODE
+    U_MODE -->|"manual"| U_SEARCH
+    U_MODE -->|"sugestão"| U_FMT
+
+    U_SEARCH --> A_CMDSEARCH --> A_CMDSTATE
+    A_CMDSTATE -->|"vazio"| A_EMPTY --> U_SEARCH
+    A_CMDSTATE -->|"erro"| A_ERR --> U_SEARCH
+    A_CMDSTATE -->|"encontrou"| U_GEN
+    U_GEN --> A_BUILD --> U_REVIEW
+
+    U_FMT -->|"commander"| U_CMDR
+    U_FMT -->|"60 cartas"| U_COLORS
+    U_CMDR --> A_VALID
+    U_COLORS --> A_VALID
+    A_VALID -->|"não"| A_REJECT --> U_FMT
+    A_VALID -->|"sim"| A_SAVED --> A_LIST
+
+    A_SAVED -.->|"próxima execução diária"| R_RUN
+    R_RUN --> R_CLAIM --> C_CALL
+    C_CALL -->|"OK"| R_PARSE
+    C_CALL -->|"erro transitório"| R_ATTEMPTS
+    R_ATTEMPTS -->|"sim"| R_REQUEUE
+    R_ATTEMPTS -->|"não"| R_FAILED
+    R_PARSE -->|"sim"| R_DONE
+    R_PARSE -->|"não: resposta inválida"| R_FAILED
+
+    R_DONE -.-> U_BACK
+    R_FAILED -.-> U_BACK
+    U_BACK --> A_LIST --> A_STATUS
+    A_STATUS -->|"pending / processing"| U_BACK
+    A_STATUS -->|"failed"| U_RETRY
+    A_STATUS -->|"done"| U_VIEW
+    U_VIEW --> A_RESULT --> U_SAVE --> A_DECK --> U_DONE

@@ -449,6 +449,48 @@ class TestClaudeApiRunner:
 
 
 # ---------------------------------------------------------------------------
+# check() — fail-fast config validation used by the CLI (F172-T15)
+# ---------------------------------------------------------------------------
+
+
+class TestRunnerCheck:
+    def test_cli_check_returns_resolved_path(self):
+        with patch("shutil.which", return_value=FAKE_BIN) as which:
+            assert ClaudeCliRunner(bin_path="claude").check() == FAKE_BIN
+        which.assert_called_once_with("claude")
+
+    def test_cli_check_missing_binary_is_non_transient(self):
+        with patch("shutil.which", return_value=None):
+            with pytest.raises(ClaudeRunnerError) as exc_info:
+                ClaudeCliRunner(bin_path="nope-claude").check()
+        assert exc_info.value.transient is False
+        assert "nope-claude" in exc_info.value.message
+
+    def test_cli_check_does_not_spawn_subprocess(self):
+        with (
+            patch("shutil.which", return_value=FAKE_BIN),
+            patch("subprocess.run") as run,
+        ):
+            ClaudeCliRunner().check()
+        run.assert_not_called()
+
+    def test_api_check_with_key_passes(self):
+        assert ClaudeApiRunner(api_key=SENTINEL_KEY).check() is None
+
+    def test_api_check_missing_key_is_non_transient(self, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        with pytest.raises(ClaudeRunnerError) as exc_info:
+            ClaudeApiRunner().check()
+        assert exc_info.value.transient is False
+        assert "ANTHROPIC_API_KEY" in exc_info.value.message
+
+    def test_api_check_empty_key_is_non_transient(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+        with pytest.raises(ClaudeRunnerError):
+            ClaudeApiRunner().check()
+
+
+# ---------------------------------------------------------------------------
 # get_runner
 # ---------------------------------------------------------------------------
 

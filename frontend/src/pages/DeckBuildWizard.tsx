@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { generateDeck } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { CommanderSearch } from "../components/decks/CommanderSearch";
+import {
+  DeckBuildModeChooser,
+  type DeckBuildMode,
+} from "../components/decks/DeckBuildModeChooser";
+import { DeckSuggestionPanel } from "../components/decks/DeckSuggestionPanel";
 import type {
   CommanderSearchResult,
   DeckGenerateParams,
@@ -90,7 +95,52 @@ const MTG_COLORS: { key: string; label: string; bg: string; ring: string }[] =
     { key: "G", label: "Green", bg: "bg-green-600", ring: "ring-green-400" },
   ];
 
+function parseMode(value: string | null): DeckBuildMode | null {
+  return value === "manual" || value === "suggestion" ? value : null;
+}
+
 export function DeckBuildWizard() {
+  const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Unknown/missing `?mode=` falls back to the chooser.
+  const mode = parseMode(searchParams.get("mode"));
+
+  return (
+    <div data-testid="page-deck-build-wizard">
+      <Breadcrumb
+        items={[
+          { label: t("nav.myDecks", { defaultValue: "My Decks" }), to: "/decks" },
+          { label: t("deckBuild.title", { defaultValue: "Build Deck" }) },
+        ]}
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-white">
+          {t("deckBuild.title", { defaultValue: "Deck Builder" })}
+        </h1>
+        {mode && (
+          <button
+            type="button"
+            onClick={() => setSearchParams({})}
+            className="text-sm text-slate-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
+            data-testid="mode-switch-back"
+          >
+            {t("deckSuggest.mode.switchBack", { defaultValue: "← Trocar modo" })}
+          </button>
+        )}
+      </div>
+
+      {mode === null && (
+        <DeckBuildModeChooser onChoose={(m) => setSearchParams({ mode: m })} />
+      )}
+      {mode === "manual" && <ManualDeckWizard />}
+      {mode === "suggestion" && <DeckSuggestionPanel />}
+    </div>
+  );
+}
+
+/** The original 4-step generator wizard (`?mode=manual`). */
+function ManualDeckWizard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -183,18 +233,7 @@ export function DeckBuildWizard() {
   }, [result, navigate]);
 
   return (
-    <div data-testid="page-deck-build-wizard">
-      <Breadcrumb
-        items={[
-          { label: t("nav.myDecks", { defaultValue: "My Decks" }), to: "/decks" },
-          { label: t("deckBuild.title", { defaultValue: "Build Deck" }) },
-        ]}
-      />
-
-      <h1 className="text-2xl font-bold text-white mb-6">
-        {t("deckBuild.title", { defaultValue: "Deck Builder" })}
-      </h1>
-
+    <div data-testid="deck-build-manual">
       {/* Progress indicator */}
       <div className="flex items-center gap-2 mb-8" data-testid="wizard-progress">
         {([1, 2, 3, 4] as WizardStep[]).map((s) => (

@@ -101,7 +101,8 @@ class ClaudeCliRunner:
             cmd += ["--model", self._model_override]
         return cmd
 
-    def run(self, prompt: str) -> str:
+    def check(self) -> str:
+        """Fail fast (non-transient) when the CLI binary is missing; return its resolved path."""
         resolved = shutil.which(self.bin_path)
         if not resolved:
             raise ClaudeRunnerError(
@@ -110,7 +111,10 @@ class ClaudeCliRunner:
                 "(or use DECK_SUGGEST_PROVIDER=api with ANTHROPIC_API_KEY).",
                 transient=False,
             )
+        return resolved
 
+    def run(self, prompt: str) -> str:
+        resolved = self.check()
         cmd = self.build_command(resolved)
         log.info(
             "deck_suggest.cli_run",
@@ -197,13 +201,16 @@ class ClaudeApiRunner:
         with httpx.Client() as client:
             return client.post(API_URL, headers=headers, json=body, timeout=self.timeout)
 
-    def run(self, prompt: str) -> str:
+    def check(self) -> None:
+        """Fail fast (non-transient) when ``ANTHROPIC_API_KEY`` is missing."""
         if not self._api_key:
             raise ClaudeRunnerError(
                 "ANTHROPIC_API_KEY not set. Add it to .env or use DECK_SUGGEST_PROVIDER=cli.",
                 transient=False,
             )
 
+    def run(self, prompt: str) -> str:
+        self.check()
         headers = {
             "x-api-key": self._api_key,
             "anthropic-version": ANTHROPIC_VERSION,
