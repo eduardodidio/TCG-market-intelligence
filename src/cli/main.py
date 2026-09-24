@@ -3134,14 +3134,26 @@ def liga_relink(db, input_file, external_ids, dry_run, delay):
     type=int,
     help="Number of days to backfill (default: 1 = today only)",
 )
-def backfill_snapshots_cmd(db, days):
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Only count what would be inserted, without writing to the database",
+)
+def backfill_snapshots_cmd(db, days, dry_run):
     """Backfill daily snapshots for cards missing price history."""
     from src.collectors.price_snapshot import backfill_snapshots
     from src.database.repository import Repository
 
     repo = Repository(db_url=db)
-    count = backfill_snapshots(repo, days=days)
-    click.echo(f"Backfill complete: {count} observations created.")
+    try:
+        count = backfill_snapshots(repo, days=days, dry_run=dry_run)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="'--days'") from exc
+
+    if dry_run:
+        click.echo(f"Backfill dry-run: {count} observations would be created.")
+    else:
+        click.echo(f"Backfill complete: {count} observations created.")
 
 
 from src.cli.news_cmd import fetch_news_command  # noqa: E402  (F178)

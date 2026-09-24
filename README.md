@@ -83,6 +83,9 @@ python -m src.cli.main retry-failed
 | `canonize-all` | Bulk-canonize all unlinked collection entries |
 | `backup-r2` | Force a Litestream snapshot to Cloudflare R2 |
 | `restore-r2` | Restore SQLite database from R2 (`--confirm` required) |
+| `daily-snapshot` | Record one daily price observation per card (idempotent) |
+| `backfill-snapshots --days N [--dry-run]` | Forward-fill missing daily snapshots for the last N days; `--dry-run` only counts, no writes |
+| `bats/daily-snapshot.bat` | Windows Task Scheduler entry point for `daily-snapshot` (manual/backfill fallback — the primary snapshot runs automatically at the end of `liga-sweep`) |
 
 ### Options
 
@@ -1065,6 +1068,32 @@ converted once, at the import boundary, instead of being stored as-is:
 - **Docs:** [PRD](docs/prd/F171-collection-import-currency.md),
   [architecture diagram](docs/diagrams/F171-architecture.mmd),
   [user journey diagram](docs/diagrams/F171-journey.mmd).
+
+### F176 -- Collection Price History (definitive fix) (2026-09-24)
+
+- **Root cause:** writers (Liga sweep, catalog seeder, MYP, manual entry,
+  daily snapshot) and readers (`/collection/{id}/history`,
+  `/collection/{id}/metrics`) disagreed on the `source`/`external_id` key
+  contract, so most collection cards showed only 1-2 chart points or none.
+- **Architecture decision:** [ADR-0017](docs/adr/0017-collection-price-history-keys.md).
+- **Endpoints changed:** `/collection/{id}/history`, `/collection/{id}/metrics`,
+  and `/cards/{id}/history` (now return a `meta` block plus a `source` per
+  point).
+- **Snapshot behavior:** `liga-sweep` now runs a daily snapshot automatically
+  at the end of the sweep, so per-card history keeps growing without a
+  separate scheduled job.
+- **Backfill:** `backfill-snapshots --days N` forward-fills gaps with the
+  latest real observation (carry-forward, capped at 30 days); `--dry-run`
+  only counts what would be inserted.
+- **`.bat`:** `bats/daily-snapshot.bat` is a manual/backfill fallback for
+  Windows Task Scheduler -- it is not the primary mechanism, since the
+  post-sweep snapshot already covers the daily case.
+- **UI:** collection and card price charts render the backfilled/forward-fill
+  points alongside real observations.
+- **Operational recommendation:** after deploying, run
+  `python -m src.cli.main backfill-snapshots --days 90 --dry-run` once to
+  preview, then re-run without `--dry-run` to write (against the Neon
+  database configured via `.env`).
 
 ## Deployment
 
