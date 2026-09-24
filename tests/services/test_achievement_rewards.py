@@ -353,3 +353,35 @@ class TestBackfillAllRewards:
         assert result["credited_users"] == 1
         assert result["credited_rows"] == 1
         assert result["total_tokens"] == 250
+
+
+class TestCreditLockOrdering:
+    """ADR 0020 §2: the balance row is locked BEFORE the ledger existence check.
+
+    SQLite serializes writers, so a real race cannot be reproduced here; instead we
+    assert the statement order that makes the PostgreSQL path race-free.
+    """
+
+    def test_balance_row_locked_before_ledger_check(self) -> None:
+        from unittest.mock import MagicMock
+
+        executed = []
+
+        def _execute(stmt):
+            executed.append(stmt)
+            result = MagicMock()
+            result.scalar_one_or_none.return_value = CreditBalanceRow(user_id=1, balance=0)
+            result.first.return_value = (99,)  # ledger row already exists
+            return result
+
+        session = MagicMock(spec=Session)
+        session.execute.side_effect = _execute
+
+        key = next(iter(ACHIEVEMENT_TIERS))
+        assert credit_reward_in_session(session, 1, key) == 0
+
+        assert len(executed) == 2
+        first, second = executed
+        assert first.get_final_froms()[0].name == "credit_balances"
+        assert first._for_update_arg is not None
+        assert second.get_final_froms()[0].name == "credit_transactions"

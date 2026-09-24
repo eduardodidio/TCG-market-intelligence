@@ -77,6 +77,14 @@ def credit_reward_in_session(session: Session, user_id: int, key: str) -> int:
 
     ref = reference_id_for(key)
 
+    # Lock the balance row BEFORE checking the ledger (ADR 0020 §2). A concurrent
+    # transaction crediting the same achievement blocks here until it commits, and
+    # the re-check below (READ COMMITTED: new snapshot per statement) then sees its
+    # ledger row, so the reward is never credited twice.
+    bal = session.execute(
+        select(CreditBalanceRow).where(CreditBalanceRow.user_id == user_id).with_for_update()
+    ).scalar_one_or_none()
+
     exists = session.execute(
         select(CreditTransactionRow.id)
         .where(
@@ -89,9 +97,6 @@ def credit_reward_in_session(session: Session, user_id: int, key: str) -> int:
     if exists:
         return 0
 
-    bal = session.execute(
-        select(CreditBalanceRow).where(CreditBalanceRow.user_id == user_id).with_for_update()
-    ).scalar_one_or_none()
     if bal is None:
         bal = CreditBalanceRow(user_id=user_id, balance=0)
         session.add(bal)
