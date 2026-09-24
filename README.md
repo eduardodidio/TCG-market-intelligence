@@ -1154,6 +1154,16 @@ compact, owned-aware view with per-card history:
   page were removed; `/banlist/history` now redirects to `/banlist`
   (history is reached per-card from the modal instead).
 
+### F174 -- Trade Pages Adopt the Collection Filter Bar (2026-09-24)
+
+Trades (Marketplace, My Trades, Trade Matches) now use the same filter bar and
+grid as My Collection: search, set icons, sort, grid size, and status chips.
+
+- **New endpoints:** `GET /api/v1/marketplace/listings/sets` and
+  `GET /api/v1/trade/duplicates/sets` (set facets).
+- **Extended:** `GET /api/v1/marketplace/listings?sort_by=name|set|number|price&sort_dir=asc|desc`
+  and `GET /api/v1/trade/duplicates?search&set_code&sort_by=quantity|name|set|number|price&sort_dir=asc|desc`.
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).
