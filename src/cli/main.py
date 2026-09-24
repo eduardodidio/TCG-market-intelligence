@@ -2715,6 +2715,12 @@ def backfill_price_history(db, days, interval, dry_run):
     help="Parse CSV and show stats without importing",
 )
 @click.option(
+    "--currency",
+    type=click.Choice(["auto", "BRL", "USD"], case_sensitive=False),
+    default="auto",
+    help="Currency of the source file (auto-detect by default)",
+)
+@click.option(
     "--db",
     default=None,
     callback=_resolve_db,
@@ -2722,42 +2728,34 @@ def backfill_price_history(db, days, interval, dry_run):
     expose_value=True,
     help="Database URL (default: auto-detect)",
 )
-def import_csv_cmd(csv_file: str, user_id: str, dry_run: bool, db: str):
+def import_csv_cmd(csv_file: str, user_id: str, dry_run: bool, currency: str, db: str):
     """Import collection from CSV file (clears existing collection first)."""
-    import csv as csv_mod
     from pathlib import Path
 
-    from src.collection.importer import _detect_encoding
+    from sqlalchemy import create_engine
+
+    from src.collection.importer import import_collection_csv
 
     csv_path = Path(csv_file)
-    encoding = _detect_encoding(csv_path)
+    currency = currency.upper()
 
     if dry_run:
-        total_rows = 0
-        linkable = 0
-        skippable = 0
-
-        with open(csv_path, encoding=encoding, newline="") as f:
-            reader = csv_mod.DictReader(f)
-            for row in reader:
-                total_rows += 1
-                set_code = (row.get("Edicao (Sigla)") or "").strip()
-                collector_number = (row.get("Card #") or "").strip()
-                if set_code and collector_number:
-                    linkable += 1
-                else:
-                    skippable += 1
+        engine = create_engine(db, echo=False)
+        result = import_collection_csv(engine, csv_path, user_id, currency=currency, dry_run=True)
 
         click.echo("")
         click.echo("=" * 60)
         click.echo("  DRY RUN — no data was written")
         click.echo("  CSV IMPORT PREVIEW")
         click.echo(f"  File:              {csv_path.name}")
-        click.echo(f"  Encoding:          {encoding}")
-        click.echo(f"  Total rows:        {total_rows}")
-        click.echo(f"  Importable:        {linkable}")
-        click.echo(f"  Will be skipped:   {skippable}")
+        click.echo(f"  Total rows:        {result['total_csv_rows']}")
+        click.echo(f"  Importable:        {result['imported']}")
+        click.echo(f"  Will be skipped:   {result['skipped']}")
         click.echo(f"  User ID:           {user_id}")
+        click.echo(f"  Currency:          {result['detected_currency']}")
+        click.echo(f"  Source:            {result['currency_source']}")
+        click.echo(f"  Confidence:        {result['currency_confidence']}")
+        click.echo(f"  Priced rows:       {result['priced']}")
         click.echo("=" * 60)
         click.echo("")
         return
@@ -2771,12 +2769,15 @@ def import_csv_cmd(csv_file: str, user_id: str, dry_run: bool, db: str):
         click.echo("  Aborted.")
         return
 
-    from sqlalchemy import create_engine
-
-    from src.collection.importer import import_collection_csv
+    from src.currency.import_conversion import rate_lookup_from_converter
+    from src.database.repository import Repository
+    from src.services.currency import CurrencyConverter
 
     engine = create_engine(db, echo=False)
-    result = import_collection_csv(engine, csv_file, user_id)
+    rate_lookup = rate_lookup_from_converter(CurrencyConverter(Repository(db)))
+    result = import_collection_csv(
+        engine, csv_path, user_id, currency=currency, rate_lookup=rate_lookup
+    )
 
     click.echo("")
     click.echo("=" * 60)
@@ -2785,6 +2786,13 @@ def import_csv_cmd(csv_file: str, user_id: str, dry_run: bool, db: str):
     click.echo(f"  Imported:          {result['imported']}")
     click.echo(f"  Skipped:           {result['skipped']}")
     click.echo(f"  Linked to catalog: {result['linked']}")
+    click.echo(f"  Priced:            {result['priced']}")
+    click.echo(f"  Converted USD->BRL: {result['converted']}")
+    click.echo(f"  Rate:              {result['exchange_rate']}")
+    if result["price_warnings"]:
+        click.echo("  Warnings:")
+        for warning in result["price_warnings"][:5]:
+            click.echo(f"    - {warning}")
     click.echo("=" * 60)
     click.echo("")
 

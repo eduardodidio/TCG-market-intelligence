@@ -38,3 +38,15 @@ flowchart LR
     A_RATE -->|"USD amount, no rate: drop price + warning"| D_COLLECTION
     A_RATE -->|"BRL amount"| D_COLLECTION
     D_COLLECTION --> F_RESULT --> U_END
+
+    subgraph PurchaseLane["Purchase HTML import"]
+        P_UPLOAD(["User uploads purchase HTML"])
+        P_PREVIEW["ImportPurchasesPage: preview matches"]
+        P_RATE{"USD item: rate available?"}
+        P_BADGE["Shows 'US$ x -> R$ y' badge"]
+        P_UNMATCHED["Lists item as unmatched, reason: currency_conversion_failed"]
+    end
+
+    P_UPLOAD --> P_PREVIEW --> P_RATE
+    P_RATE -->|"yes"| P_BADGE --> D_COLLECTION
+    P_RATE -->|"no"| P_UNMATCHED

@@ -1033,6 +1033,39 @@ and nothing ever populated `news_items`:
   status endpoint reports stale data.
 - **Architecture decision:** [ADR-0019](docs/adr/0019-news-collection-offline-bat.md)
 
+### F171 -- Import respecting the file currency (2026-09-24)
+
+Fixes CSV/purchase/batch imports storing a USD export as if it were BRL.
+`user_collection.acquisition_price` is always BRL; a foreign amount is now
+converted once, at the import boundary, instead of being stored as-is:
+
+- **CSV import** -- `POST /api/v1/collection/import` accepts
+  `?currency=auto|BRL|USD` (default `auto`) and `?dry_run=true` (detect only,
+  no writes). `ImportResult` adds `detected_currency`, `currency_source`,
+  `currency_confidence`, `currency_evidence`, `priced`, `converted`,
+  `exchange_rate`, `price_warnings`, `dry_run`. Detection also recognizes
+  ManaBox/generic export headers (`Price`, `Purchase price`, `Preço`,
+  `Valor`), not just the Liga Magic column set.
+- **`CsvImportModal`** -- runs the dry run first, shows the detected
+  currency/confidence with a low-confidence warning, and offers an
+  Auto / BRL / USD selector before the real import.
+- **Purchase HTML import** -- USD order items are converted to BRL using the
+  order-date PTAX rate; the preview shows a `US$ x → R$ y` badge
+  (`data-testid="purchase-converted-badge"`) with the rate, and an item that
+  cannot be converted (no rate) is listed unmatched with reason
+  `currency_conversion_failed` instead of being stored with a wrong price.
+- **Batch text entry** -- an optional price token (`R$12,50`, `US$3.10`,
+  `$3.10`) is parsed and stored as a BRL `acquisition_price`.
+- **CLI** -- `import-csv --currency auto|BRL|USD`; `--dry-run` prints
+  `Currency`, `Source`, `Confidence`, `Priced rows`; the real import prints
+  `Priced`, `Converted USD->BRL`, `Rate`, and up to 5 price warnings.
+- **Bug fix** -- `parse_brl_price("12.50")` no longer returns `1250`
+  (dot-decimal amounts without a thousands separator are parsed correctly).
+- **Architecture decision:** [ADR-0014](docs/adr/0014-import-currency-normalization.md)
+- **Docs:** [PRD](docs/prd/F171-collection-import-currency.md),
+  [architecture diagram](docs/diagrams/F171-architecture.mmd),
+  [user journey diagram](docs/diagrams/F171-journey.mmd).
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).
