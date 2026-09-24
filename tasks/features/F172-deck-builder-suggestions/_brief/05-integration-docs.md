@@ -16,8 +16,8 @@ Not touched: `frontend/src/App.tsx`, `frontend/src/components/Layout.tsx`, `src/
 ## Docs (Wave 0 + Wave 3)
 
 - PRD `docs/prd/F172-deck-builder-suggestions.md` (T01; follow `docs/prd/template.md`).
-- ADR `docs/adr/00NN-deck-suggestion-queue-claude.md` (T01). Use the **next free number at write time**
-  (0014 today; F171–F179 may also add ADRs, so run `ls docs/adr` just before writing). Decision: async queue +
+- ADR `docs/adr/0015-deck-suggestion-queue-claude.md` (T01). The number **0015** is reserved for F172
+  (batch reservation in `tasks/features/EXECUTION-PLAN-F171-F179.md`). Decision: async queue +
   daily local processing with Claude CLI by default (it uses the user's local Claude login, and no key is needed in Render);
   opt-in HTTP API runner via httpx + `ANTHROPIC_API_KEY`; no SDK dependency; the table is created from its own module
   (`checkfirst`) to avoid editing `models.py` in a parallel batch.

@@ -716,6 +716,7 @@ export interface DeckGenerateResult {
 export interface CommanderSearchResult {
   card_id: number;
   name_en: string;
+  name_pt?: string | null;
   set_code: string | null;
   collector_number: string | null;
   color_identity: string | null;

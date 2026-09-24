@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { DeckBuildWizard } from "../DeckBuildWizard";
 import type { DeckGenerateResult } from "../../types/api";
 
@@ -73,10 +73,30 @@ vi.mock("../../api/decks", () => ({
   ),
 }));
 
-function renderWizard() {
+vi.mock("../../api/deckSuggestions", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../api/deckSuggestions")
+  >("../../api/deckSuggestions");
+  return {
+    ...actual,
+    listDeckSuggestions: vi.fn(() => Promise.resolve({ data: [], errors: [] })),
+    getDeckSuggestion: vi.fn(),
+    createDeckSuggestion: vi.fn(),
+    deleteDeckSuggestion: vi.fn(),
+    saveDeckSuggestion: vi.fn(),
+  };
+});
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location-search">{location.search}</div>;
+}
+
+function renderWizard(entry = "/decks/build?mode=manual") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <DeckBuildWizard />
+      <LocationProbe />
     </MemoryRouter>,
   );
 }
@@ -122,6 +142,15 @@ describe("DeckBuildWizard", () => {
     fireEvent.click(screen.getByTestId("step1-next"));
     expect(screen.getByTestId("color-picker")).toBeInTheDocument();
     expect(screen.getByTestId("color-toggle-W")).toBeInTheDocument();
+  });
+
+  it("offers Pioneer and Vintage; Pioneer goes to the color step", () => {
+    renderWizard();
+    expect(screen.getByTestId("format-option-vintage")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("format-option-pioneer"));
+    fireEvent.click(screen.getByTestId("step1-next"));
+    expect(screen.getByTestId("color-picker")).toBeInTheDocument();
+    expect(screen.queryByTestId("commander-search")).toBeNull();
   });
 
   it("Step 3 shows archetype options and budget input", () => {
@@ -256,5 +285,71 @@ describe("DeckBuildWizard", () => {
     expect(
       (screen.getByTestId("budget-input") as HTMLInputElement).value,
     ).toBe("500");
+  });
+});
+
+describe("DeckBuildWizard mode switch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the chooser when there is no mode", () => {
+    renderWizard("/decks/build");
+    expect(screen.getByTestId("page-deck-build-wizard")).toBeInTheDocument();
+    expect(screen.getByTestId("mode-chooser")).toBeInTheDocument();
+    expect(screen.queryByTestId("wizard-step-1")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("mode-switch-back")).not.toBeInTheDocument();
+    expect(screen.getByText("Deck Builder")).toBeInTheDocument();
+  });
+
+  it("falls back to the chooser for an invalid mode", () => {
+    renderWizard("/decks/build?mode=bogus");
+    expect(screen.getByTestId("mode-chooser")).toBeInTheDocument();
+    expect(screen.queryByTestId("deck-suggestion-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("wizard-step-1")).not.toBeInTheDocument();
+  });
+
+  it("?mode=manual renders the 4-step wizard", () => {
+    renderWizard("/decks/build?mode=manual");
+    expect(screen.getByTestId("wizard-step-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("mode-chooser")).not.toBeInTheDocument();
+    expect(screen.getByTestId("mode-switch-back")).toBeInTheDocument();
+  });
+
+  it("?mode=suggestion renders the suggestion panel", async () => {
+    renderWizard("/decks/build?mode=suggestion");
+    expect(screen.getByTestId("deck-suggestion-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("wizard-step-1")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("suggestion-list-empty")).toBeInTheDocument();
+    });
+  });
+
+  it("choosing suggestion sets the URL param and loads the panel", async () => {
+    const { listDeckSuggestions } = await import("../../api/deckSuggestions");
+    renderWizard("/decks/build");
+    fireEvent.click(screen.getByTestId("mode-option-suggestion"));
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "?mode=suggestion",
+    );
+    expect(screen.getByTestId("deck-suggestion-panel")).toBeInTheDocument();
+    await waitFor(() => expect(listDeckSuggestions).toHaveBeenCalledTimes(1));
+  });
+
+  it("choosing manual sets the URL param and shows step 1", () => {
+    renderWizard("/decks/build");
+    fireEvent.click(screen.getByTestId("mode-option-manual"));
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "?mode=manual",
+    );
+    expect(screen.getByTestId("wizard-step-1")).toBeInTheDocument();
+  });
+
+  it("'Trocar modo' clears the param and returns to the chooser", () => {
+    renderWizard("/decks/build?mode=manual");
+    fireEvent.click(screen.getByTestId("mode-switch-back"));
+    expect(screen.getByTestId("location-search")).toBeEmptyDOMElement();
+    expect(screen.getByTestId("mode-chooser")).toBeInTheDocument();
+    expect(screen.queryByTestId("mode-switch-back")).not.toBeInTheDocument();
   });
 });

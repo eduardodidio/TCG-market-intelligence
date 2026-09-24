@@ -272,7 +272,7 @@ def generate_deck_endpoint(
     user_id: str = Depends(require_auth_or_api_key),
 ):
     """Generate a deck from the catalog based on format, colors, and archetype."""
-    from src.decks.builder import generate_deck
+    from src.decks.builder import generate_deck, is_commander_eligible
     from src.domain.models import DeckBuildParams
 
     fmt = request.format_name.lower()
@@ -293,8 +293,7 @@ def generate_deck_endpoint(
                 ErrorCode.VALIDATION_ERROR,
                 "Commander card not found in catalog",
             )
-        type_line = commander.type_line or ""
-        if "Legendary" not in type_line or "Creature" not in type_line:
+        if not is_commander_eligible(commander.type_line):
             raise api_error(
                 400,
                 ErrorCode.VALIDATION_ERROR,

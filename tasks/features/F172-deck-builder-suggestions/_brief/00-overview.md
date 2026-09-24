@@ -26,8 +26,8 @@ user can save it as a deck.
 ## Constraints
 
 - **No new dependencies.** The Claude API runner uses `httpx`, which the project already
-  depends on (`pyproject.toml`). The `anthropic` SDK is **NOT** added. It is listed as a
-  *pending decision* in the README.
+  depends on (`pyproject.toml`). The `anthropic` SDK is **NOT** added
+  (confirmed by the user on 2026-09-24; default provider is `claude -p`).
 - Secrets only via env vars (`ANTHROPIC_API_KEY`, never logged, never hardcoded).
 - Batch F171–F179 runs in parallel. High-conflict shared files (`frontend/src/App.tsx`,
   `frontend/src/components/Layout.tsx`, `src/cli/main.py`, `src/database/models.py`,

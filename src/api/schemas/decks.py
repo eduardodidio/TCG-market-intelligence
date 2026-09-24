@@ -166,6 +166,7 @@ class DeckGenerateResponse(BaseModel):
 class CommanderCandidate(BaseModel):
     card_id: int
     name_en: str
+    name_pt: str | None = None
     set_code: str | None = None
     collector_number: str | None = None
     color_identity: str | None = None
