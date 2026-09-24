@@ -1,7 +1,7 @@
 # F174 — Trocas com os mesmos filtros e layout de "Minha Coleção"
 
 **Status:** planned
-**Branch:** `homol` (or the orchestrator worktree branch cut from `homol`). Never `main`.
+**Branch:** `homol` (or the orchestrator worktree branch cut from `homol`, e.g. `wt/F174`, which is valid). Never `main`.
 **Created:** 2026-09-24
 **Batch:** F171–F179 (parallel execution)
 **Brief (sharded):** `_brief/00-overview.md`, `_brief/01-backend.md`,
@@ -37,6 +37,20 @@ No DB schema change, no migration, no new dependency, no new route or menu item.
 - **Wave 1**: F174-T03, F174-T04, F174-T05, F174-T06
 - **Wave 2**: F174-T07, F174-T08, F174-T09, F174-T10, F174-T11, F174-T12
 - **Wave 3**: F174-T13, F174-T14
+
+## AC coverage
+
+| AC | Tasks |
+|---|---|
+| AC1 | T05, T09, T10, T11, T12 |
+| AC2 | T05, T09, T10, T11 |
+| AC3 | T02, T07, T09 |
+| AC4 | T02, T04, T06, T10 |
+| AC5 | T02, T04, T08, T11 |
+| AC6 | T03, T07, T08 |
+| AC7 | T11, T12 |
+| AC8 | T03, T12 |
+| AC9 | T01, T13, T14 |
 
 ## Tasks & files touched (for cross-feature overlap detection)
 
@@ -93,9 +107,11 @@ are **not touched**.
 - [ ] AC6: `/marketplace/listings` and `/trade/duplicates` accept the new params (422 on invalid) and keep their defaults. `/marketplace/listings/sets` and `/trade/duplicates/sets` return set facets.
 - [ ] AC7: No MyCollection regression. All pre-existing frontend tests pass **unmodified**, except the ones this feature explicitly owns (`TradeMatchesPage.test.tsx`, `DuplicatesList.test.tsx`).
 - [ ] AC8: `pytest tests/ --cov=src --cov-report=term-missing`, `cd frontend && npm test`, `cd frontend && npm run build` and `ruff check src/` are all green. The new backend module has ≥90% coverage.
-- [ ] PRD, two diagrams and the README note are delivered.
+- [ ] AC9: PRD, two diagrams and the README note are delivered.
 
 ## Test impact (existing tests exercising touched code)
+
+- **Pre-existing baseline failures:** the frontend suite (`cd frontend && npm test`) already has **13 failing test files** before this feature, including `frontend/tests/pages/MyCollection.test.tsx` and `frontend/tests/pages/MyTrades.test.tsx`. Those failures are not regressions and are not in scope. Gate: F174 must not add any **new** failing test file. Compare the list of failing files before and after (the count must stay ≤ 13 and contain no new names).
 
 - `frontend/src/pages/__tests__/TradeMatchesPage.test.tsx`: owned by T11 (update the mocks for the new fetcher params and add `useGridSize`/router wrappers if needed).
 - `frontend/src/components/__tests__/DuplicatesList.test.tsx`: owned by T11 (the new `gridClasses` prop and palette changes).
@@ -107,3 +123,6 @@ are **not touched**.
 
 - `docs/diagrams/F174-architecture.mmd`: owner T13
 - `docs/diagrams/F174-journey.mmd`: owner T13
+
+## Governance amendment (G-D-20260924-005)
+- After F177 merges, T14 (or the TechLead) must reconcile and dedupe the collection filter helpers (`cardListFilter.ts` vs any equivalent helper F177 adds). Do not fork them.
