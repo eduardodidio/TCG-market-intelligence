@@ -1,7 +1,7 @@
 # F172 — Montar Deck: revisão completa + modo "Sugestão de deck"
 
 **Status:** planned
-**Batch:** F171–F179 (parallel). Shared high-conflict files are isolated in Wave 4 (T17, T18).
+**Batch:** F171–F179 (parallel). Shared high-conflict files are isolated in the last wave (T17, T18).
 **Tasks:** 18 across 5 Waves
 **Brief (sharded):** `_brief/00-overview.md` … `_brief/05-integration-docs.md`
 
