@@ -3,6 +3,16 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F172 — 2026-09-24
+**What to avoid:** a cross-task i18n namespace drift (one component using
+`deckSuggestions.*` while siblings use `deckSuggest.*`) was patched around by a later
+Wave adding duplicate keys under both namespaces rather than fixed at the source.
+Tests stayed green so it read as a MINOR nit, but it leaves permanent dead keys.
+**Lesson:** treat this class of finding — a later task papering over an earlier
+task's naming drift instead of fixing it — as IMPORTANT, not MINOR, even when
+functionally correct, since patch-around fixes compound across features that keep
+copy-pasting from the wrong namespace.
+
 ## F179 — 2026-09-24
 **What worked:** rejecting an implementation by citing the exact ADR
 section and giving a line-level fix ("lock first, re-check under lock")

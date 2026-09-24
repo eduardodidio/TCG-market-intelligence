@@ -3,6 +3,19 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F172 — 2026-09-24
+**What worked:** designing the AI-runner abstraction (`get_runner()`) up front let the
+API-provider implementation reuse the existing `httpx` dependency instead of needing
+a new one, honoring a "no new dependency" constraint without a mid-feature blocker.
+**What to avoid:** when a later task (T18) finds that an earlier component used a
+different i18n key namespace than its siblings (`deckSuggestions.*` vs. the intended
+`deckSuggest.*`), don't patch around it by adding keys under both namespaces "to be
+safe" — fix the earlier component's keys at the source. The workaround is cheap now
+but leaves permanent dead keys that outlive the note about them.
+**Pattern to repeat:** keep a new subsystem's persistence fully isolated in its own
+module (own models + repository, `checkfirst` table create) so the shared
+`database/models.py` needs zero edits — makes the diff trivially safe to review.
+
 ## F179 — 2026-09-24
 **What worked:** the fix commit for a rejected concurrency ordering bug
 was scoped to exactly the statements the ADR/review named, plus a

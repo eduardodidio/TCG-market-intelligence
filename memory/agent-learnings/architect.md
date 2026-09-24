@@ -3,6 +3,18 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F172 — 2026-09-24
+**What worked:** naming the genuinely shared/high-conflict files explicitly in the
+task manifest (`app.py`, `cli/main.py`, `.bat`, `.env.example`, `README.md`, locale
+JSONs) and reserving them for a dedicated final wave (T17/T18) let an 18-task,
+5-wave feature run with zero file-stomping across parallel tasks.
+**What to avoid:** Wave summaries repeatedly reported work as "uncommitted in the
+worktree" at hand-off to the next Wave, which weakens the reliability of
+`git diff --stat HEAD~1..HEAD`-style verification used downstream.
+**Lesson:** consider requiring a Wave-end commit as a hard gate before the next
+Wave starts, so wave-summary and TechLead verification can rely on real commit
+boundaries instead of informal "uncommitted state" notes.
+
 ## F176 — 2026-09-24
 **What worked:** a Wave-0 read-only diagnosis task (script + `diagnosis.md`
 with a hypothesis table, H1–H6) that proves the root cause with real
