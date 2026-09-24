@@ -701,7 +701,25 @@
     "syncing": "Sincronizando...",
     "history": "Historico de Alteracoes",
     "show_all": "Mostrar todos os formatos",
-    "show_less": "Mostrar menos"
+    "show_less": "Mostrar menos",
+    "ownedOnly": "Somente minha coleção",
+    "ownedOnlyLoginHint": "Entre para filtrar pela sua coleção",
+    "owned": "Na coleção",
+    "ownedQty": "{{count}}x na coleção",
+    "printings": "{{count}} impressões",
+    "emptyNotSynced": "Os dados de banimento ainda não foram sincronizados. Rode o banlist-sync.",
+    "emptyOwned": "Nenhuma carta sua está banida ou restrita neste formato",
+    "lastSynced": "Última sincronização: {{date}}",
+    "loadMore": "Carregar mais",
+    "detail": {
+      "title": "Detalhes da carta",
+      "legalities": "Legalidade por formato",
+      "history": "Histórico de banimentos",
+      "noHistory": "Nenhum evento de ban/unban registrado para esta carta",
+      "baseline": "Já banida quando o monitoramento começou",
+      "close": "Fechar",
+      "openCard": "Abrir página da carta"
+    }
   },
   "legality": {
     "title": "Legalidade por Formato",

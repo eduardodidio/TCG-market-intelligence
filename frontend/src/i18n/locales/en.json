@@ -701,7 +701,25 @@
     "syncing": "Syncing...",
     "history": "Change History",
     "show_all": "Show all formats",
-    "show_less": "Show less"
+    "show_less": "Show less",
+    "ownedOnly": "Only my collection",
+    "ownedOnlyLoginHint": "Log in to filter by your collection",
+    "owned": "In collection",
+    "ownedQty": "{{count}}x in collection",
+    "printings": "{{count}} printings",
+    "emptyNotSynced": "Ban list data has not been synced yet. Run banlist-sync.",
+    "emptyOwned": "None of your cards are banned or restricted in this format",
+    "lastSynced": "Last synced: {{date}}",
+    "loadMore": "Load more",
+    "detail": {
+      "title": "Card details",
+      "legalities": "Legality by format",
+      "history": "Ban history",
+      "noHistory": "No ban/unban events recorded for this card",
+      "baseline": "Already banned when tracking started",
+      "close": "Close",
+      "openCard": "Open card page"
+    }
   },
   "legality": {
     "title": "Format Legality",

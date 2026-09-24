@@ -65,7 +65,7 @@ Other batch features touching the same files should serialize on
 - [ ] AC10 The "Histórico de banimentos" menu item is gone; `/banlist/history` redirects to `/banlist`; `BanHistory.tsx` is deleted
 - [ ] AC11 `bats/banlist-sync.bat` exists and the README documents F177
 - [ ] AC12 The PRD, ADR 0018, `F177-architecture.mmd`, and `F177-journey.mmd` exist and match the code
-- [ ] `pytest tests/ --cov=src` green; `cd frontend && npm test` green; `ruff check src/` clean; `cd frontend && npm run build` OK
+- [ ] AC13 `pytest tests/ --cov=src` green; `cd frontend && npm test` green; `ruff check src/` clean; `cd frontend && npm run build` OK
 
 ## Diagrams
 - `docs/diagrams/F177-architecture.mmd` (owner F177-T01, re-synced by F177-T10)
@@ -76,4 +76,4 @@ After deploy, run `bats\banlist-sync.bat` once locally (writes to Neon via `.env
 it in the Windows Task Scheduler (daily 06:00 suggested). There is no `render.yaml` change.
 
 ## ADR number (batch reservation)
-This feature's ADR number is **0018**, reserved in `tasks/features/EXECUTION-PLAN-F171-F179.md`. It overrides any "next free number" instruction in the task files.
+This feature's ADR number is **0018**, reserved in `tasks/features/EXECUTION-PLAN-F171-F179.md`. All task files reference 0018; do not renumber.

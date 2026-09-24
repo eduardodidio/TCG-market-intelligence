@@ -1,0 +1,50 @@
+flowchart LR
+  subgraph UserLane["User"]
+    U_START(["Open 'Lista de banimentos'"])
+    U_PICK["Pick a format"]
+    U_TOGGLE["Toggle 'Somente minha coleção'"]
+    U_CLICK["Click a card"]
+    U_VIEW["View legalities + history"]
+    U_CLOSE["Close modal / Open card page"]
+    U_OLD(["Opens old bookmark /banlist/history"])
+  end
+
+  subgraph FrontendLane["Frontend"]
+    F_LIST["BanList.tsx"]
+    F_NOTSYNCED["Empty state: not synced yet"]
+    F_DISABLED["Toggle disabled + login hint"]
+    F_EMPTYOWNED["Empty state: no owned banned cards"]
+    F_MODAL["BanCardDetailModal"]
+    F_REDIRECT["Navigate to /banlist"]
+  end
+
+  subgraph ApiLane["API"]
+    A_STATUS["GET /banlist/status"]
+    A_LIST["GET /banlist?owned_only"]
+    A_CARD["GET /banlist/card/{id}"]
+    A_HIST["GET /card/{id}/history"]
+  end
+
+  U_START --> F_LIST
+  F_LIST --> A_STATUS
+  A_STATUS -->|legalities_count = 0| F_NOTSYNCED
+  A_STATUS -->|legalities_count > 0| U_PICK
+  U_PICK --> A_LIST
+
+  U_TOGGLE --> D_AUTH{"Logged in?"}
+  D_AUTH -->|no| F_DISABLED
+  D_AUTH -->|yes| A_LIST
+  A_LIST -->|ownedOnly, 0 results| F_EMPTYOWNED
+  A_LIST -->|results| U_CLICK
+
+  U_CLICK --> F_MODAL
+  F_MODAL --> A_CARD
+  F_MODAL --> A_HIST
+  A_CARD --> U_VIEW
+  A_HIST --> U_VIEW
+  U_VIEW --> U_CLOSE
+  U_CLOSE -->|Open card page| CARD_PAGE(["/cards/{id}"])
+  U_CLOSE -->|Close| F_LIST
+
+  U_OLD --> F_REDIRECT
+  F_REDIRECT --> F_LIST

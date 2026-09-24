@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   fetchFormats,
   fetchBanList,
+  fetchBanlistStatus,
   fetchCardLegalities,
   fetchLegalityHistory,
 } from "../../src/api/banlist";
@@ -47,6 +48,37 @@ describe("banlist API client", () => {
     expect(calledUrl).toContain("/api/v1/banlist");
     expect(calledUrl).toContain("format=standard");
     expect(calledUrl).toContain("status=banned");
+  });
+
+  it("fetchBanList includes owned_only=true only when ownedOnly is true", async () => {
+    mockFetchOk([]);
+    await fetchBanList({ format: "commander", ownedOnly: true });
+    const calledUrl = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
+    expect(calledUrl).toContain("owned_only=true");
+  });
+
+  it("fetchBanList omits owned_only when ownedOnly is false/undefined", async () => {
+    mockFetchOk([]);
+    await fetchBanList({ format: "commander" });
+    const calledUrl = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
+    expect(calledUrl).not.toContain("owned_only");
+  });
+
+  it("fetchBanlistStatus calls /api/v1/banlist/status", async () => {
+    mockFetchOk({
+      last_synced_at: null,
+      legalities_count: 0,
+      banned_count: 0,
+      restricted_count: 0,
+      history_count: 0,
+      formats: 0,
+    });
+    await fetchBanlistStatus();
+    const calledUrl = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
+    expect(calledUrl).toContain("/api/v1/banlist/status");
   });
 
   it("fetchCardLegalities calls /api/v1/banlist/card/{id}", async () => {
