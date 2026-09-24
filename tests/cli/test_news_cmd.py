@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
+from src.cli.main import cli
 from src.cli.news_cmd import fetch_news_command
 
 SOURCES = [
@@ -167,3 +168,13 @@ class TestBoundaries:
 
         assert result.exit_code == 0
         mock_repo.assert_called_once_with(db_url="sqlite:///custom.db")
+
+
+class TestRegisteredInMainCli:
+    def test_registered_in_main_cli(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["fetch-news", "--help"])
+
+        assert result.exit_code == 0
+        assert "--check-sources" in result.output
+        assert list(cli.commands).count("fetch-news") == 1

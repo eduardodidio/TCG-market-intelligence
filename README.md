@@ -1006,6 +1006,33 @@ unchecked:
   [architecture diagram](docs/diagrams/F175-architecture.mmd),
   [user journey diagram](docs/diagrams/F175-journey.mmd).
 
+### F178 -- News Collection via Offline Routine (2026-09-24)
+
+Fixes the News page (F166), which always showed the empty state because
+`fetch-news` was broken at import time (`feedparser` was never declared)
+and nothing ever populated `news_items`:
+
+- **Fetcher rewrite** -- `src/services/news_fetcher.py` now uses `httpx`
+  (already a dependency) and the stdlib `xml.etree.ElementTree` for
+  RSS/Atom parsing, removing the undeclared `feedparser` dependency.
+  Per-source status is tracked (HTTP status, entry count, error).
+- **CLI** -- standalone `python -m src.cli.main fetch-news` command
+  (`src/cli/news_cmd.py`), with `--check-sources` (dry run, reports
+  source health without writing to the DB), `--source NAME` (restrict to
+  named source(s)), and `--max-per-source`. Exits non-zero when every
+  source fails. Feed sources can be overridden via the `NEWS_FEED_SOURCES`
+  env var (`"Name|url;Name2|url2"`).
+- **Offline routine** -- `bats/fetch-news.bat` runs the CLI locally and
+  writes straight to Neon via `DATABASE_URL`, matching the pattern of
+  `bats/process-queue.bat`. No server-side scraping or scheduler on Render.
+- **API** -- `GET /api/v1/news` stays read-only. New
+  `GET /api/v1/news/status` returns `{total_items, last_fetched_at,
+  newest_published_at}` so the UI can show data freshness.
+- **Frontend** -- `NewsPage` distinguishes an empty database, an empty
+  filtered result, and a fetch error, plus a "desatualizado" hint when the
+  status endpoint reports stale data.
+- **Architecture decision:** [ADR-0019](docs/adr/0019-news-collection-offline-bat.md)
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).

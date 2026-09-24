@@ -2789,35 +2789,6 @@ def import_csv_cmd(csv_file: str, user_id: str, dry_run: bool, db: str):
     click.echo("")
 
 
-@cli.command("fetch-news")
-@click.option(
-    "--db",
-    default=None,
-    callback=_resolve_db,
-    is_eager=True,
-    expose_value=True,
-    help="Database URL (default: auto-detect)",
-)
-@click.option("--max-per-source", default=20, type=int, help="Max entries per feed source")
-def fetch_news_cmd(db, max_per_source):
-    """Fetch MTG news from RSS sources."""
-    from src.database.repository import Repository
-    from src.services.news_fetcher import fetch_news
-
-    repo = Repository(db_url=db)
-    stats = fetch_news(repo, max_per_source=max_per_source)
-
-    click.echo("")
-    click.echo("=" * 60)
-    click.echo("  NEWS FETCH SUMMARY")
-    click.echo(f"  Fetched:  {stats['fetched']}")
-    click.echo(f"  New:      {stats['new']}")
-    click.echo(f"  Skipped:  {stats['skipped']}")
-    click.echo(f"  Errors:   {stats['errors']}")
-    click.echo("=" * 60)
-    click.echo("")
-
-
 @cli.command("daily-snapshot")
 @click.option(
     "--db",
@@ -3163,6 +3134,11 @@ def backfill_snapshots_cmd(db, days):
     repo = Repository(db_url=db)
     count = backfill_snapshots(repo, days=days)
     click.echo(f"Backfill complete: {count} observations created.")
+
+
+from src.cli.news_cmd import fetch_news_command  # noqa: E402  (F178)
+
+cli.add_command(fetch_news_command)
 
 
 if __name__ == "__main__":
