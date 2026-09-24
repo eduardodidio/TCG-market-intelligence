@@ -81,8 +81,8 @@ def get_runner(provider: str | None = None) -> ClaudeRunner
     # model = os.environ.get("DECK_SUGGEST_MODEL", "claude-sonnet-5")  (CLI: only pass --model if env var explicitly set)
 ```
 
-**Pending decision (README):** the official `anthropic` SDK is NOT added (no new deps without confirmation).
-The `httpx` implementation covers the need. If the user approves the SDK later, only `ClaudeApiRunner` changes.
+**Decision (confirmed by user 2026-09-24):** the official `anthropic` SDK is NOT added. Default provider is the Claude CLI (`claude -p`).
+The `httpx` implementation covers the opt-in API path. Do not add the SDK to `pyproject.toml`.
 
 ## processor.py
 
