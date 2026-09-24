@@ -986,6 +986,26 @@ Daily price snapshots that fill gaps in price history charts:
   `GET /cards/price-trends` now include `daily_snapshot` observations,
   producing denser price charts over time.
 
+### F175 -- Trending Market Mode (2026-09-24)
+
+Fixes `/trending` and the Dashboard ticker when "minha coleção" is
+unchecked:
+
+- **Market-mode query** -- `GET /api/v1/market/trending/{gainers,losers}`
+  without `collection_only` now includes non-foil Liga sweep prices
+  (`liga_{id}`) and manual prices (`manual_{id}`), not just
+  `source_cards`, via the new `src/database/trending_queries.py` module.
+  Foil series (`liga_{id}_foil`) are excluded so they never mix with
+  non-foil prices.
+- **Cache fix** -- query errors/timeouts are no longer cached for 30
+  minutes; only successful responses are stored (empty results expire
+  after 2 minutes), so a retry can succeed right away.
+- **Diagnostics** -- `python scripts/diagnose_trending_f175.py` checks
+  market-mode query timing against the Neon `statement_timeout`.
+- **Docs:** [PRD](docs/prd/F175-trending-market-mode.md),
+  [architecture diagram](docs/diagrams/F175-architecture.mmd),
+  [user journey diagram](docs/diagrams/F175-journey.mmd).
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).
