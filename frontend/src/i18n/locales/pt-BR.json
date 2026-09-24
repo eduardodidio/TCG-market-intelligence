@@ -1369,6 +1369,16 @@
     "emptyTitle": "Nenhuma noticia ainda",
     "emptyDescription": "As noticias aparecerao aqui apos o feed ser buscado. Peca a um admin para rodar o comando fetch-news.",
     "markUnread": "Marcar como nao lida",
-    "showing": "Mostrando {{from}}-{{to}} de {{total}}"
+    "showing": "Mostrando {{from}}-{{to}} de {{total}}",
+    "errorTitle": "Nao foi possivel carregar as noticias",
+    "noDataTitle": "Nenhuma noticia coletada ainda",
+    "noDataDescription": "Ainda nao ha noticias coletadas. A coleta roda pela rotina bats/fetch-news.bat.",
+    "allReadTitle": "Voce esta em dia!",
+    "allReadDescription": "Nao ha noticias nao lidas.",
+    "showAll": "Mostrar todas",
+    "filterEmptyTitle": "Nenhuma noticia corresponde a este filtro",
+    "clearFilters": "Limpar filtros",
+    "lastUpdated": "Ultima coleta: {{date}}",
+    "stale": "desatualizado"
   }
 }

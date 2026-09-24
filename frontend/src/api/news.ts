@@ -23,6 +23,12 @@ export interface UnreadCountResponse {
   count: number;
 }
 
+export interface NewsStatus {
+  total_items: number;
+  last_fetched_at: string | null;
+  newest_published_at: string | null;
+}
+
 export function fetchNews(
   params?: Record<string, string>,
 ): Promise<ApiResponse<NewsListResponse>> {
@@ -48,4 +54,8 @@ export function fetchUnreadCount(): Promise<
   ApiResponse<UnreadCountResponse>
 > {
   return apiGet<UnreadCountResponse>("/api/v1/news/unread-count");
+}
+
+export function fetchNewsStatus(): Promise<ApiResponse<NewsStatus>> {
+  return apiGet<NewsStatus>("/api/v1/news/status");
 }

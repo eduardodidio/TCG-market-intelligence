@@ -41,6 +41,12 @@ class UnreadCountResponse(BaseModel):
     count: int
 
 
+class NewsStatusResponse(BaseModel):
+    total_items: int
+    last_fetched_at: str | None = None
+    newest_published_at: str | None = None
+
+
 # --- Endpoints ---
 
 
@@ -101,3 +107,13 @@ def get_unread_count(
     """Get the count of unread news items for the current user."""
     count = repo.count_unread_news(user_id=user.id)
     return success_response(UnreadCountResponse(count=count))
+
+
+@router.get("/status", response_model=ApiResponse[NewsStatusResponse])
+def get_news_status(
+    user: User = Depends(get_current_user),
+    repo: Repository = Depends(get_db),
+):
+    """Get aggregate freshness info for the news feed (read-only, no network I/O)."""
+    status = repo.get_news_status()
+    return success_response(NewsStatusResponse(**status))

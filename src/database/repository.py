@@ -5164,6 +5164,24 @@ class Repository:
             session.commit()
             return True
 
+    def get_news_status(self) -> dict:
+        """Return {total_items, last_fetched_at, newest_published_at} (ISO or None)."""
+        with Session(self.engine) as session:
+            total, last_fetched_at, newest_published_at = session.execute(
+                select(
+                    func.count(NewsItemRow.id),
+                    func.max(NewsItemRow.fetched_at),
+                    func.max(NewsItemRow.published_at),
+                )
+            ).one()
+            return {
+                "total_items": total or 0,
+                "last_fetched_at": last_fetched_at.isoformat() if last_fetched_at else None,
+                "newest_published_at": (
+                    newest_published_at.isoformat() if newest_published_at else None
+                ),
+            }
+
     # ── Liga verify links (F169) ────────────────────────────────
 
     def get_all_liga_card_urls(self) -> list[LigaCardUrlRow]:

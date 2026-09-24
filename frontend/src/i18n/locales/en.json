@@ -1369,6 +1369,16 @@
     "emptyTitle": "No news yet",
     "emptyDescription": "News will appear here after the feed is fetched. Ask an admin to run the fetch-news command.",
     "markUnread": "Mark unread",
-    "showing": "Showing {{from}}-{{to}} of {{total}}"
+    "showing": "Showing {{from}}-{{to}} of {{total}}",
+    "errorTitle": "Could not load news",
+    "noDataTitle": "No news collected yet",
+    "noDataDescription": "No news has been collected yet. Collection runs via the bats/fetch-news.bat routine.",
+    "allReadTitle": "You're all caught up!",
+    "allReadDescription": "There are no unread news items.",
+    "showAll": "Show all",
+    "filterEmptyTitle": "No news matches this filter",
+    "clearFilters": "Clear filters",
+    "lastUpdated": "Last collected: {{date}}",
+    "stale": "stale"
   }
 }
