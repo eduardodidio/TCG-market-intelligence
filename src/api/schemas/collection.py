@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from decimal import Decimal
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.api.schemas.cards import PriceChangeSummary, PriceObservation, SourceCardSchema
@@ -295,6 +298,8 @@ class BatchAddEntry(BaseModel):
     quality: str | None = None
     language: str | None = None
     extras: str | None = None
+    acquisition_price: Decimal | None = Field(default=None, ge=0, le=1_000_000)
+    price_currency: Literal["BRL", "USD"] | None = None
 
     @field_validator("quantity")
     @classmethod
@@ -338,6 +343,8 @@ class ParsedLineResponse(BaseModel):
     quality: str | None = None
     language: str | None = None
     extras: str | None = None
+    price: str | None = None
+    price_currency: str | None = None
     error: str | None = None
 
 
@@ -377,6 +384,7 @@ class BatchAddResultResponse(BaseModel):
 
     added: int
     errors: list[BatchAddErrorResponse] = []
+    warnings: list[str] = []
 
 
 class CollectionMover(BaseModel):

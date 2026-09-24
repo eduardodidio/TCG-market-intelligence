@@ -1747,6 +1747,8 @@ def batch_parse(
             quality=p.quality,
             language=p.language,
             extras=p.extras,
+            price=str(p.price) if p.price is not None else None,
+            price_currency=p.price_currency,
             error=p.error,
         )
         for p in parsed
@@ -1759,12 +1761,14 @@ def batch_add(
     body: BatchAddRequest,
     repo: Repository = Depends(get_db),
     user_id: str = Depends(require_auth_or_api_key),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
     """Add multiple cards to the collection in one request."""
     from sqlalchemy.orm import Session
 
     from src.collection.batch_add import BatchAddEntry as BatchEntry
     from src.collection.batch_add import batch_add_entries
+    from src.currency.import_conversion import rate_lookup_from_converter
 
     entries = [
         BatchEntry(
@@ -1775,20 +1779,27 @@ def batch_add(
             quality=e.quality,
             language=e.language,
             extras=e.extras,
+            acquisition_price=e.acquisition_price,
+            price_currency=e.price_currency,
         )
         for e in body.entries
     ]
 
     with Session(repo.engine) as session:
         try:
-            result = batch_add_entries(session, user_id, entries)
+            result = batch_add_entries(
+                session,
+                user_id,
+                entries,
+                rate_lookup=rate_lookup_from_converter(converter),
+            )
             session.commit()
         except Exception:
             session.rollback()
             raise
 
     errors = [BatchAddErrorResponse(line=e.line, text=e.text, error=e.error) for e in result.errors]
-    data = BatchAddResultResponse(added=result.added, errors=errors)
+    data = BatchAddResultResponse(added=result.added, errors=errors, warnings=result.warnings)
     return success_response(data=data)
 
 

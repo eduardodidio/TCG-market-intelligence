@@ -15,10 +15,12 @@ from fastapi import APIRouter, Depends, Query, UploadFile
 from fastapi.exceptions import HTTPException
 
 from src.api.deps import get_current_user, get_db
+from src.currency.import_conversion import RateLookup, rate_lookup_from_converter, to_brl
 from src.database.models import UserCollectionRow
 from src.database.repository import Repository
+from src.services.currency import CurrencyConverter
 from src.services.purchase_matcher import match_purchases
-from src.services.purchase_parser import parse_purchase_html
+from src.services.purchase_parser import ParsedPurchaseItem, parse_purchase_html
 
 logger = structlog.get_logger(__name__)
 
@@ -84,12 +86,33 @@ async def import_preview(
     report = match_purchases(all_parsed_items, collection)
     all_warnings.extend(report.warnings)
 
+    rate_lookup = rate_lookup_from_converter(CurrencyConverter(repo))
+
     # Build response
     matches = []
+    unmatched = []
     for r in report.matched:
         if not overwrite_existing and r.already_has_price:
             continue
         item = r.parsed_item
+        brl_price, extra = _convert_item(item, rate_lookup)
+        if brl_price is None:
+            all_warnings.append(
+                f"Could not convert {_format_parsed_name(item)} "
+                f"({extra['original_currency']} {extra['original_unit_price']}) to BRL"
+            )
+            unmatched.append(
+                {
+                    "card_name_parsed": _format_parsed_name(item),
+                    "set_code_parsed": item.set_code,
+                    "unit_price": extra["original_unit_price"],
+                    "order_number": item.order_number,
+                    "skip_reason": "currency_conversion_failed",
+                    **extra,
+                }
+            )
+            continue
+
         match_id = f"match_{r.collection_entry_id}_{item.order_number}"
         matches.append(
             {
@@ -101,7 +124,7 @@ async def import_preview(
                 "collector_number": item.collector_number,
                 "quantity_parsed": item.quantity,
                 "quantity_collection": r.collection_quantity,
-                "unit_price": str(item.unit_price),
+                "unit_price": brl_price,
                 "order_date": item.order_date.isoformat() if item.order_date else None,
                 "order_number": item.order_number,
                 "store_name": item.store_name,
@@ -115,19 +138,21 @@ async def import_preview(
                     else None
                 ),
                 "selected": r.confidence >= 0.85,
+                **extra,
             }
         )
 
-    unmatched = []
     for r in report.unmatched:
         item = r.parsed_item
+        brl_price, extra = _convert_item(item, rate_lookup)
         unmatched.append(
             {
                 "card_name_parsed": _format_parsed_name(item),
                 "set_code_parsed": item.set_code,
-                "unit_price": str(item.unit_price),
+                "unit_price": brl_price if brl_price is not None else extra["original_unit_price"],
                 "order_number": item.order_number,
                 "skip_reason": r.skip_reason or "No matching collection entry found",
+                **extra,
             }
         )
 
@@ -291,6 +316,26 @@ def _load_full_collection(repo: Repository, user_id: str) -> list[UserCollection
             break
         offset += batch_size
     return entries
+
+
+def _convert_item(
+    item: ParsedPurchaseItem, rate_lookup: RateLookup
+) -> tuple[str | None, dict]:
+    """Convert a parsed item's unit_price to BRL.
+
+    Returns ``(brl_price_str, extra_fields)`` where ``extra_fields`` carries
+    ``original_unit_price``, ``original_currency`` and ``exchange_rate`` for
+    the API response. ``brl_price_str`` is ``None`` when conversion failed
+    (no rate available or unsupported currency).
+    """
+    on_date = item.order_date or date.today()
+    result = to_brl(item.unit_price, item.currency, on_date, rate_lookup)
+    extra = {
+        "original_unit_price": str(item.unit_price),
+        "original_currency": result.original_currency,
+        "exchange_rate": str(result.rate) if result.rate is not None else None,
+    }
+    return (str(result.brl) if result.brl is not None else None), extra
 
 
 def _format_parsed_name(item) -> str:
