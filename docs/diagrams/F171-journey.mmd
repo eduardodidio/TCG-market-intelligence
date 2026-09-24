@@ -1,0 +1,40 @@
+%% F171 — Collection import respecting the source currency — User journey
+flowchart LR
+    subgraph UserLane["User"]
+        U_SELECT(["Select CSV file"])
+        U_REVIEW["Reviews detected currency"]
+        U_OVERRIDE{"Override currency?"}
+        U_CONFIRM["Confirms import"]
+        U_END(["Sees import summary"])
+    end
+
+    subgraph FrontendLane["Frontend"]
+        F_DRYRUN["CsvImportModal: dry-run request"]
+        F_SHOW["Shows detected currency + confidence"]
+        F_WARN["Low-confidence warning banner"]
+        F_SUBMIT["Submits real import (currency=auto|BRL|USD)"]
+        F_RESULT["Renders summary + price warnings"]
+    end
+
+    subgraph ApiLane["API"]
+        A_DETECT["POST /collection/import?dry_run=true"]
+        A_IMPORT["POST /collection/import"]
+        A_RATE{"PTAX rate available?"}
+    end
+
+    subgraph DbLane["DB"]
+        D_RATES[("exchange_rates")]
+        D_COLLECTION[("user_collection.acquisition_price (BRL)")]
+    end
+
+    U_SELECT --> F_DRYRUN --> A_DETECT --> F_SHOW
+    F_SHOW -->|"confidence: low"| F_WARN --> U_REVIEW
+    F_SHOW -->|"confidence: high/medium"| U_REVIEW
+    U_REVIEW --> U_OVERRIDE
+    U_OVERRIDE -->|"yes"| U_CONFIRM
+    U_OVERRIDE -->|"no, keep detected"| U_CONFIRM
+    U_CONFIRM --> F_SUBMIT --> A_IMPORT --> A_RATE
+    A_RATE -->|"USD amount, rate found"| D_RATES --> D_COLLECTION
+    A_RATE -->|"USD amount, no rate: drop price + warning"| D_COLLECTION
+    A_RATE -->|"BRL amount"| D_COLLECTION
+    D_COLLECTION --> F_RESULT --> U_END

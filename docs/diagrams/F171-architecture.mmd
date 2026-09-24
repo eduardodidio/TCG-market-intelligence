@@ -1,0 +1,54 @@
+%% F171 — Collection import respecting the source currency — Architecture
+flowchart LR
+    subgraph Sources["Import Sources"]
+        CSV["CSV file (Liga / ManaBox / generic)"]
+        HTML["Purchase HTML (Liga order history)"]
+        BATCH["Batch text entry"]
+    end
+
+    subgraph Detection["Detection (pure)"]
+        COLS["csv_columns.resolve_columns"]
+        DETECT["csv_columns.detect_file_currency"]
+        MONEY["currency.money.parse_money / detect_symbol"]
+    end
+
+    subgraph Conversion["Conversion"]
+        TOBRL["import_conversion.to_brl"]
+        RATE["CurrencyConverter.get_display_rate"]
+        RATES[("exchange_rates table")]
+    end
+
+    subgraph Importers["Importers"]
+        CSVIMPORT["collection/importer.py: import_collection_csv"]
+        PURCHASE["services/purchase_parser.py: parse_purchase_html"]
+        BATCHPARSER["collection/batch_parser.py"]
+    end
+
+    subgraph Storage["Storage"]
+        UC[("user_collection.acquisition_price (BRL)")]
+    end
+
+    subgraph Display["Read-time display"]
+        CONVERT["CurrencyConverter.convert"]
+        UI["Frontend currency toggle"]
+    end
+
+    CSV --> COLS --> DETECT
+    CSV --> MONEY
+    HTML --> MONEY
+    BATCH --> MONEY
+
+    DETECT --> CSVIMPORT
+    MONEY --> CSVIMPORT
+    MONEY --> PURCHASE
+    MONEY --> BATCHPARSER
+
+    CSVIMPORT --> TOBRL
+    PURCHASE --> TOBRL
+    BATCHPARSER --> TOBRL
+
+    RATES --> RATE --> TOBRL
+
+    TOBRL -->|"USD -> BRL, or drop + warning if no rate"| UC
+
+    UC --> CONVERT --> UI
