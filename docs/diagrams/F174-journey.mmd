@@ -43,8 +43,8 @@ flowchart LR
     U_TAB --> F_URL
 
     F_URL --> F_KIND
-    F_KIND -->|"server-side<br/>(Marketplace, MyTrades, Duplicates)"| A_CALL
-    F_KIND -->|"client-side<br/>(TradeMatches: they-have/they-want)"| F_LOCAL
+    F_KIND -->|"server-side<br/>(Marketplace, Duplicates)"| A_CALL
+    F_KIND -->|"client-side<br/>(MyTrades, TradeMatches: they-have/they-want)"| F_LOCAL
 
     A_CALL --> A_RESULT
     A_RESULT -->|"200, results"| U_END
