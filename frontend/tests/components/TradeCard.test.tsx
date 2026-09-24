@@ -36,13 +36,13 @@ describe("TradeCard", () => {
 
   it("renders status badge", () => {
     renderCard(mockTrade({ status: "pending" }));
-    expect(screen.getByTestId("trade-status-1")).toHaveTextContent("pending");
+    expect(screen.getByTestId("trade-status-1")).toHaveAttribute("data-status", "pending");
   });
 
   it("renders status badge for all states", () => {
     for (const status of ["pending", "accepted", "rejected", "completed", "cancelled"]) {
       const { unmount } = renderCard(mockTrade({ status }));
-      expect(screen.getByTestId("trade-status-1")).toHaveTextContent(status);
+      expect(screen.getByTestId("trade-status-1")).toHaveAttribute("data-status", status);
       unmount();
     }
   });

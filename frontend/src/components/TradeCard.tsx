@@ -57,6 +57,7 @@ export function TradeCard({ trade, compact = false, onAccept, onReject, onConfir
           <span
             className={`absolute top-2 left-2 z-10 text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${statusStyle}`}
             data-testid={`trade-status-${trade.id}`}
+            data-status={trade.status}
           >
             {t(`tradeFilters.status.${trade.status}`)}
           </span>
