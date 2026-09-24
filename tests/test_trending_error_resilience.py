@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import InternalError, OperationalError
 
+import src.api.routers.market as market_router
 from src.api.deps import get_currency_converter_dep, get_db, get_optional_user
 from src.api.routers.market import get_trending_service, router
 from src.api.schemas.trending import TrendingResponse
@@ -69,6 +71,14 @@ def _make_app(
 # =========================================================================
 # Group 1: TrendingService unit tests (mock repo)
 # =========================================================================
+
+
+@pytest.fixture(autouse=True)
+def _clear_market_endpoint_cache():
+    """The market router keeps a module-level 30-min cache; isolate each test from it."""
+    market_router._endpoint_cache.clear()
+    yield
+    market_router._endpoint_cache.clear()
 
 
 class TestTrendingServiceErrorResilience:
