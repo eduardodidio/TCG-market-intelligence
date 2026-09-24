@@ -23,7 +23,7 @@ usuário já possui** na coleção (e quanto falta em R$).
 - **Ops:** novo `bats/collect-metagame.bat` (semanal).
 - **Frontend:** novos `types/metaDecks.ts`, `api/metaDecks.ts`, `components/meta/*`;
   abas em `TopDecksPage.tsx`; link em `TopDecksPreview.tsx`. Sem rota nova.
-- **Docs:** ADR (próximo nº livre, ~0014), PRD, 2 diagramas, README.
+- **Docs:** ADR 0016 (`docs/adr/0016-metagame-deck-sources.md`), PRD, 2 diagramas, README.
 
 ## Waves
 - **Wave 0**: F173-T01, F173-T02
@@ -35,7 +35,7 @@ usuário já possui** na coleção (e quanto falta em R$).
 ## Tasks & files touched (para detecção de sobreposição entre features do lote)
 | Task | Wave | Type | Título | Arquivos tocados |
 |---|---|---|---|---|
-| T01 | 0 | docs/spike | SPIKE de fontes + ADR + fixtures + scaffolding | `docs/adr/00NN-metagame-deck-sources.md` (novo), `tests/fixtures/metagame/**` (novo), `src/metagame/__init__.py`, `src/metagame/sources/` (dir), `tests/unit/metagame/__init__.py`, `frontend/src/components/meta/` (dir) |
+| T01 | 0 | docs/spike | SPIKE de fontes + ADR + fixtures + scaffolding | `docs/adr/0016-metagame-deck-sources.md` (novo), `tests/fixtures/metagame/**` (novo), `src/metagame/__init__.py`, `src/metagame/sources/` (dir), `tests/unit/metagame/__init__.py`, `frontend/src/components/meta/` (dir) |
 | T02 | 0 | docs | PRD | `docs/prd/F173-metagame-top-decks.md` (novo) |
 | T03 | 1 | backend | Modelos + MetagameRepository | `src/metagame/models.py`, `src/metagame/repository.py`, `tests/unit/metagame/test_repository.py` (novos) |
 | T04 | 1 | backend | PoliteFetcher + Protocol de fonte | `src/metagame/http.py`, `src/metagame/sources/base.py`, `src/metagame/sources/__init__.py`, `tests/unit/metagame/test_http.py` (novos) |
@@ -56,20 +56,20 @@ usuário já possui** na coleção (e quanto falta em R$).
 `src/database/models.py`, `repository.py`. `bats/`: só arquivo novo.
 
 ## Global acceptance criteria
-1. ADR aceito com matriz ToS/robots por fonte e fonte escolhida por formato (T01).
-2. `python -m src.cli.main collect-metagame --format modern --format commander --limit 10`
+1. **AC1** — ADR aceito com matriz ToS/robots por fonte e fonte escolhida por formato (T01).
+2. **AC2** — `python -m src.cli.main collect-metagame --format modern --format commander --limit 10`
    popula `meta_decks`/`meta_deck_cards`; rodar 2x no mesmo dia não duplica.
-3. Nenhum request viola robots.txt; intervalo mínimo por host ≥ 3s (ou `Crawl-delay`);
+3. **AC3** — Nenhum request viola robots.txt; intervalo mínimo por host ≥ 3s (ou `Crawl-delay`);
    cache em disco evita refetch dentro do TTL.
-4. `GET /api/v1/meta-decks?format=modern` retorna decks ordenados por rank com
+4. **AC4** — `GET /api/v1/meta-decks?format=modern` retorna decks ordenados por rank com
    `total_value_brl`, `priced_pct`, `missing_value_brl` e `owned_pct` (null se anônimo).
-5. `/decks/ranking?view=meta&format=<fmt>` mostra a aba Mercado com pills de formato,
+5. **AC5** — `/decks/ranking?view=meta&format=<fmt>` mostra a aba Mercado com pills de formato,
    valor BRL, % possuído, decklist expansível e fonte/data; `view=mine` inalterado.
-6. `bats/collect-metagame.bat` existe e segue o padrão de `bats/process-queue.bat`.
-7. PRD, ADR, `F173-architecture.mmd`, `F173-journey.mmd` e README atualizados.
-8. `pytest tests/ --cov=src` verde, cobertura ≥ 85% em `src/metagame/*`;
+6. **AC6** — `bats/collect-metagame.bat` existe e segue o padrão de `bats/process-queue.bat`.
+7. **AC7** — PRD, ADR, `F173-architecture.mmd`, `F173-journey.mmd` e README atualizados.
+8. **AC8** — `pytest tests/ --cov=src` verde, cobertura ≥ 85% em `src/metagame/*`;
    `ruff check src/` limpo; `cd frontend && npm test && npm run build` verdes.
-9. Nenhuma dependência nova (Python ou npm).
+9. **AC9** — Nenhuma dependência nova (Python ou npm).
 
 ## Diagrams
 - `docs/diagrams/F173-architecture.mmd` — owner T14

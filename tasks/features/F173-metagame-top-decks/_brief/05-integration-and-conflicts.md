@@ -17,9 +17,8 @@
 ## Arquivos semi-compartilhados (fora da lista do lote, mas atenção)
 - `frontend/src/pages/TopDecksPage.tsx`, `frontend/src/components/TopDecksPreview.tsx` — T13.
   Se outra feature do lote tocar esses arquivos, o orquestrador deve serializar.
-- `docs/adr/` — número do ADR é o próximo livre **no momento da execução de T01**
-  (hoje seria `0014`). Se colidir com ADR de outra feature do lote no merge, renumerar
-  o da F173 e ajustar links (T14 revalida).
+- `docs/adr/` — número do ADR **reservado: 0016** (`docs/adr/0016-metagame-deck-sources.md`,
+  ver `tasks/features/EXECUTION-PLAN-F171-F179.md`); sem risco de colisão no lote.
 
 ## Ordem de registro
 T15 só roda quando T10 (router), T12 (CLI) e T13 (UI) estão prontos. Após T15:

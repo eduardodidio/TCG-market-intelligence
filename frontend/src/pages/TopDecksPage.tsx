@@ -6,7 +6,9 @@ import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckSparkline } from "../components/DeckSparkline";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { MetaDecksPanel } from "../components/meta/MetaDecksPanel";
 import type { DeckRankingEntry, DeckRankingResponse } from "../types/api";
+import { META_FORMATS, type MetaFormat } from "../types/metaDecks";
 
 const SORT_OPTIONS = [
   { value: "total_value", labelKey: "topDecks.sortByValue" },
@@ -18,7 +20,83 @@ const PERIOD_OPTIONS = ["7d", "30d", "90d"] as const;
 
 const PAGE_SIZE = 20;
 
+type TopDecksView = "mine" | "meta";
+
+function parseView(raw: string | null): TopDecksView {
+  return raw === "meta" ? "meta" : "mine";
+}
+
+function parseFormat(raw: string | null): MetaFormat {
+  return (META_FORMATS as readonly string[]).includes(raw ?? "")
+    ? (raw as MetaFormat)
+    : "commander";
+}
+
 export function TopDecksPage() {
+  const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const view = parseView(searchParams.get("view"));
+  const format = parseFormat(searchParams.get("format"));
+
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    setSearchParams(params);
+  };
+
+  const tabs: { value: TopDecksView; label: string }[] = [
+    { value: "mine", label: t("topDecks.tabMine", { defaultValue: "Meus decks" }) },
+    { value: "meta", label: t("topDecks.tabMeta", { defaultValue: "Mercado" }) },
+  ];
+
+  return (
+    <div data-testid="page-top-decks">
+      <Breadcrumb
+        items={[
+          { label: t("nav.myDecks"), to: "/decks" },
+          { label: t("nav.topDecks") },
+        ]}
+      />
+      {/* View tabs */}
+      <div className="flex gap-1 mb-6 border-b border-slate-700" role="tablist">
+        {tabs.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={view === tab.value}
+            onClick={() => updateParam("view", tab.value)}
+            className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+              view === tab.value
+                ? "border-cyan-400 text-white"
+                : "border-transparent text-slate-400 hover:text-white"
+            }`}
+            data-testid={`topdecks-tab-${tab.value}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {view === "meta" ? (
+        <>
+          <h1 className="text-2xl font-bold text-white mb-6">
+            {t("metaDecks.title", { defaultValue: "Top Decks do Mercado" })}
+          </h1>
+          <MetaDecksPanel
+            format={format}
+            onFormatChange={(f) => updateParam("format", f)}
+          />
+        </>
+      ) : (
+        <MyDecksRanking />
+      )}
+    </div>
+  );
+}
+
+function MyDecksRanking() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,13 +153,7 @@ export function TopDecksPage() {
   };
 
   return (
-    <div data-testid="page-top-decks">
-      <Breadcrumb
-        items={[
-          { label: t("nav.myDecks"), to: "/decks" },
-          { label: t("nav.topDecks") },
-        ]}
-      />
+    <div data-testid="my-decks-ranking">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <h1 className="text-2xl font-bold text-white">{t("topDecks.title")}</h1>

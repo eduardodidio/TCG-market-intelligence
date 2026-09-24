@@ -1,0 +1,81 @@
+{
+ "header": "Top Commanders (Past 2 Years)",
+ "description": "Synthetic fixture — see README.md",
+ "container": {
+  "json_dict": {
+   "cardlists": [
+    {
+     "header": "Commanders",
+     "tag": "commanders",
+     "cardviews": [
+      {
+       "name": "Atraxa, Praetors' Voice",
+       "sanitized": "atraxa-praetors-voice",
+       "url": "/commanders/atraxa-praetors-voice",
+       "num_decks": 41872,
+       "label": "41872 decks",
+       "color_identity": [
+        "W",
+        "U",
+        "B",
+        "G"
+       ]
+      },
+      {
+       "name": "The Ur-Dragon",
+       "sanitized": "the-ur-dragon",
+       "url": "/commanders/the-ur-dragon",
+       "num_decks": 38561,
+       "label": "38561 decks",
+       "color_identity": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+       ]
+      },
+      {
+       "name": "Edgar Markov",
+       "sanitized": "edgar-markov",
+       "url": "/commanders/edgar-markov",
+       "num_decks": 35120,
+       "label": "35120 decks",
+       "color_identity": [
+        "W",
+        "B",
+        "R"
+       ]
+      },
+      {
+       "name": "Krenko, Mob Boss",
+       "sanitized": "krenko-mob-boss",
+       "url": "/commanders/krenko-mob-boss",
+       "num_decks": 30455,
+       "label": "30455 decks",
+       "color_identity": [
+        "R"
+       ]
+      },
+      {
+       "name": "Yuriko, the Tiger's Shadow",
+       "sanitized": "yuriko-the-tigers-shadow",
+       "url": "/commanders/yuriko-the-tigers-shadow",
+       "num_decks": 28990,
+       "label": "28990 decks",
+       "color_identity": [
+        "U",
+        "B"
+       ]
+      },
+      {
+       "sanitized": "missing-name-entry",
+       "url": "/commanders/missing-name-entry",
+       "num_decks": 100
+      }
+     ]
+    }
+   ]
+  }
+ }
+}
