@@ -26,7 +26,7 @@ flowchart TD
   subgraph Query["trending_queries.py (new)"]
     LOADMARKET["load_market_trending_prices(engine, period_days)"]
     PATH1["Path 1: source_cards ⋈ price_observations\n(MYP / jsonld_snapshot)"]
-    PATH2["Path 2: price_observations direct\nsource IN ('liga','manual')\nexternal_id ~ ^(?:liga|manual)_(\\d+)(?:_foil)?$"]
+    PATH2["Path 2: price_observations direct\nsource IN ('liga','manual')\nexternal_id ~ ^(?:liga|manual)_(\\d+)$\n(liga_{id}_foil and liga_catalog_* rejected)"]
     MERGE["Merge paths, dedup same-day\n(keep highest price), sort ascending"]
   end
 

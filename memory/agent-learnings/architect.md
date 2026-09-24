@@ -3,6 +3,11 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F175 -- Trending Market Mode (2026-09-24)
+**What worked:** Task manifest explicitly called out which files were high-risk/shared across the F171-F179 batch and isolated the shared `README.md` edit into its own dedicated last-Wave task -- avoided any merge conflict.
+**What to avoid:** AC5 required the market query to run <12s "no Neon" (production Postgres) -- a criterion no sandbox or CI run against SQLite can ever verify before merge. Leaving it as an unqualified acceptance criterion caused ambiguity for QA about whether the feature could be marked done.
+**Pattern to repeat:** When an AC can only be verified against production infrastructure not available in dev/CI sandboxes, mark it explicitly as "verify at promotion time" (or similar) in the PRD/task manifest, so QA and Tech Lead don't have to guess whether it blocks the sandbox-side verdict.
+
 ## F16 -- Explore Cards Sorting (2026-08-21)
 
 - **Specify NULL ordering expectations explicitly in the PRD.** F16's PRD did not specify where NULL values should appear in sorted results (first vs last). The developer chose `coalesce(name_en, '')` which puts NULLs first in ascending order. The test plan then incorrectly stated "None sorted last." Ambiguity in the PRD propagates through the entire pipeline. When a sort feature touches nullable columns, the PRD should state "NULL values sort [first|last] in ascending order."

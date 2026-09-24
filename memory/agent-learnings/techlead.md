@@ -3,6 +3,11 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F175 -- Trending Market Mode (2026-09-24)
+**What worked:** Reviewing diagram/architecture output alongside a diff of the actual query/regex code, not just describing the data-flow shape at a high level.
+**What to avoid:** Approving a diagram as "matches the code" without diffing quoted implementation details (a specific regex, formula, or constant) against the real source line. F175's architecture diagram claimed the exclusion regex was `^(?:liga|manual)_(\d+)(?:_foil)?$` (foil optionally matching) when the actual code is `^(?:liga|manual)_(\d+)$` (foil never matches) -- opposite intent, caught only in the later QA pass.
+**Pattern to repeat:** When a diagram or review comment quotes a specific regex/formula/constant, grep the source for that exact string and compare character-by-character before signing off, instead of trusting that the general shape is right.
+
 ## F16 -- Explore Cards Sorting (2026-08-21)
 
 - **Check for input validation gaps at the frontend-to-API boundary.** TechLead review verified API-level validation (regex patterns, ge=0) but did not flag that the frontend passes URL params to the API without validation. The API correctly rejects invalid values with 422, but the user experience is poor (error banner). A TechLead review should verify that each layer validates its inputs independently -- the frontend should not rely solely on the API for input sanitization of user-facing state like URL params.
