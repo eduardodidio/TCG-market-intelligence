@@ -113,3 +113,12 @@ These numbers override any "next free number" instruction inside the task files:
 ```
 /create-feature F175   # etc. Use one worktree per feature for Phase A, then Phase B in the order above
 ```
+
+## Execution notes (learned while running F175/F178)
+
+- `bats/` is in `.gitignore`, but the `.bat` files are tracked. Stage each new `.bat` with `git add -f bats/<name>.bat`.
+  This applies to F172, F173, F176 and F177.
+- Readiness checks each task for a `**Maps to AC:**` header field and a Testing section with ≥3 lines.
+  The plans made by the Architect had neither, and F175/F178 were fixed by hand. Apply the same fix before running `/create-feature` on the other features.
+- Remove `frontend/dist` (created by `npm run build`) before running `pytest`. Otherwise the SPA catch-all route makes `tests/api/test_error_codes.py` fail.
+- Live network validation (feeds, metagame sources) cannot run in the cloud sandbox because the proxy returns CONNECT 403. Treat it as a user-handoff step.
