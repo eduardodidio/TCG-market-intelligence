@@ -36,15 +36,24 @@ from src.domain.models import HistoricalPrice
 # to keep this module free of collector/DB dependencies (a test asserts equality).
 SNAPSHOT_SOURCE = "daily_snapshot"
 
+# Same value as ``src.collectors.price_snapshot.BACKFILL_SOURCE`` (ADR 0017 §4):
+# forward-filled rows written by ``backfill_snapshots`` carry this source so
+# they can be told apart from a real daily snapshot and deleted. They resolve
+# to the same keys and priority as ``SNAPSHOT_SOURCE`` — see
+# ``_with_backfill_keys`` in ``src/services/collection_price_history.py``.
+BACKFILL_SOURCE = "daily_snapshot_backfill"
+
 # Mirrors ``Repository.SOURCE_PRIORITY`` (src/database/repository.py) — keep in
-# sync.  Lower wins.  ``daily_snapshot`` is a carry-forward of the other
-# sources, so it only fills days that have no real observation.
+# sync.  Lower wins.  ``daily_snapshot``/``daily_snapshot_backfill`` are
+# carry-forwards of the other sources, so they only fill days that have no
+# real observation.
 SOURCE_PRIORITY: dict[str, int] = {
     "manual": 0,
     "liga": 1,
     "jsonld_snapshot": 2,
     "myp": 3,
     SNAPSHOT_SOURCE: 9,
+    BACKFILL_SOURCE: 9,
 }
 UNKNOWN_SOURCE_PRIORITY = 5
 

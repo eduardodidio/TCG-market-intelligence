@@ -3,6 +3,21 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F176 — 2026-09-24
+**What worked:** when a targeted test run turns up failures, `git stash`ing
+this session's own uncommitted changes and re-running just the failing test
+files against the prior committed state is a fast, conclusive way to prove
+a failure is pre-existing rather than trusting a prior agent's claim of
+"unrelated."
+**What to avoid:** this repo's `pytest` `addopts` already includes `--cov`;
+re-adding `--cov=src --cov-report=term-missing` from `CLAUDE.md`'s Test
+command errors out immediately instead of running tests.
+**Pattern to repeat:** run `pytest tests/<paths> --no-cov -q` for fast
+targeted checks in this repo; verify any "pre-existing failure" claim by
+stashing and re-running rather than accepting it at face value, especially
+late in a multi-Wave batch where several agents may have repeated the same
+unverified claim.
+
 ## F01 -- MYP Cards Backfill (2026-08-18)
 
 - **Every feature must have a QA report, no exceptions.** F01 shipped without any QA validation or retrospective, which meant zero learnings were captured. Even for a "just run the collector" feature, a QA pass validates data quality and captures patterns for future features.

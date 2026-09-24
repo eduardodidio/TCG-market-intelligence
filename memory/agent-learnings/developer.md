@@ -3,6 +3,20 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F176 — 2026-09-24
+**What worked:** one pure resolver module (`price_history_keys.py`) plus one
+shared service (`build_history`) consumed by all endpoints kept a
+cross-cutting invariant (key resolution + merge priority) true by
+construction instead of by hand-sync across call sites.
+**What to avoid:** a gap explicitly flagged in a Wave summary's "Notes for
+next Wave" (`daily_snapshot_backfill` missing from `SOURCE_PRIORITY`) was
+repeated in the next Wave's summary too, and still shipped unfixed —
+TechLead had to catch it as an IMPORTANT finding. Same pattern for stale
+`Status: planned` headers left on task files after they shipped.
+**Pattern to repeat:** when your own Wave's summary flags a gap in a file
+your task list doesn't own, don't just note it again next Wave — either fix
+it inline (if it's small) or explicitly hand it to a named task/owner.
+
 ## F175 -- Trending Market Mode (2026-09-24)
 **What worked:** On a task that said "fix the frontend only if a test reveals a bug" (T05), the developer wrote the regression test first, saw it pass against the untouched source, and stopped there instead of making speculative "just in case" edits. Also, T07's API-level test used a file-backed SQLite `Repository` instead of `:memory:` specifically because FastAPI's `TestClient` issues requests from a different thread than the test setup thread, and `:memory:` SQLite is per-connection.
 **What to avoid:** N/A this round.

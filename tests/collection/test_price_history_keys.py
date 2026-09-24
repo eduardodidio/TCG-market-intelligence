@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 
 from src.collection.price_history_keys import (
+    BACKFILL_SOURCE,
     SNAPSHOT_SOURCE,
     SOURCE_PRIORITY,
     UNKNOWN_SOURCE_PRIORITY,
@@ -43,12 +44,24 @@ def test_snapshot_source_matches_collector_constant():
     assert SNAPSHOT_SOURCE == COLLECTOR_SOURCE
 
 
+def test_backfill_source_matches_collector_constant():
+    from src.collectors.price_snapshot import BACKFILL_SOURCE as COLLECTOR_BACKFILL
+
+    assert BACKFILL_SOURCE == COLLECTOR_BACKFILL
+
+
 def test_source_priority_aligned_with_repository():
     from src.database.repository import Repository
 
     for source, prio in Repository.SOURCE_PRIORITY.items():
         assert SOURCE_PRIORITY[source] == prio
     assert SOURCE_PRIORITY[SNAPSHOT_SOURCE] == 9
+
+
+def test_backfill_source_priority_matches_snapshot_priority():
+    # ADR 0017 §4: daily_snapshot_backfill resolves like daily_snapshot —
+    # same keys, same priority (9), never a "real" point.
+    assert SOURCE_PRIORITY[BACKFILL_SOURCE] == SOURCE_PRIORITY[SNAPSHOT_SOURCE] == 9
 
 
 @pytest.mark.parametrize(
@@ -60,6 +73,7 @@ def test_source_priority_aligned_with_repository():
         ("myp", 3),
         ("foo", UNKNOWN_SOURCE_PRIORITY),
         ("daily_snapshot", 9),
+        ("daily_snapshot_backfill", 9),
     ],
 )
 def test_source_priority(source, expected):
@@ -252,6 +266,26 @@ def test_merge_unknown_source_between_myp_and_snapshot():
     assert merge_series_by_priority([
         _obs("daily_snapshot", "x"), _obs("foo", "y"),
     ])[0].source == "foo"
+
+
+def test_merge_same_day_snapshot_vs_backfill_deterministic_tie():
+    # Same-priority tie (both 9) between a real daily_snapshot key and a
+    # backfill key landing on the same day for the same variant: must not
+    # panic, must pick a deterministic winner by smallest external_id, and
+    # both are still "snapshot, not real" regardless of which one wins.
+    result = merge_series_by_priority([
+        _obs("daily_snapshot", "manual_7", price="10.00"),
+        _obs("daily_snapshot_backfill", "liga_7", price="11.00"),
+    ])
+    assert len(result) == 1
+    assert result[0].source == "daily_snapshot_backfill"
+    assert result[0].external_id == "liga_7"
+
+    reversed_result = merge_series_by_priority([
+        _obs("daily_snapshot_backfill", "liga_7", price="11.00"),
+        _obs("daily_snapshot", "manual_7", price="10.00"),
+    ])
+    assert reversed_result == result
 
 
 def test_merge_priority_tie_smallest_external_id_wins():
