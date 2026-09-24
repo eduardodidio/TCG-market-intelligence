@@ -84,23 +84,23 @@ editar), `frontend/src/App.tsx`, `frontend/src/components/Layout.tsx`,
 
 ## Global acceptance criteria
 
-1. `diagnosis.md` confirma/refuta H1–H6 com números (SQLite local; comandos Neon documentados).
-2. ADR registra causa raiz e o contrato de chaves por variante.
-3. Para um card de coleção **normal** com observações `liga_{card_id}` em
+1. **AC1** — `diagnosis.md` confirma/refuta H1–H6 com números (SQLite local; comandos Neon documentados).
+2. **AC2** — ADR registra causa raiz e o contrato de chaves por variante.
+3. **AC3** — Para um card de coleção **normal** com observações `liga_{card_id}` em
    ≥3 dias distintos e sem `source_cards`, `GET /api/v1/collection/{id}/history?period=30d`
    retorna ≥3 pontos (hoje retorna 0).
-4. Para um card **foil**, a série contém apenas `liga_{card_id}_foil`
+4. **AC4** — Para um card **foil**, a série contém apenas `liga_{card_id}_foil`
    (+ snapshots/manual dessa variante) — nunca preços normais.
-5. No máximo 1 ponto por dia; prioridade `manual > liga > jsonld_snapshot > myp > daily_snapshot`.
-6. Ao fim de `liga-sweep` (não dry-run, ≥1 processado) existem `daily_snapshot` de hoje.
-7. `backfill-snapshots --days 30` nunca cria pontos anteriores à 1ª observação real; idempotente.
-8. `daily_snapshot` para de ser gerado 30 dias após a última observação real.
-9. `/collection/{id}/metrics` e `/cards/{id}/history` usam a mesma resolução.
-10. UI exibe variante, fontes, "histórico desde" e estado vazio explicativo; `CollectionCardDetail.tsx` inalterado.
-11. Teste de integração `tests/integration/test_collection_price_history.py` verde.
-12. `pytest tests/ --cov=src` e `cd frontend && npm test` verdes; `ruff check src/` limpo; cobertura dos módulos novos ≥ 90%.
-13. README atualizado; `bats/daily-snapshot.bat` entregue; diagramas F176 criados.
-14. Funciona em SQLite e PostgreSQL (sem SQL específico de dialeto além do já usado no projeto).
+5. **AC5** — No máximo 1 ponto por dia; prioridade `manual > liga > jsonld_snapshot > myp > daily_snapshot`.
+6. **AC6** — Ao fim de `liga-sweep` (não dry-run, ≥1 processado) existem `daily_snapshot` de hoje.
+7. **AC7** — `backfill-snapshots --days 30` nunca cria pontos anteriores à 1ª observação real; idempotente.
+8. **AC8** — `daily_snapshot` para de ser gerado 30 dias após a última observação real.
+9. **AC9** — `/collection/{id}/metrics` e `/cards/{id}/history` usam a mesma resolução.
+10. **AC10** — UI exibe variante, fontes, "histórico desde" e estado vazio explicativo; `CollectionCardDetail.tsx` inalterado.
+11. **AC11** — Teste de integração `tests/integration/test_collection_price_history.py` verde.
+12. **AC12** — `pytest tests/ --cov=src` e `cd frontend && npm test` verdes; `ruff check src/` limpo; cobertura dos módulos novos ≥ 90%.
+13. **AC13** — README atualizado; `bats/daily-snapshot.bat` entregue; diagramas F176 criados.
+14. **AC14** — Funciona em SQLite e PostgreSQL (sem SQL específico de dialeto além do já usado no projeto).
 
 ## Diagrams
 
