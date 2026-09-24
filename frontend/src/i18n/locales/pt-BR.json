@@ -1416,5 +1416,23 @@
     "emptyPeriod": "Sem pontos neste período. Histórico desde {{date}} — tente um período maior.",
     "snapshotPoint": "Preço repetido (sem nova coleta neste dia)",
     "realVsSnapshot": "{{real}} coletas reais · {{snapshot}} dias repetidos"
+  },
+  "tradeFilters": {
+    "sortQuantityDesc": "Quantidade (maior-menor)",
+    "sortNewest": "Mais recentes",
+    "sortOldest": "Mais antigas",
+    "sortStatus": "Status",
+    "statusLabel": "Status",
+    "status": {
+      "pending": "Pendente",
+      "accepted": "Aceita",
+      "rejected": "Recusada",
+      "completed": "Concluída",
+      "cancelled": "Cancelada"
+    },
+    "noResults": "Nenhuma carta corresponde aos filtros.",
+    "noTradesBuyer": "Você ainda não demonstrou interesse em nenhuma carta.",
+    "noTradesSeller": "Ninguém solicitou suas cartas ainda.",
+    "searchPlaceholder": "Buscar trocas pelo nome da carta..."
   }
 }
