@@ -3,6 +3,21 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F179 — 2026-09-24
+**What worked:** independently re-deriving a TechLead-flagged concurrency
+defect from the code and the ADR (rather than taking the review verdict
+at face value) confirmed the finding was real and gave a precise fix
+target; on re-validation, re-reading the fixed code against the ADR again
+(not just trusting the "APPROVED" verdict) confirmed the fix actually
+closed the TOCTOU window.
+**What to avoid:** don't treat a passing SQLite-only concurrency test as
+evidence an ordering bug is fixed — SQLite's single-writer lock hides
+check-then-lock races that only manifest on Postgres.
+**Pattern to repeat:** when re-validating a fix for a previously rejected
+concurrency defect, re-run the specific pinning test in isolation and
+confirm the statement order directly in the source, not just re-run the
+full suite and check for green.
+
 ## F176 — 2026-09-24
 **What worked:** when a targeted test run turns up failures, `git stash`ing
 this session's own uncommitted changes and re-running just the failing test

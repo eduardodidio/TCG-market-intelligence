@@ -3,6 +3,20 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F179 — 2026-09-24
+**What worked:** the fix commit for a rejected concurrency ordering bug
+was scoped to exactly the statements the ADR/review named, plus a
+pinning test — this made re-review a direct verification pass instead of
+a full re-review.
+**What to avoid:** shipping a `with_for_update()` call in the wrong
+position (check-then-lock instead of the ADR's lock-then-check) passed
+every test because the suite runs on SQLite, whose single-writer lock
+masks the exact TOCTOU race the ADR was written to prevent.
+**Pattern to repeat:** when an ADR mandates a precise concurrency
+operation order, match it exactly and add a statement-order/mock-based
+test that pins the ordering, since SQLite can't reproduce the real
+Postgres race — say so in the test's docstring.
+
 ## F176 — 2026-09-24
 **What worked:** one pure resolver module (`price_history_keys.py`) plus one
 shared service (`build_history`) consumed by all endpoints kept a

@@ -3,6 +3,20 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F179 — 2026-09-24
+**What worked:** rejecting an implementation by citing the exact ADR
+section and giving a line-level fix ("lock first, re-check under lock")
+turned the developer's fix and the re-review into a fast, low-risk pass
+(11-line diff, direct verification).
+**What to avoid:** don't treat "a `with_for_update()` call exists
+somewhere in the function" as evidence of concurrency safety — the
+original code had the lock call present but in the wrong position, and
+it passed the full test suite because SQLite's single-writer lock hides
+check-then-lock TOCTOU races entirely.
+**Pattern to repeat:** when an ADR specifies a precise operation order
+for concurrency safety, diff the implementation against the ADR's stated
+steps line-by-line, not just check that the right API call is present.
+
 ## F176 — 2026-09-24
 **What worked:** cross-checking a suspicious-looking failing test
 (`test_specific_period`) against the pre-feature baseline before calling it
