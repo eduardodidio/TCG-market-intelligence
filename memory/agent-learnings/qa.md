@@ -3,6 +3,21 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F176 — 2026-09-24
+**What worked:** when a targeted test run turns up failures, `git stash`ing
+this session's own uncommitted changes and re-running just the failing test
+files against the prior committed state is a fast, conclusive way to prove
+a failure is pre-existing rather than trusting a prior agent's claim of
+"unrelated."
+**What to avoid:** this repo's `pytest` `addopts` already includes `--cov`;
+re-adding `--cov=src --cov-report=term-missing` from `CLAUDE.md`'s Test
+command errors out immediately instead of running tests.
+**Pattern to repeat:** run `pytest tests/<paths> --no-cov -q` for fast
+targeted checks in this repo; verify any "pre-existing failure" claim by
+stashing and re-running rather than accepting it at face value, especially
+late in a multi-Wave batch where several agents may have repeated the same
+unverified claim.
+
 ## F01 -- MYP Cards Backfill (2026-08-18)
 
 - **Every feature must have a QA report, no exceptions.** F01 shipped without any QA validation or retrospective, which meant zero learnings were captured. Even for a "just run the collector" feature, a QA pass validates data quality and captures patterns for future features.
@@ -120,3 +135,8 @@ Each entry is a lesson that generalizes beyond a single bug.)
 - **CLI command wiring is a distinct test layer from service logic.** F168 had thorough unit tests for `run_daily_snapshot()` and `backfill_snapshots()`, plus integration tests, but zero CLI-level tests for the `backfill-snapshots` Click command. The `daily-snapshot` command had 5 CLI tests but the sibling `backfill-snapshots` was missed. When a feature adds multiple CLI commands, verify each has its own CLI wiring tests (argument passthrough, help text, output formatting) independent of the underlying service tests.
 - **Idempotency via DB constraints is the gold standard for daily batch jobs.** F168 relies on `on_conflict_do_nothing` against the `(source, external_id, observed_at)` unique constraint rather than application-level dedup. This makes idempotency a database guarantee rather than a code guarantee, which is inherently more reliable. When reviewing batch/snapshot features, verify the idempotency mechanism is constraint-based, not logic-based.
 - **"No credit cost" is an AC that requires negative evidence.** AC6 was verified by confirming the absence of credit-related imports, function calls, and middleware in the snapshot code path. Absence-of-code ACs require grep-based verification across the full call chain, not just reading the primary module. For future features with "no X" ACs, grep the entire call chain for X-related patterns.
+
+## F171 -- Collection Import Currency (2026-09-24)
+
+- **Re-baseline "pre-existing failure" counts against current HEAD, don't trust an earlier wave's cached number.** The TechLead review cited "5 pre-existing backend failures" from an earlier wave's `git stash` check; QA's own full-suite run at sign-off found 109. The gap was sibling features (F175/F176/F178) landing on the same branch in between, not a re-measurement error. Always re-run the full suite fresh at the QA gate and re-verify that every failure is outside the current feature's file-ownership table, rather than citing an earlier number.
+- **A safety-critical invariant tested at multiple call sites should be verified by grepping for the specific warning/marker string across all of them, not by trusting the AC checkbox.** For F171's AC5 ("no rate → never store USD as BRL"), grepping all 4 call sites for `no_rate` confirmed each one actually asserts the invariant, catching that the 4 mechanisms (lambda, `Mock`, dependency override, patched method) were each genuinely exercising it rather than 3 real tests and 1 rubber-stamp.

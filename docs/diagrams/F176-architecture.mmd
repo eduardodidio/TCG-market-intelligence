@@ -1,0 +1,61 @@
+%% F176 — Collection price history: architecture / data flow.
+%% Write side: every writer keeps its existing external_id format (no migration).
+%% Read side: one pure resolver (ADR 0017) decides which series belong to a
+%% collection entry, per variant (foil / normal); a priority merge keeps
+%% at most one point per day.
+
+flowchart LR
+    subgraph Coleta["Coleta (write side)"]
+        LS["liga_sweep.py<br/>liga_{card_id} / liga_{card_id}_foil<br/>preço mid"]
+        BAT["bats/daily-snapshot.bat<br/>(fallback manual)"]
+        MYP["snapshot_prices.py<br/>myp / jsonld_snapshot"]
+        MAN["entrada manual<br/>manual_{card_id}"]
+        DS["price_snapshot.run_daily_snapshot<br/>carry-forward ≤ 30d"]
+        BF["backfill-snapshots<br/>forward-fill de reais<br/>source=daily_snapshot_backfill"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        PO[("price_observations<br/>unique(source, external_id, observed_at)")]
+        SC[("source_cards")]
+        UC[("user_collection<br/>extras → is_foil_entry")]
+    end
+
+    subgraph Dominio["Domain (puro)"]
+        KEYS["price_history_keys.resolve_history_keys<br/>variante foil / normal"]
+        MERGE["merge_series_by_priority<br/>manual > liga > jsonld > myp > daily_snapshot<br/>1 ponto/dia"]
+    end
+
+    subgraph App["Application"]
+        SVC["collection_price_history.build_history<br/>1 query external_id IN (...) + meta"]
+    end
+
+    subgraph API["API Layer"]
+        H["GET /collection/{id}/history"]
+        M["GET /collection/{id}/metrics"]
+        CH["GET /cards/{id}/history<br/>(variante normal)"]
+    end
+
+    subgraph Client["Client"]
+        UI["PriceChart + PriceHistoryMeta<br/>variante, fontes, desde, estado vazio"]
+    end
+
+    LS -->|insert| PO
+    LS -->|fim do sweep, não dry-run| DS
+    BAT --> DS
+    MYP -->|insert| PO
+    MAN -->|insert| PO
+    DS -->|daily_snapshot| PO
+    BF -->|daily_snapshot_backfill| PO
+
+    UC -->|is_foil| SVC
+    SC -->|"(source, external_id)"| KEYS
+    SVC -->|card_id, source_cards, is_foil| KEYS
+    KEYS -->|SeriesKey list| SVC
+    PO -->|observações| SVC
+    SVC --> MERGE
+    MERGE --> SVC
+
+    SVC --> H
+    SVC --> M
+    SVC --> CH
+    H -->|HTTP JSON + meta| UI

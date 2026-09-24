@@ -18,6 +18,7 @@ import { fetchCardHistory } from "../api/cards";
 import { formatCurrency } from "../utils/format";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { ErrorBanner } from "./ErrorBanner";
+import { PriceHistoryMeta, formatHistoryDate } from "./PriceHistoryMeta";
 import type { ApiResponse, PriceHistoryResponse, PriceObservation } from "../types/api";
 
 export interface PriceChartProps {
@@ -53,7 +54,8 @@ interface CustomTooltipProps {
   label?: string;
 }
 
-function ChartTooltip({ active, payload, label, currency = "BRL" }: CustomTooltipProps & { currency?: string }) {
+export function ChartTooltip({ active, payload, label, currency = "BRL" }: CustomTooltipProps & { currency?: string }) {
+  const { t } = useTranslation();
   if (!active || !payload || payload.length === 0) return null;
 
   // Find quantity from the original data point
@@ -61,6 +63,7 @@ function ChartTooltip({ active, payload, label, currency = "BRL" }: CustomToolti
     payload?: PriceObservation;
   };
   const quantity = dataPoint?.payload?.quantity_available;
+  const isSnapshot = dataPoint?.payload?.source === "daily_snapshot";
 
   return (
     <div className="rounded-md bg-slate-900 border border-slate-500 p-3 shadow-lg">
@@ -73,6 +76,11 @@ function ChartTooltip({ active, payload, label, currency = "BRL" }: CustomToolti
       {quantity != null && (
         <p className="text-xs text-slate-400 mt-1">
           {`Qty available: ${quantity}`}
+        </p>
+      )}
+      {isSnapshot && (
+        <p data-testid="tooltip-snapshot-point" className="text-xs text-amber-400/80 mt-1">
+          {t("priceHistory.snapshotPoint")}
         </p>
       )}
     </div>
@@ -128,10 +136,12 @@ export function PriceChart({
   // Normalize response: support both new {observations, summary} and legacy PriceObservation[]
   let observations: PriceObservation[] = [];
   let summary: PriceHistoryResponse["summary"] = null;
+  let meta: PriceHistoryResponse["meta"] = null;
   if (rawData) {
     if (isHistoryResponse(rawData)) {
       observations = rawData.observations;
       summary = rawData.summary;
+      meta = rawData.meta ?? null;
     } else if (Array.isArray(rawData)) {
       observations = rawData;
     }
@@ -237,6 +247,9 @@ export function PriceChart({
         )}
       </div>
 
+      {/* Variant / sources / history-since metadata (only when backend sends meta) */}
+      {!loading && !error && meta && <PriceHistoryMeta meta={meta} />}
+
       {/* Price change summary */}
       {!loading && !error && summary && summary.price_start != null && summary.price_end != null && (
         <div data-testid="price-summary" className="flex flex-wrap items-center gap-4 mb-4 text-sm">
@@ -259,7 +272,7 @@ export function PriceChart({
       )}
 
       {/* No data for period message */}
-      {!loading && !error && summary && summary.price_start == null && summary.price_end == null && observations.length === 0 && (
+      {!loading && !error && !meta && summary && summary.price_start == null && summary.price_end == null && observations.length === 0 && (
         <p data-testid="no-data-for-period" className="text-slate-400 text-sm mb-3">
           {t("chart.noDataForPeriod")}
         </p>
@@ -272,7 +285,17 @@ export function PriceChart({
 
       {!loading && !error && observations.length === 0 && (
         <p data-testid="empty-history" className="text-slate-400 text-center py-8">
-          {t("chart.noHistory")}
+          {!meta && t("chart.noHistory")}
+          {meta && meta.first_observed_at == null && (
+            <span data-testid="empty-history-never">
+              {t("priceHistory.emptyNeverCollected", { variant: meta.variant })}
+            </span>
+          )}
+          {meta && meta.first_observed_at != null && (
+            <span data-testid="empty-history-period">
+              {t("priceHistory.emptyPeriod", { date: formatHistoryDate(meta.first_observed_at) })}
+            </span>
+          )}
         </p>
       )}
 

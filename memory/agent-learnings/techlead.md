@@ -3,6 +3,21 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F176 — 2026-09-24
+**What worked:** cross-checking a suspicious-looking failing test
+(`test_specific_period`) against the pre-feature baseline before calling it
+a regression — confirmed it was pre-existing date drift, not caused by the
+feature.
+**What to avoid:** this repo's `pytest` `addopts` (in `pyproject.toml`)
+already bake in `--cov` flags; re-passing `--cov=src --cov-report=term-missing`
+as `CLAUDE.md`'s documented Test command literally says duplicates them and
+pytest errors out before running anything. This caused 5 prior TechLead
+attempts on F176 to stall with no `review-*.md` produced.
+**Pattern to repeat:** run `pytest tests/<specific paths>` with no extra
+`--cov` overrides (or `--no-cov` to disable outright) when verifying test
+status in this repo; only pass `--cov=...` if `pyproject.toml`'s `addopts`
+doesn't already set it.
+
 ## F175 -- Trending Market Mode (2026-09-24)
 **What worked:** Reviewing diagram/architecture output alongside a diff of the actual query/regex code, not just describing the data-flow shape at a high level.
 **What to avoid:** Approving a diagram as "matches the code" without diffing quoted implementation details (a specific regex, formula, or constant) against the real source line. F175's architecture diagram claimed the exclusion regex was `^(?:liga|manual)_(\d+)(?:_foil)?$` (foil optionally matching) when the actual code is `^(?:liga|manual)_(\d+)$` (foil never matches) -- opposite intent, caught only in the later QA pass.

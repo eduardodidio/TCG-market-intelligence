@@ -3,6 +3,22 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F176 — 2026-09-24
+**What worked:** a Wave-0 read-only diagnosis task (script + `diagnosis.md`
+with a hypothesis table, H1–H6) that proves the root cause with real
+fixture data before any fix code is written, plus a governance checkpoint
+that re-reads it before Wave 1 — cheap insurance, caught nothing to
+re-plan here but is worth keeping as a template for "root cause is
+contested" bugs.
+**What to avoid:** a cross-Wave gap (`daily_snapshot_backfill` missing from
+`SOURCE_PRIORITY`) was flagged twice in Wave summaries but no later Wave's
+task list owned the file, so it was never turned into a task and shipped
+unfixed to TechLead.
+**Pattern to repeat:** when planning Waves, if a Wave summary (once
+available) flags an unresolved gap in a module no later Wave's tasks touch,
+insert a one-task fast-follow before the batch merges rather than trusting
+the next Wave to notice it in passing.
+
 ## F175 -- Trending Market Mode (2026-09-24)
 **What worked:** Task manifest explicitly called out which files were high-risk/shared across the F171-F179 batch and isolated the shared `README.md` edit into its own dedicated last-Wave task -- avoided any merge conflict.
 **What to avoid:** AC5 required the market query to run <12s "no Neon" (production Postgres) -- a criterion no sandbox or CI run against SQLite can ever verify before merge. Leaving it as an unqualified acceptance criterion caused ambiguity for QA about whether the feature could be marked done.

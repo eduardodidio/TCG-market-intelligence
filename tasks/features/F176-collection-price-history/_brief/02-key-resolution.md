@@ -1,5 +1,11 @@
 # F176 — Shard 02: Contrato de chaves de histórico + merge
 
+> **Ajustado pelo ADR 0017** (`docs/adr/0017-collection-price-history-keys.md`): regras de chave
+> confirmadas pelo diagnóstico sem mudança. Esclarecimentos: (1) o backfill forward-fill grava
+> `source='daily_snapshot_backfill'` (Governance amendment 5), tratado como `daily_snapshot`
+> (mesmas chaves por variante, prioridade 9, não conta como ponto real); (2) `meta.real_points`
+> exclui todas as sources de snapshot; (3) MYP fica fora da série foil (sem chave `_foil`).
+
 ## Módulo novo: `src/collection/price_history_keys.py` (puro, sem DB)
 
 ```python

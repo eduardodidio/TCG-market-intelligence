@@ -3,6 +3,20 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F176 — 2026-09-24
+**What worked:** one pure resolver module (`price_history_keys.py`) plus one
+shared service (`build_history`) consumed by all endpoints kept a
+cross-cutting invariant (key resolution + merge priority) true by
+construction instead of by hand-sync across call sites.
+**What to avoid:** a gap explicitly flagged in a Wave summary's "Notes for
+next Wave" (`daily_snapshot_backfill` missing from `SOURCE_PRIORITY`) was
+repeated in the next Wave's summary too, and still shipped unfixed —
+TechLead had to catch it as an IMPORTANT finding. Same pattern for stale
+`Status: planned` headers left on task files after they shipped.
+**Pattern to repeat:** when your own Wave's summary flags a gap in a file
+your task list doesn't own, don't just note it again next Wave — either fix
+it inline (if it's small) or explicitly hand it to a named task/owner.
+
 ## F175 -- Trending Market Mode (2026-09-24)
 **What worked:** On a task that said "fix the frontend only if a test reveals a bug" (T05), the developer wrote the regression test first, saw it pass against the untouched source, and stopped there instead of making speculative "just in case" edits. Also, T07's API-level test used a file-backed SQLite `Repository` instead of `:memory:` specifically because FastAPI's `TestClient` issues requests from a different thread than the test setup thread, and `:memory:` SQLite is per-connection.
 **What to avoid:** N/A this round.
@@ -106,3 +120,7 @@ Each entry is a lesson that generalizes beyond a single bug.)
 - **When wrapping an existing action in a confirmation modal, update all test files that interact with the original trigger.** Adding CreditConfirmModal before refresh buttons broke 7 existing tests. The developer should grep for `data-testid` of all wrapped buttons and update the corresponding tests in the same PR -- this is part of the feature implementation, not a QA task.
 - **Deduct-after-success guards must be symmetric across all provider paths.** The Liga refresh correctly guarded credit deduction behind a success check (early return on error), but the MYP refresh path deducted unconditionally. When adding a guard to one code path, search for all analogous paths and apply the same guard. Use a `price_saved` flag pattern consistently.
 - **Match frontend TypeScript interface field names to backend response keys exactly.** The `ClaimBonusResponse` interface declared `new_balance` and `amount_claimed` while the backend returned `balance` and `credited`. TypeScript does not error on missing fields -- values silently become `undefined`. Always copy field names from the backend router's return dict into the frontend interface.
+
+## F171 -- Collection Import Currency (2026-09-24)
+
+- **Don't re-guard a pure function's own short-circuit invariant one layer up in the caller.** `to_brl` already encodes "BRL never needs a rate" internally, but `batch_add.py` checked `rate_lookup is None` *before* even looking at the entry's currency, so a BRL-priced entry with no `rate_lookup` would incorrectly get dropped with a misleading "no exchange rate available" warning. `importer.py` got this right by always calling `to_brl` with `rate_lookup or (lambda _d: None)` and letting the pure function's own branching decide. When a pure function already has a currency/type-aware short-circuit, call it unconditionally with a no-op fallback instead of re-checking the precondition above it.

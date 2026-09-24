@@ -1,12 +1,18 @@
-"""Tests for CLI daily-snapshot and backfill-snapshots commands (F168-T02/T03)."""
+"""Tests for CLI daily-snapshot and backfill-snapshots commands (F168-T02/T03, F176-T11)."""
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+from decimal import Decimal
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
+from sqlalchemy.orm import Session
 
 from src.cli.main import cli
+from src.database.models import PriceObservationRow
+from src.database.repository import Repository
 
 
 class TestDailySnapshotCommand:
@@ -84,7 +90,7 @@ class TestBackfillSnapshotsCommand:
             result = runner.invoke(cli, ["backfill-snapshots", "--db", "sqlite:///test.db"])
 
         assert result.exit_code == 0
-        mock_bf.assert_called_once_with(mock_repo, days=1)
+        mock_bf.assert_called_once_with(mock_repo, days=1, dry_run=False)
         assert "15 observations created" in result.output
 
     def test_zero_observations(self):
@@ -114,7 +120,7 @@ class TestBackfillSnapshotsCommand:
             )
 
         assert result.exit_code == 0
-        mock_bf.assert_called_once_with(mock_repo, days=10)
+        mock_bf.assert_called_once_with(mock_repo, days=10, dry_run=False)
         assert "30 observations created" in result.output
 
     def test_shows_in_help(self):
@@ -134,3 +140,89 @@ class TestBackfillSnapshotsCommand:
         assert "--db" in result.output
         assert "--days" in result.output
         assert "Backfill daily snapshots" in result.output
+
+    def test_help_shows_dry_run(self):
+        """backfill-snapshots --help shows the --dry-run flag."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["backfill-snapshots", "--help"])
+
+        assert result.exit_code == 0
+        assert "--dry-run" in result.output
+
+    def test_dry_run_does_not_write(self, tmp_path):
+        """--dry-run reports the count but writes nothing to the database."""
+        db_url = f"sqlite:///{tmp_path}/t.db"
+        runner = CliRunner()
+
+        repo = Repository(db_url=db_url)
+        today = date.today()
+        with Session(repo.engine) as session:
+            session.add(
+                PriceObservationRow(
+                    source="liga",
+                    external_id="liga_1",
+                    observed_at=today - timedelta(days=3),
+                    median_price=Decimal("10.00"),
+                )
+            )
+            session.commit()
+
+        result = runner.invoke(
+            cli, ["backfill-snapshots", "--db", db_url, "--days", "5", "--dry-run"]
+        )
+
+        assert result.exit_code == 0
+        assert "Backfill dry-run: 3 observations would be created." in result.output
+
+        with Session(repo.engine) as session:
+            count = session.query(PriceObservationRow).count()
+        assert count == 1  # only the original real observation, nothing backfilled
+
+    def test_happy_path_real_backfill(self, tmp_path):
+        """Real DB with 1 observation from D-3 -> creates 3 (D-2..D)."""
+        db_url = f"sqlite:///{tmp_path}/t.db"
+        runner = CliRunner()
+
+        repo = Repository(db_url=db_url)
+        today = date.today()
+        with Session(repo.engine) as session:
+            session.add(
+                PriceObservationRow(
+                    source="liga",
+                    external_id="liga_1",
+                    observed_at=today - timedelta(days=3),
+                    median_price=Decimal("10.00"),
+                )
+            )
+            session.commit()
+
+        result = runner.invoke(cli, ["backfill-snapshots", "--db", db_url, "--days", "5"])
+
+        assert result.exit_code == 0
+        assert "Backfill complete: 3 observations created." in result.output
+
+        with Session(repo.engine) as session:
+            count = session.query(PriceObservationRow).count()
+        assert count == 4  # original + 3 backfilled
+
+    def test_days_zero_returns_friendly_error(self, tmp_path):
+        """--days 0 exits with a non-zero code and a friendly message."""
+        db_url = f"sqlite:///{tmp_path}/t.db"
+        runner = CliRunner()
+
+        result = runner.invoke(cli, ["backfill-snapshots", "--db", db_url, "--days", "0"])
+
+        assert result.exit_code != 0
+        assert "days" in result.output.lower()
+
+
+class TestDailySnapshotBat:
+    """Tests for bats/daily-snapshot.bat (F176-T11)."""
+
+    def test_bat_file_follows_process_queue_pattern(self):
+        bat_path = Path(__file__).resolve().parent.parent / "bats" / "daily-snapshot.bat"
+        assert bat_path.exists(), "bats/daily-snapshot.bat must exist"
+
+        content = bat_path.read_text()
+        assert 'cd /d "%~dp0\\.."' in content
+        assert "python -m src.cli.main daily-snapshot" in content

@@ -54,6 +54,7 @@ export interface PriceObservation {
   last_sold_price: number | null;
   quantity_available: number | null;
   currency: string;
+  source?: string | null;
 }
 
 export interface PriceChangeSummary {
@@ -66,9 +67,19 @@ export interface PriceChangeSummary {
   resolution: string;
 }
 
+export interface PriceHistoryMeta {
+  variant: "foil" | "normal";
+  sources: string[];
+  first_observed_at: string | null;
+  last_observed_at: string | null;
+  real_points: number;
+  snapshot_points: number;
+}
+
 export interface PriceHistoryResponse {
   observations: PriceObservation[];
   summary: PriceChangeSummary | null;
+  meta?: PriceHistoryMeta | null;
 }
 
 // Set types

@@ -1400,5 +1400,21 @@
   },
   "purchases": {
     "convertedFrom": "Convertido de {{original}}"
+  },
+  "priceHistory": {
+    "variantFoil": "Foil ✦",
+    "variantNormal": "Normal",
+    "variantLabel": "Versão do card: {{variant}}",
+    "sources": "Fontes",
+    "since": "Histórico desde {{date}}",
+    "sourceLiga": "Liga",
+    "sourceMyp": "MYP",
+    "sourceManual": "Manual",
+    "sourceJsonld": "JSON-LD",
+    "sourceSnapshot": "Snapshot diário",
+    "emptyNeverCollected": "Ainda não há preços registrados para esta versão ({{variant}}). O histórico começa na próxima varredura Liga.",
+    "emptyPeriod": "Sem pontos neste período. Histórico desde {{date}} — tente um período maior.",
+    "snapshotPoint": "Preço repetido (sem nova coleta neste dia)",
+    "realVsSnapshot": "{{real}} coletas reais · {{snapshot}} dias repetidos"
   }
 }

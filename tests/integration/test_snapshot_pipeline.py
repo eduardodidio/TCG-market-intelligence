@@ -19,6 +19,7 @@ from src.api.deps import get_current_user, get_db
 from src.api.routers.admin import router as admin_router
 from src.api.routers.cards import router as cards_router
 from src.collectors.price_snapshot import (
+    BACKFILL_SOURCE,
     SNAPSHOT_SOURCE,
     backfill_snapshots,
     run_daily_snapshot,
@@ -284,47 +285,42 @@ class TestAdminEndpointAuth:
 
 
 class TestBackfillAndSnapshot:
+    # F176-T05: backfill forward-fills from real observations (seeded at D-1),
+    # so a 3-day window only fills today, under BACKFILL_SOURCE.
     def test_backfill_creates_multi_day_observations(self, seeded_repo):
-        """backfill_snapshots(days=3) creates 3 days x 3 cards = 9 observations."""
+        """backfill_snapshots(days=3) fills only days after the first real obs."""
         repo, ids = seeded_repo
         count = backfill_snapshots(repo, days=3)
-        assert count == 9  # 3 cards x 3 days
+        assert count == 3  # 3 cards x 1 day (today); D-2 precedes the first real obs
 
         with Session(repo.engine) as session:
             snapshot_obs = (
                 session.query(PriceObservationRow)
-                .filter(PriceObservationRow.source == SNAPSHOT_SOURCE)
+                .filter(PriceObservationRow.source == BACKFILL_SOURCE)
                 .all()
             )
-            assert len(snapshot_obs) == 9
-
-            # Verify dates span 3 days
-            dates = {o.observed_at for o in snapshot_obs}
-            today = date.today()
-            expected_dates = {today - timedelta(days=d) for d in range(3)}
-            assert dates == expected_dates
+            assert len(snapshot_obs) == 3
+            assert {o.observed_at for o in snapshot_obs} == {date.today()}
 
     def test_backfill_then_daily_snapshot(self, seeded_repo):
         """Backfill 3 days, then daily snapshot. Daily should be idempotent for today."""
         repo, ids = seeded_repo
 
         backfill_count = backfill_snapshots(repo, days=3)
-        assert backfill_count == 9
+        assert backfill_count == 3
 
         # Daily snapshot for today — backfill already covered today,
         # so this should create 0 new observations
         daily_count = run_daily_snapshot(repo)
         assert daily_count == 0
 
-    def test_backfill_skips_already_snapshotted(self, seeded_repo):
-        """Backfill skips cards that already have daily_snapshot observations."""
+    def test_backfill_second_run_creates_zero(self, seeded_repo):
+        """Backfill is idempotent: the second run finds no empty days."""
         repo, ids = seeded_repo
 
-        # First backfill
         count1 = backfill_snapshots(repo, days=2)
-        assert count1 == 6  # 3 cards x 2 days
+        assert count1 == 3  # 3 cards x today (D-1 has the real observation)
 
-        # Second backfill — all cards already have snapshots
         count2 = backfill_snapshots(repo, days=2)
         assert count2 == 0
 

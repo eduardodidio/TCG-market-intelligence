@@ -19,6 +19,16 @@ from src.collectors.liga_sweep import (
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def _no_daily_snapshot():
+    """Isolate these tests from the post-sweep daily snapshot (F176-T06).
+
+    Covered separately in ``test_liga_sweep_daily_snapshot.py``.
+    """
+    with patch("src.collectors.price_snapshot.run_daily_snapshot", return_value=0) as mock_snapshot:
+        yield mock_snapshot
+
+
 def _make_card(card_id: int, name_en: str = "Card", name_pt: str = "Carta") -> dict:
     return {
         "entry_id": card_id,

@@ -29,6 +29,7 @@ class LigaSweepResult:
     errors: int
     batches_completed: int
     dry_run: bool
+    daily_snapshot_created: int = 0
 
 
 from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
@@ -147,6 +148,7 @@ async def run_liga_sweep(
     set_filter: str | None = None,
     collection_only: bool = True,
     on_complete: Callable[[ScanRun, list[str]], None] | None = None,
+    snapshot_after: bool = True,
 ) -> LigaSweepResult:
     """Sweep all eligible collection cards through LigaMagic.
 
@@ -161,6 +163,10 @@ async def run_liga_sweep(
         set_filter: Only sweep cards from this set code.
         collection_only: When True (default), sweep user collection cards.
             When False, sweep catalog cards (cards + source_cards tables).
+        on_complete: Callback fired with the processed external_ids.
+        snapshot_after: When True (default), write today's global
+            ``daily_snapshot`` after a sweep that processed >=1 card.
+            Best-effort: failures are logged, never raised.
 
     Returns:
         LigaSweepResult with aggregated counts.
@@ -294,6 +300,17 @@ async def run_liga_sweep(
         except Exception:
             log.exception("liga_sweep_on_complete_error")
 
+    daily_snapshot_created = 0
+    if snapshot_after and total_processed > 0:
+        # Local import: keeps import-time light and avoids a cycle.
+        from src.collectors.price_snapshot import run_daily_snapshot
+
+        try:
+            daily_snapshot_created = run_daily_snapshot(repo)
+            log.info("liga_sweep_daily_snapshot", created=daily_snapshot_created)
+        except Exception as exc:
+            log.warning("liga_sweep_daily_snapshot_failed", error=str(exc))
+
     return LigaSweepResult(
         total_eligible=total_eligible,
         total_processed=total_processed,
@@ -302,4 +319,5 @@ async def run_liga_sweep(
         errors=errors,
         batches_completed=batches_completed,
         dry_run=False,
+        daily_snapshot_created=daily_snapshot_created,
     )

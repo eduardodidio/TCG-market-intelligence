@@ -52,6 +52,7 @@ from src.api.schemas.collection import (
     ParsedLineResponse,
     PortfolioHistoryPoint,
     PortfolioSummary,
+    PriceHistoryMeta,
     SnapshotRequest,
     SyncRequest,
     ValuationResponse,
@@ -72,9 +73,10 @@ from src.config import get_db_url
 from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
-from src.domain.models import CardAnalytics, HistoricalPrice, User
+from src.domain.models import CardAnalytics, User
 from src.providers.liga.urls import resolve_liga_card_url
 from src.services import ban_analyzer
+from src.services.collection_price_history import build_history
 from src.services.currency import CurrencyConverter
 from src.utils.image_fallback import fallback_image_uri
 from src.utils.set_code_map import map_to_scryfall_set_code
@@ -804,50 +806,14 @@ def get_card_metrics(
     if entry.card_id is None:
         raise api_error(422, ErrorCode.VALIDATION_ERROR, "Card not linked to a price source")
 
-    source_cards = repo.get_source_cards_for_card(entry.card_id)
-    if not source_cards:
-        # No source cards: return empty metrics
-        return success_response(
-            data=CardMetricsResponse(
-                entry_id=entry_id,
-                card_id=entry.card_id,
-                period=period,
-                currency=currency,
-                data_points=0,
-            )
-        )
-
     days = METRICS_PERIOD_MAP[period]
+    is_foil = is_foil_entry(entry.extras)
+    all_prices, _meta = build_history(repo, entry.card_id, is_foil, days * 2 + 30)
 
-    # Fetch all price observations and convert to domain objects
-    all_prices: list[HistoricalPrice] = []
-    for sc in source_cards:
-        db_prices = repo.get_price_series(
-            source=[sc.source, "jsonld_snapshot"],
-            external_id=sc.external_id,
-            days=days * 2 + 30,  # Extra data for period comparison + MAs
-        )
-        for p in db_prices:
-            all_prices.append(
-                HistoricalPrice(
-                    source=p.source,
-                    external_id=p.external_id,
-                    observed_at=p.observed_at,
-                    median_price=p.median_price,
-                    tcg_price=p.tcg_price,
-                    last_sold_price=p.last_sold_price,
-                    quantity_available=p.quantity_available,
-                )
-            )
-
-    all_prices.sort(key=lambda p: p.observed_at)
-
-    # Use the first source card for analytics context
-    sc = source_cards[0]
     analytics = compute_card_analytics(
         all_prices,
-        source=sc.source,
-        external_id=sc.external_id,
+        source=all_prices[0].source if all_prices else "liga",
+        external_id=all_prices[0].external_id if all_prices else "",
         period_days=days,
     )
 
@@ -998,21 +964,9 @@ def get_collection_history(
     if entry.card_id is None:
         return success_response(data=CollectionHistoryResponse(observations=[], summary=None))
 
-    source_cards = repo.get_source_cards_for_card(entry.card_id)
-    if not source_cards:
-        return success_response(data=CollectionHistoryResponse(observations=[], summary=None))
-
+    is_foil = is_foil_entry(entry.extras)
     days = PERIOD_MAP[period]
-    all_observations = []
-    for sc in source_cards:
-        prices = repo.get_price_series(
-            source=[sc.source, "jsonld_snapshot"],
-            external_id=sc.external_id,
-            days=days,
-        )
-        all_observations.extend(prices)
-
-    all_observations.sort(key=lambda p: p.observed_at)
+    series, meta = build_history(repo, entry.card_id, is_foil, days)
 
     observations = [
         PriceObservation(
@@ -1022,15 +976,20 @@ def get_collection_history(
             last_sold_price=converter.convert(p.last_sold_price, p.observed_at, currency),
             quantity_available=p.quantity_available,
             currency=currency,
+            source=p.source,
         )
-        for p in all_observations
+        for p in series
     ]
 
     observations, resolution = aggregate_series(observations, period)
     summary = compute_price_change_summary(observations, period, resolution)
 
     return success_response(
-        data=CollectionHistoryResponse(observations=observations, summary=summary)
+        data=CollectionHistoryResponse(
+            observations=observations,
+            summary=summary,
+            meta=PriceHistoryMeta(**meta),
+        )
     )
 
 
