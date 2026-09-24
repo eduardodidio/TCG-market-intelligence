@@ -52,6 +52,8 @@ def browse_listings(
     offset: int = Query(0, ge=0),
     set_code: str | None = Query(None),
     search: str | None = Query(None),
+    sort_by: str = Query("name", pattern="^(name|set|number|price)$"),
+    sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
     user: User | None = Depends(get_optional_user),
     svc: MarketplaceService = Depends(_get_service),
 ):
@@ -63,8 +65,21 @@ def browse_listings(
         set_code=set_code,
         search=search,
         exclude_user_id=exclude_id,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
     return {"listings": listings, "count": len(listings)}
+
+
+@router.get("/listings/sets")
+def list_listing_sets(
+    user: User | None = Depends(get_optional_user),
+    svc: MarketplaceService = Depends(_get_service),
+):
+    """Return set facets for the marketplace listings. Excludes own cards if authenticated."""
+    exclude_id = user.id if user else None
+    sets = svc.get_listing_sets(exclude_user_id=exclude_id)
+    return {"sets": sets}
 
 
 @router.get("/listings/{share_code}")

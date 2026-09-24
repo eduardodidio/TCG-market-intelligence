@@ -6,6 +6,7 @@ import { fetchCollectionBanned } from "../api/banEngine";
 import { fetchCollection, fetchCollectionSummary, fetchCollectionSets, refreshCardPriceLiga, bulkUpdateEntries, bulkDeleteEntries, refreshAllCollectionPrices } from "../api/collection";
 import { BanAlertBanner } from "../components/BanAlertBanner";
 import { BulkCanonizeButton } from "../components/BulkCanonizeButton";
+import { CardFilterBar } from "../components/CardFilterBar";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
 import { BanBadge } from "../components/BanBadge";
 import { EmptyState } from "../components/EmptyState";
@@ -16,10 +17,8 @@ import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { KpiCard } from "../components/KpiCard";
 import { ScanProgressBar } from "../components/ScanProgressBar";
 import { ScanSummaryCard } from "../components/ScanSummaryCard";
-import { SearchBar } from "../components/SearchBar";
-import { SetIconFilter } from "../components/SetIconFilter";
 import { SkeletonCard } from "../components/Skeleton";
-import { SortSelect, COLLECTION_SORT_OPTIONS } from "../components/SortSelect";
+import { COLLECTION_SORT_OPTIONS } from "../components/SortSelect";
 import { useDebounce } from "../hooks/useDebounce";
 import { useGridSize } from "../hooks/useGridSize";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
@@ -751,20 +750,16 @@ export function MyCollection() {
       )}
 
       {/* Search, sort, and filters — sticky bar */}
-      <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm pb-4 pt-2 -mx-6 px-6 border-b border-slate-700/50 space-y-4 mb-6" data-testid="sticky-filter-bar">
-        <div className="flex gap-3 items-center">
-          <div className="flex-1">
-            <SearchBar value={searchTerm} onChange={setSearchTerm} />
-          </div>
-          <SortSelect
-            options={COLLECTION_SORT_OPTIONS}
-            value={`${sortBy}-${sortDir}`}
-            onChange={handleSortChange}
-          />
-        </div>
-        {setOptions.length > 0 && (
-          <SetIconFilter options={setOptions} selected={selectedSet} onSelect={setSelectedSet} />
-        )}
+      <CardFilterBar
+        search={searchTerm}
+        onSearchChange={setSearchTerm}
+        sortOptions={COLLECTION_SORT_OPTIONS}
+        sortValue={`${sortBy}-${sortDir}`}
+        onSortChange={handleSortChange}
+        setOptions={setOptions}
+        selectedSet={selectedSet}
+        onSetSelect={setSelectedSet}
+      >
         {/* Acquisition price filter chips */}
         <div className="flex items-center gap-2" data-testid="acquisition-filter">
           <span className="text-xs font-medium text-slate-500">
@@ -1065,7 +1060,7 @@ export function MyCollection() {
             onDismiss={dismissSummary}
           />
         )}
-      </div>
+      </CardFilterBar>
 
       {error && (
         <div className="mb-6">
