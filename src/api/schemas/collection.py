@@ -68,6 +68,15 @@ class ImportResult(BaseModel):
     total_csv_rows: int
     new_entry_ids: list[int] = []
     canonize_scheduled: bool = False
+    detected_currency: str = "BRL"
+    currency_source: str = "default"
+    currency_confidence: str = "low"
+    currency_evidence: list[str] = []
+    priced: int = 0
+    converted: int = 0
+    exchange_rate: str | None = None
+    price_warnings: list[str] = []
+    dry_run: bool = False
 
 
 class SyncRequest(BaseModel):
