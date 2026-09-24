@@ -481,6 +481,89 @@
     "saveDeck": "Salvar Deck",
     "deckName": "Nome do Deck"
   },
+  "deckBuild": {
+    "title": "Montador de Deck",
+    "selectFormat": "Selecione o formato",
+    "selectCommander": "Selecione o comandante",
+    "selectColors": "Selecione as cores",
+    "pickColors": "Escolha uma ou mais cores para o seu deck.",
+    "searchCommander": "Buscar uma criatura lendária...",
+    "commanderSearchError": "Falha na busca de comandantes",
+    "noCommandersFound": "Nenhum comandante encontrado para",
+    "archetypeBudget": "Arquétipo e orçamento",
+    "selectArchetype": "Selecione um arquétipo (opcional):",
+    "budgetLabel": "Limite de orçamento (BRL, opcional):",
+    "prioritizeOwned": "Priorizar cartas que já tenho",
+    "generate": "Gerar deck",
+    "generating": "Gerando...",
+    "regenerate": "Gerar novamente",
+    "reviewDeck": "Revisar deck",
+    "totalCards": "Total de cartas",
+    "lands": "Terrenos",
+    "nonlands": "Não-terrenos",
+    "totalValue": "Valor total",
+    "deckName": "Nome do deck",
+    "saveDeck": "Ver deck"
+  },
+  "deckSuggest": {
+    "mode": {
+      "manualTitle": "Montar meu próprio deck",
+      "manualDesc": "Escolha formato, cores e arquétipo — gerado na hora.",
+      "suggestionTitle": "Sugestão de deck",
+      "suggestionDesc": "O Claude monta um deck a partir da sua coleção. Processado uma vez por dia.",
+      "switchBack": "← Trocar modo"
+    },
+    "form": {
+      "format": "Formato",
+      "commander": "Comandante",
+      "colors": "Cores",
+      "archetype": "Arquétipo",
+      "notes": "Observações (opcional)",
+      "notesPlaceholder": "ex.: foco em marcadores +1/+1, econômico...",
+      "submit": "Pedir sugestão",
+      "submitting": "Enviando...",
+      "success": "Pedido registrado! Sua sugestão será gerada na próxima execução diária.",
+      "genericError": "Não foi possível registrar o pedido. Tente novamente."
+    },
+    "panel": {
+      "selectPrompt": "Selecione um pedido para ver a sugestão."
+    },
+    "result": {
+      "pending": "Na fila – será gerado na próxima execução diária.",
+      "processing": "Processando – o resultado aparecerá em breve.",
+      "failed": "Não foi possível gerar a sugestão.",
+      "saveFailed": "Não foi possível salvar o deck.",
+      "totalCards": "Total de cartas",
+      "ownedCards": "Na coleção",
+      "missingCards": "Faltando",
+      "missingCost": "Custo para completar",
+      "commander": "Comandante",
+      "owned": "Na coleção",
+      "missing": "Falta",
+      "unresolved": "Cartas não encontradas no catálogo",
+      "viewDeck": "Ver deck salvo",
+      "save": "Salvar como deck",
+      "saving": "Salvando..."
+    }
+  },
+  "deckSuggestions": {
+    "list": {
+      "title": "Meus pedidos",
+      "loading": "Carregando...",
+      "refresh": "Atualizar",
+      "emptyTitle": "Nenhum pedido ainda",
+      "emptyDescription": "Crie um pedido de sugestão para vê-lo aqui.",
+      "ownedOfTotal": "{{owned}}/{{total}} na coleção",
+      "delete": "Excluir pedido",
+      "confirmDelete": "Excluir este pedido de sugestão?"
+    },
+    "status": {
+      "pending": "Na fila",
+      "processing": "Processando",
+      "done": "Pronto",
+      "failed": "Falhou"
+    }
+  },
   "deckEval": {
     "title": "Avaliacao do Deck",
     "manaCurve": "Curva de Mana",

@@ -481,6 +481,89 @@
     "saveDeck": "Save Deck",
     "deckName": "Deck Name"
   },
+  "deckBuild": {
+    "title": "Deck Builder",
+    "selectFormat": "Select Format",
+    "selectCommander": "Select Commander",
+    "selectColors": "Select Colors",
+    "pickColors": "Pick one or more colors for your deck.",
+    "searchCommander": "Search for a legendary creature...",
+    "commanderSearchError": "Commander search failed",
+    "noCommandersFound": "No commanders found for",
+    "archetypeBudget": "Archetype & Budget",
+    "selectArchetype": "Select an archetype (optional):",
+    "budgetLabel": "Budget limit (BRL, optional):",
+    "prioritizeOwned": "Prioritize cards I already own",
+    "generate": "Generate Deck",
+    "generating": "Generating...",
+    "regenerate": "Regenerate",
+    "reviewDeck": "Review Deck",
+    "totalCards": "Total Cards",
+    "lands": "Lands",
+    "nonlands": "Non-Lands",
+    "totalValue": "Total Value",
+    "deckName": "Deck Name",
+    "saveDeck": "View Deck"
+  },
+  "deckSuggest": {
+    "mode": {
+      "manualTitle": "Build my own deck",
+      "manualDesc": "Pick format, colors and archetype — generated instantly.",
+      "suggestionTitle": "Deck suggestion",
+      "suggestionDesc": "Claude builds a deck around your collection. Processed once a day.",
+      "switchBack": "← Switch mode"
+    },
+    "form": {
+      "format": "Format",
+      "commander": "Commander",
+      "colors": "Colors",
+      "archetype": "Archetype",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "e.g. focus on +1/+1 counters, budget-friendly...",
+      "submit": "Request suggestion",
+      "submitting": "Sending...",
+      "success": "Request registered! Your suggestion will be generated in the next daily run.",
+      "genericError": "Could not register the request. Try again."
+    },
+    "panel": {
+      "selectPrompt": "Select a request to see its suggestion."
+    },
+    "result": {
+      "pending": "Queued – it will be generated in the next daily run.",
+      "processing": "Processing – the result will appear shortly.",
+      "failed": "Could not generate the suggestion.",
+      "saveFailed": "Could not save the deck.",
+      "totalCards": "Total cards",
+      "ownedCards": "In collection",
+      "missingCards": "Missing",
+      "missingCost": "Cost to complete",
+      "commander": "Commander",
+      "owned": "In collection",
+      "missing": "Missing",
+      "unresolved": "Cards not found in the catalog",
+      "viewDeck": "View saved deck",
+      "save": "Save as deck",
+      "saving": "Saving..."
+    }
+  },
+  "deckSuggestions": {
+    "list": {
+      "title": "My requests",
+      "loading": "Loading...",
+      "refresh": "Refresh",
+      "emptyTitle": "No requests yet",
+      "emptyDescription": "Create a suggestion request to see it here.",
+      "ownedOfTotal": "{{owned}}/{{total}} in collection",
+      "delete": "Delete request",
+      "confirmDelete": "Delete this suggestion request?"
+    },
+    "status": {
+      "pending": "Queued",
+      "processing": "Processing",
+      "done": "Ready",
+      "failed": "Failed"
+    }
+  },
   "deckEval": {
     "title": "Deck Evaluation",
     "manaCurve": "Mana Curve",

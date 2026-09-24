@@ -86,6 +86,8 @@ python -m src.cli.main retry-failed
 | `daily-snapshot` | Record one daily price observation per card (idempotent) |
 | `backfill-snapshots --days N [--dry-run]` | Forward-fill missing daily snapshots for the last N days; `--dry-run` only counts, no writes |
 | `bats/daily-snapshot.bat` | Windows Task Scheduler entry point for `daily-snapshot` (manual/backfill fallback — the primary snapshot runs automatically at the end of `liga-sweep`) |
+| `process-deck-suggestions [--limit N] [--provider cli\|api] [--dry-run]` | Process pending deck suggestion requests with Claude (F172); `--dry-run` only counts pending requests |
+| `bats/deck-suggestions.bat` | Windows Task Scheduler entry point (daily, e.g. 03:00) for `process-deck-suggestions --limit 10` |
 
 ### Options
 
@@ -208,6 +210,11 @@ Auto-generated interactive docs are available at `/docs` (Swagger UI) and
 | GET | `/api/v1/exchange-rates/current` | Current USD/BRL exchange rate |
 | GET | `/api/v1/exchange-rates/history` | Exchange rate history (query: `days`) |
 | POST | `/api/v1/exchange-rates/refresh` | Fetch latest rate from BCB (requires API key) |
+| POST | `/api/v1/deck-suggestions` | Request a deck suggestion (format, commander, colors, archetype, notes; requires JWT) |
+| GET | `/api/v1/deck-suggestions` | List the user's suggestion requests (filter: `status`) |
+| GET | `/api/v1/deck-suggestions/{id}` | Suggestion detail, including the result when `done` |
+| POST | `/api/v1/deck-suggestions/{id}/save` | Save a finished suggestion as a deck (idempotent) |
+| DELETE | `/api/v1/deck-suggestions/{id}` | Delete a request while still `pending` |
 
 All responses use a standard envelope: `{"data": ..., "meta": {...}, "errors": []}`.
 Every response includes a `X-Request-ID` header and `meta.request_id` for tracing.
@@ -1163,6 +1170,32 @@ grid as My Collection: search, set icons, sort, grid size, and status chips.
   `GET /api/v1/trade/duplicates/sets` (set facets).
 - **Extended:** `GET /api/v1/marketplace/listings?sort_by=name|set|number|price&sort_dir=asc|desc`
   and `GET /api/v1/trade/duplicates?search&set_code&sort_by=quantity|name|set|number|price&sort_dir=asc|desc`.
+
+### F172 -- Montar Deck: fix busca de comandante + Sugestão de deck (2026-09-24)
+
+The "Montar Deck" page now works end to end and offers a second mode where
+Claude builds a deck from the user's own collection:
+
+- **Commander search fix** -- `GET /api/v1/decks/commanders` matches
+  Portuguese names (`name_pt`), dedupes printings, and treats legality as a
+  soft filter (cards without legality data are no longer dropped).
+  `POST /api/v1/decks/generate` uses real budget prices.
+- **Mode chooser** -- `/decks/build?mode=` picks between the manual wizard
+  (`mode=manual`) and the new suggestion panel (`mode=suggestion`).
+- **Suggestion queue** -- 5 new endpoints under `/api/v1/deck-suggestions`
+  (create, list, detail, save-as-deck, delete pending) backed by the new
+  `deck_suggestion_requests` table (created from its own module, `checkfirst`).
+- **Daily routine** -- `python -m src.cli.main process-deck-suggestions`
+  (`--limit`, `--provider cli|api`, `--dry-run`) and
+  `bats/deck-suggestions.bat` (Task Scheduler, daily ~03:00). It prompts
+  Claude with the user's owned cards, parses the JSON deck, and prices it.
+- **Env vars** -- `DECK_SUGGEST_PROVIDER`, `DECK_SUGGEST_CLAUDE_BIN`,
+  `DECK_SUGGEST_MODEL`, `DECK_SUGGEST_TIMEOUT`, and `ANTHROPIC_API_KEY`
+  (only for `DECK_SUGGEST_PROVIDER=api`, `.env` only). See `.env.example`.
+- **Decision:** the default provider is the local `claude -p` CLI (uses the
+  operator's Claude login, no key on Render). The opt-in API runner uses
+  `httpx`, so there is no `anthropic` SDK dependency.
+  [ADR-0015](docs/adr/0015-deck-suggestion-queue-claude.md)
 
 ## Deployment
 

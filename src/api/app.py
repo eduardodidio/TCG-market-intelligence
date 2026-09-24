@@ -350,6 +350,7 @@ def create_app() -> FastAPI:
     from src.api.routers.collection import router as collection_router
     from src.api.routers.credits import router as credits_router
     from src.api.routers.db_sync import router as db_sync_router
+    from src.api.routers.deck_suggestions import router as deck_suggestions_router
     from src.api.routers.decks import router as decks_router
     from src.api.routers.evaluations import router as evaluations_router
     from src.api.routers.exchange_rates import router as exchange_rates_router
@@ -376,6 +377,7 @@ def create_app() -> FastAPI:
     app.include_router(collection_router, prefix="/api/v1")
     app.include_router(db_sync_router, prefix="/api/v1")
     app.include_router(decks_router, prefix="/api/v1")
+    app.include_router(deck_suggestions_router, prefix="/api/v1")
     app.include_router(evaluations_router, prefix="/api/v1")
     app.include_router(marketplace_router, prefix="/api/v1")
     app.include_router(price_ingest_router, prefix="/api/v1")

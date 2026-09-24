@@ -3162,6 +3162,10 @@ from src.cli.news_cmd import fetch_news_command  # noqa: E402  (F178)
 cli.add_command(backfill_achievement_rewards_cmd)
 cli.add_command(fetch_news_command)
 
+from src.cli.deck_suggestions import process_deck_suggestions  # noqa: E402  (F172)
+
+cli.add_command(process_deck_suggestions)
+
 
 if __name__ == "__main__":
     cli()
