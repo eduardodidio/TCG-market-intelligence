@@ -1,0 +1,52 @@
+%% F173 — Metagame Top Decks: user journey
+flowchart LR
+  subgraph Coleta["Coleta semanal (operador)"]
+    C1([bats/collect-metagame.bat]) --> C2[collect-metagame por formato]
+    C2 --> C3[(snapshot meta_decks)]
+  end
+
+  subgraph Usuario["Usuário"]
+    U1([Abrir Top Decks /decks/ranking]) --> U2[Clicar aba Mercado]
+    U3[Escolher formato]
+    U7[Expandir deck]
+    U9{Ação}
+    U10([Abrir carta /cards/:id])
+    U11([Abrir fonte externa EDHREC / MTGTop8])
+    U12[Clicar Tentar novamente]
+  end
+
+  subgraph SPA["SPA — MetaDecksPanel"]
+    S1[view=meta · format=commander default] --> S2[MetaFormatPills]
+    S4{Tem snapshot?}
+    S5[EmptyState: sem dados de metagame]
+    S6[Lista de decks com valor BRL]
+    S7{Logado?}
+    S8[Barra owned % + valor faltante]
+    S9[CTA login]
+    S10[MetaDeckCardList: cartas faltantes destacadas]
+    SE[ErrorBanner]
+    SD[Retry inline no MetaDeckRow]
+  end
+
+  subgraph API["API /api/v1/meta-decks"]
+    A1[GET /meta-decks?format=]
+    A2[GET /meta-decks/:id]
+    AE{Erro?}
+  end
+
+  U2 --> S1
+  S2 --> U3
+  U3 --> A1
+  C3 -.-> A1
+  A1 --> AE
+  AE -->|sim| SE --> U12 --> A1
+  AE -->|não| S4
+  S4 -->|não| S5
+  S4 -->|sim| S6 --> S7
+  S7 -->|sim| S8 --> U7
+  S7 -->|não| S9 --> U7
+  U7 --> A2
+  A2 -->|erro| SD --> A2
+  A2 -->|ok| S10 --> U9
+  U9 --> U10
+  U9 --> U11

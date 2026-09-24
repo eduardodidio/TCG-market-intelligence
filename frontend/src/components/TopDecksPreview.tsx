@@ -50,12 +50,21 @@ export function TopDecksPreview({ period, currency }: TopDecksPreviewProps) {
         <h2 className="text-lg font-semibold text-white">
           {t("marketPage.section.topDecks")}
         </h2>
-        <Link
-          to="/decks/ranking"
-          className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
-        >
-          {t("marketPage.viewAll")}
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            to="/decks/ranking?view=meta"
+            className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+            data-testid="top-decks-preview-meta-link"
+          >
+            {t("topDecks.viewMeta", { defaultValue: "Ver metagame" })}
+          </Link>
+          <Link
+            to="/decks/ranking"
+            className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+          >
+            {t("marketPage.viewAll")}
+          </Link>
+        </div>
       </div>
       <div className="rounded-lg bg-slate-800 border border-slate-700 divide-y divide-slate-700">
         {data!.decks.map((deck, idx) => {

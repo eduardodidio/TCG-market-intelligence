@@ -530,6 +530,7 @@ def test_dataclasses_and_protocol():
     assert src.fetch_top_decks("modern", limit=1) == [deck]
 
 
-def test_registry_empty():
-    assert SOURCE_FOR_FORMAT == {}
-    assert get_sources(object()) == {}
+def test_registry_populated():
+    # Populated by F173-T12; full coverage in tests/cli/test_cli_metagame.py.
+    assert set(SOURCE_FOR_FORMAT) == set(FORMATS)
+    assert set(get_sources(object())) == set(FORMATS)
