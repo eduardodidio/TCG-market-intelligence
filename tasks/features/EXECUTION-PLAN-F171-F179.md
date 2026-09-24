@@ -96,7 +96,7 @@ These numbers override any "next free number" instruction inside the task files:
 ## Gates and pending user decisions
 
 1. **F173 spike gate:** after F173-W0, the user approves ADR 0016 (source matrix, ToS/robots) before W1.
-2. **F172 (from its README):**
+2. **F172: CONFIRMED by user (2026-09-24):** `claude -p` default, no SDK. Original notes:
    - (a) The `anthropic` SDK is **not** added. The plan uses the Claude CLI (`claude -p`) by default, with an opt-in HTTP API through the existing `httpx`.
    - (b) The default API model is `claude-sonnet-5` (`DECK_SUGGEST_MODEL`).
    - Confirm both before W1.

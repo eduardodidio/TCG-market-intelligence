@@ -76,7 +76,7 @@ Intra-feature sequencing: `DeckBuildWizard.tsx` is edited by T06 (Wave 1) and th
 - [ ] `pytest tests/ --cov=src` green, new modules ≥ 90% covered. `cd frontend && npm test` and `npm run build` green. `ruff check src/` clean.
 - [ ] PRD, ADR, `docs/diagrams/F172-architecture.mmd`, `docs/diagrams/F172-journey.mmd`, README updated.
 
-## Pending decisions (need user confirmation)
+## Decisions (confirmed by user on 2026-09-24: `claude -p` default, no `anthropic` SDK)
 
 1. **Anthropic SDK (`anthropic` package): NOT added.** `ClaudeApiRunner` calls the Messages API over the existing
    `httpx` dependency. Adding the SDK would be a new dependency and needs explicit user approval. Only
