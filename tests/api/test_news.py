@@ -162,6 +162,115 @@ class TestMarkUnread:
         assert resp.status_code == 200
 
 
+class TestNewsStatus:
+    def test_status_empty(self, client):
+        resp = client.get("/api/v1/news/status")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data == {
+            "total_items": 0,
+            "last_fetched_at": None,
+            "newest_published_at": None,
+        }
+
+    def test_status_with_items(self, client, repo):
+        with Session(repo.engine) as session:
+            session.add_all(
+                [
+                    NewsItemRow(
+                        title="Item 1",
+                        source_url="https://example.com/news/1",
+                        source_name="Test Source",
+                        category="other",
+                        published_at=datetime(2026, 9, 1, 10, 0, 0),
+                        fetched_at=datetime(2026, 9, 1, 10, 5, 0),
+                    ),
+                    NewsItemRow(
+                        title="Item 2",
+                        source_url="https://example.com/news/2",
+                        source_name="Test Source",
+                        category="other",
+                        published_at=datetime(2026, 9, 21, 12, 0, 0),
+                        fetched_at=datetime(2026, 9, 21, 12, 5, 0),
+                    ),
+                    NewsItemRow(
+                        title="Item 3",
+                        source_url="https://example.com/news/3",
+                        source_name="Test Source",
+                        category="other",
+                        published_at=datetime(2026, 9, 10, 8, 0, 0),
+                        fetched_at=datetime(2026, 9, 15, 9, 0, 0),
+                    ),
+                ]
+            )
+            session.commit()
+
+        resp = client.get("/api/v1/news/status")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["total_items"] == 3
+        assert data["last_fetched_at"] == datetime(2026, 9, 21, 12, 5, 0).isoformat()
+        assert data["newest_published_at"] == datetime(2026, 9, 21, 12, 0, 0).isoformat()
+
+    def test_status_all_published_at_null(self, client, repo):
+        with Session(repo.engine) as session:
+            session.add(
+                NewsItemRow(
+                    title="Item 1",
+                    source_url="https://example.com/news/1",
+                    source_name="Test Source",
+                    category="other",
+                    published_at=None,
+                    fetched_at=datetime(2026, 9, 1, 10, 0, 0),
+                )
+            )
+            session.commit()
+
+        resp = client.get("/api/v1/news/status")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["total_items"] == 1
+        assert data["newest_published_at"] is None
+        assert data["last_fetched_at"] == datetime(2026, 9, 1, 10, 0, 0).isoformat()
+
+    def test_status_single_item(self, client, repo):
+        _seed_news(repo, 1)
+        resp = client.get("/api/v1/news/status")
+        assert resp.status_code == 200
+        assert resp.json()["data"]["total_items"] == 1
+
+    def test_status_requires_auth(self, repo):
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1")
+        app.dependency_overrides[get_db] = lambda: repo
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get("/api/v1/news/status")
+        assert resp.status_code in (401, 422, 500)
+
+    def test_unread_count_route_still_resolves(self, client, repo):
+        """Ensure /status doesn't shadow /unread-count (route order)."""
+        _seed_news(repo, 2)
+        resp = client.get("/api/v1/news/unread-count")
+        assert resp.status_code == 200
+        assert resp.json()["data"]["count"] == 2
+
+
+class TestNewsRouterNoNetworkImports:
+    def test_no_forbidden_imports(self):
+        """AC6: news router must never do network I/O (read-only endpoints)."""
+        import inspect
+
+        import src.api.routers.news as news_module
+
+        source = inspect.getsource(news_module)
+        forbidden = ["news_fetcher", "httpx", "feedparser", "requests"]
+        for name in forbidden:
+            assert f"import {name}" not in source and f"from {name}" not in source, (
+                f"news.py must not import {name}"
+            )
+
+
 class TestUnreadCount:
     def test_unread_count_all_unread(self, client, repo):
         _seed_news(repo, 3)

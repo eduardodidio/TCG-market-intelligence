@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Sample MTG Atom Feed</title>
+  <link href="https://example.com/news"/>
+  <updated>2026-09-22T14:30:00Z</updated>
+  <id>urn:example:feed</id>
+
+  <entry>
+    <title>Entry with alternate link and summary</title>
+    <link rel="alternate" href="https://example.com/news/entry-1"/>
+    <summary>A short summary of entry one.</summary>
+    <published>2026-09-20T10:00:00Z</published>
+    <id>urn:example:entry-1</id>
+  </entry>
+
+  <entry>
+    <title>Entry with plain link and HTML content</title>
+    <link href="https://example.com/news/entry-2"/>
+    <content type="html">&lt;p&gt;Full HTML body of entry two.&lt;/p&gt;</content>
+    <updated>2026-09-21T08:15:00Z</updated>
+    <id>urn:example:entry-2</id>
+  </entry>
+
+  <entry>
+    <title>Entry with self and alternate links</title>
+    <link rel="self" href="https://example.com/news/entry-3/self"/>
+    <link rel="alternate" href="https://example.com/news/entry-3"/>
+    <summary>Alternate link must be preferred over self.</summary>
+    <published>2026-09-19T12:00:00Z</published>
+    <updated>2026-09-19T12:00:00Z</updated>
+    <id>urn:example:entry-3</id>
+  </entry>
+</feed>

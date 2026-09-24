@@ -1,31 +1,82 @@
-"""MTG News fetcher — RSS/Atom feed aggregator (F166).
+"""MTG News fetcher — RSS/Atom feed aggregator (F166, rewritten F178).
 
 Fetches news from configured MTG sources and upserts into the database.
+Uses httpx for transport and the stdlib xml.etree.ElementTree parser —
+no undeclared dependencies.
 """
 
 from __future__ import annotations
 
+import os
 import re
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from html import unescape
+from xml.etree import ElementTree as ET
 
-import feedparser
+import httpx
 import structlog
 
 log = structlog.get_logger()
 
+MAX_BODY_BYTES = 5_000_000
+
+_ATOM_NS = "http://www.w3.org/2005/Atom"
+_MEDIA_NS = "http://search.yahoo.com/mrss/"
+_CONTENT_NS = "http://purl.org/rss/1.0/modules/content/"
+
+_REQUEST_HEADERS = {
+    "User-Agent": "TEDHC-Market/1.0 (+news fetcher)",
+    "Accept": "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5",
+}
+
+
+class FeedParseError(Exception):
+    """Raised when a feed body cannot be parsed as RSS or Atom XML."""
+
+
+@dataclass(frozen=True)
+class FeedEntry:
+    title: str
+    link: str
+    summary: str | None
+    image_url: str | None
+    published_at: datetime | None
+
+
 # ── Feed sources ──────────────────────────────────────────────────
 
 SOURCES: list[dict[str, str]] = [
-    {
-        "name": "MTG Official",
-        "url": "https://magic.wizards.com/en/rss/rss.xml",
-    },
-    {
-        "name": "Scryfall Blog",
-        "url": "https://scryfall.com/blog/rss",
-    },
+    {"name": "MTG Official", "url": "https://magic.wizards.com/en/rss/rss.xml"},
+    {"name": "Scryfall Blog", "url": "https://scryfall.com/blog/feed.atom"},
+    {"name": "MTGGoldfish", "url": "https://www.mtggoldfish.com/feed"},
+    {"name": "EDHREC", "url": "https://edhrec.com/articles/feed"},
+    {"name": "Hipsters of the Coast", "url": "https://www.hipstersofthecoast.com/feed/"},
 ]
+
+
+def load_sources() -> list[dict[str, str]]:
+    """Load feed sources from NEWS_FEED_SOURCES env var, or fall back to SOURCES.
+
+    Format: "Name|url;Name2|url2". Malformed pairs are skipped with a warning.
+    """
+    raw = os.environ.get("NEWS_FEED_SOURCES", "").strip()
+    if not raw:
+        return SOURCES
+
+    sources: list[dict[str, str]] = []
+    for pair in raw.split(";"):
+        pair = pair.strip()
+        if not pair:
+            continue
+        parts = pair.split("|", 1)
+        if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+            log.warning("news_source_malformed", pair=pair)
+            continue
+        sources.append({"name": parts[0].strip(), "url": parts[1].strip()})
+
+    return sources or SOURCES
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -61,53 +112,167 @@ def _categorize(title: str, summary: str | None = None) -> str:
     return "other"
 
 
-def _extract_image(entry: object) -> str | None:
-    """Try to extract an image URL from media_content or enclosures."""
-    # media_content (common in RSS 2.0 / Media RSS)
-    img_exts = (".jpg", ".jpeg", ".png", ".webp", ".gif")
-    media = getattr(entry, "media_content", None)
-    if media:
-        for m in media:
-            url = m.get("url", "")
-            if url and any(ext in url.lower() for ext in img_exts):
-                return url
+def _to_naive_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
-    # enclosures
-    enclosures = getattr(entry, "enclosures", None)
-    if enclosures:
-        for enc in enclosures:
-            url = enc.get("href", "") or enc.get("url", "")
-            etype = enc.get("type", "")
-            if url and ("image" in etype or any(ext in url.lower() for ext in img_exts)):
-                return url
 
-    # media_thumbnail
-    thumbs = getattr(entry, "media_thumbnail", None)
-    if thumbs:
-        for t in thumbs:
-            url = t.get("url", "")
-            if url:
-                return url
+def _parse_rss_date(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        dt = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    if dt is None:
+        return None
+    return _to_naive_utc(dt)
+
+
+def _parse_atom_date(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        value = raw.strip()
+        if value.endswith("Z"):
+            value = value[:-1] + "+00:00"
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return _to_naive_utc(dt)
+
+
+def _find_text(element: ET.Element, tag: str) -> str | None:
+    child = element.find(tag)
+    if child is None or child.text is None:
+        return None
+    return child.text.strip() or None
+
+
+def _rss_image(item: ET.Element) -> str | None:
+    enclosure = item.find("enclosure")
+    if enclosure is not None:
+        url = enclosure.get("url")
+        etype = enclosure.get("type", "")
+        if url and (not etype or "image" in etype):
+            return url
+
+    media_content = item.find(f"{{{_MEDIA_NS}}}content")
+    if media_content is not None:
+        url = media_content.get("url")
+        if url:
+            return url
+
+    media_thumbnail = item.find(f"{{{_MEDIA_NS}}}thumbnail")
+    if media_thumbnail is not None:
+        url = media_thumbnail.get("url")
+        if url:
+            return url
 
     return None
 
 
-def _parse_date(entry: object) -> datetime | None:
-    """Parse published date from feed entry."""
-    parsed = getattr(entry, "published_parsed", None)
-    if parsed:
-        try:
-            return datetime(*parsed[:6])
-        except (TypeError, ValueError):
-            pass
-    # Fallback: updated_parsed
-    updated = getattr(entry, "updated_parsed", None)
-    if updated:
-        try:
-            return datetime(*updated[:6])
-        except (TypeError, ValueError):
-            pass
-    return None
+def _rss_summary(item: ET.Element) -> str | None:
+    description = _find_text(item, "description")
+    if description:
+        return description
+    return _find_text(item, f"{{{_CONTENT_NS}}}encoded")
+
+
+def _parse_rss(root: ET.Element) -> list[FeedEntry]:
+    entries: list[FeedEntry] = []
+    channel = root.find("channel")
+    if channel is None:
+        return entries
+
+    for item in channel.findall("item"):
+        title = _find_text(item, "title") or ""
+        link = _find_text(item, "link") or ""
+        summary = _clean_summary(_rss_summary(item))
+        image_url = _rss_image(item)
+        published_at = _parse_rss_date(_find_text(item, "pubDate"))
+        entries.append(
+            FeedEntry(
+                title=title,
+                link=link,
+                summary=summary,
+                image_url=image_url,
+                published_at=published_at,
+            )
+        )
+    return entries
+
+
+def _atom_link(entry: ET.Element) -> str:
+    alternate = None
+    fallback = None
+    for link in entry.findall(f"{{{_ATOM_NS}}}link"):
+        rel = link.get("rel")
+        href = link.get("href")
+        if not href:
+            continue
+        if rel in (None, "alternate"):
+            alternate = href
+        elif fallback is None:
+            fallback = href
+    return alternate or fallback or ""
+
+
+def _atom_summary(entry: ET.Element) -> str | None:
+    summary = _find_text(entry, f"{{{_ATOM_NS}}}summary")
+    if summary:
+        return summary
+    return _find_text(entry, f"{{{_ATOM_NS}}}content")
+
+
+def _parse_atom(root: ET.Element) -> list[FeedEntry]:
+    entries: list[FeedEntry] = []
+    for entry in root.findall(f"{{{_ATOM_NS}}}entry"):
+        title = _find_text(entry, f"{{{_ATOM_NS}}}title") or ""
+        link = _atom_link(entry)
+        summary = _clean_summary(_atom_summary(entry))
+        published_raw = _find_text(entry, f"{{{_ATOM_NS}}}published") or _find_text(
+            entry, f"{{{_ATOM_NS}}}updated"
+        )
+        published_at = _parse_atom_date(published_raw)
+        entries.append(
+            FeedEntry(
+                title=title,
+                link=link,
+                summary=summary,
+                image_url=None,
+                published_at=published_at,
+            )
+        )
+    return entries
+
+
+def parse_feed(xml_bytes: bytes) -> list[FeedEntry]:
+    """Parse RSS 2.0 or Atom feed bytes into a list of FeedEntry.
+
+    Entries missing a title or link are still returned (with ""), so the
+    caller can decide how to count them.
+    """
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError as exc:
+        raise FeedParseError(str(exc)) from exc
+
+    tag = root.tag
+    if tag == f"{{{_ATOM_NS}}}feed":
+        return _parse_atom(root)
+    if tag == "rss" or tag.endswith("}rss"):
+        return _parse_rss(root)
+
+    raise FeedParseError(f"unsupported feed root element: {tag}")
+
+
+def fetch_feed(url: str, *, client: httpx.Client) -> bytes:
+    """Fetch feed bytes from url. Raises on HTTP errors/timeouts."""
+    response = client.get(url, headers=_REQUEST_HEADERS, timeout=15, follow_redirects=True)
+    response.raise_for_status()
+    return response.content
 
 
 # ── Main fetcher ──────────────────────────────────────────────────
@@ -118,66 +283,117 @@ def fetch_news(
     *,
     max_per_source: int = 20,
     sources: list[dict[str, str]] | None = None,
-) -> dict[str, int]:
-    """Fetch news from RSS feeds and upsert into the database.
+    dry_run: bool = False,
+    client: httpx.Client | None = None,
+) -> dict:
+    """Fetch news from RSS/Atom feeds and upsert into the database.
 
-    Returns stats: {fetched, new, skipped, errors}.
+    Returns stats: {fetched, new, skipped, errors, sources}.
+    When dry_run=True, feeds are fetched and parsed but repo.upsert_news_item
+    is never called (repo may be None).
     """
-    feed_sources = sources or SOURCES
-    stats = {"fetched": 0, "new": 0, "skipped": 0, "errors": 0}
+    feed_sources = sources or load_sources()
+    stats: dict = {"fetched": 0, "new": 0, "skipped": 0, "errors": 0, "sources": []}
 
-    for source in feed_sources:
-        source_name = source["name"]
-        feed_url = source["url"]
-        try:
-            feed = feedparser.parse(feed_url)
-            if feed.bozo and not feed.entries:
-                log.warning(
-                    "news_feed_parse_error",
-                    source=source_name,
-                    error=str(feed.bozo_exception),
-                )
-                stats["errors"] += 1
-                continue
+    owns_client = client is None
+    if owns_client:
+        client = httpx.Client()
 
-            entries = feed.entries[:max_per_source]
-            for entry in entries:
-                stats["fetched"] += 1
-                try:
-                    link = getattr(entry, "link", None)
-                    title = getattr(entry, "title", None)
-                    if not link or not title:
+    try:
+        for source in feed_sources:
+            source_name = source["name"]
+            feed_url = source["url"]
+            source_report = {
+                "name": source_name,
+                "url": feed_url,
+                "ok": True,
+                "http_status": None,
+                "entries": 0,
+                "new": 0,
+                "error": None,
+            }
+
+            try:
+                body = fetch_feed(feed_url, client=client)
+                if len(body) > MAX_BODY_BYTES:
+                    raise FeedParseError("payload too large")
+
+                entries = parse_feed(body)
+                source_report["entries"] = len(entries)
+
+                for entry in entries[:max_per_source]:
+                    stats["fetched"] += 1
+
+                    if not entry.link or not entry.title:
                         stats["skipped"] += 1
                         continue
 
-                    raw_summary = getattr(entry, "summary", None) or getattr(
-                        entry, "description", None
-                    )
-                    summary = _clean_summary(raw_summary)
+                    if dry_run:
+                        continue
 
-                    data = {
-                        "title": title[:500],
-                        "summary": summary,
-                        "source_url": link[:1000],
-                        "source_name": source_name,
-                        "category": _categorize(title, summary),
-                        "image_url": _extract_image(entry),
-                        "published_at": _parse_date(entry),
-                        "fetched_at": datetime.now(),
-                    }
+                    try:
+                        data = {
+                            "title": entry.title[:500],
+                            "summary": entry.summary,
+                            "source_url": entry.link[:1000],
+                            "source_name": source_name,
+                            "category": _categorize(entry.title, entry.summary),
+                            "image_url": entry.image_url,
+                            "published_at": entry.published_at,
+                            "fetched_at": datetime.now(),
+                        }
+                        is_new = repo.upsert_news_item(data)
+                        if is_new:
+                            stats["new"] += 1
+                            source_report["new"] += 1
+                        else:
+                            stats["skipped"] += 1
+                    except Exception:
+                        log.warning("news_entry_error", source=source_name, exc_info=True)
+                        stats["errors"] += 1
 
-                    is_new = repo.upsert_news_item(data)
-                    if is_new:
-                        stats["new"] += 1
-                    else:
-                        stats["skipped"] += 1
-                except Exception:
-                    log.warning("news_entry_error", source=source_name, exc_info=True)
-                    stats["errors"] += 1
+            except httpx.HTTPStatusError as exc:
+                source_report["ok"] = False
+                source_report["http_status"] = exc.response.status_code
+                source_report["error"] = str(exc)
+                stats["errors"] += 1
+                log.warning(
+                    "news_feed_fetch_error",
+                    source=source_name,
+                    error=str(exc),
+                    http_status=exc.response.status_code,
+                )
+            except httpx.HTTPError as exc:
+                source_report["ok"] = False
+                source_report["error"] = str(exc)
+                stats["errors"] += 1
+                log.warning("news_feed_fetch_error", source=source_name, error=str(exc))
+            except FeedParseError as exc:
+                source_report["ok"] = False
+                source_report["error"] = str(exc)
+                stats["errors"] += 1
+                log.warning("news_feed_parse_error", source=source_name, error=str(exc))
+            except Exception as exc:
+                source_report["ok"] = False
+                source_report["error"] = str(exc)
+                stats["errors"] += 1
+                log.warning(
+                    "news_feed_fetch_error",
+                    source=source_name,
+                    error=str(exc),
+                    exc_info=True,
+                )
 
-        except Exception:
-            log.warning("news_feed_fetch_error", source=source_name, exc_info=True)
-            stats["errors"] += 1
+            stats["sources"].append(source_report)
+    finally:
+        if owns_client:
+            client.close()
 
-    log.info("news_fetch_complete", **stats)
+    log.info(
+        "news_fetch_complete",
+        fetched=stats["fetched"],
+        new=stats["new"],
+        skipped=stats["skipped"],
+        errors=stats["errors"],
+    )
     return stats

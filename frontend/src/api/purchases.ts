@@ -21,6 +21,9 @@ export interface ParsedMatch {
   already_has_price: boolean;
   current_acquisition_price: string | null;
   selected: boolean;
+  original_unit_price?: string;
+  original_currency?: string;
+  exchange_rate?: string | null;
 }
 
 export interface UnmatchedItem {
@@ -29,6 +32,9 @@ export interface UnmatchedItem {
   unit_price: string;
   order_number: string;
   skip_reason: string;
+  original_unit_price?: string;
+  original_currency?: string;
+  exchange_rate?: string | null;
 }
 
 export interface ImportPreviewResponse {

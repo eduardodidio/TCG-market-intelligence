@@ -570,6 +570,15 @@ export interface ImportResult {
   total_csv_rows: number;
   new_entry_ids: number[];
   canonize_scheduled: boolean;
+  detected_currency?: string;
+  currency_source?: string;
+  currency_confidence?: string;
+  currency_evidence?: string[];
+  priced?: number;
+  converted?: number;
+  exchange_rate?: string | null;
+  price_warnings?: string[];
+  dry_run?: boolean;
 }
 
 // Ticker types (F39)

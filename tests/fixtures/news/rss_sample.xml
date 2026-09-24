@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:media="http://search.yahoo.com/mrss/"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Sample MTG News Feed</title>
+    <link>https://example.com/news</link>
+    <description>Sample feed for F178 tests</description>
+
+    <item>
+      <title>New card banned in Commander</title>
+      <link>https://example.com/news/item-a</link>
+      <description>&lt;p&gt;A short &lt;b&gt;HTML&lt;/b&gt; description of the banned card.&lt;/p&gt;</description>
+      <pubDate>Tue, 22 Sep 2026 14:30:00 +0000</pubDate>
+      <enclosure url="https://example.com/images/a.jpg" type="image/jpeg"/>
+      <guid isPermaLink="false">item-a</guid>
+    </item>
+
+    <item>
+      <title>Set release schedule announced</title>
+      <link>https://example.com/news/item-b</link>
+      <description>Release schedule details for the upcoming set.</description>
+      <media:content url="https://example.com/images/b.png" type="image/png"/>
+      <pubDate>Tue, 22 Sep 2026 11:30:00 -0300</pubDate>
+      <guid isPermaLink="false">item-b</guid>
+    </item>
+
+    <item>
+      <title>Community spotlight: deck tech</title>
+      <link>https://example.com/news/item-c</link>
+      <content:encoded><![CDATA[<p>Full article body only available as encoded content.</p>]]></content:encoded>
+      <media:thumbnail url="https://example.com/images/c-thumb.jpg"/>
+      <pubDate>sometime soon</pubDate>
+      <guid isPermaLink="false">item-c</guid>
+    </item>
+
+    <item>
+      <title>Missing link item, must be skipped</title>
+      <description>This item has no link and should be skipped by the parser.</description>
+      <pubDate>Tue, 22 Sep 2026 09:00:00 +0000</pubDate>
+      <guid isPermaLink="false">item-d</guid>
+    </item>
+  </channel>
+</rss>

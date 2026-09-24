@@ -3,6 +3,11 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F175 -- Trending Market Mode (2026-09-24)
+**What worked:** On a task that said "fix the frontend only if a test reveals a bug" (T05), the developer wrote the regression test first, saw it pass against the untouched source, and stopped there instead of making speculative "just in case" edits. Also, T07's API-level test used a file-backed SQLite `Repository` instead of `:memory:` specifically because FastAPI's `TestClient` issues requests from a different thread than the test setup thread, and `:memory:` SQLite is per-connection.
+**What to avoid:** N/A this round.
+**Pattern to repeat:** Test-first before deciding whether a "suspected but unconfirmed" bug needs a code fix. Default to a temp-file SQLite DB (not `:memory:`) for any new test that drives a FastAPI app through `TestClient`.
+
 ## F16 -- Explore Cards Sorting (2026-08-21)
 
 - **Name tests to reflect actual behavior, not plan expectations.** The developer correctly named `test_null_name_en_sorts_to_beginning_asc` to match the real behavior (NULL coalesces to '' = sorts first), even though the test plan said "sorts last." This is the right approach -- test names are documentation. When the plan is wrong, the test name should document reality.

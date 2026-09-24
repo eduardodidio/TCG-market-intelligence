@@ -1,0 +1,17 @@
+flowchart LR
+  subgraph Local["Windows local machine"]
+    BAT["bats/fetch-news.bat"] --> CLI["src/cli/news_cmd.py\nfetch-news"]
+    CLI --> SVC["news_fetcher.fetch_news\nhttpx + ElementTree"]
+  end
+
+  FEEDS[("RSS/Atom feeds\nWizards, Scryfall, MTGGoldfish, EDHREC, HotC")] -->|GET| SVC
+  SVC -->|"per-source try/except"| SVC
+  SVC -->|upsert_news_item| NEON[("Neon PostgreSQL\nnews_items / user_news_reads")]
+
+  subgraph Render["Render (read-only)"]
+    API["routers/news.py\nGET /news, /news/status, /unread-count"] --> REPO["Repository"]
+  end
+
+  REPO --> NEON
+
+  UI["NewsPage.tsx"] -->|"fetchNews / fetchNewsStatus"| API

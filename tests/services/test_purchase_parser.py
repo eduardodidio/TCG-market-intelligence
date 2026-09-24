@@ -10,6 +10,7 @@ import pytest
 from src.services.purchase_parser import (
     _split_bilingual_name,
     parse_brl_price,
+    parse_price_with_currency,
     parse_purchase_html,
 )
 
@@ -36,6 +37,42 @@ class TestParseBrlPrice:
 
     def test_invalid_price_returns_zero(self):
         assert parse_brl_price("free") == Decimal("0")
+
+    def test_dot_decimal_is_not_thousands(self):
+        """Regression: '12.50' must parse as 12.50, not 1250."""
+        assert parse_brl_price("12.50") == Decimal("12.50")
+
+    def test_bare_thousands_with_brl_hint(self):
+        assert parse_brl_price("1.234") == Decimal("1234")
+
+    def test_nbsp_price(self):
+        assert parse_brl_price("R$\xa09,75") == Decimal("9.75")
+
+    def test_empty_price_returns_zero(self):
+        assert parse_brl_price("") == Decimal("0")
+
+    def test_garbage_returns_zero_no_exception(self):
+        assert parse_brl_price("—") == Decimal("0")
+
+    def test_minimum_boundary(self):
+        assert parse_brl_price("R$ 0,01") == Decimal("0.01")
+
+    def test_maximum_boundary(self):
+        assert parse_brl_price("R$ 999.999,99") == Decimal("999999.99")
+
+
+class TestParsePriceWithCurrency:
+    def test_usd_symbol(self):
+        assert parse_price_with_currency("US$ 3.10") == (Decimal("3.10"), "USD")
+
+    def test_brl_symbol(self):
+        assert parse_price_with_currency("R$ 9,75") == (Decimal("9.75"), "BRL")
+
+    def test_no_symbol_defaults_to_brl(self):
+        assert parse_price_with_currency("12,50") == (Decimal("12.50"), "BRL")
+
+    def test_empty_defaults_to_brl_zero(self):
+        assert parse_price_with_currency("") == (Decimal("0"), "BRL")
 
 
 # ---------------------------------------------------------------------------
@@ -662,3 +699,34 @@ class TestSourceFile:
         orders = parse_purchase_html(NERDZ_SINGLE_CARD_HTML, "myfile.html")
         assert orders[0].source_file == "myfile.html"
         assert orders[0].items[0].source_file == "myfile.html"
+
+
+# ---------------------------------------------------------------------------
+# Currency-aware prices (F171-T05)
+# ---------------------------------------------------------------------------
+
+
+class TestCurrencyAwarePrices:
+    def test_default_currency_is_brl(self):
+        orders = parse_purchase_html(NERDZ_SINGLE_CARD_HTML, "test.html")
+        assert orders[0].items[0].currency == "BRL"
+
+    def test_liga_default_currency_is_brl(self):
+        orders = parse_purchase_html(LIGA_EXPANDED_HTML, "liga.html")
+        assert orders[0].items[0].currency == "BRL"
+
+    def test_usd_and_brl_items_from_fixture(self):
+        with open("tests/fixtures/purchase_usd_sample.html", encoding="utf-8") as f:
+            html = f.read()
+        orders = parse_purchase_html(html, "purchase_usd_sample.html")
+        assert len(orders) == 1
+        items = orders[0].items
+        assert len(items) == 2
+        usd_item = next(i for i in items if i.card_name_en == "Sol Ring" or i.card_name_pt == "Sol Ring")
+        brl_item = next(
+            i for i in items if i.card_name_en == "Command Tower" or i.card_name_pt == "Command Tower"
+        )
+        assert usd_item.currency == "USD"
+        assert usd_item.unit_price == Decimal("3.10")
+        assert brl_item.currency == "BRL"
+        assert brl_item.unit_price == Decimal("9.75")

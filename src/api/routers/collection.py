@@ -1747,6 +1747,8 @@ def batch_parse(
             quality=p.quality,
             language=p.language,
             extras=p.extras,
+            price=str(p.price) if p.price is not None else None,
+            price_currency=p.price_currency,
             error=p.error,
         )
         for p in parsed
@@ -1759,12 +1761,14 @@ def batch_add(
     body: BatchAddRequest,
     repo: Repository = Depends(get_db),
     user_id: str = Depends(require_auth_or_api_key),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
     """Add multiple cards to the collection in one request."""
     from sqlalchemy.orm import Session
 
     from src.collection.batch_add import BatchAddEntry as BatchEntry
     from src.collection.batch_add import batch_add_entries
+    from src.currency.import_conversion import rate_lookup_from_converter
 
     entries = [
         BatchEntry(
@@ -1775,20 +1779,27 @@ def batch_add(
             quality=e.quality,
             language=e.language,
             extras=e.extras,
+            acquisition_price=e.acquisition_price,
+            price_currency=e.price_currency,
         )
         for e in body.entries
     ]
 
     with Session(repo.engine) as session:
         try:
-            result = batch_add_entries(session, user_id, entries)
+            result = batch_add_entries(
+                session,
+                user_id,
+                entries,
+                rate_lookup=rate_lookup_from_converter(converter),
+            )
             session.commit()
         except Exception:
             session.rollback()
             raise
 
     errors = [BatchAddErrorResponse(line=e.line, text=e.text, error=e.error) for e in result.errors]
-    data = BatchAddResultResponse(added=result.added, errors=errors)
+    data = BatchAddResultResponse(added=result.added, errors=errors, warnings=result.warnings)
     return success_response(data=data)
 
 
@@ -1798,12 +1809,16 @@ def import_collection(
     background_tasks: BackgroundTasks,
     repo: Repository = Depends(get_db),
     user_id: str = Depends(require_auth_or_api_key),
+    currency: str = Query(default="auto", pattern="^(auto|BRL|USD)$"),
+    dry_run: bool = Query(default=False),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
 ):
     """Import collection from an uploaded CSV file."""
     import tempfile
     from pathlib import Path
 
     from src.collection.importer import import_collection_csv
+    from src.currency.import_conversion import rate_lookup_from_converter
 
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise api_error(400, ErrorCode.VALIDATION_ERROR, "Only CSV files are accepted")
@@ -1817,13 +1832,16 @@ def import_collection(
             engine=repo.engine,
             csv_path=tmp_path,
             user_id=user_id,
+            currency=currency,
+            dry_run=dry_run,
+            rate_lookup=rate_lookup_from_converter(converter),
         )
     finally:
         tmp_path.unlink(missing_ok=True)
 
     new_entry_ids = result.get("new_entry_ids", [])
     canonize_scheduled = False
-    if new_entry_ids:
+    if new_entry_ids and not dry_run:
         background_tasks.add_task(
             _run_import_canonize,
             engine=repo.engine,
@@ -1843,6 +1861,15 @@ def import_collection(
         total_csv_rows=result["total_csv_rows"],
         new_entry_ids=new_entry_ids,
         canonize_scheduled=canonize_scheduled,
+        detected_currency=result.get("detected_currency", "BRL"),
+        currency_source=result.get("currency_source", "default"),
+        currency_confidence=result.get("currency_confidence", "low"),
+        currency_evidence=result.get("currency_evidence", []),
+        priced=result.get("priced", 0),
+        converted=result.get("converted", 0),
+        exchange_rate=result.get("exchange_rate"),
+        price_warnings=result.get("price_warnings", []),
+        dry_run=result.get("dry_run", False),
     )
     return success_response(data=import_result)
 

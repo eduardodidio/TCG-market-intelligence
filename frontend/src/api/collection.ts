@@ -280,17 +280,30 @@ export function bulkDeleteEntries(
 
 // --- CSV import ---
 
+export interface ImportCollectionCsvOptions {
+  currency?: "auto" | "BRL" | "USD";
+  dryRun?: boolean;
+}
+
 export async function importCollectionCsv(
   file: File,
+  options: ImportCollectionCsvOptions = {},
 ): Promise<ApiResponse<ImportResult>> {
   const token = localStorage.getItem("tcg_access_token");
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch("/api/v1/collection/import", {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  });
+  const params = new URLSearchParams();
+  if (options.currency) params.set("currency", options.currency);
+  if (options.dryRun) params.set("dry_run", "true");
+  const query = params.toString();
+  const res = await fetch(
+    `/api/v1/collection/import${query ? `?${query}` : ""}`,
+    {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    },
+  );
   return res.json();
 }
 

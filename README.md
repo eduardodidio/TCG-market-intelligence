@@ -986,6 +986,86 @@ Daily price snapshots that fill gaps in price history charts:
   `GET /cards/price-trends` now include `daily_snapshot` observations,
   producing denser price charts over time.
 
+### F175 -- Trending Market Mode (2026-09-24)
+
+Fixes `/trending` and the Dashboard ticker when "minha coleção" is
+unchecked:
+
+- **Market-mode query** -- `GET /api/v1/market/trending/{gainers,losers}`
+  without `collection_only` now includes non-foil Liga sweep prices
+  (`liga_{id}`) and manual prices (`manual_{id}`), not just
+  `source_cards`, via the new `src/database/trending_queries.py` module.
+  Foil series (`liga_{id}_foil`) are excluded so they never mix with
+  non-foil prices.
+- **Cache fix** -- query errors/timeouts are no longer cached for 30
+  minutes; only successful responses are stored (empty results expire
+  after 2 minutes), so a retry can succeed right away.
+- **Diagnostics** -- `python scripts/diagnose_trending_f175.py` checks
+  market-mode query timing against the Neon `statement_timeout`.
+- **Docs:** [PRD](docs/prd/F175-trending-market-mode.md),
+  [architecture diagram](docs/diagrams/F175-architecture.mmd),
+  [user journey diagram](docs/diagrams/F175-journey.mmd).
+
+### F178 -- News Collection via Offline Routine (2026-09-24)
+
+Fixes the News page (F166), which always showed the empty state because
+`fetch-news` was broken at import time (`feedparser` was never declared)
+and nothing ever populated `news_items`:
+
+- **Fetcher rewrite** -- `src/services/news_fetcher.py` now uses `httpx`
+  (already a dependency) and the stdlib `xml.etree.ElementTree` for
+  RSS/Atom parsing, removing the undeclared `feedparser` dependency.
+  Per-source status is tracked (HTTP status, entry count, error).
+- **CLI** -- standalone `python -m src.cli.main fetch-news` command
+  (`src/cli/news_cmd.py`), with `--check-sources` (dry run, reports
+  source health without writing to the DB), `--source NAME` (restrict to
+  named source(s)), and `--max-per-source`. Exits non-zero when every
+  source fails. Feed sources can be overridden via the `NEWS_FEED_SOURCES`
+  env var (`"Name|url;Name2|url2"`).
+- **Offline routine** -- `bats/fetch-news.bat` runs the CLI locally and
+  writes straight to Neon via `DATABASE_URL`, matching the pattern of
+  `bats/process-queue.bat`. No server-side scraping or scheduler on Render.
+- **API** -- `GET /api/v1/news` stays read-only. New
+  `GET /api/v1/news/status` returns `{total_items, last_fetched_at,
+  newest_published_at}` so the UI can show data freshness.
+- **Frontend** -- `NewsPage` distinguishes an empty database, an empty
+  filtered result, and a fetch error, plus a "desatualizado" hint when the
+  status endpoint reports stale data.
+- **Architecture decision:** [ADR-0019](docs/adr/0019-news-collection-offline-bat.md)
+
+### F171 -- Import respecting the file currency (2026-09-24)
+
+Fixes CSV/purchase/batch imports storing a USD export as if it were BRL.
+`user_collection.acquisition_price` is always BRL; a foreign amount is now
+converted once, at the import boundary, instead of being stored as-is:
+
+- **CSV import** -- `POST /api/v1/collection/import` accepts
+  `?currency=auto|BRL|USD` (default `auto`) and `?dry_run=true` (detect only,
+  no writes). `ImportResult` adds `detected_currency`, `currency_source`,
+  `currency_confidence`, `currency_evidence`, `priced`, `converted`,
+  `exchange_rate`, `price_warnings`, `dry_run`. Detection also recognizes
+  ManaBox/generic export headers (`Price`, `Purchase price`, `Preço`,
+  `Valor`), not just the Liga Magic column set.
+- **`CsvImportModal`** -- runs the dry run first, shows the detected
+  currency/confidence with a low-confidence warning, and offers an
+  Auto / BRL / USD selector before the real import.
+- **Purchase HTML import** -- USD order items are converted to BRL using the
+  order-date PTAX rate; the preview shows a `US$ x → R$ y` badge
+  (`data-testid="purchase-converted-badge"`) with the rate, and an item that
+  cannot be converted (no rate) is listed unmatched with reason
+  `currency_conversion_failed` instead of being stored with a wrong price.
+- **Batch text entry** -- an optional price token (`R$12,50`, `US$3.10`,
+  `$3.10`) is parsed and stored as a BRL `acquisition_price`.
+- **CLI** -- `import-csv --currency auto|BRL|USD`; `--dry-run` prints
+  `Currency`, `Source`, `Confidence`, `Priced rows`; the real import prints
+  `Priced`, `Converted USD->BRL`, `Rate`, and up to 5 price warnings.
+- **Bug fix** -- `parse_brl_price("12.50")` no longer returns `1250`
+  (dot-decimal amounts without a thousands separator are parsed correctly).
+- **Architecture decision:** [ADR-0014](docs/adr/0014-import-currency-normalization.md)
+- **Docs:** [PRD](docs/prd/F171-collection-import-currency.md),
+  [architecture diagram](docs/diagrams/F171-architecture.mmd),
+  [user journey diagram](docs/diagrams/F171-journey.mmd).
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).

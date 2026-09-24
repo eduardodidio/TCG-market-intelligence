@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from decimal import Decimal
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.api.schemas.cards import PriceChangeSummary, PriceObservation, SourceCardSchema
@@ -65,6 +68,15 @@ class ImportResult(BaseModel):
     total_csv_rows: int
     new_entry_ids: list[int] = []
     canonize_scheduled: bool = False
+    detected_currency: str = "BRL"
+    currency_source: str = "default"
+    currency_confidence: str = "low"
+    currency_evidence: list[str] = []
+    priced: int = 0
+    converted: int = 0
+    exchange_rate: str | None = None
+    price_warnings: list[str] = []
+    dry_run: bool = False
 
 
 class SyncRequest(BaseModel):
@@ -295,6 +307,8 @@ class BatchAddEntry(BaseModel):
     quality: str | None = None
     language: str | None = None
     extras: str | None = None
+    acquisition_price: Decimal | None = Field(default=None, ge=0, le=1_000_000)
+    price_currency: Literal["BRL", "USD"] | None = None
 
     @field_validator("quantity")
     @classmethod
@@ -338,6 +352,8 @@ class ParsedLineResponse(BaseModel):
     quality: str | None = None
     language: str | None = None
     extras: str | None = None
+    price: str | None = None
+    price_currency: str | None = None
     error: str | None = None
 
 
@@ -377,6 +393,7 @@ class BatchAddResultResponse(BaseModel):
 
     added: int
     errors: list[BatchAddErrorResponse] = []
+    warnings: list[str] = []
 
 
 class CollectionMover(BaseModel):

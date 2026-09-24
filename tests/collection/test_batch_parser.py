@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from src.collection.batch_parser import parse_batch_text
 
 
@@ -186,3 +188,89 @@ class TestEdgeCases:
     def test_large_quantity(self) -> None:
         result = parse_batch_text("99 Lightning Bolt")
         assert result[0].quantity == 99
+
+
+class TestPrice:
+    """Optional price token with currency (AC7)."""
+
+    def test_brl_price_full_format(self) -> None:
+        result = parse_batch_text("2 Lightning Bolt [m10] NM R$12,50")
+        p = result[0]
+        assert p.quantity == 2
+        assert p.name == "Lightning Bolt"
+        assert p.set_code == "m10"
+        assert p.quality == "NM"
+        assert p.price == Decimal("12.50")
+        assert p.price_currency == "BRL"
+        assert p.error is None
+
+    def test_usd_price(self) -> None:
+        result = parse_batch_text("Sol Ring US$3.10")
+        p = result[0]
+        assert p.name == "Sol Ring"
+        assert p.price == Decimal("3.10")
+        assert p.price_currency == "USD"
+
+    def test_at_prefix_price_currency_none(self) -> None:
+        result = parse_batch_text("Lightning Bolt @ 5,00")
+        p = result[0]
+        assert p.name == "Lightning Bolt"
+        assert p.price == Decimal("5.00")
+        assert p.price_currency is None
+
+    def test_name_with_digits_no_price(self) -> None:
+        result = parse_batch_text("Borrowing 100,000 Arrows")
+        p = result[0]
+        assert p.name == "Borrowing 100,000 Arrows"
+        assert p.price is None
+        assert p.price_currency is None
+        assert p.error is None
+
+    def test_price_before_set_code(self) -> None:
+        result = parse_batch_text("Lightning Bolt R$12,50 [m10]")
+        p = result[0]
+        assert p.name == "Lightning Bolt"
+        assert p.set_code == "m10"
+        assert p.price == Decimal("12.50")
+        assert p.price_currency == "BRL"
+
+    def test_two_price_tokens_last_wins(self) -> None:
+        result = parse_batch_text("Lightning Bolt R$5,00 US$3.10")
+        p = result[0]
+        assert p.price == Decimal("3.10")
+        assert p.price_currency == "USD"
+
+    def test_price_with_space_after_symbol(self) -> None:
+        result = parse_batch_text("Lightning Bolt R$ 12,50")
+        assert result[0].price == Decimal("12.50")
+        assert result[0].price_currency == "BRL"
+
+    def test_lowercase_symbol(self) -> None:
+        result = parse_batch_text("lightning bolt r$12,50")
+        assert result[0].price == Decimal("12.50")
+        assert result[0].price_currency == "BRL"
+
+    def test_symbol_not_followed_by_digit_no_match(self) -> None:
+        result = parse_batch_text("Lightning Bolt R$abc")
+        p = result[0]
+        assert p.price is None
+        assert p.price_currency is None
+        assert p.error is None
+        assert "R$abc" in p.name
+
+    def test_invalid_price_multiple_separators(self) -> None:
+        result = parse_batch_text("Lightning Bolt R$1.2.3,4,5")
+        p = result[0]
+        assert p.price is None
+        assert p.error == "Invalid price: 1.2.3,4,5"
+
+    def test_price_boundary_min(self) -> None:
+        result = parse_batch_text("Lightning Bolt R$0,01")
+        assert result[0].price == Decimal("0.01")
+        assert result[0].error is None
+
+    def test_price_above_limit_is_error(self) -> None:
+        result = parse_batch_text("Lightning Bolt R$1000000,01")
+        p = result[0]
+        assert p.price is None
+        assert p.error == "Invalid price: 1000000,01"

@@ -9,6 +9,7 @@ import {
   applyPurchases,
   uploadForPreview,
 } from "../api/purchases";
+import { formatCurrency } from "../utils/format";
 
 /* ------------------------------------------------------------------ */
 /* Confidence badge                                                   */
@@ -41,6 +42,36 @@ function ConfidenceBadge({
       data-testid="confidence-badge"
     >
       {label} ({(confidence * 100).toFixed(0)}%)
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Converted currency badge                                           */
+/* ------------------------------------------------------------------ */
+
+function ConvertedBadge({
+  match,
+  t,
+}: {
+  match: ParsedMatch;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}) {
+  const original = formatCurrency(
+    match.original_unit_price,
+    match.original_currency,
+  );
+  const converted = formatCurrency(match.unit_price, "BRL");
+  const title = match.exchange_rate
+    ? t("purchases.convertedFrom", { original: `${original} (${match.exchange_rate})` })
+    : t("purchases.convertedFrom", { original });
+  return (
+    <span
+      className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+      data-testid="purchase-converted-badge"
+      title={title}
+    >
+      {original} &rarr; {converted}
     </span>
   );
 }
@@ -488,6 +519,10 @@ export function ImportPurchasesPage() {
                             aria-label={`Price for ${m.card_name_parsed}`}
                             data-testid="price-input"
                           />
+                          {m.original_currency &&
+                            m.original_currency !== "BRL" && (
+                              <ConvertedBadge match={m} t={t} />
+                            )}
                         </td>
                         <td className="py-2 px-2 text-gray-500 dark:text-slate-400">
                           {m.order_date || "-"}

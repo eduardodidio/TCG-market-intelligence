@@ -1,0 +1,67 @@
+%% F175 — Tendências: market mode data flow (component / data-flow)
+flowchart TD
+  subgraph Frontend["Frontend"]
+    TREND["Trending.tsx (toggle: 'Somente minha coleção', default true)"]
+    SECTION["TrendingSection.tsx (adds collection_only='true' only when checked)"]
+    API_CLIENT["api/trending.ts (fetchTrending)"]
+    DASH["Dashboard ticker (always market mode)"]
+  end
+
+  subgraph API["API Layer"]
+    ROUTER["market.py: GET /market/trending/gainers|losers"]
+    SINGLETON["TrendingService singleton (market.py:56-63)"]
+  end
+
+  subgraph Service["TrendingService (src/services/trending.py)"]
+    GETTREND["get_trending(scope, direction, period_days, ...)"]
+    CACHE{{"Cache policy\nsuccess (cards>0) → TTL 30 min\nlegit empty (cards=[]) → TTL 2 min\nquery_failed → NOT cached"}}
+    LOG["log.info('trending_computed', scope, direction, period_days, cards_with_prices, ranked)"]
+  end
+
+  subgraph Repo["Repository (src/database/repository.py)"]
+    GETMARKET["get_trending_price_data(days) — delegates"]
+    GETUSER["get_trending_price_data_for_user(user_id, days) — unchanged"]
+  end
+
+  subgraph Query["trending_queries.py (new)"]
+    LOADMARKET["load_market_trending_prices(engine, period_days)"]
+    PATH1["Path 1: source_cards ⋈ price_observations\n(MYP / jsonld_snapshot)"]
+    PATH2["Path 2: price_observations direct\nsource IN ('liga','manual')\nexternal_id ~ ^(?:liga|manual)_(\\d+)$\n(liga_{id}_foil and liga_catalog_* rejected)"]
+    MERGE["Merge paths, dedup same-day\n(keep highest price), sort ascending"]
+  end
+
+  subgraph Analytics["src/analytics/trending.py (unchanged)"]
+    SCORE["compute_trending_score(price_series)"]
+    RANK["rank_trending(scored_cards)"]
+  end
+
+  DB[("PostgreSQL / SQLite\nsource_cards, price_observations")]
+
+  TREND -->|"toggle state"| SECTION
+  SECTION --> API_CLIENT
+  DASH --> API_CLIENT
+  API_CLIENT -->|"HTTP GET (collection_only?)"| ROUTER
+  ROUTER --> SINGLETON
+  SINGLETON --> GETTREND
+  GETTREND --> CACHE
+  CACHE -->|"cache miss / expired"| GETTREND
+  GETTREND -->|"collection_only=true (authenticated)"| GETUSER
+  GETTREND -->|"collection_only=false / market mode"| GETMARKET
+  GETMARKET --> LOADMARKET
+  LOADMARKET --> PATH1
+  LOADMARKET --> PATH2
+  PATH1 --> MERGE
+  PATH2 --> MERGE
+  PATH1 -.->|reads| DB
+  PATH2 -.->|reads| DB
+  GETUSER -.->|reads| DB
+  MERGE --> GETTREND
+  GETUSER --> GETTREND
+  GETTREND --> SCORE --> RANK
+  RANK --> GETTREND
+  GETTREND --> LOG
+  GETTREND -->|"response (cards, gainers/losers)"| SINGLETON
+  SINGLETON --> ROUTER
+  ROUTER -->|"JSON"| API_CLIENT
+  API_CLIENT --> SECTION
+  API_CLIENT --> DASH

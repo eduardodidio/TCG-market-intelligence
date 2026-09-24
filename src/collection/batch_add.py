@@ -7,11 +7,14 @@ Links to existing CardRow when possible, creates minimal CardRow otherwise
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
+from decimal import Decimal
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.currency.import_conversion import RateLookup, to_brl
 from src.database.models import CardRow, UserCollectionRow
 
 log = structlog.get_logger()
@@ -29,6 +32,8 @@ class BatchAddEntry:
     language: str | None = None
     extras: str | None = None
     line_number: int | None = None  # for error reporting
+    acquisition_price: Decimal | None = None
+    price_currency: str | None = None
 
 
 @dataclass
@@ -46,12 +51,15 @@ class BatchAddResult:
 
     added: int = 0
     errors: list[BatchAddError] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 def batch_add_entries(
     session: Session,
     user_id: str,
     entries: list[BatchAddEntry],
+    rate_lookup: RateLookup | None = None,
+    today: date | None = None,
 ) -> BatchAddResult:
     """Add multiple entries to the user's collection.
 
@@ -63,11 +71,29 @@ def batch_add_entries(
     Uses the provided session — caller is responsible for commit/rollback.
     """
     result = BatchAddResult()
+    resolved_today = today or date.today()
 
     for entry in entries:
         savepoint = session.begin_nested()
         try:
             card_id = _resolve_card(session, entry)
+
+            acquisition_price = None
+            if entry.acquisition_price is not None:
+                if rate_lookup is None:
+                    result.warnings.append(
+                        f"{entry.name_en}: no exchange rate available, price not stored"
+                    )
+                else:
+                    conversion = to_brl(
+                        entry.acquisition_price,
+                        entry.price_currency or "BRL",
+                        resolved_today,
+                        rate_lookup,
+                    )
+                    acquisition_price = conversion.brl
+                    if conversion.warning:
+                        result.warnings.append(f"{entry.name_en}: {conversion.warning}")
 
             row = UserCollectionRow(
                 user_id=user_id,
@@ -79,9 +105,11 @@ def batch_add_entries(
                 quality=entry.quality,
                 language=entry.language,
                 extras=entry.extras,
+                acquisition_price=acquisition_price,
             )
             session.add(row)
             session.flush()
+            savepoint.commit()
             result.added += 1
         except Exception as exc:
             savepoint.rollback()

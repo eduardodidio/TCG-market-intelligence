@@ -40,6 +40,7 @@ from src.database.models import (
     UserRow,
     WishlistRow,  # noqa: F401 (needed for create_all)
 )
+from src.database.trending_queries import load_market_trending_prices
 from src.domain.models import (
     CardLegality,
     CollectionError,
@@ -1072,49 +1073,10 @@ class Repository:
 
         Returns a dict mapping card_id to a list of (date, median_price)
         tuples, sorted by date ascending. Only cards with at least one
-        non-null median_price observation are included.
+        non-null median_price observation are included. Includes both
+        source_cards-based prices and direct Liga/manual observations.
         """
-        cutoff = date.today() - timedelta(days=period_days)
-
-        with Session(self.engine) as session:
-            if "postgresql" in str(self.engine.url):
-                session.execute(text("SET LOCAL statement_timeout = '8s'"))
-
-            stmt = (
-                select(
-                    SourceCardRow.card_id,
-                    PriceObservationRow.observed_at,
-                    PriceObservationRow.median_price,
-                )
-                .join(
-                    PriceObservationRow,
-                    (PriceObservationRow.external_id == SourceCardRow.external_id)
-                    & (PriceObservationRow.source.in_([SourceCardRow.source, "jsonld_snapshot"])),
-                )
-                .where(
-                    SourceCardRow.card_id.isnot(None),
-                    PriceObservationRow.observed_at >= cutoff,
-                    PriceObservationRow.median_price.isnot(None),
-                )
-                .order_by(SourceCardRow.card_id, PriceObservationRow.observed_at.asc())
-            )
-            rows = session.execute(stmt).all()
-
-        result: dict[int, list[tuple[date, Decimal]]] = {}
-        for card_id, obs_date, median_price in rows:
-            if card_id not in result:
-                result[card_id] = []
-            result[card_id].append((obs_date, Decimal(str(median_price))))
-
-        # Deduplicate within each card: same date keeps max price
-        for card_id in result:
-            by_date: dict[date, Decimal] = {}
-            for d, p in result[card_id]:
-                if d not in by_date or p > by_date[d]:
-                    by_date[d] = p
-            result[card_id] = sorted(by_date.items(), key=lambda x: x[0])
-
-        return result
+        return load_market_trending_prices(self.engine, period_days)
 
     def get_trending_price_data_for_user(
         self, user_id: int, period_days: int
@@ -5201,6 +5163,24 @@ class Repository:
             session.add(NewsItemRow(**data))
             session.commit()
             return True
+
+    def get_news_status(self) -> dict:
+        """Return {total_items, last_fetched_at, newest_published_at} (ISO or None)."""
+        with Session(self.engine) as session:
+            total, last_fetched_at, newest_published_at = session.execute(
+                select(
+                    func.count(NewsItemRow.id),
+                    func.max(NewsItemRow.fetched_at),
+                    func.max(NewsItemRow.published_at),
+                )
+            ).one()
+            return {
+                "total_items": total or 0,
+                "last_fetched_at": last_fetched_at.isoformat() if last_fetched_at else None,
+                "newest_published_at": (
+                    newest_published_at.isoformat() if newest_published_at else None
+                ),
+            }
 
     # ── Liga verify links (F169) ────────────────────────────────
 

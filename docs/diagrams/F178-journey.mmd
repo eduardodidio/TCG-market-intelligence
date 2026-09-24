@@ -1,0 +1,41 @@
+flowchart TD
+  subgraph OwnerLane["Owner (local)"]
+    O_START(["Start: agenda coleta de noticias"])
+    O_RUN["Roda bats/fetch-news.bat"]
+    O_CHECK{"Todas as fontes falharam?"}
+    O_FAIL["[FAIL] exit code 1\nRoda --check-sources para diagnosticar"]
+    O_STORED[("Itens gravados em news_items (Neon)")]
+    O_END(["Fim: coleta concluida"])
+  end
+
+  subgraph ReaderLane["Reader (web)"]
+    R_START(["Start: abre /news"])
+    R_LOADING["Loading spinner"]
+    R_ERROR_CHECK{"Erro ao carregar?"}
+    R_ERROR["ErrorBanner + retry"]
+    R_TOTAL_CHECK{"total_items == 0?"}
+    R_NODATA["EmptyState: nenhuma noticia coletada\n(esconde filtros)"]
+    R_UNREAD_CHECK{"Filtro 'unread' vazio?"}
+    R_ALLREAD["Você esta em dia! + botao Ver todas"]
+    R_FILTEREMPTY["Filtro vazio + botao Limpar filtros"]
+    R_GRID["Grid de noticias\n+ linha de frescor (>72h = desatualizado)"]
+    R_CLICK["Clica em uma noticia"]
+    R_OPEN["Abre fonte externa + marca como lida"]
+    R_END(["Fim: usuario informado"])
+  end
+
+  O_START --> O_RUN --> O_CHECK
+  O_CHECK -->|sim| O_FAIL --> O_END
+  O_CHECK -->|nao| O_STORED --> O_END
+
+  R_START --> R_LOADING --> R_ERROR_CHECK
+  R_ERROR_CHECK -->|sim| R_ERROR --> R_END
+  R_ERROR_CHECK -->|nao| R_TOTAL_CHECK
+  R_TOTAL_CHECK -->|sim| R_NODATA --> R_END
+  R_TOTAL_CHECK -->|nao| R_UNREAD_CHECK
+  R_UNREAD_CHECK -->|sim, tudo lido| R_ALLREAD --> R_GRID
+  R_UNREAD_CHECK -->|nao, mas filtro/categoria vazio| R_FILTEREMPTY --> R_GRID
+  R_UNREAD_CHECK -->|nao, ha itens| R_GRID
+  R_GRID --> R_CLICK --> R_OPEN --> R_END
+
+  O_STORED -.->|"dados disponiveis para leitura"| R_TOTAL_CHECK

@@ -15,9 +15,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from bs4 import BeautifulSoup, Tag
+
+from src.currency.money import parse_money
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -43,6 +45,7 @@ class ParsedPurchaseItem:
     order_date: date | None
     store_name: str
     source_file: str
+    currency: str = "BRL"
 
 
 @dataclass
@@ -64,18 +67,22 @@ class ParsedOrder:
 def parse_brl_price(text: str) -> Decimal:
     """Parse ``R$ 1.234,56`` or ``R$ 9,75`` into a :class:`Decimal`.
 
-    Strips currency symbol, ``(unid.)`` suffixes, and normalises
-    thousands/decimal separators.
+    Thin wrapper over :func:`src.currency.money.parse_money` with a BRL
+    hint so bare dot-decimal amounts like ``"12.50"`` are not mistaken
+    for a thousands-separated ``1250``.
     """
-    cleaned = text.replace("R$", "").strip()
-    # Remove any parenthetical suffix like "(unid.)" or "(subtotal)"
-    cleaned = cleaned.split("(")[0].strip()
-    # Thousands separator is ".", decimal separator is ","
-    cleaned = cleaned.replace(".", "").replace(",", ".")
-    try:
-        return Decimal(cleaned)
-    except InvalidOperation:
-        return Decimal("0")
+    amount, _ = parse_money(text, hint="BRL")
+    return amount if amount is not None else Decimal("0")
+
+
+def parse_price_with_currency(text: str) -> tuple[Decimal, str]:
+    """Parse a price and its currency, defaulting to BRL when no symbol.
+
+    Liga Magic and Nerdz Cards are Brazilian stores, so the absence of a
+    currency symbol means BRL; a detected ``USD``/``EUR`` symbol is kept.
+    """
+    amount, symbol = parse_money(text, hint="BRL")
+    return (amount if amount is not None else Decimal("0")), (symbol or "BRL")
 
 
 # ---------------------------------------------------------------------------
@@ -184,18 +191,19 @@ def _parse_nerdz_article(
 
     # --- Unit price ---
     unit_price = Decimal("0")
+    currency = "BRL"
     price_divs = article.select("div.col-xs-6.col-sm-3 p, div.col-xs-6.col-md-3 p")
     for p_tag in price_divs:
         p_text = p_tag.get_text(strip=True)
         if "(unid.)" in p_text or "unid" in p_text:
-            unit_price = parse_brl_price(p_text)
+            unit_price, currency = parse_price_with_currency(p_text)
             break
     # Fallback: look for any <p> with R$ and (unid.)
     if unit_price == Decimal("0"):
         for p_tag in article.select("p"):
             p_text = p_tag.get_text(strip=True)
             if "R$" in p_text and "(unid.)" in p_text:
-                unit_price = parse_brl_price(p_text)
+                unit_price, currency = parse_price_with_currency(p_text)
                 break
 
     # --- Language ---
@@ -247,6 +255,7 @@ def _parse_nerdz_article(
         order_date=order_date,
         store_name=store_name,
         source_file=source_file,
+        currency=currency,
     )
 
 
@@ -391,9 +400,10 @@ def _parse_liga_card_row(
 
     # --- Unit price ---
     unit_price = Decimal("0")
+    currency = "BRL"
     price_div = row.select_one("div.item-subpreco")
     if price_div:
-        unit_price = parse_brl_price(price_div.get_text(strip=True))
+        unit_price, currency = parse_price_with_currency(price_div.get_text(strip=True))
 
     # --- Foil / extras (Liga orders don't typically have extras in the HTML) ---
     extras: list[str] = []
@@ -415,6 +425,7 @@ def _parse_liga_card_row(
         order_date=order_date,
         store_name=store_name,
         source_file=source_file,
+        currency=currency,
     )
 
 

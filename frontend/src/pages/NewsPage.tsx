@@ -7,16 +7,19 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import {
   fetchNews,
+  fetchNewsStatus,
   markNewsRead,
   markNewsUnread,
   type NewsItem,
   type NewsListResponse,
+  type NewsStatus,
 } from "../api/news";
 
 type FilterTab = "unread" | "read" | "all";
 
 const CATEGORIES = ["all", "ban", "release", "event", "reprint", "other"] as const;
 const ITEMS_PER_PAGE = 20;
+const STALE_HOURS = 72;
 
 const CATEGORY_COLORS: Record<string, string> = {
   ban: "bg-red-500/20 text-red-400",
@@ -40,6 +43,12 @@ function formatRelativeDate(dateStr: string | null): string {
   if (diffHrs < 24) return `${diffHrs}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString();
+}
+
+function isStale(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  const diffHours = (Date.now() - new Date(dateStr).getTime()) / 3_600_000;
+  return diffHours > STALE_HOURS;
 }
 
 export function NewsPage() {
@@ -66,9 +75,18 @@ export function NewsPage() {
     refetch,
   } = useApi<NewsListResponse>(fetcher, [filter, category, offset]);
 
+  const statusFetcher = useCallback(() => fetchNewsStatus(), []);
+  const { data: statusData } = useApi<NewsStatus>(statusFetcher, []);
+
   const items = newsData?.items ?? [];
   const total = newsData?.total ?? 0;
   const hasMore = offset + ITEMS_PER_PAGE < total;
+
+  const noData = statusData !== null && statusData.total_items === 0;
+  const filterEmpty =
+    !loading && !error && !noData && items.length === 0;
+  const showTabsAndChips = !noData;
+  const stale = isStale(statusData?.last_fetched_at ?? null);
 
   const handleItemClick = async (item: NewsItem) => {
     // Open in new tab
@@ -104,6 +122,16 @@ export function NewsPage() {
     setOffset(0);
   };
 
+  const handleShowAll = () => {
+    handleFilterChange("all");
+  };
+
+  const handleClearFilters = () => {
+    setCategory("all");
+    setFilter("all");
+    setOffset(0);
+  };
+
   const breadcrumbs = [
     { label: t("nav.dashboard"), to: "/" },
     { label: t("news.title") },
@@ -118,62 +146,121 @@ export function NewsPage() {
   return (
     <div>
       <Breadcrumb items={breadcrumbs} />
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
         {t("news.title")}
       </h1>
 
+      {/* Freshness line */}
+      {statusData && statusData.last_fetched_at && (
+        <p
+          data-testid="news-last-updated"
+          className={`text-xs mb-5 ${
+            stale
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-gray-500 dark:text-slate-400"
+          }`}
+        >
+          {t("news.lastUpdated", {
+            date: new Date(statusData.last_fetched_at).toLocaleString(),
+          })}
+          {stale && (
+            <span data-testid="news-stale"> ({t("news.stale")})</span>
+          )}
+        </p>
+      )}
       {/* Filter tabs */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200 dark:border-slate-700">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => handleFilterChange(tab.key)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-              filter === tab.key
-                ? "border-indigo-500 text-gray-900 dark:text-white"
-                : "border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-            data-testid={`filter-tab-${tab.key}`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      {showTabsAndChips && (
+        <div className="flex gap-1 mb-4 border-b border-gray-200 dark:border-slate-700">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleFilterChange(tab.key)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                filter === tab.key
+                  ? "border-indigo-500 text-gray-900 dark:text-white"
+                  : "border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+              data-testid={`filter-tab-${tab.key}`}
+            >
+              {t(tab.labelKey)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Category filter */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => handleCategoryChange(cat)}
-            className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-              category === cat
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600"
-            }`}
-            data-testid={`category-${cat}`}
-          >
-            {t(`news.category_${cat}`)}
-          </button>
-        ))}
-      </div>
+      {showTabsAndChips && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => handleCategoryChange(cat)}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                category === cat
+                  ? "bg-indigo-600 text-white"
+                  : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600"
+              }`}
+              data-testid={`category-${cat}`}
+            >
+              {t(`news.category_${cat}`)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Error state */}
-      {error && <ErrorBanner message={error} onRetry={refetch} />}
+      {error && <ErrorBanner message={t("news.errorTitle")} onRetry={refetch} />}
 
       {/* Loading state */}
       {loading && <LoadingSpinner message={t("common.loading")} />}
 
-      {/* Empty state */}
-      {!loading && !error && items.length === 0 && (
-        <EmptyState
-          title={t("news.emptyTitle")}
-          description={t("news.emptyDescription")}
-        />
+      {/* No data collected */}
+      {!loading && !error && noData && (
+        <div data-testid="news-no-data">
+          <EmptyState
+            title={t("news.noDataTitle")}
+            description={t("news.noDataDescription")}
+          />
+        </div>
+      )}
+
+      {/* Filter empty: all read */}
+      {filterEmpty && filter === "unread" && (
+        <div data-testid="news-all-read">
+          <EmptyState
+            title={t("news.allReadTitle")}
+            description={t("news.allReadDescription")}
+          />
+          <div className="flex justify-center">
+            <button
+              onClick={handleShowAll}
+              className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              data-testid="news-show-all"
+            >
+              {t("news.showAll")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filter empty: other filters/categories */}
+      {filterEmpty && filter !== "unread" && (
+        <div data-testid="news-filter-empty">
+          <EmptyState title={t("news.filterEmptyTitle")} />
+          <div className="flex justify-center">
+            <button
+              onClick={handleClearFilters}
+              className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              data-testid="news-clear-filters"
+            >
+              {t("news.clearFilters")}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* News cards grid */}
-      {!loading && items.length > 0 && (
+      {!loading && !error && !noData && items.length > 0 && (
         <>
           <div
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
