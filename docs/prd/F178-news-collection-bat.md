@@ -99,5 +99,35 @@ de diagramas (T06).
 
 ## Live validation log
 
-_(a preencher pelo usuário em T08 — validação ao vivo das fontes RSS/Atom
-fora do sandbox de nuvem)_
+### 2026-09-24 — sandbox attempt (T08)
+
+`python -m src.cli.main fetch-news --check-sources` run inside the cloud
+sandbox. All 5 default sources failed with `403 Forbidden` and no
+`http_status` captured (error surfaced before an HTTP response, i.e. at
+connect time). Confirmed with a raw `curl` to
+`https://scryfall.com/blog/feed.atom`: `curl: (56) CONNECT tunnel failed,
+response 403` — the sandbox's outbound proxy is rejecting the CONNECT
+tunnel to the feed hosts, not the feeds themselves returning 403. This
+matches the known sandbox limitation noted in the task's Dev Notes.
+
+| source | http | entries | note |
+|---|---|---|---|
+| MTG Official | — | — | proxy CONNECT 403 |
+| Scryfall Blog | — | — | proxy CONNECT 403 |
+| MTGGoldfish | — | — | proxy CONNECT 403 |
+| EDHREC | — | — | proxy CONNECT 403 |
+| Hipsters of the Coast | — | — | proxy CONNECT 403 |
+
+**Status: pending-user.** Per Dev Notes, escalating rather than guessing.
+Please run this locally (outside the sandbox) and paste the output here:
+
+```
+python -m src.cli.main fetch-news --check-sources
+```
+
+If any source fails there too (404/403/parse error), let me know and I'll
+fix or drop it in `SOURCES` (`src/services/news_fetcher.py`) — candidates
+already identified: Scryfall `https://scryfall.com/blog/rss` as a
+fallback for `/blog/feed.atom`; if Wizards has no working RSS feed, it
+gets dropped (no HTML scraping, out of scope). At least 2 working sources
+must remain.
