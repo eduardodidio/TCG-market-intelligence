@@ -1400,5 +1400,21 @@
   },
   "purchases": {
     "convertedFrom": "Converted from {{original}}"
+  },
+  "priceHistory": {
+    "variantFoil": "Foil ✦",
+    "variantNormal": "Normal",
+    "variantLabel": "Card version: {{variant}}",
+    "sources": "Sources",
+    "since": "History since {{date}}",
+    "sourceLiga": "Liga",
+    "sourceMyp": "MYP",
+    "sourceManual": "Manual",
+    "sourceJsonld": "JSON-LD",
+    "sourceSnapshot": "Daily snapshot",
+    "emptyNeverCollected": "No prices recorded for this version ({{variant}}) yet. History starts with the next Liga sweep.",
+    "emptyPeriod": "No points in this period. History since {{date}} — try a longer period.",
+    "snapshotPoint": "Repeated price (no new collection on this day)",
+    "realVsSnapshot": "{{real}} real collections · {{snapshot}} repeated days"
   }
 }
