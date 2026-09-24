@@ -1,0 +1,20 @@
+flowchart LR
+  subgraph FE[Frontend]
+    Host[AchievementNotifierHost] --> Hook[useAchievementNotifier]
+    Hook --> Toast[AchievementToast +N Tesouros]
+    Page[AchievementsPage reward chips]
+    Hook -- credits:changed --> TB[TreasureBalance/useCredits]
+  end
+  subgraph API
+    R[routers/achievements.py]
+  end
+  subgraph SVC[Services]
+    A[services/achievements.py]
+    RW[services/achievement_rewards.py tiers+credit+backfill]
+  end
+  CLI[cli backfill-achievement-rewards] --> RW
+  Hook -- POST /achievements/check --> R
+  Page -- GET /achievements --> R
+  R --> A --> RW
+  RW --> DB[(achievements / credit_balances / credit_transactions)]
+  A --> DB

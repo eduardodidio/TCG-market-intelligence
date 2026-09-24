@@ -1241,6 +1241,18 @@
     "locked": "Keep playing to unlock",
     "unlockedAt": "Unlocked on {{date}}",
     "toastTitle": "Achievement Unlocked!",
+    "reward": "+{{amount}} Treasures",
+    "rewardEarned": "Earned",
+    "treasureProgress": "{{earned}} / {{total}} Treasures earned",
+    "toastReward": "+{{amount}} Treasures added!",
+    "backfillReward": "+{{amount}} Treasures from past achievements",
+    "tier": {
+      "common": "Common",
+      "uncommon": "Uncommon",
+      "rare": "Rare",
+      "mythic": "Mythic",
+      "legendary": "Legendary"
+    },
     "first_card": {
       "title": "First Card",
       "description": "Add your first card to collection"

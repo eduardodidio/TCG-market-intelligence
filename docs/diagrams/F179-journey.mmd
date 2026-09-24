@@ -1,0 +1,35 @@
+flowchart TD
+  subgraph UserLane["User"]
+    U_START(["User adds a card / uses the app"])
+    U_NAV["Navigates (any page)"]
+    U_OPEN["Opens Conquistas page"]
+    U_SEE(["Sees reward chips + earned/total Tesouros"])
+  end
+
+  subgraph SystemLane["System"]
+    S_HOST["AchievementNotifierHost throttled check"]
+    S_POST["POST /achievements/check"]
+    S_UNLOCKED{"Newly unlocked?"}
+    S_INSERT{"Achievement insert rowcount == 1?"}
+    S_CREDIT["credit_reward_in_session + ledger row"]
+    S_BACKFILL["Lazy backfill: pre-F179 unlocks with no ledger row"]
+    S_TOAST["Toast: +N Tesouros adicionados!"]
+    S_BALANCE["Balance refreshes (credits:changed event)"]
+    S_NOTHING(["Nothing shown"])
+    S_SKIP(["Skip credit (already credited)"])
+    S_RETRY["Retried on next navigation"]
+  end
+
+  U_START --> U_NAV --> S_HOST --> S_POST
+  S_POST --> S_BACKFILL
+  S_BACKFILL -->|"pre-F179 unlock found, no ledger row"| S_CREDIT
+  S_POST --> S_UNLOCKED
+  S_UNLOCKED -->|"no"| S_NOTHING
+  S_UNLOCKED -->|"yes"| S_INSERT
+  S_INSERT -->|"no (duplicate/race)"| S_SKIP
+  S_INSERT -->|"yes"| S_CREDIT
+  S_CREDIT --> S_TOAST --> S_BALANCE
+  S_BALANCE --> U_OPEN --> U_SEE
+
+  S_POST -.->|"check fails (network/error)"| S_ERROR["Silent failure, no toast"]
+  S_ERROR -.-> S_RETRY -.-> S_HOST

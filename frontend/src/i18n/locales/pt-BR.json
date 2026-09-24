@@ -1241,6 +1241,18 @@
     "locked": "Continue jogando para desbloquear",
     "unlockedAt": "Desbloqueada em {{date}}",
     "toastTitle": "Conquista Desbloqueada!",
+    "reward": "+{{amount}} Tesouros",
+    "rewardEarned": "Recebido",
+    "treasureProgress": "{{earned}} / {{total}} Tesouros ganhos",
+    "toastReward": "+{{amount}} Tesouros adicionados!",
+    "backfillReward": "+{{amount}} Tesouros de conquistas anteriores",
+    "tier": {
+      "common": "Comum",
+      "uncommon": "Incomum",
+      "rare": "Rara",
+      "mythic": "Mítica",
+      "legendary": "Lendária"
+    },
     "first_card": {
       "title": "Primeira Carta",
       "description": "Adicione sua primeira carta a colecao"

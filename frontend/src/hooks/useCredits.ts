@@ -3,6 +3,7 @@ import {
   fetchCreditBalance,
   claimBonus as apiClaimBonus,
 } from "../api/credits";
+import { CREDITS_CHANGED_EVENT } from "../utils/creditsEvents";
 
 export interface CreditState {
   balance: number | null;
@@ -41,6 +42,11 @@ export function useCredits(): CreditState {
 
   useEffect(() => {
     fetchBalance();
+  }, [fetchBalance]);
+
+  useEffect(() => {
+    window.addEventListener(CREDITS_CHANGED_EVENT, fetchBalance);
+    return () => window.removeEventListener(CREDITS_CHANGED_EVENT, fetchBalance);
   }, [fetchBalance]);
 
   const claimBonus = useCallback(async (): Promise<number> => {
