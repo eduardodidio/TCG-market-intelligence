@@ -17,6 +17,26 @@ operation order, match it exactly and add a statement-order/mock-based
 test that pins the ordering, since SQLite can't reproduce the real
 Postgres race — say so in the test's docstring.
 
+## F174 — 2026-09-24
+**What worked:** putting new query logic in a brand-new module
+(`src/marketplace/trade_queries.py`) instead of editing the shared
+`repository.py` avoided conflicts with sibling features in the same
+parallel batch and made the new code independently testable (100%
+coverage). The fix for a component-output regression (TradeCard rendering
+translated text where a raw status string used to be) added a `data-*`
+attribute carrying the raw value instead of reverting the i18n change or
+leaving the legacy test broken.
+**What to avoid:** rewriting a page (`MyTrades.tsx`) without checking
+whether an already-failing *legacy, unowned* test file for that same page
+gains additional failing assertions — it did (1 → 3 failures), and it
+shipped because the AC7 gate was file-level, not test-level.
+**Pattern to repeat:** when a component starts rendering translated text
+where a raw value used to be, add a `data-*` attribute carrying the raw
+value so language-independent assertions (existing or new) don't have to
+couple to i18n copy. When a task rewrites a page/component, grep for
+*any* legacy test file (owned or not) that renders it and spot-check it
+still passes at the same failure count.
+
 ## F176 — 2026-09-24
 **What worked:** one pure resolver module (`price_history_keys.py`) plus one
 shared service (`build_history`) consumed by all endpoints kept a

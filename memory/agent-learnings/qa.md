@@ -18,6 +18,26 @@ concurrency defect, re-run the specific pinning test in isolation and
 confirm the statement order directly in the source, not just re-run the
 full suite and check for green.
 
+## F174 — 2026-09-24
+**What worked:** rebuilding a throwaway worktree at the pre-feature commit
+and diffing failing test **file names** (not just counts) against it, for
+both the frontend and backend suites, confirmed a 109-failure backend
+suite was 100% pre-existing/environmental (Liga/MYP/Scryfall network
+egress blocked in this sandbox, plus an unrelated pre-existing
+currency-fallback regression) and unrelated to F174's actual changes.
+**What to avoid:** an AC7-style "no new failing file" gate is file-level
+and blind to a legacy already-failing file gaining *more* failing tests
+inside it (`tests/pages/MyTrades.test.tsx` went from 1 to 3 failures after
+a page rewrite) — that's a real coverage regression a file-name diff will
+never catch. Also: bare `pytest` on `$PATH` in this sandbox resolves to a
+`uv`-managed install without `pytest-cov` and errors on the project's
+`--cov` addopts — use `python3 -m pytest` instead.
+**Pattern to repeat:** when a full test suite has a large, surprising
+failure count, don't assume it's a regression — rebuild a pre-feature
+worktree and re-run the exact same failing files there before flagging a
+blocker. When an AC7-style gate is file-level, also spot-check whether an
+already-failing legacy file gained additional failing tests within it.
+
 ## F176 — 2026-09-24
 **What worked:** when a targeted test run turns up failures, `git stash`ing
 this session's own uncommitted changes and re-running just the failing test
