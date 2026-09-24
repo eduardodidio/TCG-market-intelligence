@@ -380,3 +380,71 @@ class TestGenerateDeck:
         assert 1 not in card_ids
         assert 2 not in card_ids
         assert 3 not in card_ids
+
+
+# ---------------------------------------------------------------------------
+# generate_deck — price wiring (F172-T02)
+# ---------------------------------------------------------------------------
+
+
+def _fake_price_batch(price_map: dict[int, str | None]):
+    """Stub for Repository.get_latest_prices_batch: card_id -> median_price."""
+
+    def _batch(card_ids):
+        out = {}
+        for cid in card_ids:
+            value = price_map.get(cid)
+            out[cid] = None if value is None else MagicMock(median_price=Decimal(value))
+        return out
+
+    return _batch
+
+
+class TestGenerateDeckPrices:
+    def _run(self, candidates, price_map, budget=None):
+        repo = MagicMock()
+        repo.get_card_by_id.return_value = None
+        repo.get_latest_prices_batch.side_effect = _fake_price_batch(price_map)
+
+        mock_session = MagicMock()
+        mock_execute = MagicMock()
+        mock_execute.scalars.return_value.all.return_value = candidates
+        mock_execute.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_execute
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+
+        params = DeckBuildParams(format_name="modern", colors=["W"], budget_limit=budget)
+        with patch("src.decks.builder.Session", return_value=mock_session):
+            return repo, generate_deck(repo, params)
+
+    def test_total_value_from_median_price(self):
+        cards = [FakeCardRow(id=i, name_en=f"Card {i}", color_identity="W") for i in (1, 2)]
+        _, deck = self._run(cards, {1: "3.00", 2: None})
+        by_id = {c["card_id"]: c for c in deck.cards if c["card_id"]}
+        assert by_id[1]["price"] == 3.0
+        assert by_id[2]["price"] is None
+        assert deck.total_value == Decimal("3.00") * by_id[1]["quantity"]
+
+    def test_prices_fetched_in_one_call(self):
+        cards = [FakeCardRow(id=i, name_en=f"Card {i}", color_identity="W") for i in (1, 2)]
+        repo, _ = self._run(cards, {})
+        assert repo.get_latest_prices_batch.call_count == 1
+
+    def test_budget_skips_priced_cards(self):
+        cards = [
+            FakeCardRow(id=1, name_en="Pricey", color_identity="W"),
+            FakeCardRow(id=2, name_en="Unknown", color_identity="W"),
+        ]
+        _, deck = self._run(cards, {1: "50.00"}, budget=Decimal("0.01"))
+        chosen = {c["card_id"] for c in deck.cards if c["card_id"]}
+        assert 1 not in chosen
+        assert 2 in chosen
+        assert deck.warnings
+        assert deck.total_value is None
+
+    def test_price_lookup_chunks_by_500(self):
+        cards = [FakeCardRow(id=i, name_en=f"Card {i}", color_identity="W") for i in range(1, 1201)]
+        repo, _ = self._run(cards, {})
+        sizes = [len(c.args[0]) for c in repo.get_latest_prices_batch.call_args_list]
+        assert sizes == [500, 500, 200]

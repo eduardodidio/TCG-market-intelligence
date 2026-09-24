@@ -614,3 +614,23 @@ class TestCommanderSearch:
         resp = client.get("/decks/commanders")
         assert resp.status_code == 200
         assert resp.json()["data"] == []
+
+    @patch("src.decks.builder.get_commander_candidates")
+    def test_search_commanders_returns_name_pt(self, mock_search):
+        """F172-T02: name_pt is exposed in the CommanderCandidate schema."""
+        mock_search.return_value = [
+            {
+                "card_id": 1,
+                "name_en": "Atraxa, Praetors' Voice",
+                "name_pt": "Atraxa, Voz dos Pretores",
+                "type_line": "Legendary Creature",
+            },
+            {"card_id": 2, "name_en": "Krenko, Mob Boss", "type_line": "Legendary Creature"},
+        ]
+
+        client = TestClient(_make_app())
+        resp = client.get("/decks/commanders?q=voz dos")
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        assert body[0]["name_pt"] == "Atraxa, Voz dos Pretores"
+        assert body[1]["name_pt"] is None

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { generateDeck, searchCommanders } from "../api/decks";
+import { generateDeck } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { CommanderSearch } from "../components/decks/CommanderSearch";
 import type {
   CommanderSearchResult,
   DeckGenerateParams,
@@ -39,6 +40,16 @@ const FORMAT_INFO: Record<
     label: "Pauper",
     cards: 60,
     desc: "60-card deck. Commons only.",
+  },
+  pioneer: {
+    label: "Pioneer",
+    cards: 60,
+    desc: "60-card deck with up to 4 copies. Return to Ravnica forward.",
+  },
+  vintage: {
+    label: "Vintage",
+    cards: 60,
+    desc: "60-card deck. All sets legal, restricted list instead of bans.",
   },
   casual: {
     label: "Casual",
@@ -92,15 +103,9 @@ export function DeckBuildWizard() {
   const [prioritizeOwned, setPrioritizeOwned] = useState(false);
   const [deckName, setDeckName] = useState("");
 
-  // Commander search
-  const [commanderQuery, setCommanderQuery] = useState("");
-  const [commanderResults, setCommanderResults] = useState<
-    CommanderSearchResult[]
-  >([]);
+  // Commander selection (search lives in <CommanderSearch />)
   const [selectedCommander, setSelectedCommander] =
     useState<CommanderSearchResult | null>(null);
-  const [searchingCommanders, setSearchingCommanders] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Generation state
   const [generating, setGenerating] = useState(false);
@@ -108,26 +113,6 @@ export function DeckBuildWizard() {
   const [error, setError] = useState<string | null>(null);
 
   const isCommanderFormat = formatName === "commander";
-
-  // Debounced commander search
-  useEffect(() => {
-    if (!isCommanderFormat || commanderQuery.length < 2) {
-      setCommanderResults([]);
-      return;
-    }
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setSearchingCommanders(true);
-      const resp = await searchCommanders(commanderQuery);
-      if (resp.data) setCommanderResults(resp.data);
-      setSearchingCommanders(false);
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [commanderQuery, isCommanderFormat]);
 
   // Auto-set colors from commander
   useEffect(() => {
@@ -196,14 +181,6 @@ export function DeckBuildWizard() {
       navigate(`/decks/${result.deck_id}`);
     }
   }, [result, navigate]);
-
-  const getCommanderImageUrl = (c: CommanderSearchResult) => {
-    if (c.image_uri) return c.image_uri;
-    if (c.set_code && c.collector_number) {
-      return `https://api.scryfall.com/cards/${c.set_code}/${c.collector_number}?format=image&version=small`;
-    }
-    return null;
-  };
 
   return (
     <div data-testid="page-deck-build-wizard">
@@ -316,77 +293,14 @@ export function DeckBuildWizard() {
           </h2>
 
           {isCommanderFormat ? (
-            <div>
-              <input
-                type="text"
-                value={commanderQuery}
-                onChange={(e) => setCommanderQuery(e.target.value)}
-                placeholder={t("deckBuild.searchCommander", {
-                  defaultValue: "Search for a legendary creature...",
-                })}
-                className="w-full px-4 py-2 bg-slate-700 text-white rounded-md border border-slate-600 focus:border-cyan-500 focus:outline-none mb-4"
-                data-testid="commander-search"
-              />
-              {searchingCommanders && (
-                <p className="text-xs text-slate-400 mb-2">
-                  {t("common.searching", { defaultValue: "Searching..." })}
-                </p>
-              )}
-              {selectedCommander && (
-                <div
-                  className="mb-4 p-3 rounded-lg bg-cyan-900/20 border border-cyan-700/50 flex items-center gap-3"
-                  data-testid="selected-commander"
-                >
-                  <p className="text-sm text-white font-medium">
-                    {selectedCommander.name_en}
-                  </p>
-                  <span className="text-xs text-slate-400">
-                    {selectedCommander.color_identity || "C"}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setSelectedCommander(null);
-                      setSelectedColors([]);
-                    }}
-                    className="ml-auto text-xs text-red-400 hover:text-red-300"
-                  >
-                    {t("common.remove", { defaultValue: "Remove" })}
-                  </button>
-                </div>
-              )}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-96 overflow-y-auto">
-                {commanderResults.map((c) => {
-                  const imgUrl = getCommanderImageUrl(c);
-                  return (
-                    <button
-                      key={c.card_id}
-                      onClick={() => setSelectedCommander(c)}
-                      className={`p-2 rounded-lg border text-left transition-all ${
-                        selectedCommander?.card_id === c.card_id
-                          ? "border-cyan-500 ring-1 ring-cyan-500/50"
-                          : "border-slate-600 hover:border-slate-500"
-                      }`}
-                      data-testid={`commander-option-${c.card_id}`}
-                    >
-                      {imgUrl && (
-                        <img
-                          src={imgUrl}
-                          alt={c.name_en}
-                          className="w-full rounded aspect-[488/680] object-cover mb-1"
-                          loading="lazy"
-                        />
-                      )}
-                      <p className="text-xs text-white truncate">
-                        {c.name_en}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {c.color_identity || "C"}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <CommanderSearch
+              selected={selectedCommander}
+              onSelect={setSelectedCommander}
+              onClear={() => {
+                setSelectedCommander(null);
+                setSelectedColors([]);
+              }}
+            />
           ) : (
             <div>
               <p className="text-sm text-slate-400 mb-4">

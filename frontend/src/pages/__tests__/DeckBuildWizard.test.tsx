@@ -124,6 +124,15 @@ describe("DeckBuildWizard", () => {
     expect(screen.getByTestId("color-toggle-W")).toBeInTheDocument();
   });
 
+  it("offers Pioneer and Vintage; Pioneer goes to the color step", () => {
+    renderWizard();
+    expect(screen.getByTestId("format-option-vintage")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("format-option-pioneer"));
+    fireEvent.click(screen.getByTestId("step1-next"));
+    expect(screen.getByTestId("color-picker")).toBeInTheDocument();
+    expect(screen.queryByTestId("commander-search")).toBeNull();
+  });
+
   it("Step 3 shows archetype options and budget input", () => {
     renderWizard();
     // Go to step 2
