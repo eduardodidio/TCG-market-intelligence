@@ -24,7 +24,7 @@ from src.api.schemas.cards import (
     PriceObservation,
     SourceCardSchema,
 )
-from src.api.schemas.collection import CollectionHistoryResponse
+from src.api.schemas.collection import CollectionHistoryResponse, PriceHistoryMeta
 from src.api.schemas.envelope import (
     ApiResponse,
     paginated_response,
@@ -35,6 +35,7 @@ from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
 from src.providers.liga.urls import resolve_liga_card_url
+from src.services.collection_price_history import build_history
 from src.services.currency import CurrencyConverter
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -226,21 +227,8 @@ def get_history(
     if not card:
         raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
 
-    source_cards = repo.get_source_cards_for_card(card_id)
-    if not source_cards:
-        return success_response(data=CollectionHistoryResponse(observations=[], summary=None))
-
     days = PERIOD_MAP[period]
-    all_observations = []
-    for sc in source_cards:
-        prices = repo.get_price_series(
-            source=[sc.source, "jsonld_snapshot", "daily_snapshot"],
-            external_id=sc.external_id,
-            days=days,
-        )
-        all_observations.extend(prices)
-
-    all_observations.sort(key=lambda p: p.observed_at)
+    all_observations, meta = build_history(repo, card_id, is_foil=False, days=days)
 
     observations = [
         PriceObservation(
@@ -250,6 +238,7 @@ def get_history(
             last_sold_price=converter.convert(p.last_sold_price, p.observed_at, currency),
             quantity_available=p.quantity_available,
             currency=currency,
+            source=p.source,
         )
         for p in all_observations
     ]
@@ -258,7 +247,11 @@ def get_history(
     summary = compute_price_change_summary(observations, period, resolution)
 
     return success_response(
-        data=CollectionHistoryResponse(observations=observations, summary=summary)
+        data=CollectionHistoryResponse(
+            observations=observations,
+            summary=summary,
+            meta=PriceHistoryMeta(**meta),
+        )
     )
 
 
