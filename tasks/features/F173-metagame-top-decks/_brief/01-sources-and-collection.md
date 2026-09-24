@@ -10,7 +10,7 @@ O SPIKE deve, para cada candidata: ler `robots.txt` e ToS, verificar se a URL al
 é permitida, se há API/export oficial, formato do dado (HTML/JSON/texto), campos
 disponíveis (arquétipo, %, rank, decklist, data), estabilidade, e custo em requests
 por coleta. **Se o ToS proibir coleta automatizada, a fonte é descartada** mesmo que
-robots permita. Registrar tudo no ADR (`docs/adr/<próximo nº>-metagame-deck-sources.md`).
+robots permita. Registrar tudo no ADR (`docs/adr/0016-metagame-deck-sources.md`).
 
 Saída extra do SPIKE: **fixtures reais** (1 página de meta + 1 decklist por fonte
 escolhida) salvas em `tests/fixtures/metagame/<source>/` para que os adapters sejam
