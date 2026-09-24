@@ -1122,6 +1122,38 @@ unlocks, instead of giving nothing back:
   `reason="bonus_claim"`, so it could never unlock. It now checks for
   `bonus_claim` and is reachable.
 
+### F177 -- Ban List (2026-09-24)
+
+Fixes the banlist sync (JSONL/gzip download, redirect-following, and
+set-code mapping were all broken) and rebuilds the ban list page around a
+compact, owned-aware view with per-card history:
+
+- **Sync fix** -- `src/collectors/banlist_sync.py` prefers Scryfall's
+  `jsonl_download_uri` bulk data (falls back to the JSON array), streams it
+  with `httpx.AsyncClient(follow_redirects=True)`, and maps set codes via
+  `map_to_scryfall_set_code` before indexing. Storage is compact
+  (diff-only, baseline policy) and writes are batched
+  (`bulk_upsert_legalities` / `bulk_insert_legality_changes`, chunked
+  `ON CONFLICT`). The sync now fails loudly (non-zero exit / raised error)
+  instead of silently no-op'ing when 0 lines or 0 matches are found.
+- **`.bat`** -- `bats/banlist-sync.bat` runs
+  `python -m src.cli.main banlist-sync` locally (writes straight to Neon via
+  `.env`, like `liga-sweep`); suggested Windows Task Scheduler cadence is
+  daily at 06:00. Production can also be refreshed via
+  `POST /api/v1/banlist/sync` (auth required).
+- **API** -- `GET /api/v1/banlist` accepts `?owned_only=true` (auth) to
+  restrict results to cards in the caller's collection; entries are grouped
+  by format. New `GET /api/v1/banlist/status` reports sync freshness
+  (`legalities_count`, last sync timestamp) so the UI can show an
+  empty/not-synced state.
+- **Frontend** -- `BanList.tsx` renders the grouped list with the "Somente
+  minha coleção" toggle; clicking a card opens `BanCardDetailModal.tsx`,
+  which shows current legalities plus the full ban/unban history timeline
+  for that card.
+- **Routing** -- the standalone "Ban History" nav item and `BanHistory.tsx`
+  page were removed; `/banlist/history` now redirects to `/banlist`
+  (history is reached per-card from the modal instead).
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).

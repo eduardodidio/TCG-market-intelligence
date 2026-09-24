@@ -75,7 +75,6 @@ const BETA_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: "/market", labelKey: "nav.market", requiresAuth: false, icon: ICONS.chartBar },
   { to: "/market/trending", labelKey: "nav.trending", requiresAuth: false, icon: ICONS.trendingUp },
   { to: "/banlist", labelKey: "nav.banlist", requiresAuth: false, icon: ICONS.xCircle },
-  { to: "/banlist/history", labelKey: "nav.banHistory", requiresAuth: false, icon: ICONS.clock },
   { to: "/decks", labelKey: "nav.myDecks", requiresAuth: true, icon: ICONS.rectStack },
   { to: "/decks/ranking", labelKey: "nav.topDecks", requiresAuth: true, icon: ICONS.star },
   { to: "/decks/build", labelKey: "nav.buildDeck", requiresAuth: true, icon: ICONS.wrench },

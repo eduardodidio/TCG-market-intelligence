@@ -400,7 +400,7 @@ describe("Layout — deck builder & evaluator nav (F133)", () => {
     renderLayout();
     const betaItems = screen.getByTestId("beta-nav-items");
     const links = betaItems.querySelectorAll("a");
-    // 10 original + 2 new (build deck, deck evaluator)
+    // 10 original + 2 new (build deck, deck evaluator) - 1 removed (ban history, F177)
     expect(links.length).toBe(12);
   });
 
