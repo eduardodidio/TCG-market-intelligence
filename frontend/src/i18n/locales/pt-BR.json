@@ -377,6 +377,23 @@
     "importing": "Importando...",
     "importStats": "{{imported}} importados, {{skipped}} ignorados, {{linked}} vinculados",
     "selectCsvFile": "Selecionar arquivo CSV",
+    "importCurrencyLabel": "Moeda do arquivo",
+    "importCurrencyAuto": "Auto ({{currency}})",
+    "importCurrencyDetected": "Moeda detectada: {{currency}}",
+    "importCurrencySource": {
+      "user": "definida pelo usuario",
+      "column": "coluna de moeda",
+      "header": "cabecalho da coluna de preco",
+      "symbol": "simbolo de moeda",
+      "number_format": "formato numerico",
+      "origin": "origem do arquivo",
+      "default": "padrao (nao detectado)"
+    },
+    "importCurrencyLowConfidence": "Nao foi possivel confirmar a moeda do arquivo. Verifique antes de importar.",
+    "importPriced": "{{count}} com preco",
+    "importConverted": "{{count}} convertidos de USD",
+    "importRate": "Cotacao usada: {{rate}}",
+    "importPriceWarnings": "Avisos de preco",
     "noMatchingCards": "Nenhuma carta corresponde aos filtros.",
     "deleteUndoMessage": "\"{{name}}\" excluido",
     "deleteUndo": "Desfazer",
@@ -1380,5 +1397,8 @@
     "clearFilters": "Limpar filtros",
     "lastUpdated": "Ultima coleta: {{date}}",
     "stale": "desatualizado"
+  },
+  "purchases": {
+    "convertedFrom": "Convertido de {{original}}"
   }
 }

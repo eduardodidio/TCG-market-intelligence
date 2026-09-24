@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { importCollectionCsv } from "../api/collection";
+import type { ImportResult } from "../types/api";
+import { formatCurrency } from "../utils/format";
 
 interface CsvImportModalProps {
   isOpen: boolean;
@@ -8,7 +10,8 @@ interface CsvImportModalProps {
   onSuccess: () => void;
 }
 
-type ModalState = "idle" | "uploading" | "success" | "error";
+type ModalState = "idle" | "detecting" | "detected" | "uploading" | "success" | "error";
+type CurrencyChoice = "auto" | "BRL" | "USD";
 
 interface ImportStats {
   imported: number;
@@ -22,15 +25,40 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
   const [state, setState] = useState<ModalState>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [stats, setStats] = useState<ImportStats | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [detection, setDetection] = useState<ImportResult | null>(null);
+  const [currency, setCurrency] = useState<CurrencyChoice>("auto");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0] ?? null;
-    setFile(selected);
-    setState("idle");
-    setErrorMessage(null);
-  }, []);
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selected = e.target.files?.[0] ?? null;
+      setFile(selected);
+      setDetection(null);
+      setCurrency("auto");
+      setErrorMessage(null);
+
+      if (!selected) {
+        setState("idle");
+        return;
+      }
+
+      setState("detecting");
+      try {
+        const result = await importCollectionCsv(selected, { dryRun: true });
+        if (result.data) {
+          setDetection(result.data);
+          setState("detected");
+        } else {
+          setState("idle");
+        }
+      } catch {
+        setState("idle");
+      }
+    },
+    [],
+  );
 
   const handleImport = useCallback(async () => {
     if (!file) return;
@@ -38,7 +66,7 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
     setErrorMessage(null);
 
     try {
-      const result = await importCollectionCsv(file);
+      const result = await importCollectionCsv(file, { currency });
       if (result.errors && result.errors.length > 0) {
         setState("error");
         setErrorMessage(result.errors[0].message || t("collection.importCsvError"));
@@ -46,13 +74,14 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
       }
       if (result.data) {
         setStats(result.data);
+        setImportResult(result.data);
         setState("success");
       }
     } catch {
       setState("error");
       setErrorMessage(t("collection.importCsvError"));
     }
-  }, [file, t]);
+  }, [file, currency, t]);
 
   const handleClose = useCallback(() => {
     if (state === "success") {
@@ -62,6 +91,9 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
     setState("idle");
     setFile(null);
     setStats(null);
+    setImportResult(null);
+    setDetection(null);
+    setCurrency("auto");
     setErrorMessage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -70,6 +102,14 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
   }, [state, onSuccess, onClose]);
 
   if (!isOpen) return null;
+
+  const showLowConfidenceWarning =
+    detection != null &&
+    (detection.currency_source === "default" || detection.currency_confidence === "low");
+
+  const exchangeRate =
+    importResult?.exchange_rate != null ? Number(importResult.exchange_rate) : null;
+  const priceWarnings = importResult?.price_warnings ?? [];
 
   return (
     <div
@@ -113,10 +153,34 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
                 linked: stats.linked,
               })}
             </p>
+            {importResult != null && (
+              <p className="text-slate-300 text-sm mt-1" data-testid="csv-import-price-stats">
+                {t("collection.importPriced", { count: importResult.priced ?? 0 })}
+                {", "}
+                {t("collection.importConverted", { count: importResult.converted ?? 0 })}
+              </p>
+            )}
+            {exchangeRate != null && (importResult?.converted ?? 0) > 0 && (
+              <p className="text-slate-400 text-xs mt-1" data-testid="csv-import-rate">
+                {t("collection.importRate", { rate: formatCurrency(exchangeRate, "BRL") })}
+              </p>
+            )}
+            {priceWarnings.length > 0 && (
+              <div className="mt-2" data-testid="csv-import-price-warnings">
+                <p className="text-amber-400 text-xs font-medium">
+                  {t("collection.importPriceWarnings")}
+                </p>
+                <ul className="text-slate-400 text-xs list-disc list-inside">
+                  {priceWarnings.slice(0, 5).map((warning, idx) => (
+                    <li key={idx}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
-        {/* File input (hidden in success state) */}
+        {/* File input + currency selector (hidden in success state) */}
         {state !== "success" && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-slate-400 mb-2">
@@ -134,6 +198,56 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
               data-testid="csv-file-input"
               disabled={state === "uploading"}
             />
+
+            {file && (
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-400 mb-1">
+                  {t("collection.importCurrencyLabel")}
+                </label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value as CurrencyChoice)}
+                  className="block w-full rounded-md bg-slate-700 text-slate-200 text-sm px-3 py-2 border border-slate-600"
+                  data-testid="csv-currency-select"
+                  disabled={state === "uploading"}
+                >
+                  <option value="auto">
+                    {t("collection.importCurrencyAuto", {
+                      currency: detection?.detected_currency ?? "?",
+                    })}
+                  </option>
+                  <option value="BRL">BRL</option>
+                  <option value="USD">USD</option>
+                </select>
+
+                {state === "detecting" && (
+                  <p className="text-slate-400 text-xs mt-2" data-testid="csv-currency-detecting">
+                    {t("collection.importing")}
+                  </p>
+                )}
+
+                {detection != null && (
+                  <p className="text-slate-300 text-xs mt-2" data-testid="csv-currency-detected">
+                    {t("collection.importCurrencyDetected", {
+                      currency: detection.detected_currency,
+                    })}
+                    {" — "}
+                    {t(
+                      `collection.importCurrencySource.${detection.currency_source ?? "default"}`,
+                    )}
+                  </p>
+                )}
+
+                {showLowConfidenceWarning && (
+                  <p
+                    className="text-yellow-500 text-xs mt-2"
+                    data-testid="csv-currency-warning"
+                  >
+                    {t("collection.importCurrencyLowConfidence")}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

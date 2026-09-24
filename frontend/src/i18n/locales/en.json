@@ -377,6 +377,23 @@
     "importing": "Importing...",
     "importStats": "{{imported}} imported, {{skipped}} skipped, {{linked}} linked",
     "selectCsvFile": "Select CSV file",
+    "importCurrencyLabel": "File currency",
+    "importCurrencyAuto": "Auto ({{currency}})",
+    "importCurrencyDetected": "Detected currency: {{currency}}",
+    "importCurrencySource": {
+      "user": "set by user",
+      "column": "currency column",
+      "header": "price header",
+      "symbol": "currency symbol",
+      "number_format": "number format",
+      "origin": "file origin",
+      "default": "default (not detected)"
+    },
+    "importCurrencyLowConfidence": "Could not confirm the file's currency. Please review before importing.",
+    "importPriced": "{{count}} priced",
+    "importConverted": "{{count}} converted from USD",
+    "importRate": "Rate used: {{rate}}",
+    "importPriceWarnings": "Price warnings",
     "noMatchingCards": "No cards match your filters.",
     "deleteUndoMessage": "\"{{name}}\" deleted",
     "deleteUndo": "Undo",
@@ -1380,5 +1397,8 @@
     "clearFilters": "Clear filters",
     "lastUpdated": "Last collected: {{date}}",
     "stale": "stale"
+  },
+  "purchases": {
+    "convertedFrom": "Converted from {{original}}"
   }
 }
