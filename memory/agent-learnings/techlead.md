@@ -3,6 +3,30 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F172 — 2026-09-24
+**What to avoid:** a cross-task i18n namespace drift (one component using
+`deckSuggestions.*` while siblings use `deckSuggest.*`) was patched around by a later
+Wave adding duplicate keys under both namespaces rather than fixed at the source.
+Tests stayed green so it read as a MINOR nit, but it leaves permanent dead keys.
+**Lesson:** treat this class of finding — a later task papering over an earlier
+task's naming drift instead of fixing it — as IMPORTANT, not MINOR, even when
+functionally correct, since patch-around fixes compound across features that keep
+copy-pasting from the wrong namespace.
+
+## F179 — 2026-09-24
+**What worked:** rejecting an implementation by citing the exact ADR
+section and giving a line-level fix ("lock first, re-check under lock")
+turned the developer's fix and the re-review into a fast, low-risk pass
+(11-line diff, direct verification).
+**What to avoid:** don't treat "a `with_for_update()` call exists
+somewhere in the function" as evidence of concurrency safety — the
+original code had the lock call present but in the wrong position, and
+it passed the full test suite because SQLite's single-writer lock hides
+check-then-lock TOCTOU races entirely.
+**Pattern to repeat:** when an ADR specifies a precise operation order
+for concurrency safety, diff the implementation against the ADR's stated
+steps line-by-line, not just check that the right API call is present.
+
 ## F176 — 2026-09-24
 **What worked:** cross-checking a suspicious-looking failing test
 (`test_specific_period`) against the pre-feature baseline before calling it
@@ -84,3 +108,8 @@ doesn't already set it.
 
 - **Always diff backend response keys against frontend TypeScript interfaces during review.** B1 (claim-bonus field mismatch) was caught because the TechLead compared the router's return dict keys against the frontend interface fields. This should be a standard checklist item for any feature that adds new API endpoints consumed by the frontend. TypeScript does not fail at build time on missing JSON fields -- the only defense is manual cross-referencing during review.
 - **When reviewing credit/deduction logic, verify all provider paths have symmetric guards.** B2 (MYP deducting on no-price) was found because the TechLead compared the Liga refresh path (which had an early-return guard) against the MYP refresh path (which did not). When multiple code paths perform the same logical operation (deduct credits after provider success), review each path side by side for guard symmetry.
+
+## F177 -- Ban list populate + owned-only + history modal (2026-09-24)
+
+- **Independently re-derive a developer's "pre-existing failure, unrelated to my change" claim on a declared hotspot file rather than trusting the summary.** The Wave 3 summary claimed several Layout.tsx failures were pre-existing "confirmed via git stash" with no evidence attached. Re-running the full frontend suite and diffing `Layout.tsx`/`Layout.test.tsx` against the pre-Wave-3 commit (`git show f40d2b1~1:...`, `git diff f40d2b1~1 f40d2b1 -- ...`) confirmed the claim was correct (a stale "Card Catalog" nav-count assertion, removed by unrelated already-merged work) — but it took real effort to verify rather than take on faith, and a hotspot file is exactly where an unverified claim is most likely to hide a real regression.
+- **Cross-referencing schema field names on both sides of an HTTP boundary is worth doing even when the change looks mechanical.** For F177's `GET /banlist` grouped-response rewrite, verifying `BanListEntry` (backend schema) field names against `list_banlist_grouped`'s actual return dict, and separately against `types/banlist.ts`/`BanList.tsx`'s consumption, caught nothing wrong this time but is the same class of bug as F65's claim-bonus field mismatch — keep it as a standing checklist item for any feature that changes an API response shape.

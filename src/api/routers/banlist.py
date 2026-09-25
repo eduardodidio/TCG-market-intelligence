@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 import threading
 from datetime import date
+from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
-from src.api.deps import get_db, require_auth_or_api_key
+from src.api.deps import get_db, get_optional_user, require_auth_or_api_key
 from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.banlist import (
     BanImpactSchema,
     BanListEntry,
+    BanlistStatusSchema,
     CardBanHistoryEntry,
     CardLegalitySchema,
     LegalityHistoryEntry,
@@ -22,7 +24,9 @@ from src.api.schemas.banlist import (
 from src.api.schemas.collect import JobStatus
 from src.api.schemas.envelope import ApiResponse, success_response
 from src.config import get_db_url
+from src.database import banlist_queries
 from src.database.repository import Repository
+from src.domain.models import User
 from src.utils.set_code_map import map_to_scryfall_set_code
 
 router = APIRouter(prefix="/banlist", tags=["banlist"])
@@ -38,30 +42,30 @@ def _scryfall_image_url(set_code: str | None, collector_number: str | None) -> s
 @router.get("", response_model=ApiResponse[list[BanListEntry]])
 def list_banlist(
     format: str,
-    status: str | None = None,
+    status: Literal["banned", "restricted"] | None = None,
     search: str | None = None,
-    limit: int = 200,
-    offset: int = 0,
+    owned_only: bool = False,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    user: User | None = Depends(get_optional_user),
     db: Repository = Depends(get_db),
 ):
-    """List banned/restricted cards for a format."""
-    # Default to showing banned+restricted if no status filter
-    if status is None:
-        # Get both banned and restricted
-        banned = db.get_legalities_by_format(
-            format=format, status="banned", search=search, limit=limit, offset=offset
+    """List banned/restricted cards for a format, grouped by card name."""
+    if owned_only and user is None:
+        raise api_error(
+            401, ErrorCode.AUTH_TOKEN_INVALID, "Login required for owned_only"
         )
-        restricted = db.get_legalities_by_format(
-            format=format, status="restricted", search=search, limit=limit, offset=offset
-        )
-        rows = banned + restricted
-        # Sort by name
-        rows.sort(key=lambda r: (r.get("name_en") or "").lower())
-        rows = rows[:limit]
-    else:
-        rows = db.get_legalities_by_format(
-            format=format, status=status, search=search, limit=limit, offset=offset
-        )
+
+    rows, total = banlist_queries.list_banlist_grouped(
+        db.engine,
+        format=format,
+        status=status,
+        search=search,
+        user_id=str(user.id) if user else None,
+        owned_only=owned_only,
+        limit=limit,
+        offset=offset,
+    )
 
     entries = [
         BanListEntry(
@@ -74,11 +78,21 @@ def list_banlist(
             status=r["status"],
             effective_date=r.get("effective_date"),
             image_url=_scryfall_image_url(r.get("set_code"), r.get("collector_number")),
+            printings=r.get("printings", 1),
+            owned=r.get("owned", False),
+            owned_quantity=r.get("owned_quantity", 0),
         )
         for r in rows
     ]
 
-    return success_response(entries, total=len(entries), offset=offset)
+    return success_response(entries, total=total, offset=offset)
+
+
+@router.get("/status", response_model=ApiResponse[BanlistStatusSchema])
+def get_banlist_status(db: Repository = Depends(get_db)):
+    """Sync freshness and counts for the ban list."""
+    status = banlist_queries.get_banlist_status(db.engine)
+    return success_response(BanlistStatusSchema(**status))
 
 
 @router.get("/formats", response_model=ApiResponse[list[str]])

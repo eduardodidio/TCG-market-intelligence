@@ -157,8 +157,8 @@ describe("Layout", () => {
     expandBeta();
 
     const linkTexts = getNavLinkTexts();
-    // Primary (8) + Beta (12) = 20
-    expect(linkTexts).toHaveLength(20);
+    // Primary (8) + Beta (11) = 19
+    expect(linkTexts).toHaveLength(19);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Wishlist");
@@ -166,7 +166,7 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Market");
     expect(linkTexts).toContain("Trending");
     expect(linkTexts).toContain("Ban List");
-    expect(linkTexts).toContain("Ban History");
+    expect(linkTexts).not.toContain("Ban History");
     expect(linkTexts).toContain("My Decks");
     expect(linkTexts).toContain("Top Decks");
     expect(linkTexts).toContain("Marketplace");
@@ -211,7 +211,7 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Market");
     expect(linkTexts).toContain("Trending");
     expect(linkTexts).toContain("Ban List");
-    expect(linkTexts).toContain("Ban History");
+    expect(linkTexts).not.toContain("Ban History");
     // Auth-required beta items should be hidden
     expect(linkTexts).not.toContain("My Decks");
     expect(linkTexts).not.toContain("Top Decks");
@@ -358,7 +358,7 @@ describe("Layout", () => {
     expect(marketLink?.className).not.toContain("bg-indigo-500");
   });
 
-  it("on /banlist, Ban List is active and Ban History is NOT active", () => {
+  it("on /banlist, Ban List is active and there is no Ban History link", () => {
     renderLayout("/banlist");
     expandBeta();
 
@@ -367,7 +367,7 @@ describe("Layout", () => {
     const banlistLink = links.find((a) => a.textContent === "Ban List");
     const banHistoryLink = links.find((a) => a.textContent === "Ban History");
     expect(banlistLink?.className).toContain("bg-indigo-500");
-    expect(banHistoryLink?.className).not.toContain("bg-indigo-500");
+    expect(banHistoryLink).toBeUndefined();
   });
 
   it("on /decks, My Decks is active and Top Decks is NOT active", () => {
@@ -415,8 +415,8 @@ describe("Layout", () => {
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
     // Admin sees 9 primary (Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Card Catalog, Price Alerts, Settings, Admin)
-    // + 12 beta = 21 total
-    expect(links).toHaveLength(21);
+    // + 11 beta (Ban History removed, F177) = 20 total
+    expect(links).toHaveLength(20);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Admin");

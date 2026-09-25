@@ -51,9 +51,6 @@ const DeckView = lazy(() =>
 const BanList = lazy(() =>
   import("./pages/BanList").then((m) => ({ default: m.BanList })),
 );
-const BanHistory = lazy(() =>
-  import("./pages/BanHistory").then((m) => ({ default: m.BanHistory })),
-);
 const Trending = lazy(() =>
   import("./pages/Trending").then((m) => ({ default: m.Trending })),
 );
@@ -280,15 +277,7 @@ export default function App() {
               />
               <Route
                 path="/banlist/history"
-                element={
-                  <Suspense
-                    fallback={<LoadingSpinner message="Loading page..." />}
-                  >
-                    <BetaRoute requiresAuth={false}>
-                      <BanHistory />
-                    </BetaRoute>
-                  </Suspense>
-                }
+                element={<Navigate to="/banlist" replace />}
               />
               <Route
                 path="/catalog"

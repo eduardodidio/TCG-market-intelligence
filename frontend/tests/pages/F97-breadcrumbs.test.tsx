@@ -9,7 +9,6 @@ import { LanguageProvider } from "../../src/contexts/LanguageContext";
 import { MarketPage } from "../../src/pages/MarketPage";
 import { Trending } from "../../src/pages/Trending";
 import { BanList } from "../../src/pages/BanList";
-import { BanHistory } from "../../src/pages/BanHistory";
 import { Settings } from "../../src/pages/Settings";
 import { AdminPanel } from "../../src/pages/AdminPanel";
 import { Evaluations } from "../../src/pages/Evaluations";
@@ -179,14 +178,6 @@ describe("F97-T01: Breadcrumbs on secondary pages", () => {
     const bc = screen.getByTestId("breadcrumb");
     expect(bc).toBeDefined();
     expect(bc.textContent).toContain("Dashboard");
-  });
-
-  it("BanHistory has breadcrumb with Ban List parent", async () => {
-    wrap(<BanHistory />);
-    const bc = screen.getByTestId("breadcrumb");
-    expect(bc).toBeDefined();
-    const link = bc.querySelector("a");
-    expect(link?.getAttribute("href")).toBe("/banlist");
   });
 
   it("Settings has breadcrumb with Dashboard parent", () => {

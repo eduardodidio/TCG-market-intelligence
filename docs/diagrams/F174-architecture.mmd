@@ -1,0 +1,89 @@
+%% F174 — Trocas com os mesmos filtros e layout de "Minha Coleção"
+%% Architecture: shared filter kit, trade pages, API clients, routers, TradeQueries, DB.
+
+flowchart TB
+    subgraph SharedKit["Frontend shared kit"]
+        CFB["CardFilterBar.tsx"]
+        SB["SearchBar.tsx"]
+        SS["SortSelect.tsx"]
+        SIF["SetIconFilter.tsx"]
+        GST["GridSizeToggle.tsx"]
+        UCLF["useCardListFilters.ts<br/>(URL params: name, set, sort, dir)"]
+        CLF["cardListFilter.ts<br/>(client-side filter/sort)"]
+        TSO["tradeSortOptions.ts"]
+        UGS["useGridSize.ts / GRID_SIZE_CONFIG"]
+
+        CFB --> SB
+        CFB --> SS
+        CFB --> SIF
+        CFB --> GST
+    end
+
+    subgraph Pages["Pages"]
+        MC["MyCollection.tsx"]
+        MP["Marketplace.tsx"]
+        MCT["MarketplaceCardTile.tsx"]
+        MT["MyTrades.tsx"]
+        TC["TradeCard.tsx"]
+        FC["FilterChips.tsx"]
+        TMP["TradeMatchesPage.tsx"]
+        DL["DuplicatesList.tsx"]
+
+        MP --> MCT
+        MT --> TC
+        MT --> FC
+        TMP --> DL
+    end
+
+    MC -->|uses| CFB
+    MP -->|uses| CFB
+    MT -->|uses| CFB
+    TMP -->|uses| CFB
+
+    MC -.->|"grid + sort prefs"| UGS
+    MP -.->|"URL-synced filters"| UCLF
+    MT -.->|"URL-synced filters<br/>+ client filter/sort"| UCLF
+    MT -.-> CLF
+    MT -.-> TSO
+    TMP -.->|"URL-synced filters<br/>(duplicates: server / matches: client)"| UCLF
+    MP -.-> UGS
+    MT -.-> UGS
+    TMP -.-> UGS
+
+    subgraph ApiClients["API clients"]
+        AM["api/marketplace.ts"]
+        ATM["api/tradeMatch.ts"]
+    end
+
+    MP -->|"getListings(), getListingSets()"| AM
+    MT -->|"getMyTrades()"| AM
+    TMP -->|"getDuplicates(), getDuplicateSets(),<br/>getTradeMatches(), getReverseMatches()"| ATM
+
+    subgraph Backend["Backend"]
+        RM["routers/marketplace.py"]
+        RTM["routers/trade_match.py"]
+        MSVC["MarketplaceService"]
+        TQ["TradeQueries (new)"]
+
+        RM --> MSVC
+        MSVC --> TQ
+    end
+
+    AM -->|"GET /api/v1/marketplace/listings?sort_by&sort_dir&set_code&search"| RM
+    AM -->|"GET /api/v1/marketplace/listings/sets"| RM
+    ATM -->|"GET /api/v1/trade/duplicates?search&set_code&sort_by&sort_dir"| RTM
+    ATM -->|"GET /api/v1/trade/duplicates/sets"| RTM
+    ATM -->|"GET /api/v1/trade/matches"| RTM
+    ATM -->|"GET /api/v1/trade/matches/reverse"| RTM
+
+    RTM -->|"list_duplicates(), list_duplicate_sets()"| TQ
+
+    subgraph DB["SQLAlchemy / DB"]
+        UC[("user_collection")]
+        SC[("shared_collections")]
+        PO[("price_observations")]
+    end
+
+    TQ -->|"list_listings, list_listing_sets"| UC
+    TQ -->|"exclude own / shared listings"| SC
+    TQ -->|"price sort via _liga_price_expr()"| PO

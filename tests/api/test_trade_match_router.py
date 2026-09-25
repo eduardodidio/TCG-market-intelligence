@@ -178,6 +178,144 @@ class TestDuplicatesEndpoint:
         assert resp.json()["meta"]["total"] == 2
 
 
+class TestDuplicatesFilters:
+    def test_search_filters_results(self, client, repo, user, card_bolt, card_counter):
+        with Session(repo.engine) as session:
+            session.add(
+                UserCollectionRow(
+                    user_id=str(user.id),
+                    set_code="2ed",
+                    collector_number="157",
+                    quantity=3,
+                    name_en="Lightning Bolt",
+                    card_id=card_bolt,
+                )
+            )
+            session.add(
+                UserCollectionRow(
+                    user_id=str(user.id),
+                    set_code="2ed",
+                    collector_number="55",
+                    quantity=2,
+                    name_en="Counterspell",
+                    card_id=card_counter,
+                )
+            )
+            session.commit()
+
+        resp = client.get("/api/v1/trade/duplicates?search=bolt")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 1
+        assert data[0]["name_en"] == "Lightning Bolt"
+        assert resp.json()["meta"]["total"] == 1
+
+    def test_set_code_case_insensitive(self, client, repo, user, card_bolt):
+        with Session(repo.engine) as session:
+            session.add(
+                UserCollectionRow(
+                    user_id=str(user.id),
+                    set_code="2ed",
+                    collector_number="157",
+                    quantity=3,
+                    name_en="Lightning Bolt",
+                    card_id=card_bolt,
+                )
+            )
+            session.commit()
+
+        resp = client.get("/api/v1/trade/duplicates?set_code=2ED")
+        assert resp.status_code == 200
+        assert len(resp.json()["data"]) == 1
+
+    def test_sort_by_name_asc(self, client, repo, user, card_bolt, card_counter):
+        with Session(repo.engine) as session:
+            session.add(
+                UserCollectionRow(
+                    user_id=str(user.id),
+                    set_code="2ed",
+                    collector_number="157",
+                    quantity=3,
+                    name_en="Lightning Bolt",
+                    card_id=card_bolt,
+                )
+            )
+            session.add(
+                UserCollectionRow(
+                    user_id=str(user.id),
+                    set_code="2ed",
+                    collector_number="55",
+                    quantity=2,
+                    name_en="Counterspell",
+                    card_id=card_counter,
+                )
+            )
+            session.commit()
+
+        resp = client.get("/api/v1/trade/duplicates?sort_by=name&sort_dir=asc")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert [d["name_en"] for d in data] == ["Counterspell", "Lightning Bolt"]
+
+    def test_invalid_sort_by_rejected(self, client):
+        resp = client.get("/api/v1/trade/duplicates?sort_by=quality")
+        assert resp.status_code == 422
+
+    def test_search_too_long_rejected(self, client):
+        resp = client.get(f"/api/v1/trade/duplicates?search={'a' * 101}")
+        assert resp.status_code == 422
+
+    def test_no_auth_rejected(self, test_app):
+        test_app.dependency_overrides.pop(get_current_user, None)
+        with TestClient(test_app) as unauth_client:
+            resp = unauth_client.get("/api/v1/trade/duplicates")
+        assert resp.status_code in (401, 403)
+
+
+class TestDuplicateSets:
+    def test_no_duplicates_returns_empty(self, client):
+        resp = client.get("/api/v1/trade/duplicates/sets")
+        assert resp.status_code == 200
+        assert resp.json()["data"] == []
+
+    def test_only_qty_gt_one_included(self, client, repo, user, card_bolt, card_counter):
+        with Session(repo.engine) as session:
+            session.add(
+                UserCollectionRow(
+                    user_id=str(user.id),
+                    set_code="2ed",
+                    collector_number="157",
+                    quantity=2,
+                    name_en="Lightning Bolt",
+                    card_id=card_bolt,
+                )
+            )
+            session.add(
+                UserCollectionRow(
+                    user_id=str(user.id),
+                    set_code="2ed",
+                    collector_number="55",
+                    quantity=1,
+                    name_en="Counterspell",
+                    card_id=card_counter,
+                )
+            )
+            session.commit()
+
+        resp = client.get("/api/v1/trade/duplicates/sets")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 1
+        assert data[0]["set_code"] == "2ed"
+        assert data[0]["count"] == 1
+
+    def test_no_auth_rejected(self, test_app):
+        test_app.dependency_overrides.pop(get_current_user, None)
+        with TestClient(test_app) as unauth_client:
+            resp = unauth_client.get("/api/v1/trade/duplicates/sets")
+        assert resp.status_code in (401, 403)
+
+
 class TestDuplicatesCount:
     def test_count_zero(self, client):
         resp = client.get("/api/v1/trade/duplicates/count")

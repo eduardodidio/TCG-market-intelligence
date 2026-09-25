@@ -3,6 +3,18 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F172 — 2026-09-24
+**What worked:** naming the genuinely shared/high-conflict files explicitly in the
+task manifest (`app.py`, `cli/main.py`, `.bat`, `.env.example`, `README.md`, locale
+JSONs) and reserving them for a dedicated final wave (T17/T18) let an 18-task,
+5-wave feature run with zero file-stomping across parallel tasks.
+**What to avoid:** Wave summaries repeatedly reported work as "uncommitted in the
+worktree" at hand-off to the next Wave, which weakens the reliability of
+`git diff --stat HEAD~1..HEAD`-style verification used downstream.
+**Lesson:** consider requiring a Wave-end commit as a hard gate before the next
+Wave starts, so wave-summary and TechLead verification can rely on real commit
+boundaries instead of informal "uncommitted state" notes.
+
 ## F176 — 2026-09-24
 **What worked:** a Wave-0 read-only diagnosis task (script + `diagnosis.md`
 with a hypothesis table, H1–H6) that proves the root cause with real
@@ -97,3 +109,13 @@ the next Wave to notice it in passing.
 **What worked:** The file-conflict map (sole-owner rule for i18n, sequential Wave ordering for shared files like `collection.py`) prevented merge conflicts across 4 Waves / 10 tasks with heavy file overlap. Pre-adding i18n keys in Wave 0 for a later Wave's consumer avoided ownership churn.
 **What to avoid:** The feature's Wave 0 setup section did not include a step to commit/branch onto `homol` (the project's required feature branch per CLAUDE.md Gitflow). As a result, all 10 tasks across 4 Waves were implemented and left uncommitted on `main` through to QA sign-off.
 **Pattern to repeat:** When CLAUDE.md pins feature work to a non-default branch, Wave 0 setup/permissions should explicitly include "confirm or create the correct branch" as a checklist item, not leave it as a note repeated in every Wave summary.
+
+## F177 -- Ban list populate + owned-only + history modal (2026-09-24)
+
+- **When an AC in the feature README manifest is intentionally narrowed/qualified in the PRD or ADR, say so in the README itself.** F177's README AC5 read as a strict "raises when 0 cards match" rule, but the ADR documented a `MATCH_CHECK_THRESHOLD=1000` refinement (only raise past that many parsed lines, to avoid false positives on small/dev runs). The implementation matched the ADR exactly, but anyone reviewing only the README would flag a false discrepancy. Add a one-line pointer ("see PRD/ADR for exact threshold") next to any README AC that has been refined elsewhere, during Wave 0.
+- **Wave ordering by dependency direction (docs/i18n → pure new backend modules → integration consumers → cross-cutting hotspots) avoided all merge conflicts across 4 waves / 10 tasks.** F177 put `App.tsx`/`Layout.tsx`/`README.md`/`bats/` (the declared hotspots) in the last wave, after every module they'd need to reference already existed — worth repeating as the default Wave-grouping heuristic for features with both new modules and shared-file edits.
+
+## F173 -- Top Decks do mercado por formato (Metagame) (2026-09-25)
+
+- **Registration-only Waves (a task whose only job is wiring an already-built module into a shared entrypoint — router include, CLI command registration) are exactly where "planned but never actually connected" bugs hide, because the interesting logic was already unit-tested in isolation in an earlier Wave.** F173's T15 paired the `app.py`/`main.py` wiring with dedicated `test_meta_decks_registration.py` / `test_cli_metagame_registration.py` that import the real app/CLI and assert the route/command is reachable — this caught the class of bug that a plain unit test on the router/CLI module alone would miss. Always require a dedicated `test_*_registration.py` task alongside any registration-only Wave.
+- **When a task's file list includes a path under a `.gitignore`'d directory (e.g. `bats/*.bat`), flag it explicitly in that task's Definition of Done** ("confirm with `git ls-files` that this file is actually tracked, not just present on disk") — this generalizes the same lesson TechLead and Developer both independently hit on `bats/collect-metagame.bat` in this feature.

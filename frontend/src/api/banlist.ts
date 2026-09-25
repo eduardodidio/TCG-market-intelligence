@@ -1,6 +1,7 @@
 import type { ApiResponse } from "../types/api";
 import type {
   BanImpactSchema,
+  BanlistStatus,
   BanListEntry,
   CardBanHistoryEntry,
   CardLegality,
@@ -18,13 +19,19 @@ export function fetchBanList(params: {
   search?: string;
   limit?: number;
   offset?: number;
+  ownedOnly?: boolean;
 }): Promise<ApiResponse<BanListEntry[]>> {
   const query: Record<string, string> = { format: params.format };
   if (params.status) query.status = params.status;
   if (params.search) query.search = params.search;
   if (params.limit !== undefined) query.limit = String(params.limit);
   if (params.offset !== undefined) query.offset = String(params.offset);
+  if (params.ownedOnly) query.owned_only = "true";
   return apiGet<BanListEntry[]>("/api/v1/banlist", query);
+}
+
+export function fetchBanlistStatus(): Promise<ApiResponse<BanlistStatus>> {
+  return apiGet<BanlistStatus>("/api/v1/banlist/status");
 }
 
 export function fetchCardLegalities(

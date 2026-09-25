@@ -152,6 +152,89 @@ class TestListingsEndpoints:
         # The listing may or may not appear depending on the marketplace entries query
         # At minimum, the endpoint returns 200
 
+    def test_browse_default_sort_matches_previous_behavior(
+        self, repo, seller_client, buyer_client, seller
+    ):
+        """Omitting sort params returns the same payload/order as before."""
+        _share_and_create_entry(repo, seller_client, seller)
+        create_collection_entry(
+            repo, seller.id, name_en="Aether Vial", set_code="dst", collector_number="1"
+        )
+        resp = buyer_client.get("/api/v1/marketplace/listings")
+        assert resp.status_code == 200
+        data = resp.json()
+        names = [listing["card_name_en"] for listing in data["listings"]]
+        assert names == sorted(names)
+
+    def test_browse_sort_by_price_desc(self, repo, seller_client, buyer_client, seller):
+        """?sort_by=price&sort_dir=desc orders by price with nulls last."""
+        _share_and_create_entry(repo, seller_client, seller)
+        create_collection_entry(
+            repo, seller.id, name_en="Unpriced Card", set_code="mh3", collector_number="99"
+        )
+        resp = buyer_client.get(
+            "/api/v1/marketplace/listings", params={"sort_by": "price", "sort_dir": "desc"}
+        )
+        assert resp.status_code == 200
+        prices = [listing["latest_price"] for listing in resp.json()["listings"]]
+        assert prices[-1] is None
+
+    def test_browse_invalid_sort_by_returns_422(self, buyer_client):
+        resp = buyer_client.get("/api/v1/marketplace/listings", params={"sort_by": "foo"})
+        assert resp.status_code == 422
+
+    def test_browse_invalid_sort_dir_returns_422(self, buyer_client):
+        resp = buyer_client.get("/api/v1/marketplace/listings", params={"sort_dir": "up"})
+        assert resp.status_code == 422
+
+
+class TestListingSetsEndpoint:
+    def test_no_shared_collections_returns_empty(self, buyer_client):
+        resp = buyer_client.get("/api/v1/marketplace/listings/sets")
+        assert resp.status_code == 200
+        assert resp.json() == {"sets": []}
+
+    def test_returns_set_facets(self, repo, seller_client, buyer_client, seller):
+        _share_and_create_entry(repo, seller_client, seller)
+        resp = buyer_client.get("/api/v1/marketplace/listings/sets")
+        assert resp.status_code == 200
+        sets = resp.json()["sets"]
+        assert any(s["set_code"] == "lea" for s in sets)
+        for s in sets:
+            assert set(s.keys()) == {"set_code", "set_name", "count"}
+
+    def test_excludes_own_sets_when_authenticated(self, repo, seller_client, seller):
+        _share_and_create_entry(repo, seller_client, seller)
+        resp = seller_client.get("/api/v1/marketplace/listings/sets")
+        assert resp.status_code == 200
+        assert resp.json()["sets"] == []
+
+    def test_anonymous_access_works(self, repo, seller_client, seller):
+        """Anonymous (no auth) requests are not blocked."""
+        from src.api.app import create_app
+        from src.api.deps import get_db
+
+        _share_and_create_entry(repo, seller_client, seller)
+
+        app = create_app()
+
+        def override_db():
+            yield repo
+
+        app.dependency_overrides[get_db] = override_db
+        from fastapi.testclient import TestClient
+
+        anon_client = TestClient(app)
+        resp = anon_client.get("/api/v1/marketplace/listings/sets")
+        assert resp.status_code == 200
+        assert any(s["set_code"] == "lea" for s in resp.json()["sets"])
+
+    def test_not_shadowed_by_share_code_route(self, buyer_client):
+        """`/listings/sets` must be matched by the static route, not {share_code}."""
+        resp = buyer_client.get("/api/v1/marketplace/listings/sets")
+        assert resp.status_code == 200
+        assert "sets" in resp.json()
+
 
 class TestInterestEndpoints:
     def test_express_interest_invalid_share_code(self, buyer_client):

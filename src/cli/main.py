@@ -3156,9 +3156,19 @@ def backfill_snapshots_cmd(db, days, dry_run):
         click.echo(f"Backfill complete: {count} observations created.")
 
 
+from src.cli.achievement_rewards import backfill_achievement_rewards_cmd  # noqa: E402  (F179)
 from src.cli.news_cmd import fetch_news_command  # noqa: E402  (F178)
 
+cli.add_command(backfill_achievement_rewards_cmd)
 cli.add_command(fetch_news_command)
+
+from src.cli.deck_suggestions import process_deck_suggestions  # noqa: E402  (F172)
+
+cli.add_command(process_deck_suggestions)
+
+from src.cli.metagame import collect_metagame_cmd  # noqa: E402  (F173)
+
+cli.add_command(collect_metagame_cmd)
 
 
 if __name__ == "__main__":

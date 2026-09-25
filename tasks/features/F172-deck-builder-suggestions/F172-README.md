@@ -1,7 +1,7 @@
 # F172 — Montar Deck: revisão completa + modo "Sugestão de deck"
 
 **Status:** planned
-**Batch:** F171–F179 (parallel). Shared high-conflict files are isolated in Wave 4 (T17, T18).
+**Batch:** F171–F179 (parallel). Shared high-conflict files are isolated in the last wave (T17, T18).
 **Tasks:** 18 across 5 Waves
 **Brief (sharded):** `_brief/00-overview.md` … `_brief/05-integration-docs.md`
 
@@ -40,7 +40,7 @@ and stores the result, which the user can review and save as a deck.
 
 | Task | Wave | Type | Depends on | Files touched |
 |---|---|---|---|---|
-| F172-T01 | 0 | docs/infra | — | `docs/prd/F172-deck-builder-suggestions.md` (new), `docs/adr/00NN-deck-suggestion-queue-claude.md` (new), `src/deck_suggestions/__init__.py` (new), `frontend/src/components/decks/.gitkeep` (new), `tests/unit/deck_suggestions/__init__.py` (new) |
+| F172-T01 | 0 | docs/infra | — | `docs/prd/F172-deck-builder-suggestions.md` (new), `docs/adr/0015-deck-suggestion-queue-claude.md` (new), `src/deck_suggestions/__init__.py` (new), `frontend/src/components/decks/.gitkeep` (new), `tests/unit/deck_suggestions/__init__.py` (new) |
 | F172-T02 | 1 | backend | T01 | `src/decks/builder.py`, `src/api/routers/decks.py`, `src/api/schemas/decks.py`, `tests/unit/decks/test_builder.py`, `tests/unit/decks/test_commander_search.py` (new), `tests/unit/api/test_deck_endpoints.py` |
 | F172-T03 | 1 | backend | T01 | `src/deck_suggestions/models.py` (new), `src/deck_suggestions/repository.py` (new), `tests/unit/deck_suggestions/test_repository.py` (new) |
 | F172-T04 | 1 | backend | T01 | `src/deck_suggestions/prompt.py` (new), `tests/unit/deck_suggestions/test_prompt.py` (new) |
@@ -65,16 +65,16 @@ Intra-feature sequencing: `DeckBuildWizard.tsx` is edited by T06 (Wave 1) and th
 
 ## Global acceptance criteria
 
-- [ ] Commander search finds legendary creatures by EN or PT name, even with an empty `card_legalities` table. Explicitly banned commanders are excluded.
-- [ ] The wizard commander search shows loading / empty / error states. It has no stale-response race.
-- [ ] Generated decks (manual mode) contain non-land cards when legality data is missing, and the budget limit is enforced with real prices.
-- [ ] `/decks/build` asks "Montar meu próprio deck" vs "Sugestão de deck". `?mode=` deep links work.
-- [ ] Suggestion requests are persisted (`deck_suggestion_requests`) with status `pending`. `POST` returns 201 at once. The list shows the status.
-- [ ] `python -m src.cli.main process-deck-suggestions` processes pending requests via Claude (CLI default, `--provider api` opt-in), prioritizing owned cards. Missing cards carry BRL prices. Failures are stored as `failed` with a message, and transient ones are retried up to 3 attempts.
-- [ ] The result view shows owned vs. missing cards and the cost to complete. "Salvar como deck" creates a deck (idempotent).
-- [ ] `bats/deck-suggestions.bat` exists. No secret is hardcoded anywhere.
-- [ ] `pytest tests/ --cov=src` green, new modules ≥ 90% covered. `cd frontend && npm test` and `npm run build` green. `ruff check src/` clean.
-- [ ] PRD, ADR, `docs/diagrams/F172-architecture.mmd`, `docs/diagrams/F172-journey.mmd`, README updated.
+- [ ] **AC1** — Commander search finds legendary creatures by EN or PT name, even with an empty `card_legalities` table. Explicitly banned commanders are excluded.
+- [ ] **AC2** — The wizard commander search shows loading / empty / error states. It has no stale-response race.
+- [ ] **AC3** — Generated decks (manual mode) contain non-land cards when legality data is missing, and the budget limit is enforced with real prices.
+- [ ] **AC4** — `/decks/build` asks "Montar meu próprio deck" vs "Sugestão de deck". `?mode=` deep links work.
+- [ ] **AC5** — Suggestion requests are persisted (`deck_suggestion_requests`) with status `pending`. `POST` returns 201 at once. The list shows the status.
+- [ ] **AC6** — `python -m src.cli.main process-deck-suggestions` processes pending requests via Claude (CLI default, `--provider api` opt-in), prioritizing owned cards. Missing cards carry BRL prices. Failures are stored as `failed` with a message, and transient ones are retried up to 3 attempts.
+- [ ] **AC7** — The result view shows owned vs. missing cards and the cost to complete. "Salvar como deck" creates a deck (idempotent).
+- [ ] **AC8** — `bats/deck-suggestions.bat` exists. No secret is hardcoded anywhere.
+- [ ] **AC9** — `pytest tests/ --cov=src` green, new modules ≥ 90% covered. `cd frontend && npm test` and `npm run build` green. `ruff check src/` clean.
+- [ ] **AC10** — PRD, ADR, `docs/diagrams/F172-architecture.mmd`, `docs/diagrams/F172-journey.mmd`, README updated.
 
 ## Decisions (confirmed by user on 2026-09-24: `claude -p` default, no `anthropic` SDK)
 

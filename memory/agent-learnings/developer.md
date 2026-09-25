@@ -3,6 +3,53 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F172 — 2026-09-24
+**What worked:** designing the AI-runner abstraction (`get_runner()`) up front let the
+API-provider implementation reuse the existing `httpx` dependency instead of needing
+a new one, honoring a "no new dependency" constraint without a mid-feature blocker.
+**What to avoid:** when a later task (T18) finds that an earlier component used a
+different i18n key namespace than its siblings (`deckSuggestions.*` vs. the intended
+`deckSuggest.*`), don't patch around it by adding keys under both namespaces "to be
+safe" — fix the earlier component's keys at the source. The workaround is cheap now
+but leaves permanent dead keys that outlive the note about them.
+**Pattern to repeat:** keep a new subsystem's persistence fully isolated in its own
+module (own models + repository, `checkfirst` table create) so the shared
+`database/models.py` needs zero edits — makes the diff trivially safe to review.
+
+## F179 — 2026-09-24
+**What worked:** the fix commit for a rejected concurrency ordering bug
+was scoped to exactly the statements the ADR/review named, plus a
+pinning test — this made re-review a direct verification pass instead of
+a full re-review.
+**What to avoid:** shipping a `with_for_update()` call in the wrong
+position (check-then-lock instead of the ADR's lock-then-check) passed
+every test because the suite runs on SQLite, whose single-writer lock
+masks the exact TOCTOU race the ADR was written to prevent.
+**Pattern to repeat:** when an ADR mandates a precise concurrency
+operation order, match it exactly and add a statement-order/mock-based
+test that pins the ordering, since SQLite can't reproduce the real
+Postgres race — say so in the test's docstring.
+
+## F174 — 2026-09-24
+**What worked:** putting new query logic in a brand-new module
+(`src/marketplace/trade_queries.py`) instead of editing the shared
+`repository.py` avoided conflicts with sibling features in the same
+parallel batch and made the new code independently testable (100%
+coverage). The fix for a component-output regression (TradeCard rendering
+translated text where a raw status string used to be) added a `data-*`
+attribute carrying the raw value instead of reverting the i18n change or
+leaving the legacy test broken.
+**What to avoid:** rewriting a page (`MyTrades.tsx`) without checking
+whether an already-failing *legacy, unowned* test file for that same page
+gains additional failing assertions — it did (1 → 3 failures), and it
+shipped because the AC7 gate was file-level, not test-level.
+**Pattern to repeat:** when a component starts rendering translated text
+where a raw value used to be, add a `data-*` attribute carrying the raw
+value so language-independent assertions (existing or new) don't have to
+couple to i18n copy. When a task rewrites a page/component, grep for
+*any* legacy test file (owned or not) that renders it and spot-check it
+still passes at the same failure count.
+
 ## F176 — 2026-09-24
 **What worked:** one pure resolver module (`price_history_keys.py`) plus one
 shared service (`build_history`) consumed by all endpoints kept a
@@ -124,3 +171,12 @@ it inline (if it's small) or explicitly hand it to a named task/owner.
 ## F171 -- Collection Import Currency (2026-09-24)
 
 - **Don't re-guard a pure function's own short-circuit invariant one layer up in the caller.** `to_brl` already encodes "BRL never needs a rate" internally, but `batch_add.py` checked `rate_lookup is None` *before* even looking at the entry's currency, so a BRL-priced entry with no `rate_lookup` would incorrectly get dropped with a misleading "no exchange rate available" warning. `importer.py` got this right by always calling `to_brl` with `rate_lookup or (lambda _d: None)` and letting the pure function's own branching decide. When a pure function already has a currency/type-aware short-circuit, call it unconditionally with a no-op fallback instead of re-checking the precondition above it.
+
+## F177 -- Ban list populate + owned-only + history modal (2026-09-24)
+
+- **Flip a task file's `Status:` field to `done` as the last step of implementing it, not as an afterthought.** Three of ten task files this feature (T02, T08, T10) shipped finished code+passing tests but still read `Status: planned`, forcing TechLead to patch all three before sign-off. Make the status flip part of the task's definition-of-done checklist, done immediately after tests pass, not deferred to a "wrap-up" step that gets skipped.
+- **When claiming a test failure is "pre-existing, confirmed via git stash," attach the actual diff/command output to the wave summary.** A Wave 3 summary asserted this for several Layout.tsx nav-count failures without showing the confirmation, forcing TechLead to redo the investigation from scratch on a declared hotspot file. A one-line claim without evidence costs the reviewer more time than including the `git diff`/`git show` snippet up front would have.
+
+## F173 -- Top Decks do mercado por formato (Metagame) (2026-09-25)
+
+- **A file inside a `.gitignore`'d directory can be fully built, locally tested, and marked "done" while never reaching git — `git add`/`git add -A` silently skips ignored paths.** `bats/collect-metagame.bat` (T12) sat on disk, untracked, until a later Wave's developer happened to run `git status --ignored` and noticed. Before marking any task done that creates a file under a gitignored path (check `.gitignore` first), run `git add -f <path>` explicitly and confirm with `git show HEAD:<path>` or `git ls-files <path>` that it actually landed in the commit — don't trust "the file exists on disk" as proof.

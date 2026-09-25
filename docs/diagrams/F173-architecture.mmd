@@ -1,0 +1,42 @@
+%% F173 — Metagame Top Decks: architecture / data flow
+%% Sources and HTTP policy: docs/adr/0016-metagame-deck-sources.md
+flowchart LR
+  subgraph Local["Windows local (weekly)"]
+    BAT[bats/collect-metagame.bat] --> CLI["src/cli/metagame.py<br/>collect-metagame<br/>--format --limit --dry-run --no-cache --db"]
+  end
+
+  subgraph Metagame["src/metagame"]
+    CLI --> REG{{"sources/__init__.py<br/>get_sources · SOURCE_FOR_FORMAT"}}
+    CLI --> COL["collector.collect_metagame<br/>per-format error isolation → CollectStats"]
+    REG --> COL
+    COL --> EDH["sources/edhrec.py<br/>EdhrecSource (commander)"]
+    COL --> MT8["sources/mtgtop8.py<br/>Mtgtop8Source (constructed)"]
+    EDH --> HTTP["http.PoliteFetcher<br/>robots.txt · rate limit · retry/backoff · disk cache"]
+    MT8 --> HTTP
+    COL -->|resolve_card_id cached| MREPO["repository.MetagameRepository<br/>replace_snapshot"]
+  end
+
+  HTTP -->|HTTPS| EXT[(EDHREC / MTGTop8)]
+  HTTP <--> CACHE[(data/cache/metagame)]
+  NOTE["robots.txt disallow → RobotsDisallowed<br/>source skips deck/format · collector logs error<br/>other formats still collected"]
+  HTTP -.-> NOTE
+
+  MREPO --> DB[("Neon PG / SQLite<br/>meta_decks · meta_deck_cards<br/>cards · user_collection · price_observations")]
+
+  subgraph API["FastAPI /api/v1"]
+    R["routers/meta_decks.py<br/>GET /meta-decks/formats<br/>GET /meta-decks?format=<br/>GET /meta-decks/{id}"]
+    R --> MREPO
+    R --> VAL["valuation.value_meta_deck<br/>value BRL · owned % · missing value"]
+    R --> PR[Repository.get_latest_prices_batch]
+    PR --> DB
+  end
+
+  subgraph SPA["React SPA"]
+    P["pages/TopDecksPage<br/>?view=meta&format="] --> PANEL["components/meta/MetaDecksPanel"]
+    PANEL --> PILLS[MetaFormatPills]
+    PANEL --> ROW[MetaDeckRow]
+    ROW --> LIST[MetaDeckCardList]
+    PANEL --> CLIENT["api/metaDecks.ts<br/>fetchMetaFormats · fetchMetaDecks · fetchMetaDeck"]
+    ROW --> CLIENT
+    CLIENT --> R
+  end

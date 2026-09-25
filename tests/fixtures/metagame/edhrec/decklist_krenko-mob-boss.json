@@ -1,0 +1,58 @@
+{
+ "header": "Average Deck for Krenko, Mob Boss",
+ "description": "Synthetic fixture — see README.md",
+ "commander": "Krenko, Mob Boss",
+ "num_decks_avg": 1210,
+ "deck": [
+  "1 Krenko, Mob Boss",
+  "1 Sol Ring",
+  "1 Arcane Signet",
+  "1 Command Tower",
+  "1 Goblin Chieftain",
+  "1 Goblin King",
+  "1 Goblin Warchief",
+  "1 Skirk Prospector",
+  "1 Goblin Matron",
+  "1 Goblin Recruiter",
+  "1 Siege-Gang Commander",
+  "1 Beetleback Chief",
+  "1 Mogg War Marshal",
+  "1 Legion Warboss",
+  "1 Goblin Instigator",
+  "1 Hordeling Outburst",
+  "1 Dragon Fodder",
+  "1 Krenko, Tin Street Kingpin",
+  "1 Purphoros, God of the Forge",
+  "1 Impact Tremors",
+  "1 Goblin Bombardment",
+  "1 Shared Animosity",
+  "1 Coat of Arms",
+  "1 Lightning Bolt",
+  "1 Chaos Warp",
+  "1 Blasphemous Act",
+  "1 Vandalblast",
+  "1 Jeska's Will",
+  "1 Brass's Bounty",
+  "1 Mana Echoes",
+  "1 Thousand-Year Elixir",
+  "1 Lightning Greaves",
+  "1 Swiftfoot Boots",
+  "1 Skullclamp",
+  "1 Pashalik Mons",
+  "1 Conspicuous Snoop",
+  "1 Boggart Shenanigans",
+  "1 Goblin Rabblemaster",
+  "1 Reckless Bushwhacker",
+  "1 Battle Hymn",
+  "1 Rite of the Raging Storm",
+  "59 Mountain"
+ ],
+ "container": {
+  "json_dict": {
+   "card": {
+    "name": "Krenko, Mob Boss",
+    "sanitized": "krenko-mob-boss"
+   }
+  }
+ }
+}

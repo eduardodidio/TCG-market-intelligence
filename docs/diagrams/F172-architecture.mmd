@@ -1,0 +1,82 @@
+%% F172 — Deck builder fix + deck suggestions (architecture / data flow)
+%% Manual mode: DeckBuildWizard -> CommanderSearch -> GET /decks/commanders -> builder.
+%% Suggestion mode: request persisted as `pending`; a daily local routine asks
+%% Claude (CLI by default, HTTP API opt-in) and stores `done` / `failed`.
+
+flowchart LR
+    subgraph FE["React SPA (/decks/build?mode=manual|suggestion)"]
+        W["DeckBuildWizard (?mode)"]
+        MC["DeckBuildModeChooser"]
+        CS["CommanderSearch"]
+        P["DeckSuggestionPanel"]
+        SF["SuggestionRequestForm"]
+        SL["SuggestionRequestList"]
+        SR["SuggestionResultView"]
+        CLIENT["api/deckSuggestions.ts"]
+        DV["DeckView (/decks/:id)"]
+        W --> MC
+        W -->|"mode=manual"| CS
+        W -->|"mode=suggestion"| P
+        P --> SF
+        SF --> CS
+        P --> SL
+        P --> SR
+        SF --> CLIENT
+        SL --> CLIENT
+        SR --> CLIENT
+        SR -->|"navigate after save"| DV
+    end
+
+    subgraph API["FastAPI /api/v1"]
+        DC["GET /decks/commanders<br/>search_commanders"]
+        DG["POST /decks/generate<br/>generate_deck_endpoint"]
+        BLD["builder.get_commander_candidates<br/>builder.generate_deck"]
+        DS["/deck-suggestions<br/>POST · GET · GET /{id} · DELETE /{id}"]
+        DSS["POST /deck-suggestions/{id}/save<br/>save_suggestion_as_deck"]
+        SREPO["deck_suggestions.repository<br/>create_request · count_open_requests (max 5)<br/>claim_pending · mark_done · mark_failed · release_for_retry"]
+        DC --> BLD
+        DG --> BLD
+        DS --> SREPO
+        DSS --> SREPO
+    end
+
+    subgraph DB["Neon PostgreSQL / SQLite"]
+        T[("deck_suggestion_requests")]
+        C[("cards")]
+        UC[("user_collection")]
+        PO[("price_observations")]
+        D[("decks / deck_cards")]
+    end
+
+    subgraph LOCAL["Local Windows — daily (Task Scheduler)"]
+        BAT["bats/deck-suggestions.bat"]
+        CMD["process-deck-suggestions<br/>(src/cli/deck_suggestions.py)"]
+        PR["processor.process_pending_suggestions"]
+        PM["prompt.py<br/>filter_owned_for_request · build_prompt · parse_response"]
+        RN["claude_runner.get_runner"]
+        BAT --> CMD --> PR
+        PR --> PM
+        PR --> RN
+    end
+
+    subgraph EXT["Claude"]
+        CC["Claude CLI (claude -p)<br/>ClaudeCliRunner — default"]
+        AA["Anthropic Messages API<br/>ClaudeApiRunner — httpx + ANTHROPIC_API_KEY"]
+    end
+
+    CS -->|"HTTP"| DC
+    W -->|"HTTP"| DG
+    CLIENT -->|"HTTP"| DS
+    CLIENT -->|"HTTP"| DSS
+
+    BLD --> C
+    BLD --> PO
+    SREPO --> T
+    DSS -->|"create deck"| D
+
+    PR -->|"claim / mark_done / mark_failed"| SREPO
+    PR -->|"load_owned_cards"| UC
+    PR -->|"resolve_cards"| C
+    PR -->|"prices"| PO
+    RN -->|"provider=cli"| CC
+    RN -->|"provider=api"| AA

@@ -41,7 +41,7 @@ Brief (sharded): `_brief/00-overview.md` … `_brief/05-shared-wiring.md`.
 
 | Task | Wave | Files (N = new) |
 |------|------|-----------------|
-| T01 docs | 0 | `docs/prd/F179-achievement-treasure-rewards.md` (N), `docs/adr/<next>-achievement-reward-ledger-idempotency.md` (N), `docs/diagrams/F179-architecture.mmd` (N), `docs/diagrams/F179-journey.mmd` (N) |
+| T01 docs | 0 | `docs/prd/F179-achievement-treasure-rewards.md` (N), `docs/adr/0020-achievement-reward-ledger-idempotency.md` (N), `docs/diagrams/F179-architecture.mmd` (N), `docs/diagrams/F179-journey.mmd` (N) |
 | T02 backend | 0 | `src/services/achievement_rewards.py` (N), `tests/services/test_achievement_rewards.py` (N) |
 | T03 frontend | 0 | `frontend/src/types/achievements.ts`, `frontend/src/i18n/locales/en.json`, `frontend/src/i18n/locales/pt-BR.json`, `frontend/src/utils/creditsEvents.ts` (N), `frontend/src/hooks/useCredits.ts`, `frontend/src/hooks/__tests__/useCredits.test.ts` (N or extend), `frontend/src/utils/__tests__/creditsEvents.test.ts` (N) |
 | T04 backend | 1 | `src/services/achievements.py`, `src/api/routers/achievements.py`, `tests/services/test_achievements.py`, `tests/api/test_achievements_router.py` |
@@ -57,9 +57,7 @@ Shared-file notes for the batch orchestrator:
 - i18n JSON files (T03) are edited additively inside the existing
   `"achievements"` object only. Other features adding their own sections
   should merge cleanly.
-- ADR number: T01 picks the next free number when it writes the file.
-  F173/F176 also add ADRs in this batch, so if two collide at merge time,
-  renumber this one.
+- ADR number: **0020** (batch-reserved; see "ADR number (batch reservation)" below).
 
 ## Patterns
 
@@ -73,16 +71,16 @@ Shared-file notes for the batch orchestrator:
 
 ## Global Acceptance Criteria
 
-1. Tier table 50/100/250/500/1000, and all 11 achievements mapped (test fails if a new definition is unmapped).
-2. Unlocking an achievement credits its reward once. Balance and ledger (`achievement_reward`, `achievement:<key>`) are consistent.
-3. Repeated or concurrent `/achievements/check` calls never double-credit, and `newly_unlocked` has no duplicates.
-4. Achievements unlocked before F179 get credited exactly once, lazily on `/check` and via `backfill-achievement-rewards` (`--dry-run` writes nothing). Re-running is a no-op.
-5. `GET /achievements` items include `reward`, `tier`, `reward_credited`. `POST /achievements/check` returns `rewards`, `total_reward`, `backfilled`, `balance` and keeps `newly_unlocked`.
-6. AchievementsPage shows the reward chip and tier on every card, plus "X / Y Tesouros ganhos".
-7. Toast shows "+N Tesouros adicionados!". Toasts appear app-wide for authenticated non-guest users, and TreasureBalance refreshes without a reload.
-8. `treasure_hunter` unlocks after 5 `bonus_claim` transactions.
-9. Works on SQLite and PostgreSQL. `ruff check src/`, `pytest tests/`, `cd frontend && npm test` and `npm run build` all pass.
-10. PRD, ADR, `F179-architecture.mmd`, `F179-journey.mmd` and the README note are delivered.
+1. **AC1** — Tier table 50/100/250/500/1000, and all 11 achievements mapped (test fails if a new definition is unmapped).
+2. **AC2** — Unlocking an achievement credits its reward once. Balance and ledger (`achievement_reward`, `achievement:<key>`) are consistent.
+3. **AC3** — Repeated or concurrent `/achievements/check` calls never double-credit, and `newly_unlocked` has no duplicates.
+4. **AC4** — Achievements unlocked before F179 get credited exactly once, lazily on `/check` and via `backfill-achievement-rewards` (`--dry-run` writes nothing). Re-running is a no-op.
+5. **AC5** — `GET /achievements` items include `reward`, `tier`, `reward_credited`. `POST /achievements/check` returns `rewards`, `total_reward`, `backfilled`, `balance` and keeps `newly_unlocked`.
+6. **AC6** — AchievementsPage shows the reward chip and tier on every card, plus "X / Y Tesouros ganhos".
+7. **AC7** — Toast shows "+N Tesouros adicionados!". Toasts appear app-wide for authenticated non-guest users, and TreasureBalance refreshes without a reload.
+8. **AC8** — `treasure_hunter` unlocks after 5 `bonus_claim` transactions.
+9. **AC9** — Works on SQLite and PostgreSQL. `ruff check src/`, `pytest tests/`, `cd frontend && npm test` and `npm run build` all pass.
+10. **AC10** — PRD, ADR, `F179-architecture.mmd`, `F179-journey.mmd` and the README note are delivered.
 
 ## Diagrams
 
@@ -108,4 +106,4 @@ Shared-file notes for the batch orchestrator:
   changes are needed (only pytest, ruff and npm test/build).
 
 ## ADR number (batch reservation)
-This feature's ADR number is **0020**, reserved in `tasks/features/EXECUTION-PLAN-F171-F179.md`. It overrides any "next free number" instruction in the task files.
+This feature's ADR number is **0020**, reserved in `tasks/features/EXECUTION-PLAN-F171-F179.md`. All task files reference 0020.

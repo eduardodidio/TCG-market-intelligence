@@ -1,0 +1,71 @@
+flowchart LR
+  subgraph Triggers["Trigger Paths"]
+    BAT["bats/banlist-sync.bat"]
+    CLI["CLI: banlist-sync"]
+    API_SYNC["POST /banlist/sync (auth)"]
+  end
+
+  subgraph Scryfall["Scryfall"]
+    BULK["/bulk-data"]
+    JSONL["jsonl_download_uri (.jsonl / .jsonl.gz)"]
+    ARR["download_uri (JSON array, fallback)"]
+  end
+
+  subgraph Sync["src/collectors/banlist_sync.py"]
+    SELECT["select jsonl_download_uri, fallback download_uri"]
+    STREAM["httpx.AsyncClient(follow_redirects=True) gzip stream"]
+    PARSE["_parse_bulk_line"]
+    INDEX["_build_index_keys (map_to_scryfall_set_code)"]
+    CLASSIFY["_classify (compact scope, diff-only, baseline policy)"]
+    FAIL["fail loudly if 0 lines / 0 matches"]
+  end
+
+  subgraph Writer["src/database/legality_writer.py"]
+    UPSERT["bulk_upsert_legalities (chunked ON CONFLICT)"]
+    HIST["bulk_insert_legality_changes (chunked)"]
+  end
+
+  subgraph Storage["Database (Neon / SQLite)"]
+    CL[("card_legalities")]
+    LH[("legality_history")]
+  end
+
+  subgraph Read["Read side"]
+    QUERIES["src/database/banlist_queries.py"]
+    GET_LIST["GET /api/v1/banlist (owned_only)"]
+    GET_STATUS["GET /api/v1/banlist/status"]
+    GET_CARD["GET /banlist/card/{id} + /card/{id}/history"]
+  end
+
+  subgraph FE["Frontend"]
+    BANLIST["BanList.tsx"]
+    MODAL["BanCardDetailModal.tsx"]
+  end
+
+  BAT --> CLI
+  CLI --> SELECT
+  API_SYNC --> SELECT
+  BULK --> SELECT
+  SELECT -->|prefer| JSONL
+  SELECT -->|fallback| ARR
+  JSONL --> STREAM
+  ARR --> STREAM
+  STREAM --> PARSE
+  PARSE --> INDEX
+  INDEX --> CLASSIFY
+  CLASSIFY --> FAIL
+  CLASSIFY --> UPSERT
+  CLASSIFY --> HIST
+  UPSERT --> CL
+  HIST --> LH
+
+  CL --> QUERIES
+  LH --> QUERIES
+  QUERIES --> GET_LIST
+  QUERIES --> GET_STATUS
+  QUERIES --> GET_CARD
+
+  GET_LIST --> BANLIST
+  GET_STATUS --> BANLIST
+  BANLIST -->|click card| MODAL
+  GET_CARD --> MODAL

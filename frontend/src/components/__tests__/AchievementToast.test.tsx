@@ -99,4 +99,49 @@ describe("AchievementToast", () => {
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
+
+  it("renders reward line when reward is present", () => {
+    render(
+      <AchievementToast
+        title="First Card"
+        description="Add your first card"
+        icon="card"
+        reward={50}
+        onDismiss={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId("achievement-toast-reward")).toHaveTextContent(
+      "+50 Treasures added!",
+    );
+  });
+
+  it("does not render reward line when reward is absent or zero", () => {
+    const { rerender } = render(
+      <AchievementToast
+        title="First Card"
+        description="Add your first card"
+        icon="card"
+        onDismiss={() => {}}
+      />,
+    );
+
+    expect(
+      screen.queryByTestId("achievement-toast-reward"),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <AchievementToast
+        title="First Card"
+        description="Add your first card"
+        icon="card"
+        reward={0}
+        onDismiss={() => {}}
+      />,
+    );
+
+    expect(
+      screen.queryByTestId("achievement-toast-reward"),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -1,0 +1,61 @@
+%% F174 — User journey: browsing/filtering Trocas pages with the shared CardFilterBar
+
+flowchart LR
+    subgraph User["User"]
+        U_START(["Open Trocas menu"])
+        U_PAGE["Choose page:<br/>Marketplace / MyTrades / TradeMatches"]
+        U_TYPE["Type search"]
+        U_SET["Pick set icon"]
+        U_SORT["Change sort"]
+        U_GRID["Change grid size"]
+        U_TAB["MyTrades: click status chip<br/>or switch buyer/seller tab"]
+        U_ACTION["MyTrades: accept / confirm trade"]
+        U_SCROLL["Marketplace: scroll to bottom"]
+        U_CLEAR["Clear filters"]
+        U_RETRY["Click Retry"]
+        U_END(["See filtered results"])
+    end
+
+    subgraph Frontend["Frontend"]
+        F_URL["useCardListFilters updates<br/>URL params (name, set, sort, dir)"]
+        F_KIND{"Server-side or<br/>client-side filter?"}
+        F_LOCAL["cardListFilter.ts filters<br/>local list (MyTrades / matches tab)"]
+        F_LOADMORE["Fetch next page (offset)"]
+        F_EMPTY["Show EmptyState<br/>(tradeFilters.noResults)"]
+        F_ERROR["Show ErrorBanner"]
+    end
+
+    subgraph API["API"]
+        A_CALL["GET listings / duplicates<br/>(search, set_code, sort_by, sort_dir)"]
+        A_RESULT{"Response?"}
+    end
+
+    U_START --> U_PAGE --> U_TYPE
+    U_PAGE --> U_SET
+    U_PAGE --> U_SORT
+    U_PAGE --> U_GRID
+    U_PAGE --> U_TAB
+    U_PAGE --> U_SCROLL
+
+    U_TYPE --> F_URL
+    U_SET --> F_URL
+    U_SORT --> F_URL
+    U_TAB --> F_URL
+
+    F_URL --> F_KIND
+    F_KIND -->|"server-side<br/>(Marketplace, Duplicates)"| A_CALL
+    F_KIND -->|"client-side<br/>(MyTrades, TradeMatches: they-have/they-want)"| F_LOCAL
+
+    A_CALL --> A_RESULT
+    A_RESULT -->|"200, results"| U_END
+    A_RESULT -->|"200, empty"| F_EMPTY --> U_CLEAR --> F_URL
+    A_RESULT -->|"error"| F_ERROR --> U_RETRY --> A_CALL
+
+    F_LOCAL -->|"results"| U_END
+    F_LOCAL -->|"empty"| F_EMPTY
+
+    U_GRID -.->|"no refetch,<br/>local re-render"| U_END
+
+    U_SCROLL --> F_LOADMORE --> A_CALL
+
+    U_TAB --> U_ACTION --> U_END

@@ -3,6 +3,41 @@
 (QA appends to this file at the end of every feature retrospective.
 Each entry is a lesson that generalizes beyond a single bug.)
 
+## F179 — 2026-09-24
+**What worked:** independently re-deriving a TechLead-flagged concurrency
+defect from the code and the ADR (rather than taking the review verdict
+at face value) confirmed the finding was real and gave a precise fix
+target; on re-validation, re-reading the fixed code against the ADR again
+(not just trusting the "APPROVED" verdict) confirmed the fix actually
+closed the TOCTOU window.
+**What to avoid:** don't treat a passing SQLite-only concurrency test as
+evidence an ordering bug is fixed — SQLite's single-writer lock hides
+check-then-lock races that only manifest on Postgres.
+**Pattern to repeat:** when re-validating a fix for a previously rejected
+concurrency defect, re-run the specific pinning test in isolation and
+confirm the statement order directly in the source, not just re-run the
+full suite and check for green.
+
+## F174 — 2026-09-24
+**What worked:** rebuilding a throwaway worktree at the pre-feature commit
+and diffing failing test **file names** (not just counts) against it, for
+both the frontend and backend suites, confirmed a 109-failure backend
+suite was 100% pre-existing/environmental (Liga/MYP/Scryfall network
+egress blocked in this sandbox, plus an unrelated pre-existing
+currency-fallback regression) and unrelated to F174's actual changes.
+**What to avoid:** an AC7-style "no new failing file" gate is file-level
+and blind to a legacy already-failing file gaining *more* failing tests
+inside it (`tests/pages/MyTrades.test.tsx` went from 1 to 3 failures after
+a page rewrite) — that's a real coverage regression a file-name diff will
+never catch. Also: bare `pytest` on `$PATH` in this sandbox resolves to a
+`uv`-managed install without `pytest-cov` and errors on the project's
+`--cov` addopts — use `python3 -m pytest` instead.
+**Pattern to repeat:** when a full test suite has a large, surprising
+failure count, don't assume it's a regression — rebuild a pre-feature
+worktree and re-run the exact same failing files there before flagging a
+blocker. When an AC7-style gate is file-level, also spot-check whether an
+already-failing legacy file gained additional failing tests within it.
+
 ## F176 — 2026-09-24
 **What worked:** when a targeted test run turns up failures, `git stash`ing
 this session's own uncommitted changes and re-running just the failing test
@@ -140,3 +175,13 @@ unverified claim.
 
 - **Re-baseline "pre-existing failure" counts against current HEAD, don't trust an earlier wave's cached number.** The TechLead review cited "5 pre-existing backend failures" from an earlier wave's `git stash` check; QA's own full-suite run at sign-off found 109. The gap was sibling features (F175/F176/F178) landing on the same branch in between, not a re-measurement error. Always re-run the full suite fresh at the QA gate and re-verify that every failure is outside the current feature's file-ownership table, rather than citing an earlier number.
 - **A safety-critical invariant tested at multiple call sites should be verified by grepping for the specific warning/marker string across all of them, not by trusting the AC checkbox.** For F171's AC5 ("no rate → never store USD as BRL"), grepping all 4 call sites for `no_rate` confirmed each one actually asserts the invariant, catching that the 4 mechanisms (lambda, `Mock`, dependency override, patched method) were each genuinely exercising it rather than 3 real tests and 1 rubber-stamp.
+
+## F177 -- Ban list populate + owned-only + history modal (2026-09-24)
+
+- **When a prior TechLead review already ran the full backend/frontend suites end-to-end and cross-checked every failure against the feature's touched-files table, QA does not need to repeat the full (17m+) run to validate AC13.** Re-running only the feature-scoped test paths (`tests/banlist/`, the specific frontend test files touching F177's components/pages/routes) and confirming the results are consistent with the prior full-suite conclusion is sufficient corroboration, and is far cheaper. Only re-run the full suite from scratch if the targeted re-run surfaces something the prior review didn't account for.
+- **AC10-style "removed/deleted" criteria need a positive-absence check, not just a passing redirect test.** For F177's "menu item removed, page deleted," `grep -rn "BanHistory"` across `frontend/src` and `frontend/tests` found matches, but they all resolved to a *different*, legitimately-still-present feature (`BanHistorySection`/`fetchCardBanHistory` in `CollectionCardDetail.tsx`) rather than the deleted `BanHistory.tsx` page — reading each hit rather than stopping at "grep found something" avoided a false blocker.
+
+## F173 -- Top Decks do mercado por formato (Metagame) (2026-09-25)
+
+- **Reconfirms the F171 lesson: re-run the full suite fresh at every QA gate rather than citing an earlier Wave/TechLead's failure count, even when the new count looks better.** This feature's QA full-suite run found 109 backend failures where the Wave-4 summary/TechLead review cited 116 — the direction was favorable this time, but the count still has to be independently re-measured and every failure re-checked against the feature's own touched-files table, since sibling features landing on the same branch (or flaky/date-sensitive tests) can move the number either way between runs.
+- **A "fail closed on unverifiable permission" design (e.g. `PoliteFetcher` treating a robots.txt fetch error as `disallow_all=True`) can be verified live even when the sandbox's own proxy blocks the real third-party site.** Running the actual CLI dry-run against a blocked host exercised the exact safety branch (permission-check failure → refuse to fetch) without needing real network access — a useful pattern for QA-ing any "polite scraper" feature in a network-restricted sandbox, worth doing before falling back to "recorded as pending-user."

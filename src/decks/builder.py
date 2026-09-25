@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import case, select
+from sqlalchemy import case, or_, select
 from sqlalchemy.orm import Session
 
 from src.database.models import CardLegalityRow, CardRow, UserCollectionRow
@@ -152,6 +152,34 @@ def _color_identity_matches(card_ci: str | None, allowed_colors: set[str]) -> bo
     return True
 
 
+def is_commander_eligible(type_line: str | None) -> bool:
+    """Return True if a card's type line qualifies it as a commander.
+
+    Rule: must be a Legendary Creature (DFC type lines like
+    ``"Legendary Creature — X // Y"`` qualify too).
+    """
+    if not type_line:
+        return False
+    return "Legendary" in type_line and "Creature" in type_line
+
+
+def _excluded_by_legality(format_name: str):
+    """Subquery of card ids explicitly banned / not legal in *format_name*.
+
+    Legality is a soft filter: cards without any legality row pass (the
+    ``card_legalities`` table is only filled by ``banlist-sync``).
+    """
+    return select(CardLegalityRow.card_id).where(
+        CardLegalityRow.format == format_name.lower(),
+        CardLegalityRow.status.in_(("banned", "not_legal")),
+    )
+
+
+def _escape_like(value: str) -> str:
+    """Escape LIKE wildcards so user input is matched literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _query_candidates(
     session: Session,
     colors: set[str],
@@ -181,16 +209,9 @@ def _query_candidates(
     if exclude_ids:
         stmt = stmt.where(CardRow.id.notin_(exclude_ids))
 
-    # Format legality: join with card_legalities
+    # Format legality (soft): exclude only explicit banned / not_legal rows
     if format_name:
-        stmt = stmt.where(
-            CardRow.id.in_(
-                select(CardLegalityRow.card_id).where(
-                    CardLegalityRow.format == format_name.lower(),
-                    CardLegalityRow.status == "legal",
-                )
-            )
-        )
+        stmt = stmt.where(~CardRow.id.in_(_excluded_by_legality(format_name)))
 
     # Order by rarity (mythic > rare > uncommon > common)
     rarity_order = case(
@@ -338,51 +359,92 @@ def get_commander_candidates(
 ) -> list[dict]:
     """Find legendary creatures that can be commanders.
 
-    Optionally filter by color identity and name search.
+    Optionally filter by color identity and name search (EN or PT).
+    Results are deduped by English name and sorted exact > prefix > other.
+    Cards with a NULL ``type_line`` are never returned.
     """
+    search = (search or "").strip()
+    if search and len(search) < 2:
+        return []
+    if limit <= 0:
+        return []
+
     with Session(repo.engine) as session:
         stmt = select(CardRow).where(
             CardRow.game == "magic",
             CardRow.type_line.isnot(None),
             CardRow.type_line.contains("Legendary"),
             CardRow.type_line.contains("Creature"),
+            ~CardRow.id.in_(_excluded_by_legality("commander")),
         )
 
         if search:
-            stmt = stmt.where(CardRow.name_en.ilike(f"%{search}%"))
-
-        # Check commander legality
-        stmt = stmt.where(
-            CardRow.id.in_(
-                select(CardLegalityRow.card_id).where(
-                    CardLegalityRow.format == "commander",
-                    CardLegalityRow.status == "legal",
+            pattern = f"%{_escape_like(search)}%"
+            stmt = stmt.where(
+                or_(
+                    CardRow.name_en.ilike(pattern, escape="\\"),
+                    CardRow.name_pt.ilike(pattern, escape="\\"),
                 )
             )
-        )
 
-        stmt = stmt.order_by(CardRow.name_en).limit(limit)
+        # Over-fetch so color filtering + dedupe happen before the limit
+        stmt = stmt.order_by(CardRow.name_en).limit(min(limit * 10, 500))
         rows = session.execute(stmt).scalars().all()
 
-        # Post-filter by color identity if specified
-        if colors:
-            color_set = set(colors)
-            rows = [r for r in rows if _color_identity_matches(r.color_identity, color_set)]
+    if colors:
+        color_set = set(colors)
+        rows = [r for r in rows if _color_identity_matches(r.color_identity, color_set)]
 
-        return [
-            {
-                "card_id": r.id,
-                "name_en": r.name_en,
-                "set_code": r.set_code,
-                "collector_number": r.collector_number,
-                "color_identity": r.color_identity,
-                "mana_cost": r.mana_cost,
-                "type_line": r.type_line,
-                "rarity": r.rarity,
-                "image_uri": r.image_uri,
-            }
-            for r in rows
-        ]
+    # Dedupe printings: prefer a row with an image, then the most recent id
+    best: dict[str, CardRow] = {}
+    for r in rows:
+        key = r.name_en.lower()
+        cur = best.get(key)
+        if cur is None or (r.image_uri is not None, r.id) > (cur.image_uri is not None, cur.id):
+            best[key] = r
+
+    needle = search.lower()
+
+    def _rank(r: CardRow) -> tuple[int, str]:
+        if not needle:
+            return (2, r.name_en.lower())
+        names = [n.lower() for n in (r.name_en, r.name_pt) if n]
+        if needle in names:
+            return (0, r.name_en.lower())
+        if any(n.startswith(needle) for n in names):
+            return (1, r.name_en.lower())
+        return (2, r.name_en.lower())
+
+    ranked = sorted(best.values(), key=_rank)[:limit]
+
+    return [
+        {
+            "card_id": r.id,
+            "name_en": r.name_en,
+            "name_pt": r.name_pt,
+            "set_code": r.set_code,
+            "collector_number": r.collector_number,
+            "color_identity": r.color_identity,
+            "mana_cost": r.mana_cost,
+            "type_line": r.type_line,
+            "rarity": r.rarity,
+            "image_uri": r.image_uri,
+        }
+        for r in ranked
+    ]
+
+
+def _fetch_prices(repo, card_ids: list[int]) -> dict[int, Decimal]:
+    """Latest median price per card id (cards without a price are omitted)."""
+    prices: dict[int, Decimal] = {}
+    ids = list(dict.fromkeys(card_ids))
+    for i in range(0, len(ids), 500):
+        batch = repo.get_latest_prices_batch(ids[i : i + 500])
+        for cid, row in batch.items():
+            price = getattr(row, "median_price", None) if row is not None else None
+            if price is not None:
+                prices[cid] = Decimal(str(price))
+    return prices
 
 
 def generate_deck(repo, params: DeckBuildParams) -> GeneratedDeck:
@@ -520,13 +582,13 @@ def generate_deck(repo, params: DeckBuildParams) -> GeneratedDeck:
                     exclude_ids.add(staple.id)
                     selected_names.add(staple.name_en)
 
-    # Query and select cards for each type
+    # Query candidate pools for each type
+    pools: dict[str, list[CardRow]] = {}
     with Session(repo.engine) as session:
         for card_type, target_count in composition.items():
             if target_count <= 0:
                 continue
-
-            candidates = _query_candidates(
+            pools[card_type] = _query_candidates(
                 session,
                 colors,
                 format_name if format_name != "casual" else None,
@@ -535,35 +597,54 @@ def generate_deck(repo, params: DeckBuildParams) -> GeneratedDeck:
                 exclude_ids=exclude_ids,
             )
 
-            # Filter out already-selected names for singleton
-            if is_singleton:
-                candidates = [c for c in candidates if c.name_en not in selected_names]
+    # Fill prices for the pool + commander + staples (one batched lookup)
+    price_ids = [c["card_id"] for c in all_cards if c["card_id"] is not None]
+    price_ids += [c.id for pool in pools.values() for c in pool]
+    if price_ids:
+        prices = _fetch_prices(repo, price_ids)
 
-            selected = _select_cards(
-                candidates,
-                target_count,
-                is_singleton,
-                budget_remaining,
-                prices,
-                owned_ids,
-                params.prioritize_owned,
-            )
+    for card_dict in all_cards:
+        card_price = prices.get(card_dict["card_id"])
+        if card_price is not None:
+            card_dict["price"] = float(card_price) if card_price else None
+            if budget_remaining is not None:
+                budget_remaining -= card_price * card_dict["quantity"]
 
-            for card_dict in selected:
-                all_cards.append(card_dict)
-                exclude_ids.add(card_dict["card_id"])
-                selected_names.add(card_dict["name_en"])
-                if budget_remaining is not None:
-                    price = card_dict.get("price") or 0
-                    budget_remaining -= Decimal(str(price)) * card_dict["quantity"]
+    # Select cards for each type
+    for card_type, candidates in pools.items():
+        target_count = composition[card_type]
 
-            if len(selected) < target_count:
-                deficit = target_count - sum(c["quantity"] for c in selected)
-                if deficit > 0:
-                    warnings.append(
-                        f"Could only find {target_count - deficit} of "
-                        f"{target_count} target {card_type} cards"
-                    )
+        # Drop cards already picked by an earlier type (e.g. Artifact Creature)
+        candidates = [c for c in candidates if c.id not in exclude_ids]
+        # Filter out already-selected names for singleton
+        if is_singleton:
+            candidates = [c for c in candidates if c.name_en not in selected_names]
+
+        selected = _select_cards(
+            candidates,
+            target_count,
+            is_singleton,
+            budget_remaining,
+            prices,
+            owned_ids,
+            params.prioritize_owned,
+        )
+
+        for card_dict in selected:
+            all_cards.append(card_dict)
+            exclude_ids.add(card_dict["card_id"])
+            selected_names.add(card_dict["name_en"])
+            if budget_remaining is not None:
+                price = card_dict.get("price") or 0
+                budget_remaining -= Decimal(str(price)) * card_dict["quantity"]
+
+        if len(selected) < target_count:
+            deficit = target_count - sum(c["quantity"] for c in selected)
+            if deficit > 0:
+                warnings.append(
+                    f"Could only find {target_count - deficit} of "
+                    f"{target_count} target {card_type} cards"
+                )
 
     # Add basic lands to fill the land slots
     existing_lands = sum(

@@ -21,6 +21,9 @@ backups/
 data/catalog/*.json
 data/catalog/*.jsonl
 
+# HTTP response cache (F173 metagame collector)
+data/cache/
+
 # Database files
 *.db
 

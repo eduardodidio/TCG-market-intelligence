@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { fetchBanList, fetchFormats } from "../api/banlist";
+import { fetchBanList, fetchBanlistStatus, fetchFormats } from "../api/banlist";
 import { useApi } from "../hooks/useApi";
+import { useAuth } from "../hooks/useAuth";
 import { useCardName } from "../hooks/useCardName";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { LegalityBadge } from "../components/LegalityBadge";
+import { BanCardDetailModal } from "../components/BanCardDetailModal";
 import { scryfallImageUrl } from "../utils/scryfall";
-import type { BanListEntry } from "../types/banlist";
+import type { BanListEntry, BanlistStatus } from "../types/banlist";
 
 const STATUS_FILTERS = ["all", "banned", "restricted"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
@@ -14,8 +17,10 @@ type StatusFilter = (typeof STATUS_FILTERS)[number];
 const PAGE_SIZE = 50;
 
 export function BanList() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { getCardName } = useCardName();
+  const { isAuthenticated } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Format list
   const formatsFetcher = useCallback(() => fetchFormats(), []);
@@ -24,18 +29,33 @@ export function BanList() {
     [],
   );
 
-  const [selectedFormat, setSelectedFormat] = useState<string>("");
+  // Status (last synced, legalities count)
+  const statusFetcher = useCallback(() => fetchBanlistStatus(), []);
+  const { data: status } = useApi<BanlistStatus>(statusFetcher, []);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<BanListEntry | null>(null);
+
+  const selectedFormat = searchParams.get("format") || "";
+  const ownedOnlyParam = searchParams.get("owned") === "1";
+  const ownedOnly = isAuthenticated && ownedOnlyParam;
 
   // Set default format when formats load
   useEffect(() => {
     if (formats && formats.length > 0 && !selectedFormat) {
-      const preferred = formats.includes("standard") ? "standard" : formats[0];
-      setSelectedFormat(preferred);
+      const preferred = formats.includes("commander")
+        ? "commander"
+        : formats.includes("standard")
+          ? "standard"
+          : formats[0];
+      const params = new URLSearchParams(searchParams);
+      params.set("format", preferred);
+      setSearchParams(params, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formats, selectedFormat]);
 
   // Debounce search
@@ -49,50 +69,108 @@ export function BanList() {
     };
   }, [search]);
 
-  // Fetch ban list
-  const banlistFetcher = useCallback(
-    () => {
-      if (!selectedFormat) {
-        return Promise.resolve({
-          data: [],
-          meta: { cursor: null, total: null, offset: null, request_id: "" },
-          errors: [],
-        });
-      }
-      return fetchBanList({
+  const toggleOwnedOnly = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    if (ownedOnlyParam) {
+      params.delete("owned");
+    } else {
+      params.set("owned", "1");
+    }
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams, ownedOnlyParam]);
+
+  const handleFormatChange = useCallback(
+    (format: string) => {
+      const params = new URLSearchParams(searchParams);
+      params.set("format", format);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // Ban list data: paginated, appended via "load more"
+  const [entries, setEntries] = useState<BanListEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [entriesLoading, setEntriesLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fetchCountRef = useRef(0);
+
+  useEffect(() => {
+    if (!selectedFormat) return;
+    fetchCountRef.current += 1;
+    const currentFetch = fetchCountRef.current;
+    setEntriesLoading(true);
+    setError(null);
+    fetchBanList({
+      format: selectedFormat,
+      status: statusFilter === "all" ? undefined : statusFilter,
+      search: debouncedSearch || undefined,
+      limit: PAGE_SIZE,
+      offset: 0,
+      ownedOnly,
+    })
+      .then((res) => {
+        if (currentFetch !== fetchCountRef.current) return;
+        if (res.errors.length > 0) {
+          setError(res.errors.map((e) => e.message).join("; "));
+          setEntries([]);
+          setTotal(0);
+          setOffset(0);
+          return;
+        }
+        const data = res.data ?? [];
+        setEntries(data);
+        setTotal(res.meta.total ?? data.length);
+        setOffset(data.length);
+      })
+      .catch((err: unknown) => {
+        if (currentFetch !== fetchCountRef.current) return;
+        setError(err instanceof Error ? err.message : "Unknown error");
+        setEntries([]);
+        setTotal(0);
+        setOffset(0);
+      })
+      .finally(() => {
+        if (currentFetch === fetchCountRef.current) {
+          setEntriesLoading(false);
+        }
+      });
+  }, [selectedFormat, statusFilter, debouncedSearch, ownedOnly]);
+
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || !selectedFormat) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetchBanList({
         format: selectedFormat,
         status: statusFilter === "all" ? undefined : statusFilter,
         search: debouncedSearch || undefined,
         limit: PAGE_SIZE,
+        offset,
+        ownedOnly,
       });
-    },
-    [selectedFormat, statusFilter, debouncedSearch],
-  );
+      if (res.data) {
+        setEntries((prev) => [...prev, ...res.data!]);
+        setTotal(res.meta.total ?? offset + res.data.length);
+        setOffset((prev) => prev + res.data!.length);
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, selectedFormat, statusFilter, debouncedSearch, ownedOnly, offset]);
 
-  const {
-    data: entries,
-    loading: entriesLoading,
-    error,
-  } = useApi<BanListEntry[]>(banlistFetcher, [
-    selectedFormat,
-    statusFilter,
-    debouncedSearch,
-  ]);
+  const hasMore = entries.length < total;
+  const notSynced = status?.legalities_count === 0;
 
-  const sortedEntries = useMemo(() => {
-    if (!entries) return [];
-    // Sort: banned first, then restricted, then by name
-    const statusOrder: Record<string, number> = {
-      banned: 0,
-      restricted: 1,
-    };
-    return [...entries].sort((a, b) => {
-      const oa = statusOrder[a.status] ?? 2;
-      const ob = statusOrder[b.status] ?? 2;
-      if (oa !== ob) return oa - ob;
-      return (a.name_en || "").localeCompare(b.name_en || "");
+  const lastSyncedLabel =
+    status?.last_synced_at &&
+    t("banlist.lastSynced", {
+      date: new Date(status.last_synced_at).toLocaleString(
+        i18n.language === "pt-BR" ? "pt-BR" : "en-US",
+      ),
     });
-  }, [entries]);
 
   return (
     <div data-testid="page-banlist">
@@ -102,9 +180,13 @@ export function BanList() {
           { label: t("nav.banlist") },
         ]}
       />
-      <h1 className="text-2xl font-bold text-white mb-6">
+      <h1 className="text-2xl font-bold text-white mb-1">
         {t("banlist.title")}
       </h1>
+      {lastSyncedLabel && (
+        <p className="text-sm text-slate-400 mb-6">{lastSyncedLabel}</p>
+      )}
+      {!lastSyncedLabel && <div className="mb-6" />}
 
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-4 mb-6">
@@ -120,7 +202,7 @@ export function BanList() {
             id="format-select"
             data-testid="format-select"
             value={selectedFormat}
-            onChange={(e) => setSelectedFormat(e.target.value)}
+            onChange={(e) => handleFormatChange(e.target.value)}
             className="rounded-md bg-slate-800 border border-slate-600 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
           >
             {formatsLoading && (
@@ -161,6 +243,33 @@ export function BanList() {
           </div>
         </div>
 
+        {/* Owned only toggle */}
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">
+            &nbsp;
+          </label>
+          <label
+            className={`flex items-center gap-2 text-sm ${
+              isAuthenticated
+                ? "text-slate-300 cursor-pointer"
+                : "text-slate-500 cursor-not-allowed"
+            }`}
+            title={
+              isAuthenticated ? undefined : t("banlist.ownedOnlyLoginHint")
+            }
+          >
+            <input
+              type="checkbox"
+              data-testid="owned-only-toggle"
+              checked={ownedOnly}
+              disabled={!isAuthenticated}
+              onChange={toggleOwnedOnly}
+              className="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-cyan-400 disabled:opacity-50"
+            />
+            {t("banlist.ownedOnly")}
+          </label>
+        </div>
+
         {/* Search */}
         <div className="flex-1 min-w-[200px]">
           <label
@@ -188,24 +297,51 @@ export function BanList() {
         </div>
       ) : error ? (
         <div className="text-red-400 text-center py-12">{error}</div>
-      ) : sortedEntries.length === 0 ? (
+      ) : notSynced ? (
+        <div
+          data-testid="banlist-not-synced"
+          className="text-slate-400 text-center py-12"
+        >
+          {t("banlist.emptyNotSynced")}
+        </div>
+      ) : entries.length === 0 ? (
         <div
           data-testid="banlist-empty"
           className="text-slate-400 text-center py-12"
         >
-          {t("banlist.no_results")}
+          {ownedOnly ? t("banlist.emptyOwned") : t("banlist.no_results")}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {sortedEntries.map((entry) => (
-            <BanListCard
-              key={`${entry.card_id}-${entry.format}-${entry.status}`}
-              entry={entry}
-              getCardName={getCardName}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {entries.map((entry) => (
+              <BanListCard
+                key={`${entry.card_id}-${entry.format}-${entry.status}`}
+                entry={entry}
+                getCardName={getCardName}
+                onSelect={() => setSelectedEntry(entry)}
+              />
+            ))}
+          </div>
+          {hasMore && (
+            <div className="text-center mt-6">
+              <button
+                data-testid="banlist-load-more"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? t("common.loading") : t("banlist.loadMore")}
+              </button>
+            </div>
+          )}
+        </>
       )}
+
+      <BanCardDetailModal
+        entry={selectedEntry}
+        onClose={() => setSelectedEntry(null)}
+      />
     </div>
   );
 }
@@ -213,6 +349,7 @@ export function BanList() {
 function BanListCard({
   entry,
   getCardName,
+  onSelect,
 }: {
   entry: BanListEntry;
   getCardName: (
@@ -220,6 +357,7 @@ function BanListCard({
     namePt: string | null | undefined,
     fallback: string,
   ) => string;
+  onSelect: () => void;
 }) {
   const { t } = useTranslation();
   const displayName = getCardName(entry.name_en, entry.name_pt, t("common.unknownCard"));
@@ -230,9 +368,11 @@ function BanListCard({
       : null);
 
   return (
-    <div
+    <button
+      type="button"
       data-testid="banlist-card"
-      className="bg-slate-800 border border-slate-600 rounded-lg overflow-hidden hover:border-slate-500 transition-colors"
+      onClick={onSelect}
+      className="text-left bg-slate-800 border border-slate-600 rounded-lg overflow-hidden hover:border-slate-500 transition-colors"
     >
       {imageUrl && (
         <div className="aspect-[488/680] bg-slate-900">
@@ -263,13 +403,28 @@ function BanListCard({
             </span>
           )}
         </div>
-        <LegalityBadge status={entry.status} size="sm" />
+        <div className="flex items-center gap-2 flex-wrap mb-1">
+          <LegalityBadge status={entry.status} size="sm" />
+          {entry.owned && (
+            <span
+              data-testid="banlist-owned-badge"
+              className="inline-flex items-center px-2 py-0.5 rounded border border-cyan-700 bg-cyan-900/30 text-cyan-400 text-xs font-medium"
+            >
+              {t("banlist.ownedQty", { count: entry.owned_quantity })}
+            </span>
+          )}
+        </div>
+        {entry.printings > 1 && (
+          <p className="text-xs text-slate-500">
+            {t("banlist.printings", { count: entry.printings })}
+          </p>
+        )}
         {entry.effective_date && (
           <p className="text-xs text-slate-500 mt-1">
             {t("banlist.effective_date")}: {entry.effective_date}
           </p>
         )}
       </div>
-    </div>
+    </button>
   );
 }

@@ -71,7 +71,7 @@
     "hasPrice": "Com Preco",
     "noPrice": "Sem Preco",
     "loadMore": "Carregar Mais",
-    "statsLine": "{{cards}} cartas \u2022 {{sets}} colecoes \u2022 {{priced}} com preco",
+    "statsLine": "{{cards}} cartas • {{sets}} colecoes • {{priced}} com preco",
     "resultsCount": "{{count}} resultados",
     "emptyTitle": "Nenhuma carta encontrada",
     "emptyDescription": "O catalogo esta vazio. Importe cartas via Scryfall bulk data.",
@@ -481,6 +481,89 @@
     "saveDeck": "Salvar Deck",
     "deckName": "Nome do Deck"
   },
+  "deckBuild": {
+    "title": "Montador de Deck",
+    "selectFormat": "Selecione o formato",
+    "selectCommander": "Selecione o comandante",
+    "selectColors": "Selecione as cores",
+    "pickColors": "Escolha uma ou mais cores para o seu deck.",
+    "searchCommander": "Buscar uma criatura lendária...",
+    "commanderSearchError": "Falha na busca de comandantes",
+    "noCommandersFound": "Nenhum comandante encontrado para",
+    "archetypeBudget": "Arquétipo e orçamento",
+    "selectArchetype": "Selecione um arquétipo (opcional):",
+    "budgetLabel": "Limite de orçamento (BRL, opcional):",
+    "prioritizeOwned": "Priorizar cartas que já tenho",
+    "generate": "Gerar deck",
+    "generating": "Gerando...",
+    "regenerate": "Gerar novamente",
+    "reviewDeck": "Revisar deck",
+    "totalCards": "Total de cartas",
+    "lands": "Terrenos",
+    "nonlands": "Não-terrenos",
+    "totalValue": "Valor total",
+    "deckName": "Nome do deck",
+    "saveDeck": "Ver deck"
+  },
+  "deckSuggest": {
+    "mode": {
+      "manualTitle": "Montar meu próprio deck",
+      "manualDesc": "Escolha formato, cores e arquétipo — gerado na hora.",
+      "suggestionTitle": "Sugestão de deck",
+      "suggestionDesc": "O Claude monta um deck a partir da sua coleção. Processado uma vez por dia.",
+      "switchBack": "← Trocar modo"
+    },
+    "form": {
+      "format": "Formato",
+      "commander": "Comandante",
+      "colors": "Cores",
+      "archetype": "Arquétipo",
+      "notes": "Observações (opcional)",
+      "notesPlaceholder": "ex.: foco em marcadores +1/+1, econômico...",
+      "submit": "Pedir sugestão",
+      "submitting": "Enviando...",
+      "success": "Pedido registrado! Sua sugestão será gerada na próxima execução diária.",
+      "genericError": "Não foi possível registrar o pedido. Tente novamente."
+    },
+    "panel": {
+      "selectPrompt": "Selecione um pedido para ver a sugestão."
+    },
+    "result": {
+      "pending": "Na fila – será gerado na próxima execução diária.",
+      "processing": "Processando – o resultado aparecerá em breve.",
+      "failed": "Não foi possível gerar a sugestão.",
+      "saveFailed": "Não foi possível salvar o deck.",
+      "totalCards": "Total de cartas",
+      "ownedCards": "Na coleção",
+      "missingCards": "Faltando",
+      "missingCost": "Custo para completar",
+      "commander": "Comandante",
+      "owned": "Na coleção",
+      "missing": "Falta",
+      "unresolved": "Cartas não encontradas no catálogo",
+      "viewDeck": "Ver deck salvo",
+      "save": "Salvar como deck",
+      "saving": "Salvando..."
+    }
+  },
+  "deckSuggestions": {
+    "list": {
+      "title": "Meus pedidos",
+      "loading": "Carregando...",
+      "refresh": "Atualizar",
+      "emptyTitle": "Nenhum pedido ainda",
+      "emptyDescription": "Crie um pedido de sugestão para vê-lo aqui.",
+      "ownedOfTotal": "{{owned}}/{{total}} na coleção",
+      "delete": "Excluir pedido",
+      "confirmDelete": "Excluir este pedido de sugestão?"
+    },
+    "status": {
+      "pending": "Na fila",
+      "processing": "Processando",
+      "done": "Pronto",
+      "failed": "Falhou"
+    }
+  },
   "deckEval": {
     "title": "Avaliacao do Deck",
     "manaCurve": "Curva de Mana",
@@ -701,7 +784,25 @@
     "syncing": "Sincronizando...",
     "history": "Historico de Alteracoes",
     "show_all": "Mostrar todos os formatos",
-    "show_less": "Mostrar menos"
+    "show_less": "Mostrar menos",
+    "ownedOnly": "Somente minha coleção",
+    "ownedOnlyLoginHint": "Entre para filtrar pela sua coleção",
+    "owned": "Na coleção",
+    "ownedQty": "{{count}}x na coleção",
+    "printings": "{{count}} impressões",
+    "emptyNotSynced": "Os dados de banimento ainda não foram sincronizados. Rode o banlist-sync.",
+    "emptyOwned": "Nenhuma carta sua está banida ou restrita neste formato",
+    "lastSynced": "Última sincronização: {{date}}",
+    "loadMore": "Carregar mais",
+    "detail": {
+      "title": "Detalhes da carta",
+      "legalities": "Legalidade por formato",
+      "history": "Histórico de banimentos",
+      "noHistory": "Nenhum evento de ban/unban registrado para esta carta",
+      "baseline": "Já banida quando o monitoramento começou",
+      "close": "Fechar",
+      "openCard": "Abrir página da carta"
+    }
   },
   "legality": {
     "title": "Legalidade por Formato",
@@ -807,7 +908,10 @@
     "showHistory": "Mostrar historico de valor",
     "hideHistory": "Ocultar historico de valor",
     "noPriceData": "Sem dados de preco",
-    "deckValue": "Valor do Deck"
+    "deckValue": "Valor do Deck",
+    "tabMine": "Meus decks",
+    "tabMeta": "Mercado",
+    "viewMeta": "Ver metagame"
   },
   "metrics": {
     "title": "Indicadores",
@@ -1241,6 +1345,18 @@
     "locked": "Continue jogando para desbloquear",
     "unlockedAt": "Desbloqueada em {{date}}",
     "toastTitle": "Conquista Desbloqueada!",
+    "reward": "+{{amount}} Tesouros",
+    "rewardEarned": "Recebido",
+    "treasureProgress": "{{earned}} / {{total}} Tesouros ganhos",
+    "toastReward": "+{{amount}} Tesouros adicionados!",
+    "backfillReward": "+{{amount}} Tesouros de conquistas anteriores",
+    "tier": {
+      "common": "Comum",
+      "uncommon": "Incomum",
+      "rare": "Rara",
+      "mythic": "Mítica",
+      "legendary": "Lendária"
+    },
     "first_card": {
       "title": "Primeira Carta",
       "description": "Adicione sua primeira carta a colecao"
@@ -1416,5 +1532,52 @@
     "emptyPeriod": "Sem pontos neste período. Histórico desde {{date}} — tente um período maior.",
     "snapshotPoint": "Preço repetido (sem nova coleta neste dia)",
     "realVsSnapshot": "{{real}} coletas reais · {{snapshot}} dias repetidos"
+  },
+  "tradeFilters": {
+    "sortQuantityDesc": "Quantidade (maior-menor)",
+    "sortNewest": "Mais recentes",
+    "sortOldest": "Mais antigas",
+    "sortStatus": "Status",
+    "statusLabel": "Status",
+    "status": {
+      "pending": "Pendente",
+      "accepted": "Aceita",
+      "rejected": "Recusada",
+      "completed": "Concluída",
+      "cancelled": "Cancelada"
+    },
+    "noResults": "Nenhuma carta corresponde aos filtros.",
+    "noTradesBuyer": "Você ainda não demonstrou interesse em nenhuma carta.",
+    "noTradesSeller": "Ninguém solicitou suas cartas ainda.",
+    "searchPlaceholder": "Buscar trocas pelo nome da carta..."
+  },
+  "metaDecks": {
+    "title": "Top Decks do Mercado",
+    "format": {
+      "commander": "Commander",
+      "standard": "Standard",
+      "pioneer": "Pioneer",
+      "modern": "Modern",
+      "legacy": "Legacy",
+      "pauper": "Pauper",
+      "vintage": "Vintage"
+    },
+    "formatUnavailable": "Metagame ainda não coletado para este formato",
+    "metaShare": "{{pct}}% do meta",
+    "deckCount": "{{count}} decks",
+    "pricedPct": "{{pct}}% das cartas com preço",
+    "ownedPct": "Você possui {{pct}}%",
+    "loginCta": "Entre para ver quanto você já tem",
+    "missingValue": "Faltam {{value}}",
+    "noCards": "Decklist indisponível.",
+    "board": {
+      "commander": "Comandante",
+      "main": "Main deck",
+      "side": "Sideboard"
+    },
+    "emptyTitle": "Metagame ainda não coletado para este formato",
+    "emptyHint": "Volte mais tarde ou escolha outro formato.",
+    "loadMore": "Carregar mais",
+    "sourceFooter": "Fonte: {{source}} · atualizado em {{date}}"
   }
 }

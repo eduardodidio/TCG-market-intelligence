@@ -28,21 +28,29 @@ def _make_app(user_id: str = "user1") -> FastAPI:
 class TestListBanlist:
     def test_returns_banned_cards(self):
         app = _make_app()
-        mock_repo = app.state.mock_repo
-        mock_repo.get_legalities_by_format.return_value = [
-            {
-                "card_id": 1,
-                "format": "standard",
-                "status": "banned",
-                "effective_date": date(2026, 1, 1),
-                "name_en": "Lightning Bolt",
-                "name_pt": "Raio",
-                "set_code": "lea",
-                "collector_number": "161",
-            },
-        ]
         client = TestClient(app)
-        resp = client.get("/banlist?format=standard&status=banned")
+        with patch(
+            "src.api.routers.banlist.banlist_queries.list_banlist_grouped"
+        ) as mock_grouped:
+            mock_grouped.return_value = (
+                [
+                    {
+                        "card_id": 1,
+                        "format": "standard",
+                        "status": "banned",
+                        "effective_date": date(2026, 1, 1),
+                        "name_en": "Lightning Bolt",
+                        "name_pt": "Raio",
+                        "set_code": "lea",
+                        "collector_number": "161",
+                        "printings": 1,
+                        "owned": False,
+                        "owned_quantity": 0,
+                    },
+                ],
+                1,
+            )
+            resp = client.get("/banlist?format=standard&status=banned")
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert len(data) == 1
@@ -51,45 +59,54 @@ class TestListBanlist:
 
     def test_default_shows_banned_and_restricted(self):
         app = _make_app()
-        mock_repo = app.state.mock_repo
-        mock_repo.get_legalities_by_format.side_effect = [
-            [
-                {
-                    "card_id": 1,
-                    "format": "standard",
-                    "status": "banned",
-                    "name_en": "Card A",
-                    "name_pt": None,
-                    "set_code": "lea",
-                    "collector_number": "1",
-                    "effective_date": None,
-                }
-            ],
-            [
-                {
-                    "card_id": 2,
-                    "format": "standard",
-                    "status": "restricted",
-                    "name_en": "Card B",
-                    "name_pt": None,
-                    "set_code": "lea",
-                    "collector_number": "2",
-                    "effective_date": None,
-                }
-            ],
-        ]
         client = TestClient(app)
-        resp = client.get("/banlist?format=standard")
+        with patch(
+            "src.api.routers.banlist.banlist_queries.list_banlist_grouped"
+        ) as mock_grouped:
+            mock_grouped.return_value = (
+                [
+                    {
+                        "card_id": 1,
+                        "format": "standard",
+                        "status": "banned",
+                        "name_en": "Card A",
+                        "name_pt": None,
+                        "set_code": "lea",
+                        "collector_number": "1",
+                        "effective_date": None,
+                        "printings": 1,
+                        "owned": False,
+                        "owned_quantity": 0,
+                    },
+                    {
+                        "card_id": 2,
+                        "format": "standard",
+                        "status": "restricted",
+                        "name_en": "Card B",
+                        "name_pt": None,
+                        "set_code": "lea",
+                        "collector_number": "2",
+                        "effective_date": None,
+                        "printings": 1,
+                        "owned": False,
+                        "owned_quantity": 0,
+                    },
+                ],
+                2,
+            )
+            resp = client.get("/banlist?format=standard")
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert len(data) == 2
 
     def test_no_results(self):
         app = _make_app()
-        mock_repo = app.state.mock_repo
-        mock_repo.get_legalities_by_format.return_value = []
         client = TestClient(app)
-        resp = client.get("/banlist?format=standard&status=banned")
+        with patch(
+            "src.api.routers.banlist.banlist_queries.list_banlist_grouped"
+        ) as mock_grouped:
+            mock_grouped.return_value = ([], 0)
+            resp = client.get("/banlist?format=standard&status=banned")
         assert resp.status_code == 200
         assert resp.json()["data"] == []
 

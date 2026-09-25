@@ -1,171 +1,145 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
-import { expressInterest, fetchListings, type MarketplaceListing } from "../api/marketplace";
+import {
+  expressInterest,
+  fetchListings,
+  fetchListingSets,
+  type ListingSet,
+  type MarketplaceListing,
+} from "../api/marketplace";
 import { Breadcrumb } from "../components/Breadcrumb";
-import { CopyCodeButton } from "../components/CopyCodeButton";
+import { CardFilterBar } from "../components/CardFilterBar";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { TradeInterestModal } from "../components/TradeInterestModal";
-import { SearchBar } from "../components/SearchBar";
 import { SkeletonCard } from "../components/Skeleton";
-import { Card3DTilt } from "../components/Card3DTilt";
-import { CardPreviewModal } from "../components/CardPreviewModal";
-import { useCardName } from "../hooks/useCardName";
-import { useCurrency } from "../hooks/useCurrency";
-import { useDebounce } from "../hooks/useDebounce";
-import { formatCurrency } from "../utils/format";
-import { isPromoCard } from "../utils/promo";
-import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
+import { MarketplaceCardTile } from "../components/MarketplaceCardTile";
+import { useCardListFilters } from "../hooks/useCardListFilters";
+import { useGridSize } from "../hooks/useGridSize";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
+import { GRID_SIZE_CONFIG } from "../utils/constants";
+import { MARKETPLACE_SORT_OPTIONS } from "../utils/tradeSortOptions";
 
-function MarketplaceCardTile({
-  listing,
-  onInterest,
-}: {
-  listing: MarketplaceListing;
-  onInterest: (listing: MarketplaceListing) => void;
-}) {
-  const { t } = useTranslation();
-  const { currency } = useCurrency();
-  const { getCardName } = useCardName();
-  const [imgError, setImgError] = useState(false);
-  const [fallbackError, setFallbackError] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-
-  const displayName = getCardName(listing.card_name_en, listing.card_name_pt, t("common.unknownCard"));
-  const primaryUrl = scryfallImageUrl(listing.set_code, listing.collector_number);
-  const fallbackUrl = listing.card_name_en ? scryfallImageByName(listing.card_name_en) : null;
-  const currentUrl = imgError && fallbackUrl ? fallbackUrl : primaryUrl;
-  const showImage = !(imgError && (fallbackError || !fallbackUrl));
-
-  return (
-    <Card3DTilt foil={false} className="w-full">
-    <div
-      className="group block bg-slate-800 rounded-lg overflow-hidden border border-slate-600
-        hover:border-cyan-400/50 transition-all duration-300 hover:shadow-lg relative"
-      data-testid={`marketplace-card-${listing.entry_id}`}
-    >
-      {listing.quantity > 1 && (
-        <span className="absolute top-2 right-2 z-10 bg-indigo-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-          x{listing.quantity}
-        </span>
-      )}
-
-      <div
-        className={`aspect-[5/7] bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden${showImage ? " cursor-zoom-in" : ""}`}
-        {...(showImage
-          ? {
-              onClick: (e: React.MouseEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setPreviewOpen(true);
-              },
-            }
-          : {})}
-      >
-        {showImage ? (
-          <img
-            src={currentUrl}
-            alt={displayName}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={() => {
-              if (!imgError) setImgError(true);
-              else setFallbackError(true);
-            }}
-          />
-        ) : (
-          <span className="text-slate-500 text-xs text-center px-2">{displayName}</span>
-        )}
-      </div>
-
-      <div className="p-3 space-y-1.5">
-        <h3 className="text-sm font-semibold text-white truncate" title={displayName}>
-          {displayName}
-        </h3>
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>{listing.set_code.toUpperCase()} #{listing.collector_number}</span>
-          {listing.rarity && (
-            <span className={
-              listing.rarity === "M" ? "text-amber-400" :
-              listing.rarity === "R" ? "text-yellow-500" :
-              listing.rarity === "U" ? "text-slate-400" : "text-slate-500"
-            }>
-              {listing.rarity}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-cyan-400">
-            {listing.latest_price != null
-              ? formatCurrency(listing.latest_price, currency)
-              : t("common.noData")}
-          </span>
-          <span className="text-xs text-amber-400" title={t("marketplace.estimatedFee", { fee: listing.estimated_fee })}>
-            {listing.estimated_fee} {t("marketplace.tokens")}
-          </span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onInterest(listing)}
-          className="w-full mt-1.5 px-3 py-1.5 text-xs font-medium bg-cyan-600 hover:bg-cyan-500
-            text-white rounded-md transition-colors duration-200"
-          data-testid={`interest-btn-${listing.entry_id}`}
-        >
-          {t("marketplace.interested")}
-        </button>
-
-        <div className="text-center mt-1">
-          <CopyCodeButton code={listing.share_code} />
-        </div>
-      </div>
-    </div>
-    {previewOpen && currentUrl && (
-      <CardPreviewModal
-        imageUrl={currentUrl}
-        cardName={displayName}
-        isFoil={false}
-        isPromo={isPromoCard(listing.set_code, null)}
-        onClose={() => setPreviewOpen(false)}
-      />
-    )}
-    </Card3DTilt>
-  );
-}
+const PAGE_LIMIT = 40;
 
 export function Marketplace() {
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [listings, setListings] = useState<MarketplaceListing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
-  const debouncedSearch = useDebounce(searchTerm, 300);
-
-  const loadListings = useCallback(async (search?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params: Record<string, string> = { limit: "40" };
-      if (search) params.search = search;
-      const resp = await fetchListings(params);
-      setListings(resp.listings);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load listings");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [searchParams] = useSearchParams();
+  const { gridSize, setGridSize } = useGridSize();
+  const {
+    search,
+    setSearch,
+    debouncedSearch,
+    selectedSet,
+    setSelectedSet,
+    sortBy,
+    sortDir,
+    sortValue,
+    setSort,
+  } = useCardListFilters({ defaultSortBy: "name", defaultSortDir: "asc" });
 
   useEffect(() => {
-    loadListings(debouncedSearch || undefined);
-    if (debouncedSearch) {
-      setSearchParams({ search: debouncedSearch }, { replace: true });
-    } else {
-      setSearchParams({}, { replace: true });
+    const legacySearch = searchParams.get("search");
+    if (legacySearch && !searchParams.get("name")) {
+      setSearch(legacySearch);
     }
-  }, [debouncedSearch, loadListings, setSearchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [setOptions, setSetOptions] = useState<{ label: string; value: string }[]>([]);
+
+  const fetchIdRef = useRef(0);
+
+  const buildParams = useCallback(
+    (currentOffset: number): Record<string, string> => {
+      const params: Record<string, string> = {
+        limit: String(PAGE_LIMIT),
+        offset: String(currentOffset),
+        sort_by: sortBy,
+        sort_dir: sortDir,
+      };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (selectedSet) params.set_code = selectedSet;
+      return params;
+    },
+    [debouncedSearch, selectedSet, sortBy, sortDir],
+  );
+
+  const loadInitial = useCallback(() => {
+    fetchIdRef.current += 1;
+    const currentId = fetchIdRef.current;
+
+    setLoading(true);
+    setError(null);
+    setOffset(0);
+    setHasMore(false);
+
+    fetchListings(buildParams(0))
+      .then((resp) => {
+        if (currentId !== fetchIdRef.current) return;
+        setListings(resp.listings);
+        setOffset(resp.listings.length);
+        setHasMore(resp.listings.length === PAGE_LIMIT);
+      })
+      .catch((err: unknown) => {
+        if (currentId !== fetchIdRef.current) return;
+        setError(err instanceof Error ? err.message : "Failed to load listings");
+      })
+      .finally(() => {
+        if (currentId === fetchIdRef.current) setLoading(false);
+      });
+  }, [buildParams]);
+
+  useEffect(() => {
+    loadInitial();
+  }, [loadInitial]);
+
+  useEffect(() => {
+    fetchListingSets()
+      .then((resp) => {
+        setSetOptions(
+          resp.sets.map((s: ListingSet) => ({
+            label: s.set_name || s.set_code.toUpperCase(),
+            value: s.set_code,
+          })),
+        );
+      })
+      .catch(() => {
+        setSetOptions([]);
+      });
+  }, []);
+
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    const currentId = fetchIdRef.current;
+
+    fetchListings(buildParams(offset))
+      .then((resp) => {
+        if (currentId !== fetchIdRef.current) return;
+        setListings((prev) => [...prev, ...resp.listings]);
+        setOffset(offset + resp.listings.length);
+        setHasMore(resp.listings.length === PAGE_LIMIT);
+      })
+      .catch((err: unknown) => {
+        if (currentId !== fetchIdRef.current) return;
+        setError(err instanceof Error ? err.message : "Failed to load listings");
+      })
+      .finally(() => {
+        if (currentId === fetchIdRef.current) setLoadingMore(false);
+      });
+  }, [hasMore, loadingMore, offset, buildParams]);
+
+  const sentinelRef = useInfiniteScroll(handleLoadMore, {
+    enabled: hasMore && !loadingMore,
+  });
 
   const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   const [interestSuccess, setInterestSuccess] = useState(false);
@@ -208,14 +182,28 @@ export function Marketplace() {
         </Link>
       </div>
 
-      <div className="mb-6">
-        <SearchBar value={searchTerm} onChange={setSearchTerm} />
-      </div>
+      <CardFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        sortOptions={MARKETPLACE_SORT_OPTIONS}
+        sortValue={sortValue}
+        onSortChange={setSort}
+        setOptions={setOptions}
+        selectedSet={selectedSet}
+        onSetSelect={setSelectedSet}
+        gridSize={gridSize}
+        onGridSizeChange={setGridSize}
+      />
 
-      {error && <ErrorBanner message={error} onRetry={() => loadListings(debouncedSearch || undefined)} />}
+      {error && (
+        <ErrorBanner
+          message={error}
+          onRetry={listings.length === 0 ? loadInitial : handleLoadMore}
+        />
+      )}
 
       {loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses}`}>
           {Array.from({ length: 8 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -227,15 +215,26 @@ export function Marketplace() {
       )}
 
       {!loading && listings.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {listings.map((listing) => (
-            <MarketplaceCardTile
-              key={`${listing.share_code}-${listing.entry_id}`}
-              listing={listing}
-              onInterest={handleInterest}
-            />
-          ))}
-        </div>
+        <>
+          <div className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses}`}>
+            {listings.map((listing) => (
+              <MarketplaceCardTile
+                key={`${listing.share_code}-${listing.entry_id}`}
+                listing={listing}
+                onInterest={handleInterest}
+                compact={GRID_SIZE_CONFIG[gridSize].compact}
+              />
+            ))}
+          </div>
+          <div ref={sentinelRef} data-testid="marketplace-sentinel" />
+          {loadingMore && (
+            <div className={`grid ${GRID_SIZE_CONFIG[gridSize].gridClasses} mt-4`}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {interestSuccess && (

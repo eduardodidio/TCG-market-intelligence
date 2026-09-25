@@ -86,6 +86,10 @@ python -m src.cli.main retry-failed
 | `daily-snapshot` | Record one daily price observation per card (idempotent) |
 | `backfill-snapshots --days N [--dry-run]` | Forward-fill missing daily snapshots for the last N days; `--dry-run` only counts, no writes |
 | `bats/daily-snapshot.bat` | Windows Task Scheduler entry point for `daily-snapshot` (manual/backfill fallback — the primary snapshot runs automatically at the end of `liga-sweep`) |
+| `process-deck-suggestions [--limit N] [--provider cli\|api] [--dry-run]` | Process pending deck suggestion requests with Claude (F172); `--dry-run` only counts pending requests |
+| `bats/deck-suggestions.bat` | Windows Task Scheduler entry point (daily, e.g. 03:00) for `process-deck-suggestions --limit 10` |
+| `collect-metagame [-f modern] [--limit 20] [--dry-run] [--no-cache]` | Collect the top metagame decks per format from EDHREC/MTGTop8 (F173); `-f` repeatable (default: all formats) |
+| `bats/collect-metagame.bat` | Windows Task Scheduler entry point (weekly, e.g. Monday 06:00) for `collect-metagame --limit 20` |
 
 ### Options
 
@@ -208,6 +212,14 @@ Auto-generated interactive docs are available at `/docs` (Swagger UI) and
 | GET | `/api/v1/exchange-rates/current` | Current USD/BRL exchange rate |
 | GET | `/api/v1/exchange-rates/history` | Exchange rate history (query: `days`) |
 | POST | `/api/v1/exchange-rates/refresh` | Fetch latest rate from BCB (requires API key) |
+| POST | `/api/v1/deck-suggestions` | Request a deck suggestion (format, commander, colors, archetype, notes; requires JWT) |
+| GET | `/api/v1/deck-suggestions` | List the user's suggestion requests (filter: `status`) |
+| GET | `/api/v1/deck-suggestions/{id}` | Suggestion detail, including the result when `done` |
+| POST | `/api/v1/deck-suggestions/{id}/save` | Save a finished suggestion as a deck (idempotent) |
+| DELETE | `/api/v1/deck-suggestions/{id}` | Delete a request while still `pending` |
+| GET | `/api/v1/meta-decks/formats` | Formats with collected metagame: deck count and latest snapshot date |
+| GET | `/api/v1/meta-decks` | Top metagame decks for a format, priced in BRL (query: `format` (required), `snapshot_date`, `limit` 1–50, `offset`); `owned_pct` when logged in |
+| GET | `/api/v1/meta-decks/{id}` | Metagame deck detail with the priced decklist and owned quantities |
 
 All responses use a standard envelope: `{"data": ..., "meta": {...}, "errors": []}`.
 Every response includes a `X-Request-ID` header and `meta.request_id` for tracing.
@@ -1094,6 +1106,125 @@ converted once, at the import boundary, instead of being stored as-is:
   `python -m src.cli.main backfill-snapshots --days 90 --dry-run` once to
   preview, then re-run without `--dry-run` to write (against the Neon
   database configured via `.env`).
+
+### F179 -- Achievement Treasure Rewards (2026-09-24)
+
+Achievements (F109) now credit Treasure tokens the first time each one
+unlocks, instead of giving nothing back:
+
+- **Reward tiers:** 50 / 100 / 250 / 500 / 1000 Treasure, one tier per
+  achievement based on difficulty. Crediting is idempotent -- exactly one
+  ledger row per (user, achievement), safe against duplicate/concurrent
+  `/check` calls.
+- **Backfill:** achievements unlocked before this feature are credited
+  lazily on the next `/api/v1/achievements/check` call for that user, or in
+  bulk via `python -m src.cli.main backfill-achievement-rewards
+  [--dry-run] [--user-id N]`.
+- **API:** `GET /api/v1/achievements` now returns `reward`, `tier`, and
+  `reward_credited` per achievement; `POST /api/v1/achievements/check`
+  returns the rewards credited in that call plus the updated Treasure
+  balance.
+- **Frontend:** `AchievementsPage` shows the reward per card and an
+  earned/total Treasure summary; the unlock toast shows "+N Tesouros" and
+  refreshes the Treasure balance. The achievement toast notifier is now
+  mounted app-wide (`AchievementNotifierHost` in `Layout.tsx`) instead of
+  being unreachable.
+- **Bug fix:** the `treasure_hunter` achievement checked for
+  `reason == "bonus"`, but `CreditService.claim_bonus` writes
+  `reason="bonus_claim"`, so it could never unlock. It now checks for
+  `bonus_claim` and is reachable.
+
+### F177 -- Ban List (2026-09-24)
+
+Fixes the banlist sync (JSONL/gzip download, redirect-following, and
+set-code mapping were all broken) and rebuilds the ban list page around a
+compact, owned-aware view with per-card history:
+
+- **Sync fix** -- `src/collectors/banlist_sync.py` prefers Scryfall's
+  `jsonl_download_uri` bulk data (falls back to the JSON array), streams it
+  with `httpx.AsyncClient(follow_redirects=True)`, and maps set codes via
+  `map_to_scryfall_set_code` before indexing. Storage is compact
+  (diff-only, baseline policy) and writes are batched
+  (`bulk_upsert_legalities` / `bulk_insert_legality_changes`, chunked
+  `ON CONFLICT`). The sync now fails loudly (non-zero exit / raised error)
+  instead of silently no-op'ing when 0 lines or 0 matches are found.
+- **`.bat`** -- `bats/banlist-sync.bat` runs
+  `python -m src.cli.main banlist-sync` locally (writes straight to Neon via
+  `.env`, like `liga-sweep`); suggested Windows Task Scheduler cadence is
+  daily at 06:00. Production can also be refreshed via
+  `POST /api/v1/banlist/sync` (auth required).
+- **API** -- `GET /api/v1/banlist` accepts `?owned_only=true` (auth) to
+  restrict results to cards in the caller's collection; entries are grouped
+  by format. New `GET /api/v1/banlist/status` reports sync freshness
+  (`legalities_count`, last sync timestamp) so the UI can show an
+  empty/not-synced state.
+- **Frontend** -- `BanList.tsx` renders the grouped list with the "Somente
+  minha coleção" toggle; clicking a card opens `BanCardDetailModal.tsx`,
+  which shows current legalities plus the full ban/unban history timeline
+  for that card.
+- **Routing** -- the standalone "Ban History" nav item and `BanHistory.tsx`
+  page were removed; `/banlist/history` now redirects to `/banlist`
+  (history is reached per-card from the modal instead).
+
+### F174 -- Trade Pages Adopt the Collection Filter Bar (2026-09-24)
+
+Trades (Marketplace, My Trades, Trade Matches) now use the same filter bar and
+grid as My Collection: search, set icons, sort, grid size, and status chips.
+
+- **New endpoints:** `GET /api/v1/marketplace/listings/sets` and
+  `GET /api/v1/trade/duplicates/sets` (set facets).
+- **Extended:** `GET /api/v1/marketplace/listings?sort_by=name|set|number|price&sort_dir=asc|desc`
+  and `GET /api/v1/trade/duplicates?search&set_code&sort_by=quantity|name|set|number|price&sort_dir=asc|desc`.
+
+### F172 -- Montar Deck: fix busca de comandante + Sugestão de deck (2026-09-24)
+
+The "Montar Deck" page now works end to end and offers a second mode where
+Claude builds a deck from the user's own collection:
+
+- **Commander search fix** -- `GET /api/v1/decks/commanders` matches
+  Portuguese names (`name_pt`), dedupes printings, and treats legality as a
+  soft filter (cards without legality data are no longer dropped).
+  `POST /api/v1/decks/generate` uses real budget prices.
+- **Mode chooser** -- `/decks/build?mode=` picks between the manual wizard
+  (`mode=manual`) and the new suggestion panel (`mode=suggestion`).
+- **Suggestion queue** -- 5 new endpoints under `/api/v1/deck-suggestions`
+  (create, list, detail, save-as-deck, delete pending) backed by the new
+  `deck_suggestion_requests` table (created from its own module, `checkfirst`).
+- **Daily routine** -- `python -m src.cli.main process-deck-suggestions`
+  (`--limit`, `--provider cli|api`, `--dry-run`) and
+  `bats/deck-suggestions.bat` (Task Scheduler, daily ~03:00). It prompts
+  Claude with the user's owned cards, parses the JSON deck, and prices it.
+- **Env vars** -- `DECK_SUGGEST_PROVIDER`, `DECK_SUGGEST_CLAUDE_BIN`,
+  `DECK_SUGGEST_MODEL`, `DECK_SUGGEST_TIMEOUT`, and `ANTHROPIC_API_KEY`
+  (only for `DECK_SUGGEST_PROVIDER=api`, `.env` only). See `.env.example`.
+- **Decision:** the default provider is the local `claude -p` CLI (uses the
+  operator's Claude login, no key on Render). The opt-in API runner uses
+  `httpx`, so there is no `anthropic` SDK dependency.
+  [ADR-0015](docs/adr/0015-deck-suggestion-queue-claude.md)
+
+### F173 -- Top Decks do mercado (Metagame) (2026-09-24)
+
+The Top Decks page gains a **Mercado** tab with the top metagame decks per
+format (Commander, Standard, Pioneer, Modern, Legacy, Pauper, Vintage), priced
+in BRL with our own price data and showing how much of each deck you own.
+
+- **Endpoints** -- `GET /api/v1/meta-decks/formats`,
+  `GET /api/v1/meta-decks?format=<fmt>` (`snapshot_date`, `limit`, `offset`)
+  and `GET /api/v1/meta-decks/{id}` (decklist + owned quantities). Anonymous
+  users get values without `owned_pct`.
+- **Collection** -- `python -m src.cli.main collect-metagame [-f modern]
+  [--limit 20] [--dry-run] [--no-cache]` fetches decks politely (rate limit +
+  on-disk HTTP cache in `data/cache/`, gitignored) and resolves cards against
+  our catalog. Runs only locally via `bats/collect-metagame.bat` (weekly,
+  Task Scheduler), writing straight to Neon -- never from Render.
+- **Sources** -- EDHREC for Commander, MTGTop8 for the constructed formats.
+  [ADR-0016](docs/adr/0016-metagame-deck-sources.md)
+- **UI** -- `/decks/ranking?view=meta` (tabs "Meus decks" / "Mercado", format
+  pills, expandable decklists, "load more"); the Market page Top Decks preview
+  links to it via "Ver metagame".
+- **Docs:** [PRD](docs/prd/F173-metagame-top-decks.md),
+  [architecture diagram](docs/diagrams/F173-architecture.mmd),
+  [user journey diagram](docs/diagrams/F173-journey.mmd).
 
 ## Deployment
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
 from src.api.routers.collection import router
 from src.database.models import PriceObservationRow, SourceCardRow, UserCollectionRow
+from src.domain.models import HistoricalPrice
 
 _TEST_USER_ID = "test-user"
 
@@ -87,6 +88,32 @@ def _make_price_obs(
     return obs
 
 
+_BUILD_HISTORY = "src.api.routers.collection.build_history"
+
+
+def _hp(day: int, median: str) -> HistoricalPrice:
+    return HistoricalPrice(
+        source="myp",
+        external_id="99999",
+        observed_at=date(2026, 8, day),
+        median_price=Decimal(median),
+        tcg_price=None,
+        last_sold_price=None,
+        quantity_available=5,
+    )
+
+
+def _meta(points: list[HistoricalPrice]) -> dict:
+    return {
+        "variant": "normal",
+        "sources": sorted({p.source for p in points}),
+        "first_observed_at": points[0].observed_at if points else None,
+        "last_observed_at": points[-1].observed_at if points else None,
+        "real_points": len(points),
+        "snapshot_points": 0,
+    }
+
+
 def _make_app(
     mock_repo: MagicMock,
     user_id: str = _TEST_USER_ID,
@@ -140,17 +167,14 @@ class TestCollectionHistory:
     def test_returns_observations(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
-        mock_repo.get_source_cards_for_card.return_value = [_make_source_card()]
-        mock_repo.get_price_series.return_value = [
-            _make_price_obs(day=18, median="10.00"),
-            _make_price_obs(day=19, median="12.00"),
-            _make_price_obs(day=20, median="15.00"),
-        ]
+        series = [_hp(18, "10.00"), _hp(19, "12.00"), _hp(20, "15.00")]
 
         app = _make_app(mock_repo)
         client = TestClient(app)
 
-        resp = client.get("/collection/1/history")
+        with patch(_BUILD_HISTORY, return_value=(series, _meta(series))) as bh:
+            resp = client.get("/collection/1/history")
+        bh.assert_called_once_with(mock_repo, 42, False, 30)
         assert resp.status_code == 200
         body = resp.json()
         data = body["data"]
@@ -177,27 +201,21 @@ class TestCollectionHistory:
     def test_applies_period_filter(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
-        mock_repo.get_source_cards_for_card.return_value = [_make_source_card()]
-        mock_repo.get_price_series.return_value = []
 
         app = _make_app(mock_repo)
         client = TestClient(app)
 
-        resp = client.get("/collection/1/history?period=7d")
+        with patch(_BUILD_HISTORY, return_value=([], _meta([]))) as bh:
+            resp = client.get("/collection/1/history?period=7d")
         assert resp.status_code == 200
 
-        # Verify get_price_series was called with days=7
-        call_kwargs = mock_repo.get_price_series.call_args
-        assert call_kwargs[1]["days"] == 7
+        # The resolver is asked for the 7-day window
+        assert bh.call_args[0][3] == 7
 
     def test_applies_currency_conversion(self) -> None:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
-        mock_repo.get_source_cards_for_card.return_value = [_make_source_card()]
-        mock_repo.get_price_series.return_value = [
-            _make_price_obs(day=20, median="10.00"),
-        ]
-
+        series = [_hp(20, "10.00")]
         converter = MagicMock()
         converter.convert.side_effect = lambda price, d, curr: (
             price / Decimal("5.00") if curr == "USD" and price else price
@@ -206,7 +224,8 @@ class TestCollectionHistory:
         app = _make_app(mock_repo, converter=converter)
         client = TestClient(app)
 
-        resp = client.get("/collection/1/history?currency=USD")
+        with patch(_BUILD_HISTORY, return_value=(series, _meta(series))):
+            resp = client.get("/collection/1/history?currency=USD")
         assert resp.status_code == 200
         body = resp.json()
         obs = body["data"]["observations"][0]

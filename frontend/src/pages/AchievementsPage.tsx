@@ -4,7 +4,15 @@ import { fetchAchievements } from "../api/achievements";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-import type { AchievementItem } from "../types/achievements";
+import type { AchievementItem, AchievementTier } from "../types/achievements";
+
+const TIER_CLASSES: Record<AchievementTier, string> = {
+  common: "text-slate-300 border-slate-500",
+  uncommon: "text-emerald-400 border-emerald-500",
+  rare: "text-sky-400 border-sky-500",
+  mythic: "text-orange-400 border-orange-500",
+  legendary: "text-amber-400 border-amber-500",
+};
 
 const ICON_MAP: Record<string, string> = {
   card: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z",
@@ -37,6 +45,44 @@ function AchievementIcon({
     >
       <path d={path} />
     </svg>
+  );
+}
+
+function RewardChip({
+  achievement,
+  t,
+}: {
+  achievement: AchievementItem;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}) {
+  const reward = achievement.reward ?? 0;
+  if (reward <= 0) {
+    return null;
+  }
+  const tier = achievement.tier ?? null;
+  const earned = achievement.unlocked && achievement.reward_credited;
+  const tierClasses = tier ? TIER_CLASSES[tier] : "text-slate-300 border-slate-500";
+
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        className={`text-xs px-2 py-0.5 rounded-full border ${
+          achievement.unlocked ? tierClasses : "text-slate-500 border-slate-700"
+        }`}
+        data-testid={`achievement-reward-${achievement.key}`}
+      >
+        {t("achievements.reward", { amount: reward })}
+        {tier && ` · ${t(`achievements.tier.${tier}`)}`}
+      </span>
+      {earned && (
+        <span
+          className="text-xs text-emerald-400"
+          data-testid={`achievement-reward-earned-${achievement.key}`}
+        >
+          {t("achievements.rewardEarned")}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -77,6 +123,10 @@ export function AchievementsPage() {
 
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const totalCount = achievements.length;
+  const treasureTotal = achievements.reduce((sum, a) => sum + (a.reward ?? 0), 0);
+  const treasureEarned = achievements
+    .filter((a) => a.unlocked && a.reward_credited)
+    .reduce((sum, a) => sum + (a.reward ?? 0), 0);
 
   if (loading) {
     return <LoadingSpinner message={t("common.loading")} />;
@@ -125,6 +175,15 @@ export function AchievementsPage() {
             data-testid="achievements-progress-bar"
           />
         </div>
+        <div
+          className="mt-2 text-xs text-amber-400/80"
+          data-testid="achievements-treasure-progress"
+        >
+          {t("achievements.treasureProgress", {
+            earned: treasureEarned,
+            total: treasureTotal,
+          })}
+        </div>
       </div>
 
       {/* Achievement grid */}
@@ -160,6 +219,7 @@ export function AchievementsPage() {
               >
                 {achievement.title}
               </h3>
+              <RewardChip achievement={achievement} t={t} />
               {achievement.unlocked ? (
                 <>
                   <p className="text-xs text-slate-400">
