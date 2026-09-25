@@ -3166,6 +3166,10 @@ from src.cli.deck_suggestions import process_deck_suggestions  # noqa: E402  (F1
 
 cli.add_command(process_deck_suggestions)
 
+from src.cli.metagame import collect_metagame_cmd  # noqa: E402  (F173)
+
+cli.add_command(collect_metagame_cmd)
+
 
 if __name__ == "__main__":
     cli()

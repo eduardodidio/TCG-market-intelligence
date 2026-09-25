@@ -71,7 +71,7 @@
     "hasPrice": "Com Preco",
     "noPrice": "Sem Preco",
     "loadMore": "Carregar Mais",
-    "statsLine": "{{cards}} cartas \u2022 {{sets}} colecoes \u2022 {{priced}} com preco",
+    "statsLine": "{{cards}} cartas • {{sets}} colecoes • {{priced}} com preco",
     "resultsCount": "{{count}} resultados",
     "emptyTitle": "Nenhuma carta encontrada",
     "emptyDescription": "O catalogo esta vazio. Importe cartas via Scryfall bulk data.",
@@ -908,7 +908,10 @@
     "showHistory": "Mostrar historico de valor",
     "hideHistory": "Ocultar historico de valor",
     "noPriceData": "Sem dados de preco",
-    "deckValue": "Valor do Deck"
+    "deckValue": "Valor do Deck",
+    "tabMine": "Meus decks",
+    "tabMeta": "Mercado",
+    "viewMeta": "Ver metagame"
   },
   "metrics": {
     "title": "Indicadores",
@@ -1547,5 +1550,34 @@
     "noTradesBuyer": "Você ainda não demonstrou interesse em nenhuma carta.",
     "noTradesSeller": "Ninguém solicitou suas cartas ainda.",
     "searchPlaceholder": "Buscar trocas pelo nome da carta..."
+  },
+  "metaDecks": {
+    "title": "Top Decks do Mercado",
+    "format": {
+      "commander": "Commander",
+      "standard": "Standard",
+      "pioneer": "Pioneer",
+      "modern": "Modern",
+      "legacy": "Legacy",
+      "pauper": "Pauper",
+      "vintage": "Vintage"
+    },
+    "formatUnavailable": "Metagame ainda não coletado para este formato",
+    "metaShare": "{{pct}}% do meta",
+    "deckCount": "{{count}} decks",
+    "pricedPct": "{{pct}}% das cartas com preço",
+    "ownedPct": "Você possui {{pct}}%",
+    "loginCta": "Entre para ver quanto você já tem",
+    "missingValue": "Faltam {{value}}",
+    "noCards": "Decklist indisponível.",
+    "board": {
+      "commander": "Comandante",
+      "main": "Main deck",
+      "side": "Sideboard"
+    },
+    "emptyTitle": "Metagame ainda não coletado para este formato",
+    "emptyHint": "Volte mais tarde ou escolha outro formato.",
+    "loadMore": "Carregar mais",
+    "sourceFooter": "Fonte: {{source}} · atualizado em {{date}}"
   }
 }

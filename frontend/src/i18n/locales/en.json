@@ -71,7 +71,7 @@
     "hasPrice": "Has Price",
     "noPrice": "No Price",
     "loadMore": "Load More",
-    "statsLine": "{{cards}} cards \u2022 {{sets}} sets \u2022 {{priced}} with price",
+    "statsLine": "{{cards}} cards • {{sets}} sets • {{priced}} with price",
     "resultsCount": "{{count}} results",
     "emptyTitle": "No cards found",
     "emptyDescription": "The catalog is empty. Import cards via the Scryfall bulk data.",
@@ -908,7 +908,10 @@
     "showHistory": "Show value history",
     "hideHistory": "Hide value history",
     "noPriceData": "No price data available",
-    "deckValue": "Deck Value"
+    "deckValue": "Deck Value",
+    "tabMine": "My decks",
+    "tabMeta": "Market",
+    "viewMeta": "View metagame"
   },
   "metrics": {
     "title": "Analytics",
@@ -1547,5 +1550,34 @@
     "noTradesBuyer": "You haven't expressed interest in any card yet.",
     "noTradesSeller": "No one has requested your cards yet.",
     "searchPlaceholder": "Search trades by card name..."
+  },
+  "metaDecks": {
+    "title": "Market Top Decks",
+    "format": {
+      "commander": "Commander",
+      "standard": "Standard",
+      "pioneer": "Pioneer",
+      "modern": "Modern",
+      "legacy": "Legacy",
+      "pauper": "Pauper",
+      "vintage": "Vintage"
+    },
+    "formatUnavailable": "Metagame not collected yet for this format",
+    "metaShare": "{{pct}}% of the meta",
+    "deckCount": "{{count}} decks",
+    "pricedPct": "{{pct}}% of cards priced",
+    "ownedPct": "You own {{pct}}%",
+    "loginCta": "Log in to see how much you already own",
+    "missingValue": "{{value}} missing",
+    "noCards": "Decklist unavailable.",
+    "board": {
+      "commander": "Commander",
+      "main": "Main deck",
+      "side": "Sideboard"
+    },
+    "emptyTitle": "Metagame not collected yet for this format",
+    "emptyHint": "Check back later or pick another format.",
+    "loadMore": "Load more",
+    "sourceFooter": "Source: {{source}} · updated on {{date}}"
   }
 }

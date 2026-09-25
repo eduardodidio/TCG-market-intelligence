@@ -88,6 +88,8 @@ python -m src.cli.main retry-failed
 | `bats/daily-snapshot.bat` | Windows Task Scheduler entry point for `daily-snapshot` (manual/backfill fallback — the primary snapshot runs automatically at the end of `liga-sweep`) |
 | `process-deck-suggestions [--limit N] [--provider cli\|api] [--dry-run]` | Process pending deck suggestion requests with Claude (F172); `--dry-run` only counts pending requests |
 | `bats/deck-suggestions.bat` | Windows Task Scheduler entry point (daily, e.g. 03:00) for `process-deck-suggestions --limit 10` |
+| `collect-metagame [-f modern] [--limit 20] [--dry-run] [--no-cache]` | Collect the top metagame decks per format from EDHREC/MTGTop8 (F173); `-f` repeatable (default: all formats) |
+| `bats/collect-metagame.bat` | Windows Task Scheduler entry point (weekly, e.g. Monday 06:00) for `collect-metagame --limit 20` |
 
 ### Options
 
@@ -215,6 +217,9 @@ Auto-generated interactive docs are available at `/docs` (Swagger UI) and
 | GET | `/api/v1/deck-suggestions/{id}` | Suggestion detail, including the result when `done` |
 | POST | `/api/v1/deck-suggestions/{id}/save` | Save a finished suggestion as a deck (idempotent) |
 | DELETE | `/api/v1/deck-suggestions/{id}` | Delete a request while still `pending` |
+| GET | `/api/v1/meta-decks/formats` | Formats with collected metagame: deck count and latest snapshot date |
+| GET | `/api/v1/meta-decks` | Top metagame decks for a format, priced in BRL (query: `format` (required), `snapshot_date`, `limit` 1–50, `offset`); `owned_pct` when logged in |
+| GET | `/api/v1/meta-decks/{id}` | Metagame deck detail with the priced decklist and owned quantities |
 
 All responses use a standard envelope: `{"data": ..., "meta": {...}, "errors": []}`.
 Every response includes a `X-Request-ID` header and `meta.request_id` for tracing.
@@ -1196,6 +1201,30 @@ Claude builds a deck from the user's own collection:
   operator's Claude login, no key on Render). The opt-in API runner uses
   `httpx`, so there is no `anthropic` SDK dependency.
   [ADR-0015](docs/adr/0015-deck-suggestion-queue-claude.md)
+
+### F173 -- Top Decks do mercado (Metagame) (2026-09-24)
+
+The Top Decks page gains a **Mercado** tab with the top metagame decks per
+format (Commander, Standard, Pioneer, Modern, Legacy, Pauper, Vintage), priced
+in BRL with our own price data and showing how much of each deck you own.
+
+- **Endpoints** -- `GET /api/v1/meta-decks/formats`,
+  `GET /api/v1/meta-decks?format=<fmt>` (`snapshot_date`, `limit`, `offset`)
+  and `GET /api/v1/meta-decks/{id}` (decklist + owned quantities). Anonymous
+  users get values without `owned_pct`.
+- **Collection** -- `python -m src.cli.main collect-metagame [-f modern]
+  [--limit 20] [--dry-run] [--no-cache]` fetches decks politely (rate limit +
+  on-disk HTTP cache in `data/cache/`, gitignored) and resolves cards against
+  our catalog. Runs only locally via `bats/collect-metagame.bat` (weekly,
+  Task Scheduler), writing straight to Neon -- never from Render.
+- **Sources** -- EDHREC for Commander, MTGTop8 for the constructed formats.
+  [ADR-0016](docs/adr/0016-metagame-deck-sources.md)
+- **UI** -- `/decks/ranking?view=meta` (tabs "Meus decks" / "Mercado", format
+  pills, expandable decklists, "load more"); the Market page Top Decks preview
+  links to it via "Ver metagame".
+- **Docs:** [PRD](docs/prd/F173-metagame-top-decks.md),
+  [architecture diagram](docs/diagrams/F173-architecture.mmd),
+  [user journey diagram](docs/diagrams/F173-journey.mmd).
 
 ## Deployment
 
