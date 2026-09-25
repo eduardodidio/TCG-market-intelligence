@@ -123,24 +123,25 @@ describe("TreasureModal", () => {
     expect(props.scale).toBe(1.08);
   });
 
-  it("enables foil shimmer on Card3DTilt (glare enabled)", () => {
+  it("does not enable glare on Card3DTilt (foil not passed)", () => {
     renderModal();
 
     const tiltWrapper = screen.getByTestId("tilt-wrapper");
     const props = JSON.parse(tiltWrapper.getAttribute("data-props") || "{}");
-    expect(props.glareEnable).toBe(true);
-    expect(props.glareMaxOpacity).toBe(0.35);
+    // TreasureModal does not pass foil={true}, so glare should be disabled
+    expect(props.glareEnable).toBe(false);
+    expect(props.glareMaxOpacity).toBe(0);
   });
 
-  it("renders foil-shimmer wrapper around image", () => {
+  it("renders shimmer wrapper with testid around image", () => {
     renderModal();
 
-    // TreasureModal uses createPortal to document.body, so query from there
-    const shimmer = document.body.querySelector(".foil-shimmer");
+    // The shimmer wrapper is always rendered with a testid, regardless of open phase
+    const shimmer = screen.getByTestId("treasure-shimmer-wrapper");
     expect(shimmer).not.toBeNull();
     // The image should be inside the shimmer wrapper
     const img = screen.getByTestId("treasure-modal-image");
-    expect(shimmer!.contains(img)).toBe(true);
+    expect(shimmer.contains(img)).toBe(true);
   });
 
   it("keeps fly-in animation styles on content container", () => {

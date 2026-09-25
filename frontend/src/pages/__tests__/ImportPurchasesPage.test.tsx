@@ -3,13 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ImportPurchasesPage } from "../ImportPurchasesPage";
 
-// Mock react-i18next
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: "en" },
-  }),
-}));
+// react-i18next is configured globally in tests/setup.ts with EN translations
 
 // Mock the API
 vi.mock("../../api/purchases", () => ({

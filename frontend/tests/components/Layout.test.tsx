@@ -135,8 +135,8 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Non-admin primary: Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Card Catalog, Price Alerts, Settings (no Admin)
-    expect(links).toHaveLength(8);
+    // Non-admin primary: Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Price Alerts, Settings (no Admin)
+    expect(links).toHaveLength(7);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -144,7 +144,6 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Import Purchases");
     expect(linkTexts).toContain("Wishlist");
     expect(linkTexts).toContain("Explore Cards");
-    expect(linkTexts).toContain("Card Catalog");
     expect(linkTexts).toContain("Price Alerts");
     expect(linkTexts).toContain("Settings");
     expect(linkTexts).not.toContain("Admin");
@@ -192,13 +191,12 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Only public primary items: Dashboard, Explore Cards, Card Catalog
-    expect(links).toHaveLength(3);
+    // Only public primary items: Dashboard, Explore Cards
+    expect(links).toHaveLength(2);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("Explore Cards");
-    expect(linkTexts).toContain("Card Catalog");
     expect(linkTexts).not.toContain("My Collection");
     expect(linkTexts).not.toContain("Settings");
   });

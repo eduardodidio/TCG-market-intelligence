@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import { OfflineBanner } from "../../src/components/OfflineBanner";
 
+// Mock idb-keyval to avoid indexedDB dependency in jsdom
+vi.mock("idb-keyval", () => ({
+  get: vi.fn().mockResolvedValue(undefined),
+  set: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("OfflineBanner", () => {
   let originalOnLine: boolean;
 

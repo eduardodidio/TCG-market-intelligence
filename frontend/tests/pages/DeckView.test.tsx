@@ -201,7 +201,7 @@ describe("DeckView page", () => {
     renderDeckView();
 
     await waitFor(() => {
-      expect(screen.getByTestId("deck-view-error")).toBeDefined();
+      expect(screen.getByTestId("error-banner")).toBeDefined();
     });
   });
 

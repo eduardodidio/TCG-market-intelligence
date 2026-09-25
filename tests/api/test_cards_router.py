@@ -81,21 +81,21 @@ def test_app(tmp_path):
         obs1 = PriceObservationRow(
             source="myp",
             external_id="ext1",
-            observed_at=date(2026, 8, 10),
+            observed_at=date(2026, 9, 10),
             median_price=Decimal("5.50"),
             currency="BRL",
         )
         obs2 = PriceObservationRow(
             source="myp",
             external_id="ext1",
-            observed_at=date(2026, 8, 15),
+            observed_at=date(2026, 9, 15),
             median_price=Decimal("6.00"),
             currency="BRL",
         )
         obs3 = PriceObservationRow(
             source="myp",
             external_id="ext2",
-            observed_at=date(2026, 8, 12),
+            observed_at=date(2026, 9, 12),
             median_price=Decimal("3.00"),
             tcg_price=Decimal("2.80"),
             currency="BRL",
@@ -248,8 +248,8 @@ class TestGetHistory:
         observations = data["observations"]
         assert len(observations) == 2
         # Sorted by date ascending
-        assert observations[0]["observed_at"] == "2026-08-10"
-        assert observations[1]["observed_at"] == "2026-08-15"
+        assert observations[0]["observed_at"] == "2026-09-10"
+        assert observations[1]["observed_at"] == "2026-09-15"
         # Summary is present
         assert data["summary"] is not None
         assert data["summary"]["period"] == "90d"

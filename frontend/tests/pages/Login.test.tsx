@@ -56,16 +56,11 @@ describe("Login page", () => {
     expect(screen.getByTestId("submit-button").textContent).toBe("Sign In");
   });
 
-  it("renders OAuth buttons (disabled)", () => {
+  it("does not render OAuth buttons (removed in F158)", () => {
     renderLogin();
-    expect(screen.getByTestId("oauth-google")).toBeDefined();
-    expect(screen.getByTestId("oauth-microsoft")).toBeDefined();
-    expect(screen.getByTestId("oauth-apple")).toBeDefined();
-
-    // All should be disabled
-    expect(
-      (screen.getByTestId("oauth-google") as HTMLButtonElement).disabled,
-    ).toBe(true);
+    expect(screen.queryByTestId("oauth-google")).toBeNull();
+    expect(screen.queryByTestId("oauth-microsoft")).toBeNull();
+    expect(screen.queryByTestId("oauth-apple")).toBeNull();
   });
 
   it("shows error message when auth error exists", () => {

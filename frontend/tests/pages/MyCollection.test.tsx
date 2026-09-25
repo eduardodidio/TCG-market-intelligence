@@ -43,6 +43,15 @@ function makeCollectionCard(overrides: Partial<CollectionCard> = {}): Collection
 function createMockFetch(cards: CollectionCard[], total?: number) {
   return vi.fn().mockImplementation((url: string) => {
     const urlStr = String(url);
+    if (urlStr.includes("/credits/balance")) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(envelope({
+          balance: 100, bonus_eligible: false, next_bonus_at: null, is_admin: false,
+          monthly_grant_available: false, monthly_grant_amount: 0,
+        })),
+      });
+    }
     if (urlStr.includes("/collection/summary")) {
       return Promise.resolve({
         ok: true,
@@ -606,7 +615,8 @@ describe("MyCollection -- grid size", () => {
     renderMyCollection();
 
     await waitFor(() => {
-      expect(screen.getByRole("group", { name: "Grid size" })).toBeDefined();
+      // Mobile and desktop each render a GridSizeToggle
+      expect(screen.getAllByRole("group", { name: "Grid size" }).length).toBeGreaterThanOrEqual(1);
     });
   });
 

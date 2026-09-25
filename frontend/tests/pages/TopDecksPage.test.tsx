@@ -187,7 +187,7 @@ describe("TopDecksPage", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId("ranking-error")).toBeDefined();
+      expect(screen.getByTestId("error-banner")).toBeDefined();
     });
   });
 

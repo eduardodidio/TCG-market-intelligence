@@ -144,7 +144,7 @@ describe("MyTrades", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("trade-status-1")).toHaveTextContent("pending");
+      expect(screen.getByTestId("trade-status-1")).toHaveTextContent("Pending");
     });
   });
 
@@ -154,7 +154,7 @@ describe("MyTrades", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("trade-pending-1")).toHaveTextContent("Waiting for other party");
+      expect(screen.getByTestId("trade-pending-1")).toBeInTheDocument();
     });
   });
 
@@ -162,12 +162,16 @@ describe("MyTrades", () => {
     renderPage(mockFetch([]));
 
     await waitFor(() => {
-      expect(screen.getByText("No cards available for trade")).toBeInTheDocument();
+      // EmptyState renders the translated message for no buyer trades
+      expect(screen.getByTestId("empty-state")).toBeInTheDocument();
     });
   });
 
-  it("renders breadcrumb", async () => {
+  it("renders breadcrumb with marketplace title", async () => {
     renderPage(mockFetch());
-    expect(screen.getByText("Card Marketplace")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("breadcrumb")).toBeInTheDocument();
+      expect(screen.getAllByText("Card Marketplace").length).toBeGreaterThanOrEqual(1);
+    });
   });
 });

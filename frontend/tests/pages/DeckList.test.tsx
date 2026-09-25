@@ -145,7 +145,7 @@ describe("DeckList page", () => {
     renderDeckList();
 
     await waitFor(() => {
-      expect(screen.getByTestId("deck-list-error")).toBeDefined();
+      expect(screen.getByTestId("error-banner")).toBeDefined();
     });
   });
 

@@ -161,7 +161,7 @@ describe("Evaluations page", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId("eval-error")).toBeInTheDocument();
+      expect(screen.getByTestId("error-banner")).toBeInTheDocument();
     });
   });
 });
