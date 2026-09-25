@@ -10,6 +10,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from src.database.models import CardLegalityRow, CardRow, PriceObservationRow
@@ -357,3 +358,157 @@ class TestGenerateDeckSoftLegality:
         assert deck.cards[0]["card_id"] == cmd_id
         assert deck.cards[0]["price"] == 10.0
         assert deck.total_value is not None and deck.total_value >= Decimal("10")
+
+
+# ---------------------------------------------------------------------------
+# F171: Bare cards created by price collector (NULL metadata)
+# ---------------------------------------------------------------------------
+
+
+class TestCommanderSearchBareCards:
+    """Reproduce F171: cards created by price collector have NULL type_line.
+
+    The price collector's ``upsert_card`` creates CardRow with only
+    game/name_en/set_code/collector_number. All metadata fields
+    (type_line, rarity, color_identity, mana_cost, image_uri) are NULL.
+    Commander search requires type_line to contain "Legendary" and "Creature",
+    so these bare cards are correctly excluded.
+    """
+
+    def test_bare_card_not_found_by_commander_search(self, repo):
+        """A card with type_line=NULL is correctly excluded from commander search."""
+        _add(
+            repo,
+            CardRow(
+                game="magic",
+                name_en="Atraxa, Praetors' Voice",
+                set_code="cmm",
+                collector_number="999",
+                # No type_line, rarity, color_identity -- simulates upsert_card
+            ),
+        )
+        result = get_commander_candidates(repo, search="atraxa")
+        assert result == []
+
+    def test_enriched_card_found_by_commander_search(self, repo):
+        """After enrichment (simulating catalog seed fix), the card appears."""
+        with Session(repo.engine) as session:
+            card = CardRow(
+                game="magic",
+                name_en="Atraxa, Praetors' Voice",
+                set_code="cmm",
+                collector_number="999",
+            )
+            session.add(card)
+            session.commit()
+            card_id = card.id
+
+            # Simulate enrichment (what T01 fix does via on_conflict_do_update)
+            session.execute(
+                update(CardRow)
+                .where(CardRow.id == card_id)
+                .values(
+                    type_line="Legendary Creature — Phyrexian Angel Horror",
+                    color_identity="WUBG",
+                    rarity="mythic",
+                )
+            )
+            session.commit()
+
+        result = get_commander_candidates(repo, search="atraxa")
+        assert len(result) == 1
+        assert result[0]["name_en"] == "Atraxa, Praetors' Voice"
+        assert result[0]["type_line"] == "Legendary Creature — Phyrexian Angel Horror"
+
+    def test_full_pipeline_bare_card_to_commander_search(self, repo):
+        """End-to-end: price collect -> catalog seed enrichment -> search works.
+
+        1. Insert bare card (simulating price collector)
+        2. Insert same card with full metadata (simulating catalog seed with fix)
+        3. Commander search finds the card
+        """
+        # Step 1: price collector creates bare card
+        _add(
+            repo,
+            CardRow(
+                game="magic",
+                name_en="Krenko, Mob Boss",
+                set_code="jmp",
+                collector_number="339",
+            ),
+        )
+        # Verify it is NOT found
+        assert get_commander_candidates(repo, search="krenko") == []
+
+        # Step 2: simulate catalog seed enrichment (UPDATE in place)
+        with Session(repo.engine) as session:
+            session.execute(
+                update(CardRow)
+                .where(
+                    CardRow.game == "magic",
+                    CardRow.set_code == "jmp",
+                    CardRow.collector_number == "339",
+                )
+                .values(
+                    type_line="Legendary Creature — Goblin Warrior",
+                    color_identity="R",
+                    rarity="rare",
+                    mana_cost="{2}{R}{R}",
+                    image_uri="https://cards.scryfall.io/large/jmp/339.jpg",
+                )
+            )
+            session.commit()
+
+        # Step 3: commander search now finds it
+        result = get_commander_candidates(repo, search="krenko")
+        assert len(result) == 1
+        assert result[0]["name_en"] == "Krenko, Mob Boss"
+        assert result[0]["color_identity"] == "R"
+
+    def test_mixed_bare_and_enriched_cards(self, repo):
+        """Only enriched cards appear; bare siblings are excluded."""
+        _add(
+            repo,
+            # Bare card (price collector)
+            CardRow(
+                game="magic",
+                name_en="Atraxa, Praetors' Voice",
+                set_code="2xm",
+                collector_number="190",
+            ),
+            # Enriched card (catalog seed)
+            CardRow(
+                game="magic",
+                name_en="Atraxa, Praetors' Voice",
+                set_code="cmm",
+                collector_number="1",
+                type_line="Legendary Creature — Phyrexian Angel Horror",
+                color_identity="WUBG",
+                rarity="mythic",
+                mana_cost="{G}{W}{U}{B}",
+                image_uri="https://img/cmm/1.jpg",
+            ),
+        )
+
+        result = get_commander_candidates(repo, search="atraxa")
+        # Deduped by name — only one result, from the enriched printing
+        assert len(result) == 1
+        assert result[0]["name_en"] == "Atraxa, Praetors' Voice"
+        assert result[0]["set_code"] == "cmm"
+
+    def test_bare_card_with_partial_metadata_still_excluded(self, repo):
+        """A card with rarity set but type_line=NULL is still excluded."""
+        _add(
+            repo,
+            CardRow(
+                game="magic",
+                name_en="Atraxa, Praetors' Voice",
+                set_code="cmm",
+                collector_number="999",
+                rarity="mythic",
+                color_identity="WUBG",
+                # type_line is still NULL
+            ),
+        )
+        result = get_commander_candidates(repo, search="atraxa")
+        assert result == []

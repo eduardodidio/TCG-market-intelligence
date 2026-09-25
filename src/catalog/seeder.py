@@ -1,9 +1,10 @@
 """Catalog seeder — batch upsert cards + source_cards from Scryfall bulk data.
 
-Reads parsed CatalogCard objects and inserts them into the database in
+Reads parsed CatalogCard objects and upserts them into the database in
 batches, creating both ``cards`` rows and ``source_cards`` entries pointing
 to LigaMagic search URLs.  Fully idempotent: running twice produces no
-duplicates thanks to INSERT OR IGNORE semantics on unique constraints.
+duplicates.  On conflict, Scryfall metadata (type_line, rarity, etc.) is
+filled in via COALESCE so that pre-existing bare cards get enriched.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import structlog
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session
 
 from src.catalog.scryfall import CatalogCard, parse_bulk_cards
@@ -54,27 +55,60 @@ def _process_card_batch(
     result: SeedResult,
 ) -> None:
     """Insert a batch of cards and their source_cards entries."""
-    # --- Step 1: INSERT OR IGNORE cards ---
-    for card in batch:
-        stmt = (
-            dialect_insert(session.get_bind(), CardRow)
-            .values(
-                game="magic",
-                name_en=card.name_en,
-                name_pt=card.name_pt,
-                set_code=card.set_code,
-                collector_number=card.collector_number,
-                rarity=card.rarity,
-                color_identity=card.color_identity,
-                mana_cost=card.mana_cost,
-                type_line=card.type_line,
-                image_uri=card.image_uri,
+    # --- Step 0: Pre-query existing card keys to distinguish inserts vs updates ---
+    from sqlalchemy import or_
+
+    existing_keys: set[tuple[str, str]] = set()
+    batch_keys = [(c.set_code, c.collector_number) for c in batch]
+    for i in range(0, len(batch_keys), 200):
+        sub = batch_keys[i : i + 200]
+        conditions = [(CardRow.set_code == sc) & (CardRow.collector_number == cn) for sc, cn in sub]
+        if not conditions:
+            continue
+        rows = session.execute(
+            select(CardRow.set_code, CardRow.collector_number).where(
+                CardRow.game == "magic", or_(*conditions)
             )
-            .on_conflict_do_nothing(index_elements=["game", "set_code", "collector_number"])
+        ).all()
+        for row in rows:
+            existing_keys.add((row.set_code, row.collector_number))
+
+    # --- Step 1: UPSERT cards (insert or enrich metadata on conflict) ---
+    for card in batch:
+        insert_stmt = dialect_insert(session.get_bind(), CardRow).values(
+            game="magic",
+            name_en=card.name_en,
+            name_pt=card.name_pt,
+            set_code=card.set_code,
+            collector_number=card.collector_number,
+            rarity=card.rarity,
+            color_identity=card.color_identity,
+            mana_cost=card.mana_cost,
+            type_line=card.type_line,
+            image_uri=card.image_uri,
+        )
+        # On conflict, update metadata columns from Scryfall (authoritative source).
+        # Only overwrite when the existing value is NULL to preserve any
+        # user-edited data, using COALESCE(existing, new).
+        excluded = insert_stmt.excluded
+        stmt = insert_stmt.on_conflict_do_update(
+            index_elements=["game", "set_code", "collector_number"],
+            set_={
+                "type_line": func.coalesce(CardRow.type_line, excluded.type_line),
+                "rarity": func.coalesce(CardRow.rarity, excluded.rarity),
+                "color_identity": func.coalesce(CardRow.color_identity, excluded.color_identity),
+                "mana_cost": func.coalesce(CardRow.mana_cost, excluded.mana_cost),
+                "image_uri": func.coalesce(CardRow.image_uri, excluded.image_uri),
+                "name_pt": func.coalesce(CardRow.name_pt, excluded.name_pt),
+            },
         )
         row_result = session.execute(stmt)
+        card_key = (card.set_code, card.collector_number)
         if row_result.rowcount > 0:
-            result.cards_inserted += 1
+            if card_key in existing_keys:
+                result.cards_updated += 1
+            else:
+                result.cards_inserted += 1
         else:
             result.cards_skipped += 1
 
@@ -92,9 +126,6 @@ def _process_card_batch(
         conditions = [(CardRow.set_code == sc) & (CardRow.collector_number == cn) for sc, cn in sub]
         if not conditions:
             continue
-        # OR all conditions together
-        from sqlalchemy import or_
-
         stmt = select(CardRow.id, CardRow.set_code, CardRow.collector_number).where(
             CardRow.game == "magic",
             or_(*conditions),
@@ -183,6 +214,7 @@ def seed_catalog(
                     "catalog_seed.progress",
                     processed=total_processed,
                     inserted=result.cards_inserted,
+                    updated=result.cards_updated,
                     skipped=result.cards_skipped,
                     source_cards=result.source_cards_created,
                 )
@@ -205,6 +237,7 @@ def seed_catalog(
     log.info(
         "catalog_seed.complete",
         cards_inserted=result.cards_inserted,
+        cards_updated=result.cards_updated,
         cards_skipped=result.cards_skipped,
         source_cards_created=result.source_cards_created,
         errors=len(result.errors),

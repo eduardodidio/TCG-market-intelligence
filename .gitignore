@@ -39,12 +39,8 @@ docs/printsColeacao.png
 # Debug output
 scripts/debug_output/
 
-# Batch scripts (contain local paths / API keys)
-bats/
-push-all.bat
+# Deprecated batch scripts
 push-db.bat
-push-prices.bat
-setup-schedule.bat
 
 # Parallel run logs
 logs/parallel-run/

@@ -143,7 +143,8 @@ class TestProcessCardBatch:
             session.commit()
 
         assert result2.cards_inserted == 0
-        assert result2.cards_skipped == 5
+        assert result2.cards_updated == 5
+        assert result2.cards_skipped == 0
         assert result2.source_cards_created == 0
 
         # DB still has exactly 5 of each
@@ -233,7 +234,8 @@ class TestSeedCatalog:
 
         assert result1.cards_inserted == 5
         assert result2.cards_inserted == 0
-        assert result2.cards_skipped == 5
+        assert result2.cards_updated == 5
+        assert result2.cards_skipped == 0
         assert result2.source_cards_created == 0
 
         engine = create_engine(db_url)

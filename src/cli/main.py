@@ -2396,6 +2396,146 @@ def _print_missing_script(unscanned, partial, coll_set_codes, user_id):
             click.echo(f'scan_set "{sc}"   # {priced}/{total} priced{flag}')
 
 
+@catalog.command("enrich")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Audit only — report missing metadata without writing"
+)
+@click.option("--batch-size", default=500, type=int, help="Batch size for DB updates")
+def catalog_enrich(db, dry_run, batch_size):
+    """Enrich cards missing Scryfall metadata from sibling printings.
+
+    Finds cards where type_line IS NULL and copies metadata (type_line,
+    rarity, color_identity, mana_cost, image_uri) from a sibling card
+    with the same name_en that already has metadata.
+
+    Use --dry-run to audit without writing changes.
+    """
+    import structlog
+    from sqlalchemy import create_engine, func, select
+    from sqlalchemy.orm import Session
+
+    from src.database.models import Base, CardRow
+
+    log = structlog.get_logger()
+
+    engine = create_engine(db, echo=False)
+    Base.metadata.create_all(engine)
+
+    METADATA_FIELDS = ["type_line", "rarity", "color_identity", "mana_cost", "image_uri"]
+
+    with Session(engine) as session:
+        # Count total cards
+        total_cards = (
+            session.scalar(select(func.count(CardRow.id)).where(CardRow.game == "magic")) or 0
+        )
+
+        # Find cards missing metadata
+        missing_stmt = (
+            select(CardRow)
+            .where(CardRow.game == "magic", CardRow.type_line.is_(None))
+            .order_by(CardRow.name_en)
+        )
+        missing_cards = session.execute(missing_stmt).scalars().all()
+        missing_count = len(missing_cards)
+
+        click.echo(f"Cards missing Scryfall metadata: {missing_count:,} / {total_cards:,}")
+
+        if missing_count == 0:
+            click.echo("Nothing to do.")
+            engine.dispose()
+            return
+
+        # Show top 10 affected
+        click.echo("\nTop 10 affected:")
+        for card in missing_cards[:10]:
+            click.echo(
+                f"  - {card.name_en} ({card.set_code} #{card.collector_number}) — type_line=NULL"
+            )
+
+        if dry_run:
+            click.echo(f"\n[DRY RUN] {missing_count:,} cards need enrichment.")
+            click.echo("Run without --dry-run to backfill from sibling printings.")
+            click.echo("Run 'catalog seed' to fully re-sync from Scryfall bulk data.")
+            engine.dispose()
+            return
+
+        # Group missing cards by name_en for efficient sibling lookup
+        from collections import defaultdict
+
+        by_name: dict[str, list[CardRow]] = defaultdict(list)
+        for card in missing_cards:
+            by_name[card.name_en].append(card)
+
+        # Find donor cards: cards with same name_en that HAVE metadata
+        donor_names = list(by_name.keys())
+        donor_map: dict[str, CardRow] = {}
+
+        for i in range(0, len(donor_names), batch_size):
+            name_batch = donor_names[i : i + batch_size]
+            donor_stmt = select(CardRow).where(
+                CardRow.game == "magic",
+                CardRow.name_en.in_(name_batch),
+                CardRow.type_line.isnot(None),
+            )
+            donors = session.execute(donor_stmt).scalars().all()
+            for donor in donors:
+                if donor.name_en not in donor_map:
+                    donor_map[donor.name_en] = donor
+
+        # Apply enrichment in batches
+        enriched = 0
+        still_missing = 0
+        updates_pending = 0
+
+        for name_en, cards in by_name.items():
+            donor = donor_map.get(name_en)
+            if donor is None:
+                still_missing += len(cards)
+                continue
+
+            for card in cards:
+                for field in METADATA_FIELDS:
+                    donor_val = getattr(donor, field)
+                    if donor_val is not None:
+                        setattr(card, field, donor_val)
+                enriched += 1
+                updates_pending += 1
+
+            if updates_pending >= batch_size:
+                session.flush()
+                updates_pending = 0
+
+        session.commit()
+
+        log.info(
+            "catalog_enrich.complete",
+            enriched=enriched,
+            still_missing=still_missing,
+            total_missing=missing_count,
+        )
+
+    engine.dispose()
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  CATALOG ENRICH SUMMARY")
+    click.echo(f"  Enriched from siblings:  {enriched:,}")
+    click.echo(f"  Still missing (no donor):{still_missing:,}")
+    click.echo("=" * 60)
+    if still_missing > 0:
+        click.echo(f"\n{still_missing:,} cards have no sibling with metadata.")
+        click.echo("Run 'catalog seed' to fully re-sync from Scryfall bulk data.")
+    click.echo("")
+
+
 @cli.command("backfill-portfolio")
 @click.option(
     "--db",
