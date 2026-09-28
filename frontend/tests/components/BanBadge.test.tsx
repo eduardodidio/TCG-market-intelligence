@@ -31,4 +31,35 @@ describe("BanBadge", () => {
     const badge = screen.getByTestId("ban-badge-banned");
     expect(badge.className).not.toContain("animate-pulse");
   });
+
+  it("renders tooltip with formats list when formats provided", () => {
+    render(
+      <BanBadge
+        status="banned"
+        formats={[
+          { format: "commander", status: "banned" },
+          { format: "legacy", status: "restricted" },
+        ]}
+      />
+    );
+    const badge = screen.getByTestId("ban-badge-banned");
+    expect(badge).toHaveAttribute("title");
+    const title = badge.getAttribute("title")!;
+    expect(title).toContain("Commander");
+    expect(title).toContain("Legacy");
+    expect(title).toContain("BANNED");
+    expect(title).toContain("RESTRICTED");
+  });
+
+  it("no tooltip when formats not provided", () => {
+    render(<BanBadge status="banned" />);
+    const badge = screen.getByTestId("ban-badge-banned");
+    expect(badge).not.toHaveAttribute("title");
+  });
+
+  it("no tooltip when formats is empty array", () => {
+    render(<BanBadge status="restricted" formats={[]} />);
+    const badge = screen.getByTestId("ban-badge-restricted");
+    expect(badge).not.toHaveAttribute("title");
+  });
 });

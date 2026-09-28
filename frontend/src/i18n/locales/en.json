@@ -850,7 +850,8 @@
     "bannedInFormats": "Banned in {{count}} format(s)",
     "restrictedInFormats": "Restricted in {{count}} format(s)",
     "allLegal": "Legal in all formats",
-    "recentChange": "Recent ban change"
+    "recentChange": "Recent ban change",
+    "tooltipHeader": "Format legality:"
   },
   "schedules": {
     "title": "Scheduled Scans",

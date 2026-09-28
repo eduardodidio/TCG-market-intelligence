@@ -1,0 +1,10 @@
+flowchart TD
+    API["GET /api/v1/collection/banned<br/>Returns BannedCollectionCard[]<br/>(one row per card+format)"]
+    MC["MyCollection.tsx<br/>bannedCardMap useMemo<br/>aggregates: status + recentlyChanged + formats[]"]
+    CCT["CollectionCardTile<br/>receives banFormats prop"]
+    BB["BanBadge<br/>formats prop -> title tooltip"]
+
+    API --> MC
+    MC -->|"banInfo.formats"| CCT
+    CCT -->|"formats={banFormats}"| BB
+    BB -->|"title attribute"| Tooltip["Native Browser Tooltip<br/>Commander: BANNED<br/>Legacy: RESTRICTED"]

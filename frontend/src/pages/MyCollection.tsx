@@ -68,7 +68,7 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
   C: "rarity.common",
 };
 
-function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor, banStatus, banRecentlyChanged, showPaidPrice, onPaidPriceSaved }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber"; banStatus?: "banned" | "restricted"; banRecentlyChanged?: boolean; showPaidPrice?: boolean; onPaidPriceSaved?: (entryId: number, price: number | null) => void }) {
+function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh, highlightColor, banStatus, banRecentlyChanged, banFormats, showPaidPrice, onPaidPriceSaved }: { card: CollectionCard; compact?: boolean; currencyOverride?: string; onRefresh?: (entryId: number, currency?: string) => Promise<void>; highlightColor?: "green" | "amber"; banStatus?: "banned" | "restricted"; banRecentlyChanged?: boolean; banFormats?: Array<{ format: string; status: string }>; showPaidPrice?: boolean; onPaidPriceSaved?: (entryId: number, price: number | null) => void }) {
   const { t } = useTranslation();
   const { getCardName } = useCardName();
   const displayName = getCardName(card.name_en, card.name_pt, t("common.unknownCard"));
@@ -107,7 +107,7 @@ function CollectionCardTile({ card, compact = false, currencyOverride, onRefresh
       {/* Ban badge */}
       {banStatus && (
         <span className={`absolute ${card.extras ? "top-8" : "top-2"} left-2 z-10`}>
-          <BanBadge status={banStatus} recentlyChanged={banRecentlyChanged} />
+          <BanBadge status={banStatus} recentlyChanged={banRecentlyChanged} formats={banFormats} />
         </span>
       )}
 
@@ -521,19 +521,28 @@ export function MyCollection() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Build lookup map for banned cards: card_id -> worst status + recentlyChanged
+  // Build lookup map for banned cards: card_id -> worst status + recentlyChanged + formats
   const bannedCardMap = useMemo(() => {
-    const map = new Map<number, { status: "banned" | "restricted"; recentlyChanged: boolean }>();
+    const map = new Map<number, { status: "banned" | "restricted"; recentlyChanged: boolean; formats: Array<{ format: string; status: string }> }>();
     for (const bc of bannedCards) {
       const existing = map.get(bc.card_id);
-      // Keep worst status: banned > restricted
-      if (!existing || (bc.status === "banned" && existing.status !== "banned")) {
+      const formatEntry = { format: bc.format, status: bc.status };
+
+      if (!existing) {
         map.set(bc.card_id, {
           status: bc.status as "banned" | "restricted",
-          recentlyChanged: bc.recently_changed || (existing?.recentlyChanged ?? false),
+          recentlyChanged: bc.recently_changed,
+          formats: [formatEntry],
         });
-      } else if (bc.recently_changed && existing) {
-        map.set(bc.card_id, { ...existing, recentlyChanged: true });
+      } else {
+        existing.formats.push(formatEntry);
+        // Keep worst status: banned > restricted
+        if (bc.status === "banned" && existing.status !== "banned") {
+          existing.status = "banned";
+        }
+        if (bc.recently_changed) {
+          existing.recentlyChanged = true;
+        }
       }
     }
     return map;
@@ -1142,6 +1151,7 @@ export function MyCollection() {
                   highlightColor={highlightColor}
                   banStatus={banInfo?.status}
                   banRecentlyChanged={banInfo?.recentlyChanged}
+                  banFormats={banInfo?.formats}
                   showPaidPrice={!selectionMode}
                   onPaidPriceSaved={handlePaidPriceSaved}
                 />
