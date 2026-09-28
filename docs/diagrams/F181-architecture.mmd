@@ -1,0 +1,6 @@
+graph TD
+    A[MyCollection Page] -->|renders| B[BanAlertBanner]
+    B -->|Link click| C["/banlist?owned=1"]
+    C --> D[BanList Page]
+    D -->|reads| E[useBanData hook]
+    B -->|reads| F["i18n: banEngine.viewDetails"]
