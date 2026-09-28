@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 interface BanAlertBannerProps {
   bannedCount: number;
@@ -58,6 +59,13 @@ export function BanAlertBanner({
             ({t("banEngine.alertRecent", { count: recentlyChangedCount })})
           </span>
         )}
+        <Link
+          to="/banlist?owned=1"
+          className="ml-2 underline hover:opacity-80 transition-opacity"
+          data-testid="ban-alert-link"
+        >
+          {t("banEngine.viewDetails")}
+        </Link>
       </div>
 
       {/* Dismiss button */}

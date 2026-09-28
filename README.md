@@ -1226,6 +1226,22 @@ in BRL with our own price data and showing how much of each deck you own.
   [architecture diagram](docs/diagrams/F173-architecture.mmd),
   [user journey diagram](docs/diagrams/F173-journey.mmd).
 
+### F180 -- Reality Fracture Catalog (2026-09-28)
+
+Added Reality Fracture (FRA) and FRC Commander sets to the card catalog via
+Scryfall bulk seed. New `bats/catalog-seed-fra.bat` script seeds the Scryfall
+catalog and scans FRA + FRC prices via Liga Magic in one step. Token sets
+(TFRA, TFRC) are seeded but not scanned (Liga does not list tokens).
+
+- **Usage:** run `bats\catalog-seed-fra.bat` after Scryfall publishes FRA
+  bulk data (expected 2026-09-28 to 2026-10-02). After completion, FRA cards
+  appear on the `/cards` page with the set filter.
+- **No code changes** -- uses existing catalog infrastructure (`catalog seed`,
+  `catalog scan`).
+- **Docs:** [PRD](docs/prd/F180-reality-fracture-catalog.md),
+  [architecture diagram](docs/diagrams/F180-architecture.mmd),
+  [user journey diagram](docs/diagrams/F180-journey.mmd).
+
 ## Deployment
 
 TEDHC Market deploys as a single web service on [Render](https://render.com).
@@ -1240,6 +1256,17 @@ TEDHC Market deploys as a single web service on [Render](https://render.com).
 **Environment variables:** see `.env.example` for the full reference.
 
 **Gitflow:** development on `homol` branch, production deploys from `main`.
+
+### F183 -- Card Detail Page: Prominent Ban/Legality Section
+
+- **BannedFormatsSummary alert box**: red (banned) or yellow (restricted-only)
+  alert at the top of the card detail page listing affected formats with
+  LegalityBadge chips. Hidden when the card is legal in all formats.
+- **LegalityPanel repositioned**: moved from below the two-column grid into the
+  right column after MetricsPanel, visible without scrolling.
+- **Ban history grouped by format**: events now grouped under format
+  sub-headings for easier scanning.
+- i18n keys added for en and pt-BR.
 
 ## Roadmap
 

@@ -1,0 +1,7 @@
+flowchart TD
+    Start([User opens MyCollection]) --> Load[Page fetches banned card data]
+    Load --> Render[Cards rendered with BanBadge]
+    Render --> Hover{User hovers over BanBadge?}
+    Hover -->|Yes| Tooltip[Native tooltip shows:<br/>Format legality:<br/>Commander: BANNED<br/>Legacy: RESTRICTED]
+    Hover -->|No| Continue[User continues browsing]
+    Tooltip --> Continue

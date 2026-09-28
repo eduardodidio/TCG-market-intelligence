@@ -1,0 +1,8 @@
+flowchart TD
+    Start([User opens My Collection]) --> Check{Has banned/restricted cards?}
+    Check -->|No| NoBanner[No banner shown]
+    Check -->|Yes| ShowBanner[BanAlertBanner displayed]
+    ShowBanner --> UserAction{User action}
+    UserAction -->|Clicks link| Navigate[Navigate to /banlist?owned=1]
+    Navigate --> ViewDetails[See banned cards with format details]
+    UserAction -->|Clicks dismiss| Dismiss[Banner hidden]

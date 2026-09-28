@@ -1,0 +1,24 @@
+flowchart TD
+    START([User wants to browse<br/>Reality Fracture cards])
+
+    RUN[Run bats/catalog-seed-fra.bat]
+    SEED[Step 1: catalog seed<br/>Downloads Scryfall bulk data<br/>~600MB JSONL.gz]
+    PARSE[Scryfall parser streams cards<br/>Inserts FRA / FRC / TFRA / TFRC]
+    SCAN_FRA[Step 2: catalog scan --set fra<br/>Fetches Liga prices for FRA<br/>delay=5s, batch=20, pause=60s]
+    SCAN_FRC[Step 3: catalog scan --set frc<br/>Fetches Liga prices for FRC<br/>delay=5s, batch=20, pause=60s]
+    DONE[Bat script completes<br/>FRA + FRC cards have prices]
+
+    OPEN[User opens /cards page]
+    FILTER[Selects FRA in set filter]
+    BROWSE[Browses FRA cards with prices]
+
+    START --> RUN
+    RUN --> SEED
+    SEED --> PARSE
+    PARSE --> SCAN_FRA
+    SCAN_FRA --> SCAN_FRC
+    SCAN_FRC --> DONE
+
+    DONE --> OPEN
+    OPEN --> FILTER
+    FILTER --> BROWSE

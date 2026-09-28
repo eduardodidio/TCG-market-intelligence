@@ -1,0 +1,20 @@
+flowchart TD
+    A[User clicks card in collection] --> B[CollectionCardDetail loads]
+    B --> C{Card has banned/restricted formats?}
+
+    C -- Yes --> D[Red/yellow summary box renders after Breadcrumb]
+    D --> E[Lists affected formats with LegalityBadge chips]
+
+    C -- No --> F[No summary box rendered]
+
+    E --> G[LegalityPanel shows full format grid in right column]
+    F --> G
+
+    G --> H[User scrolls to Ban History section]
+    H --> I[User expands Ban History]
+    I --> J[Events grouped by format with sub-headings]
+    J --> K[User sees timeline per format]
+
+    style D fill:#dc2626,color:#fff
+    style E fill:#dc2626,color:#fff
+    style F fill:#374151,color:#9ca3af
