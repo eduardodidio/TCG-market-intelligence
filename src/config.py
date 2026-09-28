@@ -42,11 +42,23 @@ def get_db_url() -> str:
     for var in ("DATABASE_URL", "TCG_DATABASE_URL"):
         value = os.environ.get(var)
         if value:
-            return value
+            return _ensure_psycopg2_dialect(value)
     # Auto-detect Render persistent disk
     if os.path.isdir("/data"):
         return _RENDER_DB_URL
     return _DEFAULT_DB_URL
+
+
+def _ensure_psycopg2_dialect(url: str) -> str:
+    """Ensure PostgreSQL URLs explicitly use the psycopg2 driver.
+
+    SQLAlchemy 2.1+ changed the default PG dialect from psycopg2 to psycopg
+    (psycopg3). Since we depend on psycopg2-binary, force the dialect so
+    that ``pip install`` upgrading SQLAlchemy doesn't break the connection.
+    """
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg2://" + url[len("postgresql://") :]
+    return url
 
 
 def get_error_log_dir() -> str:
