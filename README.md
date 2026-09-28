@@ -1241,6 +1241,17 @@ TEDHC Market deploys as a single web service on [Render](https://render.com).
 
 **Gitflow:** development on `homol` branch, production deploys from `main`.
 
+### F183 -- Card Detail Page: Prominent Ban/Legality Section
+
+- **BannedFormatsSummary alert box**: red (banned) or yellow (restricted-only)
+  alert at the top of the card detail page listing affected formats with
+  LegalityBadge chips. Hidden when the card is legal in all formats.
+- **LegalityPanel repositioned**: moved from below the two-column grid into the
+  right column after MetricsPanel, visible without scrolling.
+- **Ban history grouped by format**: events now grouped under format
+  sub-headings for easier scanning.
+- i18n keys added for en and pt-BR.
+
 ## Roadmap
 
 - **Social & Trade Matching (F110):** wishlist, duplicates, trade matcher
