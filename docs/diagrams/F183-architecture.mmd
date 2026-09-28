@@ -1,0 +1,28 @@
+flowchart TD
+    subgraph CollectionCardDetail
+        A[fetchCollectionEntry] --> B[entry state]
+        C[fetchEntryLegalities] --> D[legalities state]
+        E[fetchCardBanHistory] --> F[ban history state]
+
+        B --> G[Card Info Panel - left column]
+        B --> H[Price Chart + Metrics - right column]
+
+        D --> I[BannedFormatsSummary - alert box]
+        D --> J[LegalityPanel - right column after Metrics]
+
+        F --> K[BanHistorySection - grouped by format]
+
+        I --> L{Any banned/restricted?}
+        L -- Yes --> M[Red/Yellow alert with LegalityBadge chips]
+        L -- No --> N[Hidden - no render]
+    end
+
+    subgraph Existing_APIs
+        O[GET /api/v1/collection/:id/legality] --> C
+        P[GET /api/v1/banlist/card/:id/history] --> E
+        Q[GET /api/v1/collection/:id] --> A
+    end
+
+    style I fill:#dc2626,color:#fff
+    style M fill:#dc2626,color:#fff
+    style N fill:#374151,color:#9ca3af

@@ -6,6 +6,7 @@ import { useCredits } from "../hooks/useCredits";
 import { usePendingDelete } from "../hooks/usePendingDelete";
 import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, patchCollectionEntry, refreshCardPrice, refreshCardPriceLiga } from "../api/collection";
 import { fetchCardBanHistory } from "../api/banlist";
+import { fetchEntryLegalities } from "../api/banEngine";
 import { useCardName } from "../hooks/useCardName";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatCurrency } from "../utils/format";
@@ -18,6 +19,7 @@ import { CreditConfirmModal } from "../components/CreditConfirmModal";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
 import { DeleteEntryButton } from "../components/DeleteEntryButton";
 import { InlineEditField } from "../components/InlineEditField";
+import { LegalityBadge } from "../components/LegalityBadge";
 import { LegalityPanel } from "../components/LegalityPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ManualPriceInput } from "../components/ManualPriceInput";
@@ -32,7 +34,7 @@ import { PriceSourceBadge } from "../components/PriceSourceBadge";
 import { QuantityStepper } from "../components/QuantityStepper";
 import { SkeletonChartPanel, SkeletonInfoPanel } from "../components/Skeleton";
 import type { CardBanHistoryEntry } from "../types/banlist";
-import type { CollectionCardDetail as CollectionCardDetailType } from "../types/api";
+import type { CardLegalityWithChange, CollectionCardDetail as CollectionCardDetailType } from "../types/api";
 
 const RARITY_LABEL_KEYS: Record<string, string> = {
   M: "rarity.mythic",
@@ -92,6 +94,28 @@ export function CollectionCardDetail() {
     [entryId, currency],
     { refetchOnFocus: true },
   );
+
+  // Fetch legalities at page level for the BannedFormatsSummary alert box
+  const legalityFetcher = useCallback(() => {
+    if (entry?.card_id == null) {
+      return Promise.resolve({
+        data: [] as CardLegalityWithChange[],
+        meta: { cursor: null, total: null, offset: null, request_id: "" },
+        errors: [],
+      });
+    }
+    return fetchEntryLegalities(entryId);
+  }, [entryId, entry?.card_id]);
+
+  const { data: legalities } = useApi<CardLegalityWithChange[]>(
+    legalityFetcher,
+    [entryId, entry?.card_id],
+  );
+
+  const bannedFormats = (legalities ?? []).filter(
+    (l) => l.status === "banned" || l.status === "restricted",
+  );
+  const hasBanned = bannedFormats.some((f) => f.status === "banned");
 
   const [period, setPeriod] = useState("30d");
   const [refreshing, setRefreshing] = useState(false);
@@ -286,6 +310,48 @@ export function CollectionCardDetail() {
           { label: displayName },
         ]}
       />
+
+      {/* Banned/Restricted summary alert */}
+      {bannedFormats.length > 0 && (
+        <div
+          data-testid="banned-formats-summary"
+          className={`mb-4 rounded-lg border p-4 flex items-start gap-3 ${
+            hasBanned
+              ? "border-red-500/40 bg-red-500/10"
+              : "border-yellow-500/40 bg-yellow-500/10"
+          }`}
+        >
+          <svg
+            className={`h-5 w-5 mt-0.5 flex-shrink-0 ${hasBanned ? "text-red-400" : "text-yellow-400"}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
+          </svg>
+          <div>
+            <p className={`font-semibold ${hasBanned ? "text-red-400" : "text-yellow-400"}`}>
+              {hasBanned
+                ? t("banEngine.bannedSummaryTitle")
+                : t("banEngine.restrictedSummaryTitle")}
+            </p>
+            <p className={`text-sm mt-1 ${hasBanned ? "text-red-300/70" : "text-yellow-300/70"}`}>
+              {t("banEngine.bannedSummaryDescription")}
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {bannedFormats.map((f) => (
+                <LegalityBadge key={f.format} format={f.format} status={f.status} size="sm" />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -670,6 +736,9 @@ export function CollectionCardDetail() {
                   currency={currency}
                 />
               </div>
+              <div className="mt-4">
+                <LegalityPanel entryId={entryId} cardId={entry.card_id} />
+              </div>
             </>
           ) : (
             <div data-testid="no-price-chart" className="bg-slate-800 border border-slate-600 rounded-lg p-8 text-center">
@@ -679,11 +748,6 @@ export function CollectionCardDetail() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Format Legality */}
-      <div className="mt-6">
-        <LegalityPanel entryId={entryId} cardId={entry.card_id} />
       </div>
 
       {/* Ban History */}
@@ -803,27 +867,43 @@ function BanHistorySection({ cardId }: { cardId: number }) {
               ))}
             </div>
           ) : history && history.length > 0 ? (
-            <div className="border-l-2 border-slate-600 ml-3 pl-4 space-y-3">
-              {history.map((ev) => (
-                <div key={ev.id} className="relative">
-                  <div
-                    className={`absolute -left-[22px] top-4 w-2.5 h-2.5 rounded-full ring-2 ring-slate-900 ${
-                      ev.new_status === "banned" || ev.new_status === "restricted"
-                        ? "bg-red-500"
-                        : ev.new_status === "legal"
-                          ? "bg-green-500"
-                          : "bg-slate-500"
-                    }`}
-                  />
-                  <BanEventCard
-                    event={{
-                      format: ev.format,
-                      oldStatus: ev.old_status,
-                      newStatus: ev.new_status,
-                      changedAt: ev.changed_at,
-                    }}
-                    showCardInfo={false}
-                  />
+            <div className="space-y-4">
+              {Object.entries(
+                history.reduce((acc, ev) => {
+                  const key = ev.format;
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(ev);
+                  return acc;
+                }, {} as Record<string, CardBanHistoryEntry[]>),
+              ).map(([format, events]) => (
+                <div key={format} className="mb-2" data-testid={`ban-history-group-${format}`}>
+                  <h3 className="text-sm font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+                    {format}
+                  </h3>
+                  <div className="border-l-2 border-slate-600 ml-3 pl-4 space-y-3">
+                    {events.map((ev) => (
+                      <div key={ev.id} className="relative">
+                        <div
+                          className={`absolute -left-[22px] top-4 w-2.5 h-2.5 rounded-full ring-2 ring-slate-900 ${
+                            ev.new_status === "banned" || ev.new_status === "restricted"
+                              ? "bg-red-500"
+                              : ev.new_status === "legal"
+                                ? "bg-green-500"
+                                : "bg-slate-500"
+                          }`}
+                        />
+                        <BanEventCard
+                          event={{
+                            format: ev.format,
+                            oldStatus: ev.old_status,
+                            newStatus: ev.new_status,
+                            changedAt: ev.changed_at,
+                          }}
+                          showCardInfo={false}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

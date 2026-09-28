@@ -852,7 +852,10 @@
     "allLegal": "Legal in all formats",
     "recentChange": "Recent ban change",
     "tooltipHeader": "Format legality:",
-    "viewDetails": "View details"
+    "viewDetails": "View details",
+    "bannedSummaryTitle": "Banned or Restricted",
+    "bannedSummaryDescription": "This card is banned or restricted in the following formats:",
+    "restrictedSummaryTitle": "Restricted"
   },
   "schedules": {
     "title": "Scheduled Scans",

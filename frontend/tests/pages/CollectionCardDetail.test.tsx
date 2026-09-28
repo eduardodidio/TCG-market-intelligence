@@ -817,6 +817,165 @@ describe("CollectionCardDetail page", () => {
     });
   });
 
+  // ── F183: BannedFormatsSummary tests ──────────────────────────────
+
+  function createMockFetchWithLegalities(
+    entryResponse: unknown,
+    legalityResponse: unknown,
+    banHistoryResponse?: unknown,
+  ) {
+    return vi.fn().mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/card/") && urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(banHistoryResponse ?? {
+            data: [],
+            meta: { cursor: null, total: null, request_id: "" },
+            errors: [],
+          }),
+        });
+      }
+      if (urlStr.includes("/history")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [], meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/legality")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(legalityResponse),
+        });
+      }
+      if (urlStr.includes("/metrics")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+        });
+      }
+      if (urlStr.includes("/api/v1/collection/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(entryResponse),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: null, meta: { cursor: null, total: null, request_id: "" }, errors: [] }),
+      });
+    });
+  }
+
+  it("shows BannedFormatsSummary when card has banned legalities", async () => {
+    const legalityData = {
+      data: [
+        { format: "commander", status: "banned", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+        { format: "legacy", status: "banned", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+        { format: "standard", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+      ],
+      meta: { cursor: null, total: null, request_id: "" },
+      errors: [],
+    };
+
+    globalThis.fetch = createMockFetchWithLegalities(makeLinkedEntry(), legalityData) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("banned-formats-summary")).toBeDefined();
+    });
+
+    const summary = screen.getByTestId("banned-formats-summary");
+    // Should have red styling for banned
+    expect(summary.className).toContain("border-red-500");
+    // Should show legality badges for banned formats
+    const badges = summary.querySelectorAll("[data-testid='legality-badge-banned']");
+    expect(badges.length).toBe(2);
+  });
+
+  it("hides BannedFormatsSummary when all formats are legal", async () => {
+    const legalityData = {
+      data: [
+        { format: "commander", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+        { format: "standard", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+      ],
+      meta: { cursor: null, total: null, request_id: "" },
+      errors: [],
+    };
+
+    globalThis.fetch = createMockFetchWithLegalities(makeLinkedEntry(), legalityData) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("page-collection-detail")).toBeDefined();
+    });
+
+    // Wait for legalities to load (need a small extra wait)
+    await waitFor(() => {
+      expect(screen.getByTestId("legality-panel")).toBeDefined();
+    });
+
+    expect(screen.queryByTestId("banned-formats-summary")).toBeNull();
+  });
+
+  it("shows yellow BannedFormatsSummary when only restricted (no banned)", async () => {
+    const legalityData = {
+      data: [
+        { format: "vintage", status: "restricted", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+        { format: "standard", status: "legal", effective_date: null, recently_changed: false, change_date: null, old_status: null },
+      ],
+      meta: { cursor: null, total: null, request_id: "" },
+      errors: [],
+    };
+
+    globalThis.fetch = createMockFetchWithLegalities(makeLinkedEntry(), legalityData) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("banned-formats-summary")).toBeDefined();
+    });
+
+    const summary = screen.getByTestId("banned-formats-summary");
+    // Should have yellow styling for restricted-only
+    expect(summary.className).toContain("border-yellow-500");
+  });
+
+  it("groups ban history events by format", async () => {
+    const banHistoryData = {
+      data: [
+        { id: 1, format: "commander", old_status: "legal", new_status: "banned", changed_at: "2026-01-01T00:00:00", source: "scryfall_sync" },
+        { id: 2, format: "legacy", old_status: "legal", new_status: "banned", changed_at: "2026-02-01T00:00:00", source: "scryfall_sync" },
+        { id: 3, format: "commander", old_status: "banned", new_status: "legal", changed_at: "2026-03-01T00:00:00", source: "scryfall_sync" },
+      ],
+      meta: { cursor: null, total: null, request_id: "" },
+      errors: [],
+    };
+
+    const legalityData = {
+      data: [],
+      meta: { cursor: null, total: null, request_id: "" },
+      errors: [],
+    };
+
+    globalThis.fetch = createMockFetchWithLegalities(makeLinkedEntry(), legalityData, banHistoryData) as unknown as typeof fetch;
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("ban-history-toggle")).toBeDefined();
+    });
+
+    // Expand ban history
+    screen.getByTestId("ban-history-toggle").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("ban-history-content")).toBeDefined();
+    });
+
+    // Should have format group headings
+    expect(screen.getByTestId("ban-history-group-commander")).toBeDefined();
+    expect(screen.getByTestId("ban-history-group-legacy")).toBeDefined();
+  });
+
   it("canonize full success shows green message", async () => {
     const unlinkedResponse = makeUnlinkedEntry();
     const linkedResponse = makeLinkedEntry();
