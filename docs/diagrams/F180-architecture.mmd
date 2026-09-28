@@ -1,0 +1,49 @@
+flowchart TD
+    subgraph External
+        SCRY[Scryfall Bulk API]
+        LIGA[Liga Magic]
+    end
+
+    subgraph "bats/catalog-seed-fra.bat"
+        BAT["catalog-seed-fra.bat"]
+    end
+
+    subgraph "CLI Commands"
+        SEED["catalog seed"]
+        SCAN_FRA["catalog scan --set fra"]
+        SCAN_FRC["catalog scan --set frc"]
+    end
+
+    subgraph "Catalog Infrastructure"
+        DL["scryfall.py<br/>(downloader + parser)"]
+        SEEDER["seeder.py<br/>(batch upsert)"]
+        SWEEP["liga_sweep.py<br/>(catalog scan mode)"]
+    end
+
+    subgraph "Database (Neon PostgreSQL)"
+        CARDS[(cards table<br/>FRA / FRC / TFRA / TFRC)]
+        SRC[(source_cards table<br/>Liga external_id)]
+        PRICES[(price_snapshots)]
+    end
+
+    subgraph "Frontend (no changes)"
+        FE["/cards page<br/>set filter shows FRA"]
+    end
+
+    BAT --> SEED
+    BAT --> SCAN_FRA
+    BAT --> SCAN_FRC
+
+    SEED --> DL
+    DL --> SCRY
+    DL --> SEEDER
+    SEEDER --> CARDS
+
+    SCAN_FRA --> SWEEP
+    SCAN_FRC --> SWEEP
+    SWEEP --> LIGA
+    SWEEP --> SRC
+    SWEEP --> PRICES
+
+    FE -.->|reads| CARDS
+    FE -.->|reads| PRICES
