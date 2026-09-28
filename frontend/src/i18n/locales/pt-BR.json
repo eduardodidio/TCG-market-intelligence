@@ -851,7 +851,8 @@
     "restrictedInFormats": "Restrita em {{count}} formato(s)",
     "allLegal": "Legal em todos os formatos",
     "recentChange": "Alteracao recente de ban",
-    "tooltipHeader": "Legalidade por formato:"
+    "tooltipHeader": "Legalidade por formato:",
+    "viewDetails": "Ver detalhes"
   },
   "schedules": {
     "title": "Scans Agendados",
