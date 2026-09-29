@@ -1318,7 +1318,8 @@
     "error": "Erro ao carregar movimentacoes",
     "showTop10": "Ver Top 10",
     "showTop100": "Ver Top 100",
-    "collapse": "Recolher"
+    "collapse": "Recolher",
+    "tickerAriaLabel": "Ticker de variacao de precos da colecao"
   },
   "errorCodes": {
     "authInvalidCredentials": "Email ou senha invalidos.",

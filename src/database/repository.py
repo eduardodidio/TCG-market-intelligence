@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+import structlog
 from sqlalchemy import case, create_engine, event, func, inspect, or_, select, text, update
 from sqlalchemy.orm import Session
 
@@ -50,6 +51,8 @@ from src.domain.models import (
     ScanFilter,
     SourceCard,
 )
+
+logger = structlog.get_logger()
 
 
 class Repository:
@@ -396,10 +399,25 @@ class Repository:
         if not prices:
             return 0
 
+        # Filter out records with invalid median_price (zero or negative)
+        valid_prices: list[HistoricalPrice] = []
+        for p in prices:
+            if p.median_price is not None and p.median_price <= 0:
+                logger.warning(
+                    "skipping_invalid_price",
+                    external_id=p.external_id,
+                    median_price=float(p.median_price),
+                )
+                continue
+            valid_prices.append(p)
+
+        if not valid_prices:
+            return 0
+
         def _do(s: Session) -> int:
             count = 0
-            for batch_start in range(0, len(prices), 500):
-                batch = prices[batch_start : batch_start + 500]
+            for batch_start in range(0, len(valid_prices), 500):
+                batch = valid_prices[batch_start : batch_start + 500]
                 for p in batch:
                     stmt = (
                         dialect_insert(self.engine, PriceObservationRow)
@@ -1055,13 +1073,14 @@ class Repository:
                 .join(earliest, earliest.c.card_id == CardRow.id)
                 .join(latest, latest.c.card_id == CardRow.id)
                 .where(
-                    earliest.c.price_start > 0,
+                    earliest.c.price_start >= 0.5,
                     earliest.c.price_start != latest.c.price_end,
                 )
             )
 
             rows = session.execute(stmt).all()
             movers = [(r[0], r[1], r[2], r[3], r[4], r[5], r[6]) for r in rows]
+            movers = [m for m in movers if abs(m[6]) <= 1000.0]  # cap at +/-1000%
 
             gainers = sorted(movers, key=lambda x: x[6], reverse=True)[:limit]
             losers = sorted(movers, key=lambda x: x[6])[:limit]

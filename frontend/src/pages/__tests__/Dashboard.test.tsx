@@ -65,6 +65,14 @@ vi.mock("../../components/FreshnessIndicator", () => ({
   FreshnessIndicator: () => <div data-testid="freshness-indicator-stub" />,
 }));
 
+const mockMoversTickerVisible = vi.fn(() => true);
+vi.mock("../../components/MoversTicker", () => ({
+  MoversTicker: () => {
+    if (!mockMoversTickerVisible()) return null;
+    return <div data-testid="movers-ticker" />;
+  },
+}));
+
 function renderDashboard() {
   return render(
     <MemoryRouter>
@@ -158,5 +166,35 @@ describe("Dashboard", () => {
     expect(screen.getByTestId("page-dashboard")).toBeInTheDocument();
     expect(screen.queryByTestId("collection-kpis")).not.toBeInTheDocument();
     expect(screen.queryByTestId("trending-grid")).not.toBeInTheDocument();
+  });
+
+  it("renders movers ticker when movers data exists", async () => {
+    mockFetchCollectionSummary.mockResolvedValue({ data: makeSummary(), errors: [], meta: {} });
+    mockMoversTickerVisible.mockReturnValue(true);
+    renderDashboard();
+
+    await waitFor(() => expect(screen.getByTestId("collection-kpis")).toBeInTheDocument());
+    expect(screen.getByTestId("movers-ticker")).toBeInTheDocument();
+  });
+
+  it("does not render movers ticker when component returns null", async () => {
+    mockFetchCollectionSummary.mockResolvedValue({ data: makeSummary(), errors: [], meta: {} });
+    mockMoversTickerVisible.mockReturnValue(false);
+    renderDashboard();
+
+    await waitFor(() => expect(screen.getByTestId("collection-kpis")).toBeInTheDocument());
+    expect(screen.queryByTestId("movers-ticker")).not.toBeInTheDocument();
+  });
+
+  it("renders movers ticker before KPI cards in DOM order", async () => {
+    mockFetchCollectionSummary.mockResolvedValue({ data: makeSummary(), errors: [], meta: {} });
+    mockMoversTickerVisible.mockReturnValue(true);
+    renderDashboard();
+
+    await waitFor(() => expect(screen.getByTestId("collection-kpis")).toBeInTheDocument());
+    const ticker = screen.getByTestId("movers-ticker");
+    const kpis = screen.getByTestId("collection-kpis");
+    // ticker should come before kpis in document order
+    expect(ticker.compareDocumentPosition(kpis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

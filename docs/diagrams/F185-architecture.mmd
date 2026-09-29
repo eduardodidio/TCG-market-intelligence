@@ -1,0 +1,32 @@
+flowchart TB
+    subgraph "Price Sources"
+        Liga["Liga Provider"]
+        MYP["MYP Provider"]
+        Manual["Manual Entry"]
+    end
+    subgraph "Validation Layer"
+        Parser["Parsers (liga.py, myp.py)"]
+        RepoVal["insert_price_observations() validation"]
+    end
+    subgraph "Storage"
+        DB[("price_observations")]
+    end
+    subgraph "Query Layer"
+        GetMovers["get_movers() -- R$0.50 floor + 1000% cap"]
+        GetCollMovers["get_collection_movers_optimized() -- same filters"]
+        DiagCLI["diagnose-prices CLI"]
+    end
+    subgraph "API"
+        MarketAPI["/market/movers"]
+        CollAPI["/collection/movers"]
+    end
+    Liga --> Parser
+    MYP --> Parser
+    Manual --> RepoVal
+    Parser --> RepoVal
+    RepoVal -->|"rejects <= 0"| DB
+    DB --> GetMovers
+    DB --> GetCollMovers
+    DB --> DiagCLI
+    GetMovers --> MarketAPI
+    GetCollMovers --> CollAPI
