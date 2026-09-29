@@ -18,6 +18,7 @@ import { FreshnessIndicator } from "../components/FreshnessIndicator";
 import { SkeletonKpi } from "../components/Skeleton";
 import { ValuationBadge } from "../components/ValuationBadge";
 import { WelcomeBanner } from "../components/WelcomeBanner";
+import { MoversTicker } from "../components/MoversTicker";
 import type { CollectionHealth, CollectionSummary } from "../types/api";
 
 export function Dashboard() {
@@ -103,6 +104,11 @@ export function Dashboard() {
     <div data-testid="page-dashboard">
       {/* Welcome banner for new users */}
       {showWelcome && <WelcomeBanner onDismiss={dismissWelcome} />}
+
+      {/* Movers ticker */}
+      <div className="mb-4">
+        <MoversTicker />
+      </div>
 
       {/* Hero header */}
       <div className="mb-8">

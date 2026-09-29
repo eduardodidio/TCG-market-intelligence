@@ -1,0 +1,20 @@
+flowchart TB
+    subgraph Frontend
+        Dashboard["Dashboard.tsx"]
+        MoversTicker["MoversTicker.tsx"]
+        MoversTickerItem["MoversTickerItem.tsx"]
+        API["fetchCollectionMovers()"]
+        CSS["animate-ticker CSS"]
+    end
+    subgraph Backend
+        Endpoint["GET /api/v1/collection/movers"]
+        Repo["get_collection_movers_optimized()"]
+        DB[("price_observations")]
+    end
+    Dashboard --> MoversTicker
+    MoversTicker --> MoversTickerItem
+    MoversTicker --> API
+    MoversTicker --> CSS
+    API -->|"HTTP GET"| Endpoint
+    Endpoint --> Repo
+    Repo --> DB

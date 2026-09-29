@@ -3311,5 +3311,126 @@ from src.cli.metagame import collect_metagame_cmd  # noqa: E402  (F173)
 cli.add_command(collect_metagame_cmd)
 
 
+@cli.command("diagnose-prices")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--limit", default=50, type=int, help="Max outliers to show per section")
+def diagnose_prices(db, limit: int):
+    """Report price observation outliers (read-only diagnostic)."""
+    from sqlalchemy import func
+    from sqlalchemy.orm import Session
+
+    from src.database.models import CardRow, PriceObservationRow, SourceCardRow
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+
+    # --- Query 1: Penny prices (0 < median_price < 0.50) ---
+    click.echo("\n=== Penny Prices (median_price < R$0.50) ===\n")
+    with Session(repo.engine) as session:
+        penny_rows = (
+            session.query(
+                PriceObservationRow.external_id,
+                PriceObservationRow.source,
+                PriceObservationRow.median_price,
+                PriceObservationRow.observed_at,
+                SourceCardRow.card_id,
+                CardRow.name_en,
+            )
+            .outerjoin(
+                SourceCardRow,
+                (SourceCardRow.external_id == PriceObservationRow.external_id)
+                & (SourceCardRow.source == PriceObservationRow.source),
+            )
+            .outerjoin(CardRow, CardRow.id == SourceCardRow.card_id)
+            .filter(
+                PriceObservationRow.median_price > 0,
+                PriceObservationRow.median_price < 0.50,
+            )
+            .order_by(PriceObservationRow.median_price.asc())
+            .limit(limit)
+            .all()
+        )
+
+    if not penny_rows:
+        click.echo("  No penny prices found.\n")
+    else:
+        header = (
+            f"  {'card_id':>8}  {'card_name':<40}  {'external_id':<30}"
+            f"  {'source':<8}  {'median_price':>12}  {'observed_at':<12}"
+        )
+        click.echo(header)
+        click.echo("  " + "-" * (len(header) - 2))
+        for row in penny_rows:
+            card_id = row.card_id if row.card_id else "-"
+            card_name = (row.name_en or "???")[:40]
+            click.echo(
+                f"  {str(card_id):>8}  {card_name:<40}  {row.external_id:<30}  "
+                f"{row.source:<8}  {float(row.median_price):>12.2f}  {row.observed_at}"
+            )
+        click.echo(f"\n  Total: {len(penny_rows)} penny price(s)\n")
+
+    # --- Query 2: Extreme ratios (max/min > 20x for same card) ---
+    click.echo("=== Extreme Price Ratios (max/min > 20x) ===\n")
+    with Session(repo.engine) as session:
+        subq = (
+            session.query(
+                PriceObservationRow.external_id,
+                PriceObservationRow.source,
+                func.min(PriceObservationRow.median_price).label("min_price"),
+                func.max(PriceObservationRow.median_price).label("max_price"),
+            )
+            .filter(PriceObservationRow.median_price > 0)
+            .group_by(PriceObservationRow.external_id, PriceObservationRow.source)
+            .subquery()
+        )
+
+        ratio_rows = (
+            session.query(
+                subq.c.external_id,
+                subq.c.source,
+                subq.c.min_price,
+                subq.c.max_price,
+                SourceCardRow.card_id,
+                CardRow.name_en,
+            )
+            .outerjoin(
+                SourceCardRow,
+                (SourceCardRow.external_id == subq.c.external_id)
+                & (SourceCardRow.source == subq.c.source),
+            )
+            .outerjoin(CardRow, CardRow.id == SourceCardRow.card_id)
+            .filter(subq.c.max_price > subq.c.min_price * 20)
+            .order_by((subq.c.max_price / subq.c.min_price).desc())
+            .limit(limit)
+            .all()
+        )
+
+    if not ratio_rows:
+        click.echo("  No extreme ratios found.\n")
+    else:
+        header = (
+            f"  {'card_id':>8}  {'card_name':<40}"
+            f"  {'min_price':>10}  {'max_price':>10}  {'ratio':>8}"
+        )
+        click.echo(header)
+        click.echo("  " + "-" * (len(header) - 2))
+        for row in ratio_rows:
+            card_id = row.card_id if row.card_id else "-"
+            card_name = (row.name_en or "???")[:40]
+            ratio = float(row.max_price) / float(row.min_price) if row.min_price else 0
+            click.echo(
+                f"  {str(card_id):>8}  {card_name:<40}  "
+                f"{float(row.min_price):>10.2f}  {float(row.max_price):>10.2f}  {ratio:>8.1f}x"
+            )
+        click.echo(f"\n  Total: {len(ratio_rows)} extreme ratio(s)\n")
+
+
 if __name__ == "__main__":
     cli()

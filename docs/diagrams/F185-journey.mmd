@@ -1,0 +1,8 @@
+flowchart LR
+    A["Operator suspects dirty data"] --> B["Run: diagnose-prices"]
+    B --> C{"Outliers found?"}
+    C -->|"Yes"| D["Review penny prices + extreme ratios"]
+    C -->|"No"| E["Data is clean"]
+    D --> F{"Action needed?"}
+    F -->|"Yes"| G["Manual cleanup via SQL / admin"]
+    F -->|"No"| H["Filters already handle it"]

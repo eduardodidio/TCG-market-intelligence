@@ -1,0 +1,11 @@
+flowchart LR
+    A["User opens Dashboard"] --> B{"Movers data available?"}
+    B -->|"Yes"| C["Ticker scrolls automatically"]
+    B -->|"No / Loading"| D["Ticker hidden, Dashboard shows normally"]
+    C --> E{"User hovers ticker?"}
+    E -->|"Yes"| F["Animation pauses"]
+    E -->|"No"| C
+    F --> G{"User clicks item?"}
+    G -->|"Yes"| H["Navigate to /cards/:id"]
+    G -->|"No, moves mouse away"| C
+    H --> I["Card detail page"]
