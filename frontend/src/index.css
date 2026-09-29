@@ -16,24 +16,22 @@
   }
 }
 
-@layer utilities {
-  @keyframes ticker-scroll {
-    0% {
-      transform: translateX(0);
-    }
-    100% {
-      transform: translateX(-50%);
-    }
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
   }
+  100% {
+    transform: translateX(-50%);
+  }
+}
 
-  .animate-ticker {
-    animation: ticker-scroll var(--ticker-duration, 30s) linear infinite;
-    will-change: transform;
-  }
+.animate-ticker {
+  animation: ticker-scroll var(--ticker-duration, 30s) linear infinite;
+  will-change: transform;
+}
 
-  .animate-ticker:hover {
-    animation-play-state: paused;
-  }
+.animate-ticker:hover {
+  animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
