@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import {
   fetchCollectionMovers,
   type CollectionMoverData,
-  type CollectionMoversData,
 } from "../api/collection";
 import { MoversTickerItem } from "./MoversTickerItem";
 
@@ -51,8 +50,8 @@ export function MoversTicker() {
   useEffect(() => {
     let cancelled = false;
     fetchCollectionMovers(7, 10, true)
-      .then((res: { data: CollectionMoversData }) => {
-        if (!cancelled) {
+      .then((res) => {
+        if (!cancelled && res.data) {
           setItems(interleave(res.data.gainers, res.data.losers));
         }
       })
