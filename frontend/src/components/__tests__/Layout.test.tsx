@@ -58,10 +58,6 @@ vi.mock("../LanguageSelector", () => ({
   LanguageSelector: () => <div data-testid="mock-language-selector">LanguageSelector</div>,
 }));
 
-vi.mock("../MarketTicker", () => ({
-  MarketTicker: () => null,
-}));
-
 vi.mock("../OfflineBanner", () => ({
   OfflineBanner: () => null,
 }));

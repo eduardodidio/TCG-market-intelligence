@@ -83,7 +83,7 @@ export function MoversTicker() {
       data-testid="movers-ticker"
     >
       <div
-        className="animate-ticker flex whitespace-nowrap motion-reduce:animate-none motion-reduce:overflow-x-auto"
+        className="animate-ticker inline-flex whitespace-nowrap motion-reduce:animate-none motion-reduce:overflow-x-auto"
         style={
           { "--ticker-duration": `${duration}s` } as React.CSSProperties
         }

@@ -12,7 +12,6 @@ import { ExchangeRateBanner } from "./ExchangeRateBanner";
 import { GauchoDialog } from "./GauchoDialog";
 import { InstallPrompt } from "./InstallPrompt";
 import { LanguageSelector } from "./LanguageSelector";
-import { MarketTicker } from "./MarketTicker";
 import { OfflineBanner } from "./OfflineBanner";
 import { ThemeToggle } from "./ThemeToggle";
 import { TreasureBalance } from "./TreasureBalance";
@@ -443,7 +442,6 @@ export function Layout() {
         <OfflineBanner />
         {/* Exchange rate banner */}
         <ExchangeRateBanner />
-        <MarketTicker />
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6" data-testid="main-content">
