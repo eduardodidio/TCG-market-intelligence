@@ -86,6 +86,7 @@ def _process_card_batch(
             mana_cost=card.mana_cost,
             type_line=card.type_line,
             image_uri=card.image_uri,
+            oracle_text=card.oracle_text,
         )
         # On conflict, update metadata columns from Scryfall (authoritative source).
         # Only overwrite when the existing value is NULL to preserve any
@@ -99,6 +100,7 @@ def _process_card_batch(
                 "color_identity": func.coalesce(CardRow.color_identity, excluded.color_identity),
                 "mana_cost": func.coalesce(CardRow.mana_cost, excluded.mana_cost),
                 "image_uri": func.coalesce(CardRow.image_uri, excluded.image_uri),
+                "oracle_text": func.coalesce(CardRow.oracle_text, excluded.oracle_text),
                 "name_pt": func.coalesce(CardRow.name_pt, excluded.name_pt),
             },
         )

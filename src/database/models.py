@@ -35,6 +35,7 @@ class CardRow(Base):
     mana_cost: Mapped[str | None] = mapped_column(String(50))
     type_line: Mapped[str | None] = mapped_column(String(200))
     image_uri: Mapped[str | None] = mapped_column(String(500))
+    oracle_text: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now

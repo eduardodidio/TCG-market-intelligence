@@ -9,23 +9,23 @@ import {
   mockApiError,
 } from "../fixtures/api-responses";
 
-// Mock TrendingSection — it fetches its own data internally and has its own tests
-vi.mock("../../src/components/TrendingSection", () => ({
-  TrendingSection: ({ direction, period, currency, limit, variant }: {
+// Mock DashboardTrendingMovers — it fetches its own data internally and has its own tests
+vi.mock("../../src/components/DashboardTrendingMovers", () => ({
+  DashboardTrendingMovers: ({ direction, period, currency, limit, collectionOnly }: {
     direction: string;
     period: string;
     currency: string;
     limit?: number;
-    variant?: string;
+    collectionOnly?: boolean;
   }) => (
     <div
-      data-testid={`trending-section-${direction}`}
+      data-testid={`dashboard-trending-${direction}`}
       data-period={period}
       data-currency={currency}
       data-limit={limit}
-      data-variant={variant}
+      data-collection-only={String(!!collectionOnly)}
     >
-      TrendingSection-{direction}
+      DashboardTrendingMovers-{direction}
     </div>
   ),
 }));
@@ -82,7 +82,7 @@ describe("Dashboard", () => {
             json: () => Promise.resolve(summaryResponse),
           });
         }
-        // Trending endpoints are handled by the mocked TrendingSection
+        // Trending endpoints are handled by the mocked DashboardTrendingMovers
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ data: [] }),
@@ -198,13 +198,13 @@ describe("Dashboard", () => {
 
     expect(screen.getByTestId("landing-trending-down")).toBeDefined();
 
-    // Verify TrendingSection components are rendered with correct props
-    const gainersSection = screen.getByTestId("trending-section-gainers");
+    // Verify DashboardTrendingMovers components are rendered with correct props
+    const gainersSection = screen.getByTestId("dashboard-trending-gainers");
     expect(gainersSection).toBeDefined();
     expect(gainersSection.getAttribute("data-period")).toBe("30d");
     expect(gainersSection.getAttribute("data-limit")).toBe("10");
 
-    const losersSection = screen.getByTestId("trending-section-losers");
+    const losersSection = screen.getByTestId("dashboard-trending-losers");
     expect(losersSection).toBeDefined();
     expect(losersSection.getAttribute("data-period")).toBe("30d");
     expect(losersSection.getAttribute("data-limit")).toBe("10");
@@ -513,26 +513,28 @@ describe("Dashboard", () => {
       expect(screen.getByTestId("landing-trending-up")).toBeDefined();
     });
 
-    // TrendingSection handles its own loading/empty states internally
+    // DashboardTrendingMovers handles its own loading/empty states internally
     // We just verify the containers are present
     expect(screen.getByTestId("landing-trending-down")).toBeDefined();
-    expect(screen.getByText("TrendingSection-gainers")).toBeDefined();
-    expect(screen.getByText("TrendingSection-losers")).toBeDefined();
+    expect(screen.getByText("DashboardTrendingMovers-gainers")).toBeDefined();
+    expect(screen.getByText("DashboardTrendingMovers-losers")).toBeDefined();
   });
 
-  it("renders trending sections with variant='list' for compact display", async () => {
+  it("renders DashboardTrendingMovers with correct props", async () => {
     mockFetchSuccess();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByTestId("trending-section-gainers")).toBeDefined();
+      expect(screen.getByTestId("dashboard-trending-gainers")).toBeDefined();
     });
 
-    const gainersSection = screen.getByTestId("trending-section-gainers");
-    expect(gainersSection.getAttribute("data-variant")).toBe("list");
+    const gainersSection = screen.getByTestId("dashboard-trending-gainers");
+    expect(gainersSection.getAttribute("data-period")).toBe("30d");
+    expect(gainersSection.getAttribute("data-currency")).toBe("BRL");
 
-    const losersSection = screen.getByTestId("trending-section-losers");
-    expect(losersSection.getAttribute("data-variant")).toBe("list");
+    const losersSection = screen.getByTestId("dashboard-trending-losers");
+    expect(losersSection.getAttribute("data-period")).toBe("30d");
+    expect(losersSection.getAttribute("data-currency")).toBe("BRL");
   });
 
   it("renders trending sections in a side-by-side grid", async () => {
@@ -545,7 +547,7 @@ describe("Dashboard", () => {
 
     const grid = screen.getByTestId("trending-grid");
     expect(grid.className).toContain("md:grid-cols-2");
-    expect(grid.className).toContain("gap-6");
+    expect(grid.className).toContain("gap-4");
 
     // Both sections are inside the grid
     expect(grid.querySelector('[data-testid="landing-trending-up"]')).toBeTruthy();

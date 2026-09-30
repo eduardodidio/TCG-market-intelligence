@@ -595,6 +595,34 @@
     "totalValue": "Valor Total",
     "cardCountInvalid": "O deck nao atinge o minimo de cartas"
   },
+  "deck": {
+    "evaluation": {
+      "synergyScore": "Pontuacao de Sinergia",
+      "synergyHint": "O quanto suas cartas funcionam juntas com a estrategia do comandante.",
+      "roleCoverage": "Cobertura de Funcoes",
+      "tribalDensity": "Densidade Tribal"
+    },
+    "roles": {
+      "draw": "Compra",
+      "ramp": "Ramp",
+      "removal": "Remocao",
+      "token": "Tokens",
+      "counter": "Marcadores",
+      "sacrifice": "Sacrificio",
+      "flicker": "Flicker",
+      "lifegain": "Ganho de Vida",
+      "graveyard": "Cemiterio",
+      "protection": "Protecao",
+      "equipment": "Equipamento",
+      "enchantress": "Encantamentos",
+      "utility": "Utilidade"
+    },
+    "synergy": {
+      "weightLabel": "Peso da sinergia:",
+      "weightHint": "Valores mais altos priorizam cartas que combinam com seu comandante.",
+      "avgScore": "Sinergia Media"
+    }
+  },
   "auth": {
     "appTitle": "TEDHC Market",
     "createAccount": "Crie sua conta",
@@ -1319,6 +1347,7 @@
     "showTop10": "Ver Top 10",
     "showTop100": "Ver Top 100",
     "collapse": "Recolher",
+    "dismiss": "Dispensar",
     "tickerAriaLabel": "Ticker de variacao de precos da colecao"
   },
   "errorCodes": {

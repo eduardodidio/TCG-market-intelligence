@@ -130,6 +130,7 @@ class Repository:
                 "mana_cost": "VARCHAR(50)",
                 "type_line": "VARCHAR(200)",
                 "image_uri": "VARCHAR(500)",
+                "oracle_text": "TEXT",
             }
             for col_name, col_type in new_card_columns.items():
                 if col_name not in columns:

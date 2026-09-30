@@ -33,6 +33,7 @@ from src.api.schemas.decks import (
     IllegalCard,
     LegalityResult,
     ManaCurvePoint,
+    RoleCoverageEntry,
     TypeDistEntry,
 )
 from src.api.schemas.envelope import ApiResponse, success_response
@@ -309,6 +310,7 @@ def generate_deck_endpoint(
         prioritize_owned=request.prioritize_owned,
         user_id=user_id,
         exclude_card_ids=request.exclude_card_ids,
+        synergy_weight=request.synergy_weight,
     )
 
     generated = generate_deck(repo, params)
@@ -336,6 +338,17 @@ def generate_deck_endpoint(
 
     total_cards = sum(c["quantity"] for c in generated.cards)
 
+    # Compute avg synergy score
+    syn_total = 0.0
+    syn_count = 0
+    for c in generated.cards:
+        s = c.get("synergy_score")
+        if s is not None:
+            qty = c.get("quantity", 1)
+            syn_total += s * qty
+            syn_count += qty
+    avg_synergy_score = round(syn_total / syn_count, 3) if syn_count > 0 else None
+
     return success_response(
         data=DeckGenerateResponse(
             deck_id=deck.id,
@@ -361,9 +374,12 @@ def generate_deck_endpoint(
                     image_uri=c.get("image_uri"),
                     price=c.get("price"),
                     is_owned=c.get("is_owned", False),
+                    synergy_score=c.get("synergy_score"),
                 )
                 for c in generated.cards
             ],
+            synergy_weight=request.synergy_weight,
+            avg_synergy_score=avg_synergy_score,
         )
     )
 
@@ -535,6 +551,7 @@ def evaluate_deck_endpoint(
             "type_line": None,
             "color_identity": None,
             "rarity": None,
+            "oracle_text": None,
         }
         if dc.card_id is not None and dc.card_id in card_info:
             cr = card_info[dc.card_id]
@@ -542,6 +559,7 @@ def evaluate_deck_endpoint(
             card_dict["type_line"] = cr.type_line
             card_dict["color_identity"] = cr.color_identity
             card_dict["rarity"] = cr.rarity
+            card_dict["oracle_text"] = getattr(cr, "oracle_text", None)
         elif dc.card_id is None:
             unlinked_count += 1
         enriched_cards.append(card_dict)
@@ -607,6 +625,13 @@ def evaluate_deck_endpoint(
             "were excluded from some analyses.",
         )
 
+    role_coverage_list = []
+    if evaluation.role_coverage:
+        role_coverage_list = [
+            RoleCoverageEntry(role=role, count=count)
+            for role, count in sorted(evaluation.role_coverage.items())
+        ]
+
     return success_response(
         data=DeckEvaluationResponse(
             deck_id=deck_id,
@@ -621,6 +646,9 @@ def evaluate_deck_endpoint(
             legality=legality_result,
             budget=budget_result,
             suggestions=suggestions,
+            synergy_score=evaluation.synergy_score,
+            role_coverage=role_coverage_list,
+            tribal_density=evaluation.tribal_density,
         )
     )
 

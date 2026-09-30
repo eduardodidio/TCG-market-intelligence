@@ -657,6 +657,11 @@ export interface BudgetAnalysis {
   price_tiers: Record<string, number>;
 }
 
+export interface RoleCoverageEntry {
+  role: string;
+  count: number;
+}
+
 export interface DeckEvaluation {
   deck_id: number;
   mana_curve: ManaCurvePoint[];
@@ -670,6 +675,9 @@ export interface DeckEvaluation {
   legality: LegalityResult | null;
   budget: BudgetAnalysis | null;
   suggestions: string[];
+  synergy_score: number | null;
+  role_coverage: RoleCoverageEntry[];
+  tribal_density: number | null;
 }
 
 // Deck generator types (F133)
@@ -683,6 +691,7 @@ export interface DeckGenerateParams {
   prioritize_owned?: boolean;
   deck_name?: string | null;
   exclude_card_ids?: number[];
+  synergy_weight?: number;
 }
 
 export interface GeneratedCard {
@@ -697,6 +706,7 @@ export interface GeneratedCard {
   image_uri: string | null;
   price: number | null;
   is_owned: boolean;
+  synergy_score: number | null;
 }
 
 export interface DeckGenerateResult {
@@ -711,6 +721,8 @@ export interface DeckGenerateResult {
   total_value: number | null;
   warnings: string[];
   cards: GeneratedCard[];
+  synergy_weight: number;
+  avg_synergy_score: number | null;
 }
 
 export interface CommanderSearchResult {

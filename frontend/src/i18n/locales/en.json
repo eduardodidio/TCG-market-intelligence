@@ -595,6 +595,34 @@
     "totalValue": "Total Value",
     "cardCountInvalid": "Deck does not meet minimum card count"
   },
+  "deck": {
+    "evaluation": {
+      "synergyScore": "Synergy Score",
+      "synergyHint": "How well your cards work together with the commander's strategy.",
+      "roleCoverage": "Role Coverage",
+      "tribalDensity": "Tribal Density"
+    },
+    "roles": {
+      "draw": "Card Draw",
+      "ramp": "Ramp",
+      "removal": "Removal",
+      "token": "Tokens",
+      "counter": "Counters",
+      "sacrifice": "Sacrifice",
+      "flicker": "Flicker",
+      "lifegain": "Life Gain",
+      "graveyard": "Graveyard",
+      "protection": "Protection",
+      "equipment": "Equipment",
+      "enchantress": "Enchantress",
+      "utility": "Utility"
+    },
+    "synergy": {
+      "weightLabel": "Synergy weight:",
+      "weightHint": "Higher values prioritize cards that synergize with your commander.",
+      "avgScore": "Avg Synergy"
+    }
+  },
   "auth": {
     "appTitle": "TEDHC Market",
     "createAccount": "Create your account",
@@ -1319,6 +1347,7 @@
     "showTop10": "Show Top 10",
     "showTop100": "Show Top 100",
     "collapse": "Collapse",
+    "dismiss": "Dismiss",
     "tickerAriaLabel": "Collection price movers ticker"
   },
   "errorCodes": {

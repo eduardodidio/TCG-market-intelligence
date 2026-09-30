@@ -139,6 +139,32 @@ export function DeckBuildWizard() {
   );
 }
 
+function SynergyBadge({ score }: { score: number | null }) {
+  if (score === null || score === undefined) return null;
+  const pct = Math.round(score * 100);
+  let bg: string;
+  let text: string;
+  if (pct >= 50) {
+    bg = "bg-green-900/30 border-green-700/50";
+    text = "text-green-400";
+  } else if (pct >= 20) {
+    bg = "bg-yellow-900/30 border-yellow-700/50";
+    text = "text-yellow-400";
+  } else {
+    bg = "bg-slate-700/50 border-slate-600/50";
+    text = "text-slate-400";
+  }
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${bg} ${text}`}
+      data-testid="synergy-badge"
+      title={`Synergy: ${pct}%`}
+    >
+      {pct}%
+    </span>
+  );
+}
+
 /** The original 4-step generator wizard (`?mode=manual`). */
 function ManualDeckWizard() {
   const { t } = useTranslation();
@@ -156,6 +182,9 @@ function ManualDeckWizard() {
   // Commander selection (search lives in <CommanderSearch />)
   const [selectedCommander, setSelectedCommander] =
     useState<CommanderSearchResult | null>(null);
+
+  // Synergy weight
+  const [synergyWeight, setSynergyWeight] = useState(0.7);
 
   // Generation state
   const [generating, setGenerating] = useState(false);
@@ -200,6 +229,7 @@ function ManualDeckWizard() {
       budget_limit: budgetLimit ? parseFloat(budgetLimit) : null,
       prioritize_owned: prioritizeOwned,
       deck_name: deckName || undefined,
+      synergy_weight: synergyWeight,
     };
 
     const resp = await generateDeck(params);
@@ -219,6 +249,7 @@ function ManualDeckWizard() {
     budgetLimit,
     prioritizeOwned,
     deckName,
+    synergyWeight,
   ]);
 
   const handleRegenerate = useCallback(async () => {
@@ -479,6 +510,37 @@ function ManualDeckWizard() {
             </label>
           </div>
 
+          {/* Synergy weight slider */}
+          {isCommanderFormat && (
+            <div className="mb-6" data-testid="synergy-weight-section">
+              <p className="text-sm text-slate-400 mb-2">
+                {t("deck.synergy.weightLabel", {
+                  defaultValue: "Synergy weight:",
+                })}
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={synergyWeight}
+                  onChange={(e) => setSynergyWeight(parseFloat(e.target.value))}
+                  className="flex-1 accent-cyan-500"
+                  data-testid="synergy-weight-slider"
+                />
+                <span className="text-sm text-white font-mono w-10 text-right" data-testid="synergy-weight-value">
+                  {Math.round(synergyWeight * 100)}%
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                {t("deck.synergy.weightHint", {
+                  defaultValue: "Higher values prioritize cards that synergize with your commander.",
+                })}
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-between mt-6">
             <button
               onClick={() => setStep(2)}
@@ -528,7 +590,7 @@ function ManualDeckWizard() {
 
           {/* Stats summary */}
           <div
-            className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6"
+            className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6"
             data-testid="generate-stats"
           >
             <div className="p-3 rounded-lg bg-slate-800 border border-slate-600">
@@ -565,6 +627,22 @@ function ManualDeckWizard() {
                   : "N/A"}
               </p>
             </div>
+            {result.avg_synergy_score !== null && result.avg_synergy_score !== undefined && (
+              <div className="p-3 rounded-lg bg-slate-800 border border-slate-600" data-testid="gen-avg-synergy">
+                <p className="text-xs text-slate-400">
+                  {t("deck.synergy.avgScore", { defaultValue: "Avg Synergy" })}
+                </p>
+                <p className={`text-lg font-bold ${
+                  result.avg_synergy_score >= 0.4
+                    ? "text-green-400"
+                    : result.avg_synergy_score >= 0.2
+                      ? "text-yellow-400"
+                      : "text-slate-400"
+                }`}>
+                  {Math.round(result.avg_synergy_score * 100)}%
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Deck name input */}
@@ -613,11 +691,15 @@ function ManualDeckWizard() {
                       </p>
                     </div>
                   )}
-                  {card.quantity > 1 && (
-                    <div className="text-center text-xs text-slate-400 py-0.5 bg-slate-800">
-                      x{card.quantity}
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between px-1 py-0.5 bg-slate-800">
+                    {card.quantity > 1 && (
+                      <span className="text-xs text-slate-400">
+                        x{card.quantity}
+                      </span>
+                    )}
+                    {card.quantity <= 1 && <span />}
+                    <SynergyBadge score={card.synergy_score} />
+                  </div>
                 </div>
               );
             })}

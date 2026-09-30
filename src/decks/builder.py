@@ -13,6 +13,7 @@ from sqlalchemy import case, or_, select
 from sqlalchemy.orm import Session
 
 from src.database.models import CardLegalityRow, CardRow, UserCollectionRow
+from src.decks.synergy import CommanderKeywords, extract_commander_keywords, score_synergy
 from src.domain.models import DeckBuildParams, GeneratedDeck
 
 # Basic land names (exempt from singleton and always available)
@@ -229,6 +230,12 @@ def _query_candidates(
     return [r for r in rows if _color_identity_matches(r.color_identity, colors)]
 
 
+def _rarity_bonus(rarity: str | None) -> float:
+    """Return a bonus score based on rarity (higher is rarer)."""
+    _MAP = {"M": 1.0, "R": 0.75, "U": 0.5, "C": 0.25}
+    return _MAP.get((rarity or "")[:1].upper(), 0.25)
+
+
 def _select_cards(
     candidates: list[CardRow],
     target_count: int,
@@ -237,14 +244,43 @@ def _select_cards(
     prices: dict[int, Decimal],
     owned_ids: set[int],
     prioritize_owned: bool,
+    commander_keywords: CommanderKeywords | None = None,
+    synergy_weight: float = 0.0,
 ) -> list[dict]:
     """Pick cards from candidates up to target_count.
 
     If singleton, pick 1 of each. If not, pick up to 4 of each.
     Owned cards are sorted first when prioritize_owned is True.
     Budget is respected when budget_remaining is provided.
+
+    When *commander_keywords* is provided and *synergy_weight* > 0,
+    candidates are ranked by a composite score mixing synergy and rarity.
     """
-    if prioritize_owned:
+    # Pre-compute synergy scores if we have commander keywords
+    syn_scores: dict[int, float] = {}
+    if commander_keywords and synergy_weight > 0:
+        for card in candidates:
+            syn_scores[card.id] = score_synergy(
+                card_oracle_text=card.oracle_text or "",
+                card_type_line=card.type_line or "",
+                commander_keywords=commander_keywords,
+            )
+        # Sort by composite score descending, then owned, then price
+        sw = synergy_weight
+
+        def _composite_key(c: CardRow):
+            syn = syn_scores.get(c.id, 0.0)
+            rb = _rarity_bonus(c.rarity)
+            composite = sw * syn + (1.0 - sw) * rb
+            owned_priority = 0 if c.id in owned_ids else 1
+            return (
+                -composite,
+                owned_priority if prioritize_owned else 0,
+                prices.get(c.id, Decimal("999999")),
+            )
+
+        candidates = sorted(candidates, key=_composite_key)
+    elif prioritize_owned:
         # Sort: owned first, then by price ascending
         candidates = sorted(
             candidates,
@@ -274,6 +310,8 @@ def _select_cards(
 
         copies = 1 if singleton else min(4, target_count - count)
 
+        syn_score = syn_scores.get(card.id, 0.0)
+
         selected.append(
             {
                 "card_id": card.id,
@@ -287,6 +325,7 @@ def _select_cards(
                 "image_uri": card.image_uri,
                 "price": float(card_price) if card_price else None,
                 "is_owned": card.id in owned_ids,
+                "synergy_score": round(syn_score, 2),
             }
         )
 
@@ -345,6 +384,7 @@ def _add_basic_lands(
                     "image_uri": None,
                     "price": None,
                     "is_owned": False,
+                    "synergy_score": 0.0,
                 }
             )
 
@@ -487,6 +527,15 @@ def generate_deck(repo, params: DeckBuildParams) -> GeneratedDeck:
         warnings.append("No colors specified; using all five colors")
         colors = {"W", "U", "B", "R", "G"}
 
+    # Extract commander synergy keywords
+    commander_keywords: CommanderKeywords | None = None
+    synergy_weight = getattr(params, "synergy_weight", 0.7)
+    if commander_card and getattr(commander_card, "oracle_text", None):
+        commander_keywords = extract_commander_keywords(
+            commander_card.oracle_text,
+            commander_card.type_line or "",
+        )
+
     # Get target composition
     composition = _get_target_composition(format_name, params.archetype)
     target_land_count = composition.pop("Land", 37)
@@ -531,6 +580,7 @@ def generate_deck(repo, params: DeckBuildParams) -> GeneratedDeck:
                 "image_uri": commander_card.image_uri,
                 "price": None,
                 "is_owned": commander_card.id in owned_ids,
+                "synergy_score": 1.0,
             }
         )
         exclude_ids.add(commander_card.id)
@@ -577,6 +627,7 @@ def generate_deck(repo, params: DeckBuildParams) -> GeneratedDeck:
                             "image_uri": staple.image_uri,
                             "price": None,
                             "is_owned": staple.id in owned_ids,
+                            "synergy_score": 0.0,
                         }
                     )
                     exclude_ids.add(staple.id)
@@ -628,6 +679,8 @@ def generate_deck(repo, params: DeckBuildParams) -> GeneratedDeck:
             prices,
             owned_ids,
             params.prioritize_owned,
+            commander_keywords=commander_keywords,
+            synergy_weight=synergy_weight,
         )
 
         for card_dict in selected:

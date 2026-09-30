@@ -47,6 +47,7 @@ class CatalogCard:
     mana_cost: str
     type_line: str
     image_uri: str | None
+    oracle_text: str = ""
     name_pt: str | None = None
 
 
@@ -224,6 +225,12 @@ def _parse_card(raw: dict) -> CatalogCard | None:
             face_uris = card_faces[0].get("image_uris") or {}
             image_uri = face_uris.get("normal")
 
+    oracle_text = raw.get("oracle_text", "")
+    if not oracle_text:
+        card_faces = raw.get("card_faces") or []
+        texts = [f.get("oracle_text", "") for f in card_faces if f.get("oracle_text")]
+        oracle_text = "\n".join(texts)
+
     return CatalogCard(
         name_en=raw.get("name", ""),
         set_code=raw.get("set", ""),
@@ -233,6 +240,7 @@ def _parse_card(raw: dict) -> CatalogCard | None:
         mana_cost=raw.get("mana_cost", ""),
         type_line=raw.get("type_line", ""),
         image_uri=image_uri,
+        oracle_text=oracle_text,
         name_pt=None,
     )
 
