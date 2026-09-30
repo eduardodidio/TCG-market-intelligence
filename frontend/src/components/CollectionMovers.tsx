@@ -8,19 +8,21 @@ import {
 } from "../api/collection";
 import { formatCurrency } from "../utils/format";
 
-interface MoverRowProps {
+export interface MoverRowProps {
   mover: CollectionMoverData;
   type: "gainer" | "loser";
+  onDismiss?: (cardId: number) => void;
 }
 
-function MoverRow({ mover, type }: MoverRowProps) {
+export function MoverRow({ mover, type, onDismiss }: MoverRowProps) {
+  const { t } = useTranslation();
   const colorClass = type === "gainer" ? "text-emerald-400" : "text-red-400";
   const sign = type === "gainer" ? "+" : "";
 
   return (
     <Link
       to={`/cards/${mover.card_id}`}
-      className="flex items-center gap-3 py-2 border-b border-slate-700/50 last:border-0
+      className="group flex items-center gap-3 py-2 border-b border-slate-700/50 last:border-0
         hover:bg-slate-700/30 rounded px-1 -mx-1 transition-colors no-underline"
       data-testid={`mover-row-${type}`}
     >
@@ -47,6 +49,22 @@ function MoverRow({ mover, type }: MoverRowProps) {
           {sign}{mover.change_pct.toFixed(1)}%
         </p>
       </div>
+      {onDismiss && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDismiss(mover.card_id);
+          }}
+          className="flex-shrink-0 p-1 text-slate-500 hover:text-slate-300 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+          aria-label={t("movers.dismiss")}
+          data-testid={`mover-dismiss-${mover.card_id}`}
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
     </Link>
   );
 }
@@ -63,6 +81,11 @@ export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [currentLimit, setCurrentLimit] = useState(limit);
+  const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+
+  const handleDismiss = useCallback((cardId: number) => {
+    setDismissed((prev) => new Set(prev).add(cardId));
+  }, []);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -133,10 +156,12 @@ export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }
           <h4 className="text-sm font-semibold text-emerald-400 mb-2">
             {t("movers.gainers")}
           </h4>
-          {data.gainers.length > 0 ? (
-            data.gainers.map((m) => (
-              <MoverRow key={m.card_id} mover={m} type="gainer" />
-            ))
+          {data.gainers.filter((m) => !dismissed.has(m.card_id)).length > 0 ? (
+            data.gainers
+              .filter((m) => !dismissed.has(m.card_id))
+              .map((m) => (
+                <MoverRow key={m.card_id} mover={m} type="gainer" onDismiss={handleDismiss} />
+              ))
           ) : (
             <p className="text-xs text-slate-500 py-2">{t("movers.noData")}</p>
           )}
@@ -150,10 +175,12 @@ export function CollectionMovers({ days = 7, limit = 5, investmentOnly = false }
           <h4 className="text-sm font-semibold text-red-400 mb-2">
             {t("movers.losers")}
           </h4>
-          {data.losers.length > 0 ? (
-            data.losers.map((m) => (
-              <MoverRow key={m.card_id} mover={m} type="loser" />
-            ))
+          {data.losers.filter((m) => !dismissed.has(m.card_id)).length > 0 ? (
+            data.losers
+              .filter((m) => !dismissed.has(m.card_id))
+              .map((m) => (
+                <MoverRow key={m.card_id} mover={m} type="loser" onDismiss={handleDismiss} />
+              ))
           ) : (
             <p className="text-xs text-slate-500 py-2">{t("movers.noData")}</p>
           )}

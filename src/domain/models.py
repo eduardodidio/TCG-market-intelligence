@@ -669,6 +669,9 @@ class DeckEvaluation:
     legality_check: dict | None = None
     budget: dict | None = None
     suggestions: list[str] = field(default_factory=list)
+    synergy_score: float | None = None
+    role_coverage: dict[str, int] | None = None
+    tribal_density: float | None = None
 
 
 # --- Deck builder domain models (F133) ---
@@ -686,6 +689,7 @@ class DeckBuildParams:
     prioritize_owned: bool = False
     user_id: str | None = None
     exclude_card_ids: list[int] = field(default_factory=list)
+    synergy_weight: float = 0.7
 
 
 @dataclass

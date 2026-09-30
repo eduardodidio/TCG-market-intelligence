@@ -39,9 +39,9 @@ vi.mock("../../api/market", () => ({
   fetchMarketStats: (...args: unknown[]) => mockFetchMarketStats(...args),
 }));
 
-vi.mock("../../components/TrendingSection", () => ({
-  TrendingSection: ({ direction, collectionOnly }: { direction: string; collectionOnly: boolean }) => (
-    <div data-testid={`trending-section-${direction}`} data-collection-only={String(collectionOnly)} />
+vi.mock("../../components/DashboardTrendingMovers", () => ({
+  DashboardTrendingMovers: ({ direction, collectionOnly }: { direction: string; collectionOnly: boolean }) => (
+    <div data-testid={`dashboard-trending-${direction}`} data-collection-only={String(collectionOnly)} />
   ),
 }));
 
@@ -113,8 +113,8 @@ describe("Dashboard", () => {
     await waitFor(() => expect(screen.getByTestId("collection-kpis")).toBeInTheDocument());
     expect(screen.getByTestId("dashboard-investment-stub")).toBeInTheDocument();
     expect(screen.getByTestId("dashboard-movers")).toBeInTheDocument();
-    expect(screen.getByTestId("trending-section-gainers")).toBeInTheDocument();
-    expect(screen.getByTestId("trending-section-losers")).toBeInTheDocument();
+    expect(screen.getByTestId("dashboard-trending-gainers")).toBeInTheDocument();
+    expect(screen.getByTestId("dashboard-trending-losers")).toBeInTheDocument();
     expect(screen.getByTestId("trending-view-all")).toBeInTheDocument();
 
     expect(screen.queryByTestId("market-summary-strip")).not.toBeInTheDocument();
@@ -129,8 +129,8 @@ describe("Dashboard", () => {
 
     await waitFor(() => expect(screen.getByTestId("collection-kpis")).toBeInTheDocument());
     expect(screen.queryByTestId("dashboard-investment-stub")).not.toBeInTheDocument();
-    expect(screen.getByTestId("trending-section-gainers")).toHaveAttribute("data-collection-only", "false");
-    expect(screen.getByTestId("trending-section-losers")).toHaveAttribute("data-collection-only", "false");
+    expect(screen.getByTestId("dashboard-trending-gainers")).toHaveAttribute("data-collection-only", "false");
+    expect(screen.getByTestId("dashboard-trending-losers")).toHaveAttribute("data-collection-only", "false");
   });
 
   it("shows collection-empty state and no investment summary when total_unique is 0", async () => {
@@ -143,7 +143,7 @@ describe("Dashboard", () => {
 
     await waitFor(() => expect(screen.getByTestId("collection-empty")).toBeInTheDocument());
     expect(screen.queryByTestId("dashboard-investment-stub")).not.toBeInTheDocument();
-    expect(screen.getByTestId("trending-section-gainers")).toBeInTheDocument();
+    expect(screen.getByTestId("dashboard-trending-gainers")).toBeInTheDocument();
   });
 
   it("shows collection-error state with retry instead of a full-page error", async () => {
@@ -156,7 +156,7 @@ describe("Dashboard", () => {
 
     await waitFor(() => expect(screen.getByTestId("collection-error")).toBeInTheDocument());
     expect(screen.getByTestId("page-dashboard")).toBeInTheDocument();
-    expect(screen.getByTestId("trending-section-gainers")).toBeInTheDocument();
+    expect(screen.getByTestId("dashboard-trending-gainers")).toBeInTheDocument();
   });
 
   it("shows the skeleton while the collection summary is loading", () => {

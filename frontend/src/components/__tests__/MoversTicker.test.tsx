@@ -285,6 +285,27 @@ describe("MoversTicker", () => {
     expect(items[3]).toHaveAttribute("tabindex", "-1");
   });
 
+  it("has w-max class for proper scroll animation width", async () => {
+    mockFetchCollectionMovers.mockResolvedValue({
+      data: {
+        gainers: [sampleGainers[0]],
+        losers: [sampleLosers[0]],
+        period_days: 7,
+      },
+      errors: [],
+    });
+
+    render(<MoversTicker />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("movers-ticker")).toBeInTheDocument(),
+    );
+
+    const ticker = screen.getByTestId("movers-ticker");
+    const innerDiv = ticker.firstElementChild as HTMLElement;
+    expect(innerDiv.className).toContain("w-max");
+  });
+
   it("calls fetchCollectionMovers with correct params", async () => {
     mockFetchCollectionMovers.mockResolvedValue({
       data: { gainers: [], losers: [], period_days: 7 },

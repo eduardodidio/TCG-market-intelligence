@@ -45,8 +45,11 @@ const mockGenerateResult: DeckGenerateResult = {
       image_uri: null,
       price: 10.0,
       is_owned: false,
+      synergy_score: 0.0,
     },
   ],
+  synergy_weight: 0.7,
+  avg_synergy_score: null,
 };
 
 vi.mock("../../api/decks", () => ({

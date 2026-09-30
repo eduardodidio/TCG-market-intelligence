@@ -2536,6 +2536,136 @@ def catalog_enrich(db, dry_run, batch_size):
     click.echo("")
 
 
+@catalog.command("update-oracle")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option("--batch-size", default=500, type=int, help="Batch size for DB updates")
+@click.option("--dry-run", is_flag=True, help="Count cards without updating")
+def catalog_update_oracle(db, batch_size, dry_run):
+    """Backfill oracle_text for cards missing it from Scryfall bulk data.
+
+    Downloads the Scryfall bulk data file (or reuses today's download),
+    streams it, and updates cards WHERE oracle_text IS NULL.
+    """
+    import json
+    from pathlib import Path
+
+    from sqlalchemy import create_engine, func, select, update
+    from sqlalchemy.orm import Session
+
+    from src.catalog.scryfall import download_bulk_data
+    from src.database.models import Base, CardRow
+
+    engine = create_engine(db, echo=False)
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        null_count = (
+            session.scalar(
+                select(func.count(CardRow.id)).where(
+                    CardRow.game == "magic", CardRow.oracle_text.is_(None)
+                )
+            )
+            or 0
+        )
+        click.echo(f"Cards missing oracle_text: {null_count:,}")
+
+        if null_count == 0:
+            click.echo("Nothing to do.")
+            engine.dispose()
+            return
+
+    if dry_run:
+        click.echo(f"\n[DRY RUN] {null_count:,} cards need oracle_text.")
+        engine.dispose()
+        return
+
+    catalog_dir = Path("data/catalog")
+    click.echo("Downloading Scryfall bulk data...")
+    bulk_path = download_bulk_data(str(catalog_dir))
+    click.echo(f"Using: {bulk_path}")
+
+    is_jsonl = str(bulk_path).endswith(".jsonl")
+    updated = 0
+    processed = 0
+    batch: list[tuple[str, str, str]] = []
+
+    def flush_batch(session, batch):
+        nonlocal updated
+        for set_code, cn, oracle in batch:
+            result = session.execute(
+                update(CardRow)
+                .where(
+                    CardRow.game == "magic",
+                    CardRow.set_code == set_code,
+                    CardRow.collector_number == cn,
+                    CardRow.oracle_text.is_(None),
+                )
+                .values(oracle_text=oracle)
+            )
+            updated += result.rowcount
+        session.commit()
+        batch.clear()
+
+    with open(bulk_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            if not is_jsonl:
+                # Skip non-object lines in JSON array format
+                if not line.startswith("{"):
+                    continue
+                line = line.rstrip(",")
+            try:
+                raw = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            games = raw.get("games", [])
+            if "paper" not in games or raw.get("lang") != "en":
+                continue
+
+            oracle = raw.get("oracle_text", "")
+            if not oracle:
+                card_faces = raw.get("card_faces") or []
+                texts = [fc.get("oracle_text", "") for fc in card_faces if fc.get("oracle_text")]
+                oracle = "\n".join(texts)
+            if not oracle:
+                continue
+
+            sc = raw.get("set", "")
+            cn = raw.get("collector_number", "")
+            if sc and cn:
+                batch.append((sc, cn, oracle))
+
+            if len(batch) >= batch_size:
+                with Session(engine) as session:
+                    flush_batch(session, batch)
+                processed += batch_size
+                if processed % 5000 == 0:
+                    click.echo(f"  ... processed {processed:,}, updated {updated:,}")
+
+    if batch:
+        with Session(engine) as session:
+            flush_batch(session, batch)
+
+    engine.dispose()
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  CATALOG UPDATE-ORACLE SUMMARY")
+    click.echo(f"  Cards updated:  {updated:,}")
+    click.echo("=" * 60)
+    click.echo("")
+
+
 @cli.command("backfill-portfolio")
 @click.option(
     "--db",

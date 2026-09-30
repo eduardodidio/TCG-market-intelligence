@@ -10,8 +10,8 @@ import { useWelcome } from "../hooks/useWelcome";
 import { formatCurrency } from "../utils/format";
 import { KpiCard } from "../components/KpiCard";
 import { CurrencyIndicator } from "../components/CurrencyIndicator";
-import { TrendingSection } from "../components/TrendingSection";
 import { CollectionMovers } from "../components/CollectionMovers";
+import { DashboardTrendingMovers } from "../components/DashboardTrendingMovers";
 import { DashboardInvestmentSummary } from "../components/DashboardInvestmentSummary";
 import { EmptyState } from "../components/EmptyState";
 import { FreshnessIndicator } from "../components/FreshnessIndicator";
@@ -209,24 +209,22 @@ export function Dashboard() {
       )}
 
       {/* Trending: gainers + losers side by side */}
-      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6" data-testid="trending-grid">
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="trending-grid">
         <div data-testid="landing-trending-up">
-          <TrendingSection
+          <DashboardTrendingMovers
             direction="gainers"
             period="30d"
             currency={currency}
             limit={10}
-            variant="list"
             collectionOnly={isAuthenticated}
           />
         </div>
         <div data-testid="landing-trending-down">
-          <TrendingSection
+          <DashboardTrendingMovers
             direction="losers"
             period="30d"
             currency={currency}
             limit={10}
-            variant="list"
             collectionOnly={isAuthenticated}
           />
         </div>

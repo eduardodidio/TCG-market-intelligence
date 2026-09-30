@@ -473,6 +473,116 @@ export function DeckEvaluationPanel({ deckId }: Props) {
         </div>
       )}
 
+      {/* Synergy Score */}
+      {evaluation.synergy_score !== null && evaluation.synergy_score !== undefined && (
+        <div
+          className="p-4 rounded-lg bg-slate-800 border border-slate-600"
+          data-testid="synergy-score-section"
+        >
+          <h3 className="text-sm font-semibold text-white mb-3">
+            {t("deck.evaluation.synergyScore", { defaultValue: "Synergy Score" })}
+          </h3>
+          <div className="flex items-center gap-4 mb-2">
+            <div className="flex-1">
+              <div className="w-full bg-slate-700 rounded-full h-3">
+                <div
+                  className={`h-3 rounded-full transition-all ${
+                    evaluation.synergy_score >= 0.6
+                      ? "bg-green-500"
+                      : evaluation.synergy_score >= 0.4
+                        ? "bg-yellow-500"
+                        : evaluation.synergy_score >= 0.2
+                          ? "bg-orange-500"
+                          : "bg-red-500"
+                  }`}
+                  style={{ width: `${Math.round(evaluation.synergy_score * 100)}%` }}
+                  data-testid="synergy-score-bar"
+                />
+              </div>
+            </div>
+            <span
+              className={`text-sm font-bold ${
+                evaluation.synergy_score >= 0.6
+                  ? "text-green-400"
+                  : evaluation.synergy_score >= 0.4
+                    ? "text-yellow-400"
+                    : evaluation.synergy_score >= 0.2
+                      ? "text-orange-400"
+                      : "text-red-400"
+              }`}
+              data-testid="synergy-score-value"
+            >
+              {Math.round(evaluation.synergy_score * 100)}%
+            </span>
+          </div>
+          <p className="text-xs text-slate-500">
+            {t("deck.evaluation.synergyHint", {
+              defaultValue: "How well your cards work together with the commander's strategy.",
+            })}
+          </p>
+
+          {/* Tribal Density */}
+          {evaluation.tribal_density !== null && evaluation.tribal_density !== undefined && (
+            <div className="mt-3 flex justify-between text-sm" data-testid="tribal-density-line">
+              <span className="text-slate-400">
+                {t("deck.evaluation.tribalDensity", { defaultValue: "Tribal Density" })}
+              </span>
+              <span className="text-white font-semibold">
+                {Math.round(evaluation.tribal_density * 100)}%
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Role Coverage */}
+      {evaluation.role_coverage && evaluation.role_coverage.length > 0 && (
+        <div
+          className="p-4 rounded-lg bg-slate-800 border border-slate-600"
+          data-testid="role-coverage-section"
+        >
+          <h3 className="text-sm font-semibold text-white mb-3">
+            {t("deck.evaluation.roleCoverage", { defaultValue: "Role Coverage" })}
+          </h3>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={evaluation.role_coverage.map((r) => ({
+                  role: t(`deck.roles.${r.role}`, { defaultValue: r.role }),
+                  count: r.count,
+                }))}
+                layout="vertical"
+              >
+                <XAxis
+                  type="number"
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="role"
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={90}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #475569",
+                    borderRadius: "0.375rem",
+                  }}
+                  labelStyle={{ color: "#94a3b8" }}
+                />
+                <Bar dataKey="count" fill="#06b6d4" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* Suggestions */}
       {evaluation.suggestions.length > 0 && (
         <div

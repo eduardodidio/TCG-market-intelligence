@@ -68,6 +68,9 @@ const mockEvaluation: DeckEvaluation = {
     price_tiers: { budget: 30, mid: 20, premium: 8, chase: 5 },
   },
   suggestions: ["Consider adding more card draw."],
+  synergy_score: null,
+  role_coverage: [],
+  tribal_density: null,
 };
 
 let mockFetchResult: { data: DeckEvaluation | null; errors: { message: string }[] };

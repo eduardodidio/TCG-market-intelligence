@@ -306,5 +306,43 @@ def generate_suggestions(
             "removal, or combat tricks."
         )
 
+    # 10. Role coverage checks (from synergy engine)
+    if template and evaluation.role_coverage:
+        rc = evaluation.role_coverage
+        removal_min = template.get("removal_min", 0)
+        draw_min = template.get("card_draw_min", 0)
+        ramp_min = template.get("ramp_min", 0)
+
+        removal_count = rc.get("removal", 0)
+        draw_count = rc.get("draw", 0)
+        ramp_count = rc.get("ramp", 0)
+
+        if removal_count < removal_min:
+            deficit = removal_min - removal_count
+            warnings.append(
+                f"Only {removal_count} removal cards detected, "
+                f"target is {removal_min}. Consider adding {deficit} more."
+            )
+        if draw_count < draw_min:
+            deficit = draw_min - draw_count
+            warnings.append(
+                f"Only {draw_count} card-draw cards detected, "
+                f"target is {draw_min}. Consider adding {deficit} more."
+            )
+        if ramp_count < ramp_min:
+            deficit = ramp_min - ramp_count
+            warnings.append(
+                f"Only {ramp_count} ramp cards detected, "
+                f"target is {ramp_min}. Consider adding {deficit} more."
+            )
+
+    # 11. Low synergy score warning
+    if evaluation.synergy_score is not None and evaluation.synergy_score < 0.15:
+        info.append(
+            f"Average synergy score is {evaluation.synergy_score:.2f}, "
+            "which is quite low. Consider adding more cards that "
+            "align with your commander's strategy."
+        )
+
     # Return sorted by severity: critical first, then warnings, then info
     return critical + warnings + info

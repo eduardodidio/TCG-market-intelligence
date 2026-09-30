@@ -426,6 +426,71 @@ def evaluate_deck(
     if prices:
         budget = _analyze_budget(cards, prices)
 
+    # --- Synergy metrics ---
+    from src.decks.synergy import (
+        classify_card_role,
+        extract_commander_keywords,
+        extract_subtypes,
+        score_synergy,
+    )
+
+    # Role coverage: classify each card's oracle_text
+    role_coverage: dict[str, int] = defaultdict(int)
+    for card in cards:
+        oracle = card.get("oracle_text") or ""
+        if not oracle:
+            continue
+        roles = classify_card_role(oracle)
+        qty = card.get("quantity", 1)
+        for role in roles:
+            role_coverage[role] += qty
+    role_coverage_dict = dict(role_coverage) if role_coverage else None
+
+    # Find a commander card (first Legendary Creature) for synergy scoring
+    commander_card = None
+    for card in cards:
+        tl = card.get("type_line") or ""
+        if "Legendary" in tl and "Creature" in tl:
+            commander_card = card
+            break
+
+    synergy_score_avg: float | None = None
+    tribal_density: float | None = None
+
+    if commander_card:
+        cmd_oracle = commander_card.get("oracle_text") or ""
+        cmd_type = commander_card.get("type_line") or ""
+        cmd_kw = extract_commander_keywords(cmd_oracle, cmd_type)
+        cmd_subtypes = {s.lower() for s in cmd_kw.tribal_types}
+
+        # Average synergy score across all non-land cards
+        syn_total = 0.0
+        syn_count = 0
+        creature_count = 0
+        tribal_match_count = 0
+
+        for card in cards:
+            if _is_land(card.get("type_line")):
+                continue
+            oracle = card.get("oracle_text") or ""
+            tl = card.get("type_line") or ""
+            qty = card.get("quantity", 1)
+            s = score_synergy(oracle, tl, cmd_kw)
+            syn_total += s * qty
+            syn_count += qty
+
+            # Tribal density: fraction of creatures sharing type with commander
+            if "Creature" in tl:
+                card_subtypes = {st.lower() for st in extract_subtypes(tl)}
+                if card_subtypes & cmd_subtypes:
+                    tribal_match_count += qty
+                creature_count += qty
+
+        if syn_count > 0:
+            synergy_score_avg = round(syn_total / syn_count, 3)
+        if creature_count > 0:
+            tribal_density = round(tribal_match_count / creature_count, 3)
+
     evaluation = DeckEvaluation(
         mana_curve=mana_curve,
         color_distribution=color_dist,
@@ -437,6 +502,9 @@ def evaluate_deck(
         color_identity=identity,
         legality_check=legality_check,
         budget=budget,
+        synergy_score=synergy_score_avg,
+        role_coverage=role_coverage_dict,
+        tribal_density=tribal_density,
     )
 
     # Generate suggestions based on evaluation and archetype template

@@ -106,6 +106,11 @@ class BudgetAnalysis(BaseModel):
     price_tiers: dict[str, int] = {}
 
 
+class RoleCoverageEntry(BaseModel):
+    role: str
+    count: int
+
+
 class DeckEvaluationResponse(BaseModel):
     deck_id: int
     mana_curve: list[ManaCurvePoint] = []
@@ -119,6 +124,9 @@ class DeckEvaluationResponse(BaseModel):
     legality: LegalityResult | None = None
     budget: BudgetAnalysis | None = None
     suggestions: list[str] = []
+    synergy_score: float | None = None
+    role_coverage: list[RoleCoverageEntry] = []
+    tribal_density: float | None = None
 
 
 # --- Deck Generator schemas (F133-T04) ---
@@ -133,6 +141,7 @@ class DeckGenerateRequest(BaseModel):
     prioritize_owned: bool = False
     deck_name: str | None = None
     exclude_card_ids: list[int] = Field(default_factory=list)
+    synergy_weight: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
 class GeneratedCardSchema(BaseModel):
@@ -147,6 +156,7 @@ class GeneratedCardSchema(BaseModel):
     image_uri: str | None = None
     price: float | None = None
     is_owned: bool = False
+    synergy_score: float | None = None
 
 
 class DeckGenerateResponse(BaseModel):
@@ -161,6 +171,8 @@ class DeckGenerateResponse(BaseModel):
     total_value: float | None = None
     warnings: list[str] = []
     cards: list[GeneratedCardSchema] = []
+    synergy_weight: float = 0.7
+    avg_synergy_score: float | None = None
 
 
 class CommanderCandidate(BaseModel):
