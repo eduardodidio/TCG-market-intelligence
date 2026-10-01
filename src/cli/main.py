@@ -2565,6 +2565,18 @@ def catalog_update_oracle(db, batch_size, dry_run):
     engine = create_engine(db, echo=False)
     Base.metadata.create_all(engine)
 
+    # Ensure oracle_text column exists (ALTER TABLE for existing DBs)
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy import text
+
+    insp = sa_inspect(engine)
+    if "cards" in insp.get_table_names():
+        columns = {c["name"] for c in insp.get_columns("cards")}
+        if "oracle_text" not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE cards ADD COLUMN oracle_text TEXT"))
+            click.echo("Added oracle_text column to cards table.")
+
     with Session(engine) as session:
         null_count = (
             session.scalar(
