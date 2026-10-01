@@ -4,12 +4,13 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { refreshCardPriceLiga } from "../api/collection";
 import { fetchDeckValue } from "../api/deckRanking";
-import { deleteDeck, fetchDeck } from "../api/decks";
+import { deleteDeck, fetchDeck, updateDeck } from "../api/decks";
 import { BatchAddModal } from "../components/BatchAddModal";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckCardTile } from "../components/DeckCardTile";
 import { DeckEvaluationPanel } from "../components/DeckEvaluationPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { GoldfishPanel } from "../components/GoldfishPanel";
 import type { DeckDetail, DeckValueDetail } from "../types/api";
 
 export function DeckView() {
@@ -26,9 +27,15 @@ export function DeckView() {
   const [valuePeriod, setValuePeriod] = useState("30d");
   const [showHistory, setShowHistory] = useState(false);
   const [showBatchAdd, setShowBatchAdd] = useState(false);
-  const [activeTab, setActiveTab] = useState<"cards" | "evaluation">(() => {
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [editDesc, setEditDesc] = useState("");
+  const [activeTab, setActiveTab] = useState<"cards" | "evaluation" | "goldfish">(() => {
     const tabParam = searchParams.get("tab");
-    return tabParam === "evaluation" ? "evaluation" : "cards";
+    if (tabParam === "evaluation") return "evaluation";
+    if (tabParam === "goldfish") return "goldfish";
+    return "cards";
   });
 
   const loadDeck = useCallback(async () => {
@@ -82,6 +89,55 @@ export function DeckView() {
     }
   }, [deck]);
 
+  const handleStartEditName = () => {
+    if (deck) {
+      setEditName(deck.name);
+      setEditingName(true);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!id || !deck) return;
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === deck.name) {
+      setEditingName(false);
+      return;
+    }
+    // Optimistic update
+    const prevName = deck.name;
+    setDeck({ ...deck, name: trimmed });
+    setEditingName(false);
+    const resp = await updateDeck(Number(id), { name: trimmed });
+    if (resp.errors.length > 0) {
+      // Revert on error
+      setDeck((d) => d ? { ...d, name: prevName } : d);
+    }
+  };
+
+  const handleStartEditDesc = () => {
+    if (deck) {
+      setEditDesc(deck.description ?? "");
+      setEditingDesc(true);
+    }
+  };
+
+  const handleSaveDesc = async () => {
+    if (!id || !deck) return;
+    const trimmed = editDesc.trim();
+    if (trimmed === (deck.description ?? "")) {
+      setEditingDesc(false);
+      return;
+    }
+    // Optimistic update
+    const prevDesc = deck.description;
+    setDeck({ ...deck, description: trimmed || null });
+    setEditingDesc(false);
+    const resp = await updateDeck(Number(id), { description: trimmed || "" });
+    if (resp.errors.length > 0) {
+      setDeck((d) => d ? { ...d, description: prevDesc } : d);
+    }
+  };
+
   if (loading) {
     return (
       <div data-testid="page-deck-view">
@@ -120,13 +176,78 @@ export function DeckView() {
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white" data-testid="deck-title">
-            {deck.name}
-          </h1>
-          {deck.description && (
-            <p className="text-slate-400 mt-1" data-testid="deck-description">
-              {deck.description}
+        <div className="flex-1 min-w-0 mr-4">
+          {editingName ? (
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={handleSaveName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveName();
+                if (e.key === "Escape") setEditingName(false);
+              }}
+              className="w-full text-2xl font-bold text-white bg-slate-700 border border-slate-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              maxLength={200}
+              autoFocus
+              data-testid="deck-title-input"
+            />
+          ) : (
+            <h1
+              className="text-2xl font-bold text-white cursor-pointer group flex items-center gap-2"
+              onClick={handleStartEditName}
+              title={t("decks.editName")}
+              data-testid="deck-title"
+            >
+              {deck.name}
+              <svg
+                className="h-4 w-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+              </svg>
+            </h1>
+          )}
+
+          {editingDesc ? (
+            <textarea
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              onBlur={handleSaveDesc}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSaveDesc();
+                }
+                if (e.key === "Escape") setEditingDesc(false);
+              }}
+              rows={2}
+              className="w-full mt-1 text-slate-400 bg-slate-700 border border-slate-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              autoFocus
+              data-testid="deck-description-input"
+            />
+          ) : (
+            <p
+              className="text-slate-400 mt-1 cursor-pointer group/desc flex items-center gap-2 text-sm"
+              onClick={handleStartEditDesc}
+              title={t("decks.editDescription")}
+              data-testid="deck-description"
+            >
+              {deck.description || (
+                <span className="text-slate-500 italic">{t("decks.addDescription")}</span>
+              )}
+              <svg
+                className="h-3.5 w-3.5 text-slate-500 opacity-0 group-hover/desc:opacity-100 transition-opacity flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+              </svg>
             </p>
           )}
         </div>
@@ -315,6 +436,20 @@ export function DeckView() {
         >
           {t("deckEval.tabEvaluation", { defaultValue: "Evaluation" })}
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("goldfish");
+            setSearchParams((prev) => { prev.set("tab", "goldfish"); return prev; }, { replace: true });
+          }}
+          className={`px-4 py-2 rounded-t text-sm font-medium transition-colors ${
+            activeTab === "goldfish"
+              ? "bg-slate-800 text-white border-b-2 border-cyan-500"
+              : "bg-slate-900 text-slate-400 hover:text-white"
+          }`}
+          data-testid="tab-goldfish"
+        >
+          {t("decks.goldfishTab", { defaultValue: "Goldfish" })}
+        </button>
       </div>
 
       {/* Cards Tab */}
@@ -348,6 +483,11 @@ export function DeckView() {
       {/* Evaluation Tab */}
       {activeTab === "evaluation" && (
         <DeckEvaluationPanel deckId={Number(id)} />
+      )}
+
+      {/* Goldfish Tab */}
+      {activeTab === "goldfish" && (
+        <GoldfishPanel deckId={Number(id)} />
       )}
 
       {/* Batch Add Missing Cards Modal */}

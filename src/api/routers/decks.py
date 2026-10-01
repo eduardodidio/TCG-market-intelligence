@@ -22,6 +22,8 @@ from src.api.schemas.decks import (
     ColorDistEntry,
     CommanderCandidate,
     DeckCardSchema,
+    DeckCreateRequest,
+    DeckCreateResult,
     DeckDetailSchema,
     DeckEvaluationResponse,
     DeckGenerateRequest,
@@ -29,7 +31,10 @@ from src.api.schemas.decks import (
     DeckImportRequest,
     DeckImportResult,
     DeckSummarySchema,
+    DeckUpdateRequest,
     GeneratedCardSchema,
+    GoldfishResponse,
+    GoldfishSampleHand,
     IllegalCard,
     LegalityResult,
     ManaCurvePoint,
@@ -95,6 +100,23 @@ def import_deck(
         )
 
     return success_response(data=DeckImportResult(**result))
+
+
+@router.post("/create", response_model=ApiResponse[DeckCreateResult])
+def create_deck(
+    request: DeckCreateRequest,
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Create an empty deck with just a name and optional description."""
+    deck = repo.create_deck(user_id, request.name, description=request.description)
+    return success_response(
+        data=DeckCreateResult(
+            deck_id=deck.id,
+            name=deck.name,
+            description=deck.description,
+        )
+    )
 
 
 @router.get("/ranking", response_model=ApiResponse[DeckRankingResponse])
@@ -653,6 +675,77 @@ def evaluate_deck_endpoint(
     )
 
 
+@router.post("/{deck_id}/goldfish", response_model=ApiResponse[GoldfishResponse])
+def goldfish_deck(
+    deck_id: int,
+    num_simulations: int = Query(default=100, ge=10, le=1000),
+    turns: int = Query(default=7, ge=3, le=15),
+    repo: Repository = Depends(get_db),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Simulate goldfishing a deck (solitaire draws) to analyze mana consistency."""
+    from src.decks.goldfish import simulate_goldfish
+
+    deck = repo.get_deck(deck_id)
+    if not deck:
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
+    if deck.user_id != user_id:
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
+
+    deck_cards = repo.get_deck_cards(deck_id)
+    if not deck_cards:
+        raise api_error(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            "Deck has no cards to simulate",
+        )
+
+    # Enrich cards with type_line and mana_cost from CardRow
+    card_ids = [dc.card_id for dc in deck_cards if dc.card_id is not None]
+    card_info: dict[int, object] = {}
+    for cid in card_ids:
+        card_row = repo.get_card_by_id(cid)
+        if card_row:
+            card_info[cid] = card_row
+
+    enriched_cards: list[dict] = []
+    for dc in deck_cards:
+        card_dict: dict = {
+            "name_en": dc.name_en,
+            "quantity": dc.quantity,
+            "type_line": None,
+            "mana_cost": None,
+        }
+        if dc.card_id is not None and dc.card_id in card_info:
+            cr = card_info[dc.card_id]
+            card_dict["type_line"] = cr.type_line
+            card_dict["mana_cost"] = cr.mana_cost
+        enriched_cards.append(card_dict)
+
+    result = simulate_goldfish(enriched_cards, num_simulations, turns)
+
+    return success_response(
+        data=GoldfishResponse(
+            deck_id=deck_id,
+            opening_hand_quality=result.opening_hand_quality,
+            avg_mana_by_turn=result.avg_mana_by_turn,
+            mana_screw_rate=result.mana_screw_rate,
+            mana_flood_rate=result.mana_flood_rate,
+            avg_spells_cast_by_turn=result.avg_spells_cast_by_turn,
+            sample_hands=[
+                GoldfishSampleHand(
+                    cards=sh.cards,
+                    quality=sh.quality,
+                    land_count=sh.land_count,
+                )
+                for sh in result.sample_hands
+            ],
+            total_simulations=result.total_simulations,
+            total_turns=result.total_turns,
+        )
+    )
+
+
 @router.get("/{deck_id}", response_model=ApiResponse[DeckDetailSchema])
 def get_deck(
     deck_id: int,
@@ -713,6 +806,76 @@ def get_deck(
         ownership_pct=summary["ownership_pct"],
         created_at=deck.created_at,
         updated_at=deck.updated_at,
+    )
+
+    return success_response(data=detail)
+
+
+@router.put("/{deck_id}", response_model=ApiResponse[DeckDetailSchema])
+def update_deck(
+    deck_id: int,
+    request: DeckUpdateRequest,
+    repo: Repository = Depends(get_db),
+    converter: CurrencyConverter = Depends(get_currency_converter_dep),
+    user_id: str = Depends(require_auth_or_api_key),
+):
+    """Update a deck's name and/or description."""
+    deck = repo.get_deck(deck_id)
+    if not deck or deck.user_id != user_id:
+        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Deck not found")
+
+    updated = repo.update_deck(
+        deck_id,
+        name=request.name,
+        description=request.description,
+    )
+
+    # Build full detail response (reuse GET /decks/{id} logic)
+    cards_with_ownership = repo.get_deck_cards_with_ownership(deck_id, user_id)
+    summary = repo.get_deck_summary(deck_id, user_id)
+
+    linked_card_ids = [c["card_id"] for c in cards_with_ownership if c["card_id"] is not None]
+    latest_prices = repo.get_latest_prices_batch(linked_card_ids) if linked_card_ids else {}
+
+    card_schemas = []
+    for c in cards_with_ownership:
+        image_url = None
+        if c["set_code"] and c["collector_number"]:
+            image_url = _scryfall_image_url(c["set_code"], c["collector_number"])
+
+        latest_price = None
+        if c["card_id"] is not None:
+            obs = latest_prices.get(c["card_id"])
+            if obs and obs.median_price:
+                latest_price = float(converter.convert(obs.median_price, date.today(), "BRL") or 0)
+
+        card_schemas.append(
+            DeckCardSchema(
+                id=c["id"],
+                name_en=c["name_en"],
+                set_code=c["set_code"],
+                collector_number=c["collector_number"],
+                quantity=c["quantity"],
+                card_id=c["card_id"],
+                in_collection=c["in_collection"],
+                owned_quantity=c["owned_quantity"],
+                collection_entry_id=c["collection_entry_id"],
+                image_url=image_url,
+                latest_price=latest_price,
+            )
+        )
+
+    detail = DeckDetailSchema(
+        id=updated.id,
+        name=updated.name,
+        description=updated.description,
+        cards=card_schemas,
+        total_cards=summary["total_cards"],
+        unique_cards=summary["unique_cards"],
+        owned_cards=summary["owned_cards"],
+        ownership_pct=summary["ownership_pct"],
+        created_at=updated.created_at,
+        updated_at=updated.updated_at,
     )
 
     return success_response(data=detail)

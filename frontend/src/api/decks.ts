@@ -1,14 +1,13 @@
 import type {
   ApiResponse,
-  CommanderSearchResult,
+  DeckCreateResult,
   DeckDetail,
   DeckEvaluation,
-  DeckGenerateParams,
-  DeckGenerateResult,
   DeckImportResult,
   DeckSummary,
+  GoldfishResult,
 } from "../types/api";
-import { apiDelete, apiGet, apiPost } from "./client";
+import { apiDelete, apiGet, apiPost, apiPut } from "./client";
 
 export function fetchDecks(): Promise<ApiResponse<DeckSummary[]>> {
   return apiGet<DeckSummary[]>("/api/v1/decks");
@@ -32,6 +31,23 @@ export function importDeck(
   });
 }
 
+export function createDeck(
+  name: string,
+  description?: string,
+): Promise<ApiResponse<DeckCreateResult>> {
+  return apiPost<DeckCreateResult>("/api/v1/decks/create", {
+    name,
+    description: description || null,
+  });
+}
+
+export function updateDeck(
+  id: number,
+  data: { name?: string; description?: string },
+): Promise<ApiResponse<DeckDetail>> {
+  return apiPut<DeckDetail>(`/api/v1/decks/${id}`, data);
+}
+
 export async function deleteDeck(id: number): Promise<void> {
   return apiDelete(`/api/v1/decks/${id}`);
 }
@@ -45,20 +61,11 @@ export function fetchDeckEvaluation(
   return apiGet<DeckEvaluation>(`/api/v1/decks/${deckId}/evaluate`, params);
 }
 
-export function generateDeck(
-  params: DeckGenerateParams,
-): Promise<ApiResponse<DeckGenerateResult>> {
-  return apiPost<DeckGenerateResult>("/api/v1/decks/generate", params, {
-    timeoutMs: 30_000,
-  });
-}
-
-export function searchCommanders(
-  query: string,
-  colors?: string[],
-): Promise<ApiResponse<CommanderSearchResult[]>> {
-  const params: Record<string, string> = {};
-  if (query) params.q = query;
-  if (colors && colors.length > 0) params.colors = colors.join(",");
-  return apiGet<CommanderSearchResult[]>("/api/v1/decks/commanders", params);
+export function fetchGoldfish(
+  deckId: number,
+  numSimulations = 100,
+  turns = 7,
+): Promise<ApiResponse<GoldfishResult>> {
+  const qs = `?num_simulations=${numSimulations}&turns=${turns}`;
+  return apiPost<GoldfishResult>(`/api/v1/decks/${deckId}/goldfish${qs}`, undefined);
 }

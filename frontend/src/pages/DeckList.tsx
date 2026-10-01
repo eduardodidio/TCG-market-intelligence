@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchDecks } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { DeckCreateModal } from "../components/DeckCreateModal";
 import { DeckImportModal } from "../components/DeckImportModal";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -16,6 +17,8 @@ export function DeckList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const navigate = useNavigate();
 
   const loadDecks = useCallback(async () => {
     setLoading(true);
@@ -43,13 +46,22 @@ export function DeckList() {
       />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">{t("decks.title")}</h1>
-        <button
-          onClick={() => setShowImport(true)}
-          className="px-4 py-2 rounded-md text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-400 transition-colors shadow-md"
-          data-testid="import-deck-btn"
-        >
-          {t("decks.importDeck")}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="px-4 py-2 rounded-md text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-400 transition-colors shadow-md"
+            data-testid="new-deck-btn"
+          >
+            {t("decks.newDeck")}
+          </button>
+          <button
+            onClick={() => setShowImport(true)}
+            className="px-4 py-2 rounded-md text-sm font-medium bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors shadow-md"
+            data-testid="import-deck-btn"
+          >
+            {t("decks.importDeck")}
+          </button>
+        </div>
       </div>
 
       {evaluateMode && (
@@ -91,6 +103,7 @@ export function DeckList() {
             title={t("decks.noDecks")}
             description={t("decks.noDecksHint")}
             actions={[
+              { label: t("decks.newDeck"), onClick: () => setShowCreate(true) },
               { label: t("decks.importDeck"), onClick: () => setShowImport(true) },
             ]}
           />
@@ -174,6 +187,17 @@ export function DeckList() {
             </Link>
           ))}
         </div>
+      )}
+
+      {showCreate && (
+        <DeckCreateModal
+          isOpen={showCreate}
+          onClose={() => setShowCreate(false)}
+          onCreated={(deckId) => {
+            setShowCreate(false);
+            navigate(`/decks/${deckId}`);
+          }}
+        />
       )}
 
       {showImport && (

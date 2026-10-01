@@ -8,6 +8,22 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class DeckCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+
+
+class DeckUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+
+
+class DeckCreateResult(BaseModel):
+    deck_id: int
+    name: str
+    description: str | None = None
+
+
 class DeckImportRequest(BaseModel):
     name: str = Field(min_length=1)
     format: Literal["text", "csv"] = "text"
@@ -186,3 +202,24 @@ class CommanderCandidate(BaseModel):
     type_line: str | None = None
     rarity: str | None = None
     image_uri: str | None = None
+
+
+# --- Goldfish Simulator schemas (F189-T05) ---
+
+
+class GoldfishSampleHand(BaseModel):
+    cards: list[str]
+    quality: float
+    land_count: int
+
+
+class GoldfishResponse(BaseModel):
+    deck_id: int
+    opening_hand_quality: float
+    avg_mana_by_turn: list[float]
+    mana_screw_rate: float
+    mana_flood_rate: float
+    avg_spells_cast_by_turn: list[float]
+    sample_hands: list[GoldfishSampleHand]
+    total_simulations: int
+    total_turns: int

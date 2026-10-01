@@ -135,8 +135,8 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Non-admin primary: Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Price Alerts, Settings (no Admin)
-    expect(links).toHaveLength(7);
+    // Non-admin primary: Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Price Alerts, My Decks, Top Decks, Settings (no Admin)
+    expect(links).toHaveLength(9);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Dashboard");
@@ -145,6 +145,8 @@ describe("Layout", () => {
     expect(linkTexts).toContain("Wishlist");
     expect(linkTexts).toContain("Explore Cards");
     expect(linkTexts).toContain("Price Alerts");
+    expect(linkTexts).toContain("My Decks");
+    expect(linkTexts).toContain("Top Decks");
     expect(linkTexts).toContain("Settings");
     expect(linkTexts).not.toContain("Admin");
     expect(linkTexts).not.toContain("Achievements");
@@ -156,8 +158,8 @@ describe("Layout", () => {
     expandBeta();
 
     const linkTexts = getNavLinkTexts();
-    // Primary (8) + Beta (11) = 19
-    expect(linkTexts).toHaveLength(19);
+    // Primary (9 non-admin) + Beta (8) = 17
+    expect(linkTexts).toHaveLength(17);
     expect(linkTexts).toContain("Dashboard");
     expect(linkTexts).toContain("My Collection");
     expect(linkTexts).toContain("Wishlist");
@@ -182,8 +184,10 @@ describe("Layout", () => {
     expect(linkTexts).not.toContain("Market");
     expect(linkTexts).not.toContain("Trending");
     expect(linkTexts).not.toContain("Ban List");
-    expect(linkTexts).not.toContain("My Decks");
     expect(linkTexts).not.toContain("Marketplace");
+    // My Decks and Top Decks are now primary nav (F190), so they ARE visible even when beta is collapsed
+    expect(linkTexts).toContain("My Decks");
+    expect(linkTexts).toContain("Top Decks");
   });
 
   it("hides protected nav items when unauthenticated", () => {
@@ -412,9 +416,9 @@ describe("Layout", () => {
 
     const nav = screen.getByTestId("sidebar-nav");
     const links = nav.querySelectorAll("a");
-    // Admin sees 9 primary (Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Card Catalog, Price Alerts, Settings, Admin)
-    // + 11 beta (Ban History removed, F177) = 20 total
-    expect(links).toHaveLength(20);
+    // Admin sees 10 primary (Dashboard, My Collection, Import Purchases, Wishlist, Explore Cards, Price Alerts, My Decks, Top Decks, Settings, Admin)
+    // + 8 beta (Market, Trending, Ban List, Marketplace, Trade Matches, Achievements, Evaluations, News) = 18 total
+    expect(links).toHaveLength(18);
 
     const linkTexts = Array.from(links).map((a) => a.textContent);
     expect(linkTexts).toContain("Admin");

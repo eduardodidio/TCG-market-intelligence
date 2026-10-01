@@ -2681,6 +2681,29 @@ class Repository:
             session.expunge(deck)
             return deck
 
+    def update_deck(
+        self,
+        deck_id: int,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> DeckRow | None:
+        """Update a deck's name and/or description. Returns updated deck or None."""
+        with Session(self.engine) as session:
+            deck = session.execute(
+                select(DeckRow).where(DeckRow.id == deck_id)
+            ).scalar_one_or_none()
+            if not deck:
+                return None
+            if name is not None:
+                deck.name = name
+            if description is not None:
+                deck.description = description
+            session.commit()
+            session.refresh(deck)
+            session.expunge(deck)
+            return deck
+
     def add_deck_cards(self, deck_id: int, cards: list[dict]) -> int:
         """Bulk insert cards into a deck. Returns the count inserted."""
         if not cards:

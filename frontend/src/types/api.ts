@@ -322,6 +322,12 @@ export interface DeckImportResult {
   cards_linked: number;
 }
 
+export interface DeckCreateResult {
+  deck_id: number;
+  name: string;
+  description: string | null;
+}
+
 // Schedule types
 
 export interface ScheduleResponse {
@@ -680,60 +686,23 @@ export interface DeckEvaluation {
   tribal_density: number | null;
 }
 
-// Deck generator types (F133)
+// Goldfish simulator types (F189-T06)
 
-export interface DeckGenerateParams {
-  format_name: string;
-  commander_card_id?: number | null;
-  colors?: string[];
-  archetype?: string | null;
-  budget_limit?: number | null;
-  prioritize_owned?: boolean;
-  deck_name?: string | null;
-  exclude_card_ids?: number[];
-  synergy_weight?: number;
-}
-
-export interface GeneratedCard {
-  card_id: number | null;
-  name_en: string;
-  set_code: string | null;
-  collector_number: string | null;
-  quantity: number;
-  mana_cost: string | null;
-  type_line: string | null;
-  rarity: string | null;
-  image_uri: string | null;
-  price: number | null;
-  is_owned: boolean;
-  synergy_score: number | null;
-}
-
-export interface DeckGenerateResult {
-  deck_id: number;
-  name: string;
-  format_name: string;
-  archetype: string | null;
-  colors: string[];
-  total_cards: number;
+export interface GoldfishSampleHand {
+  cards: string[];
+  quality: number;
   land_count: number;
-  nonland_count: number;
-  total_value: number | null;
-  warnings: string[];
-  cards: GeneratedCard[];
-  synergy_weight: number;
-  avg_synergy_score: number | null;
 }
 
-export interface CommanderSearchResult {
-  card_id: number;
-  name_en: string;
-  name_pt?: string | null;
-  set_code: string | null;
-  collector_number: string | null;
-  color_identity: string | null;
-  mana_cost: string | null;
-  type_line: string | null;
-  rarity: string | null;
-  image_uri: string | null;
+export interface GoldfishResult {
+  deck_id: number;
+  opening_hand_quality: number;
+  avg_mana_by_turn: number[];
+  mana_screw_rate: number;
+  mana_flood_rate: number;
+  avg_spells_cast_by_turn: number[];
+  sample_hands: GoldfishSampleHand[];
+  total_simulations: number;
+  total_turns: number;
 }
+

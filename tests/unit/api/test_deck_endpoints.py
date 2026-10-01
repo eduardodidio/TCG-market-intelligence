@@ -241,6 +241,149 @@ class TestDeleteDeck:
 
 
 # ---------------------------------------------------------------------------
+# POST /decks/create — F189-T03
+# ---------------------------------------------------------------------------
+
+
+class TestCreateEmptyDeck:
+    def test_create_empty_deck(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.create_deck.return_value = _mock_deck(10, name="New Deck")
+
+        client = TestClient(app)
+        resp = client.post("/decks/create", json={"name": "New Deck"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["deck_id"] == 10
+        assert body["data"]["name"] == "New Deck"
+        assert body["data"]["description"] is None
+        mock_repo.create_deck.assert_called_once_with("user1", "New Deck", description=None)
+
+    def test_create_deck_with_description(self):
+        app = _make_app()
+        mock_repo = app.state.mock_repo
+        mock_repo.create_deck.return_value = _mock_deck(
+            11, name="My Deck", description="A cool deck"
+        )
+
+        client = TestClient(app)
+        resp = client.post(
+            "/decks/create",
+            json={"name": "My Deck", "description": "A cool deck"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["deck_id"] == 11
+        assert body["data"]["name"] == "My Deck"
+        assert body["data"]["description"] == "A cool deck"
+        mock_repo.create_deck.assert_called_once_with("user1", "My Deck", description="A cool deck")
+
+    def test_create_deck_empty_name_rejected(self):
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.post("/decks/create", json={"name": ""})
+        assert resp.status_code == 422
+
+    def test_create_deck_name_too_long(self):
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.post("/decks/create", json={"name": "x" * 201})
+        assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# PUT /decks/{deck_id} — F189-T03
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateDeck:
+    def _setup_update(self, app, deck=None, updated_deck=None):
+        from src.api.deps import get_currency_converter_dep
+
+        mock_converter = MagicMock()
+        mock_converter.convert.return_value = None
+        app.dependency_overrides[get_currency_converter_dep] = lambda: mock_converter
+
+        mock_repo = app.state.mock_repo
+        mock_repo.get_deck.return_value = deck or _mock_deck(1)
+        mock_repo.update_deck.return_value = updated_deck or _mock_deck(1, name="Updated")
+        mock_repo.get_deck_cards_with_ownership.return_value = []
+        mock_repo.get_deck_summary.return_value = {
+            "total_cards": 0,
+            "unique_cards": 0,
+            "owned_cards": 0,
+            "ownership_pct": 0.0,
+        }
+        mock_repo.get_latest_prices_batch.return_value = {}
+        return mock_repo
+
+    def test_update_deck_name(self):
+        app = _make_app()
+        self._setup_update(
+            app,
+            updated_deck=_mock_deck(1, name="Renamed"),
+        )
+
+        client = TestClient(app)
+        resp = client.put("/decks/1", json={"name": "Renamed"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["name"] == "Renamed"
+
+    def test_update_deck_description(self):
+        app = _make_app()
+        self._setup_update(
+            app,
+            updated_deck=_mock_deck(1, name="Test Deck", description="New desc"),
+        )
+
+        client = TestClient(app)
+        resp = client.put("/decks/1", json={"description": "New desc"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["data"]["description"] == "New desc"
+
+    def test_update_deck_not_found(self):
+        app = _make_app()
+        from src.api.deps import get_currency_converter_dep
+
+        app.dependency_overrides[get_currency_converter_dep] = lambda: MagicMock()
+        app.state.mock_repo.get_deck.return_value = None
+
+        client = TestClient(app)
+        resp = client.put("/decks/999", json={"name": "Nope"})
+        assert resp.status_code == 404
+
+    def test_update_deck_wrong_user(self):
+        app = _make_app(user_id="user1")
+        from src.api.deps import get_currency_converter_dep
+
+        app.dependency_overrides[get_currency_converter_dep] = lambda: MagicMock()
+        app.state.mock_repo.get_deck.return_value = _mock_deck(1, user_id="user2")
+
+        client = TestClient(app)
+        resp = client.put("/decks/1", json={"name": "Stolen"})
+        assert resp.status_code == 404
+
+    def test_update_returns_detail_schema(self):
+        app = _make_app()
+        self._setup_update(app)
+
+        client = TestClient(app)
+        resp = client.put("/decks/1", json={"name": "Updated"})
+        assert resp.status_code == 200
+        body = resp.json()["data"]
+        # DeckDetailSchema fields
+        assert "id" in body
+        assert "name" in body
+        assert "cards" in body
+        assert "total_cards" in body
+        assert "created_at" in body
+        assert "updated_at" in body
+
+
+# ---------------------------------------------------------------------------
 # GET /decks/{deck_id}/evaluate — F133-T03
 # ---------------------------------------------------------------------------
 

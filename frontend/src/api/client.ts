@@ -309,6 +309,92 @@ export async function apiPatch<T>(
 }
 
 /**
+ * Typed PUT wrapper that sends JSON and returns the standard API envelope.
+ */
+export async function apiPut<T>(
+  path: string,
+  body: unknown,
+  options?: { signal?: AbortSignal; timeoutMs?: number },
+  _isRetry = false,
+): Promise<ApiResponse<T>> {
+  const url = new URL(path, API_BASE_URL || window.location.origin);
+
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  const signal = options?.signal
+    ? composeAbortSignals(options.signal, controller.signal)
+    : controller.signal;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  const token = localStorage.getItem("tcg_access_token");
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    clearTimeout(timeoutId);
+    checkDbVersion(response);
+
+    if (!response.ok) {
+      if (response.status === 401 && !_isRetry && !path.includes(REFRESH_PATH)) {
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          return apiPut<T>(path, body, options, true);
+        }
+        forceLogout();
+      } else if (response.status === 401) {
+        forceLogout();
+      }
+      const errorBody = await response.json().catch(() => null);
+      if (errorBody && Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
+        return errorBody as ApiResponse<T>;
+      }
+      return {
+        data: null,
+        meta: { cursor: null, total: null, offset: null, request_id: "" },
+        errors: [
+          {
+            code: `HTTP_${response.status}`,
+            message: errorBody?.detail || response.statusText,
+          },
+        ],
+      };
+    }
+
+    return (await response.json()) as ApiResponse<T>;
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+
+    const isAbort =
+      err instanceof DOMException && err.name === "AbortError";
+    const message = isAbort
+      ? "Request timed out"
+      : err instanceof Error
+        ? err.message
+        : "Unknown error";
+    const code = isAbort ? "TIMEOUT" : "NETWORK_ERROR";
+
+    return {
+      data: null,
+      meta: { cursor: null, total: null, offset: null, request_id: "" },
+      errors: [{ code, message }],
+    };
+  }
+}
+
+/**
  * Typed DELETE wrapper.
  */
 export async function apiDelete(

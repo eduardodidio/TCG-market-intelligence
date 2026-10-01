@@ -307,6 +307,51 @@ class TestGetDeckSummary:
         assert summary["ownership_pct"] == 0.0
 
 
+class TestUpdateDeck:
+    def test_update_name(self, repo):
+        deck = repo.create_deck("user1", "Original")
+        updated = repo.update_deck(deck.id, name="Renamed")
+        assert updated is not None
+        assert updated.name == "Renamed"
+        assert updated.description is None
+
+    def test_update_description(self, repo):
+        deck = repo.create_deck("user1", "Test", description="Old desc")
+        updated = repo.update_deck(deck.id, description="New desc")
+        assert updated is not None
+        assert updated.name == "Test"
+        assert updated.description == "New desc"
+
+    def test_update_both(self, repo):
+        deck = repo.create_deck("user1", "Test")
+        updated = repo.update_deck(deck.id, name="New Name", description="New Desc")
+        assert updated is not None
+        assert updated.name == "New Name"
+        assert updated.description == "New Desc"
+
+    def test_partial_update_name_only(self, repo):
+        deck = repo.create_deck("user1", "Test", description="Keep me")
+        updated = repo.update_deck(deck.id, name="Changed")
+        assert updated.name == "Changed"
+        assert updated.description == "Keep me"
+
+    def test_partial_update_description_only(self, repo):
+        deck = repo.create_deck("user1", "Keep me")
+        updated = repo.update_deck(deck.id, description="Added")
+        assert updated.name == "Keep me"
+        assert updated.description == "Added"
+
+    def test_update_not_found(self, repo):
+        result = repo.update_deck(999, name="Nope")
+        assert result is None
+
+    def test_update_persists(self, repo):
+        deck = repo.create_deck("user1", "Before")
+        repo.update_deck(deck.id, name="After")
+        fetched = repo.get_deck(deck.id)
+        assert fetched.name == "After"
+
+
 class TestLinkDeckCard:
     def test_links_card(self, repo):
         deck = repo.create_deck("user1", "Test")

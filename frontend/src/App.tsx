@@ -40,11 +40,6 @@ const DeckList = lazy(() =>
 const TopDecksPage = lazy(() =>
   import("./pages/TopDecksPage").then((m) => ({ default: m.TopDecksPage })),
 );
-const DeckBuildWizard = lazy(() =>
-  import("./pages/DeckBuildWizard").then((m) => ({
-    default: m.DeckBuildWizard,
-  })),
-);
 const DeckView = lazy(() =>
   import("./pages/DeckView").then((m) => ({ default: m.DeckView })),
 );
@@ -319,9 +314,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <BetaRoute>
-                      <DeckList />
-                    </BetaRoute>
+                    <DeckList />
                   </Suspense>
                 }
               />
@@ -331,27 +324,9 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <BetaRoute>
-                      <TopDecksPage />
-                    </BetaRoute>
+                    <TopDecksPage />
                   </Suspense>
                 }
-              />
-              <Route
-                path="/decks/build"
-                element={
-                  <Suspense
-                    fallback={<LoadingSpinner message="Loading page..." />}
-                  >
-                    <BetaRoute>
-                      <DeckBuildWizard />
-                    </BetaRoute>
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/decks/evaluate"
-                element={<Navigate to="/decks?evaluate=true" replace />}
               />
               <Route
                 path="/decks/:id"
@@ -359,9 +334,7 @@ export default function App() {
                   <Suspense
                     fallback={<LoadingSpinner message="Loading page..." />}
                   >
-                    <BetaRoute>
-                      <DeckView />
-                    </BetaRoute>
+                    <DeckView />
                   </Suspense>
                 }
               />
