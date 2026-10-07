@@ -131,6 +131,19 @@ class UserCollectionRow(Base):
     )
 
 
+class CollectionSnapshotRow(Base):
+    __tablename__ = "collection_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    snapshot_data: Mapped[str] = mapped_column(Text, nullable=False)  # JSON blob
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    reason: Mapped[str] = mapped_column(String(50), default="import_replace")
+
+    __table_args__ = (Index("ix_snapshot_user", "user_id"),)
+
+
 class CollectionErrorRow(Base):
     __tablename__ = "collection_errors"
 

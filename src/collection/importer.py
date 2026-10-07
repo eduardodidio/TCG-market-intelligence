@@ -14,7 +14,7 @@ from src.collection.csv_columns import ColumnMap, detect_file_currency, resolve_
 from src.currency.import_conversion import RateLookup, to_brl
 from src.currency.money import detect_symbol, parse_money
 from src.currency.types import CurrencyChoice, SupportedCurrency
-from src.database.models import Base, CardRow, UserCollectionRow
+from src.database.models import Base, CardRow, CollectionSnapshotRow, UserCollectionRow
 from src.utils.set_code_map import map_to_scryfall_set_code
 
 _log = logging.getLogger(__name__)
@@ -249,9 +249,53 @@ def import_collection_csv(
                 or 0
             )
 
+            snapshot_id = None
             if existing_count > 0:
                 _log.info(
                     "collection_import_replacing: archiving %d existing rows for user %s",
+                    existing_count,
+                    user_id,
+                )
+
+            # Snapshot existing collection before destructive replace
+            if existing_count > 0:
+                existing_rows = (
+                    session.query(UserCollectionRow)
+                    .filter(UserCollectionRow.user_id == user_id)
+                    .all()
+                )
+                import json
+
+                snapshot_data = json.dumps(
+                    [
+                        {
+                            "card_id": r.card_id,
+                            "set_code": r.set_code,
+                            "collector_number": r.collector_number,
+                            "name_en": r.name_en,
+                            "name_pt": r.name_pt,
+                            "quantity": r.quantity,
+                            "quality": r.quality,
+                            "extras": r.extras,
+                            "acquisition_price": str(r.acquisition_price)
+                            if r.acquisition_price
+                            else None,
+                        }
+                        for r in existing_rows
+                    ]
+                )
+                snapshot = CollectionSnapshotRow(
+                    user_id=user_id,
+                    snapshot_data=snapshot_data,
+                    row_count=existing_count,
+                    reason="import_replace",
+                )
+                session.add(snapshot)
+                session.flush()
+                snapshot_id = snapshot.id
+                _log.info(
+                    "collection_snapshot_created: snapshot_id=%d rows=%d user=%s",
+                    snapshot.id,
                     existing_count,
                     user_id,
                 )
@@ -311,4 +355,5 @@ def import_collection_csv(
         "exchange_rate": exchange_rate,
         "price_warnings": price_warnings,
         "dry_run": False,
+        "snapshot_id": snapshot_id,
     }
