@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import csv
+import logging
 from datetime import date
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.collection.csv_columns import ColumnMap, detect_file_currency, resolve_columns
@@ -15,6 +16,8 @@ from src.currency.money import detect_symbol, parse_money
 from src.currency.types import CurrencyChoice, SupportedCurrency
 from src.database.models import Base, CardRow, UserCollectionRow
 from src.utils.set_code_map import map_to_scryfall_set_code
+
+_log = logging.getLogger(__name__)
 
 _MAX_WARNINGS = 20
 
@@ -166,8 +169,10 @@ def import_collection_csv(
             raw_price = (row.get(price_header) or "").strip()
             if raw_price:
                 row_currency = _row_currency(
-                    raw_price, row.get(currency_header) if currency_header else None,
-                    currency, detection.currency,
+                    raw_price,
+                    row.get(currency_header) if currency_header else None,
+                    currency,
+                    detection.currency,
                 )
                 money_hint: SupportedCurrency | None = (
                     row_currency if row_currency in ("BRL", "USD") else None
@@ -234,7 +239,23 @@ def import_collection_csv(
 
     with Session(engine) as session:
         try:
-            # Clear existing collection for this user before re-import
+            # Count existing rows before destructive replace
+            existing_count = (
+                session.scalar(
+                    select(func.count(UserCollectionRow.id)).where(
+                        UserCollectionRow.user_id == user_id
+                    )
+                )
+                or 0
+            )
+
+            if existing_count > 0:
+                _log.info(
+                    "collection_import_replacing: archiving %d existing rows for user %s",
+                    existing_count,
+                    user_id,
+                )
+
             session.query(UserCollectionRow).filter(UserCollectionRow.user_id == user_id).delete()
 
             for data in rows_to_insert:

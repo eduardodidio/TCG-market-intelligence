@@ -179,8 +179,20 @@ def require_auth_or_api_key(
         # API key valid — return first active user or fallback
         return "api_key_user"
 
-    # Dev mode: no TCG_API_KEY set and no JWT → allow through for backwards compat
+    # Dev mode: no TCG_API_KEY set and no JWT → allow through ONLY in development
     if expected is None and not token:
+        env = os.environ.get("TCG_ENV", "development")
+        if env != "development":
+            _log.error(
+                "auth_bypass_blocked_in_production",
+                path=str(request.url.path),
+                env=env,
+            )
+            raise api_error(
+                401,
+                ErrorCode.AUTH_TOKEN_INVALID,
+                "TCG_API_KEY must be set in non-development environments",
+            )
         _log.warning("dev_mode_auth_bypass", path=str(request.url.path))
         return "api_key_user"
 

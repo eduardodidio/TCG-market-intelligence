@@ -919,6 +919,8 @@ class LigaMagicProvider(CardSourceProvider):
     def _select_edition_sync(self, edition_value: str) -> str:
         """Select edition using sync Playwright (runs in thread)."""
         page = self._sync_page
+        if page is None:
+            raise LigaError("Sync browser page not initialized — call _ensure_sync_page() first")
         page.evaluate(f"editionsCard.changeEdition('{edition_value}')")
         page.wait_for_timeout(2000)
         try:

@@ -31,7 +31,10 @@ async def lifespan(app: FastAPI):
                 f"(TCG_ENV={env}). Set it or use TCG_ENV=development."
             )
         if not os.environ.get("TCG_API_KEY"):
-            _log.warning("tcg_api_key_not_set", env=env)
+            raise RuntimeError(
+                "TCG_API_KEY is required in non-development environments "
+                f"(TCG_ENV={env}). Set it or use TCG_ENV=development."
+            )
 
     # Mark stale running scans as error (e.g. from a crash)
     try:
