@@ -2562,7 +2562,7 @@ def catalog_update_oracle(db, batch_size, dry_run):
     from src.catalog.scryfall import download_bulk_data
     from src.database.models import Base, CardRow
 
-    engine = create_engine(db, echo=False)
+    engine = create_engine(db, echo=False, pool_pre_ping=True)
     Base.metadata.create_all(engine)
 
     # Ensure oracle_text column exists (ALTER TABLE for existing DBs)
@@ -3010,7 +3010,10 @@ def backfill_price_history(db, days, interval, dry_run):
     expose_value=True,
     help="Database URL (default: auto-detect)",
 )
-def import_csv_cmd(csv_file: str, user_id: str, dry_run: bool, currency: str, db: str):
+@click.option("--yes", "skip_confirm", is_flag=True, help="Skip confirmation prompt")
+def import_csv_cmd(
+    csv_file: str, user_id: str, dry_run: bool, currency: str, db: str, skip_confirm: bool
+):
     """Import collection from CSV file (clears existing collection first)."""
     from pathlib import Path
 
@@ -3043,13 +3046,14 @@ def import_csv_cmd(csv_file: str, user_id: str, dry_run: bool, currency: str, db
         return
 
     # Warn the user that existing collection will be cleared
-    click.echo("")
-    click.echo("  WARNING: This will DELETE all existing collection entries")
-    click.echo(f"  for user '{user_id}' before importing from '{csv_path.name}'.")
-    click.echo("")
-    if not click.confirm("  Proceed?"):
-        click.echo("  Aborted.")
-        return
+    if not skip_confirm:
+        click.echo("")
+        click.echo("  WARNING: This will DELETE all existing collection entries")
+        click.echo(f"  for user '{user_id}' before importing from '{csv_path.name}'.")
+        click.echo("")
+        if not click.confirm("  Proceed?"):
+            click.echo("  Aborted.")
+            return
 
     from src.currency.import_conversion import rate_lookup_from_converter
     from src.database.repository import Repository

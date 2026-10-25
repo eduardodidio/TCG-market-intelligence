@@ -56,7 +56,7 @@ async def process_pending_price_requests(
     failed = 0
 
     try:
-        await provider.initialize()
+        await provider.open()
 
         for req in pending:
             card = repo.get_card_by_id(req.card_id)

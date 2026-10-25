@@ -64,7 +64,7 @@ async def test_processes_pending_requests():
     mock_repo.get_card_by_id.return_value = card
 
     mock_provider = MagicMock()
-    mock_provider.initialize = AsyncMock()
+    mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
     mock_fetch = AsyncMock(return_value=(obs, "https://ligamagic.com/page"))
@@ -102,7 +102,7 @@ async def test_handles_liga_error():
     mock_repo.get_card_by_id.return_value = card
 
     mock_provider = MagicMock()
-    mock_provider.initialize = AsyncMock()
+    mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
     mock_fetch = AsyncMock(side_effect=LigaError("Rate limited"))
@@ -134,7 +134,7 @@ async def test_respects_limit():
     mock_repo.get_card_by_id.return_value = card
 
     mock_provider = MagicMock()
-    mock_provider.initialize = AsyncMock()
+    mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
     mock_fetch = AsyncMock(return_value=(obs, None))
@@ -164,7 +164,7 @@ async def test_skips_cards_without_names():
     mock_repo.get_card_by_id.return_value = card
 
     mock_provider = MagicMock()
-    mock_provider.initialize = AsyncMock()
+    mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
     patches = _patch_deps(mock_repo, mock_provider)
@@ -213,7 +213,7 @@ async def test_card_not_found():
     mock_repo.get_card_by_id.return_value = None
 
     mock_provider = MagicMock()
-    mock_provider.initialize = AsyncMock()
+    mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
     patches = _patch_deps(mock_repo, mock_provider)
@@ -242,7 +242,7 @@ async def test_no_price_found_still_completes():
     mock_repo.get_card_by_id.return_value = card
 
     mock_provider = MagicMock()
-    mock_provider.initialize = AsyncMock()
+    mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
     mock_fetch = AsyncMock(return_value=None)
