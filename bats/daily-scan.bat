@@ -1,7 +1,8 @@
 @echo off
 REM ============================================================
-REM  daily-scan.bat — Liga sweep + process queue + portfolio snapshot
+REM  daily-scan.bat — MYP sweep + process queue + portfolio snapshot
 REM  Antigo cron: Windows Task Scheduler as 09:00 diariamente
+REM  Migrado de Liga para MYP (Cloudflare Turnstile interativo)
 REM ============================================================
 
 cd /d "%~dp0\.."
@@ -10,8 +11,8 @@ echo ============================================================
 echo  TEDHC Daily Scan - %date% %time%
 echo ============================================================
 
-echo  [%time%] Starting Liga sweep...
-python -m src.cli.main liga-sweep --max-age-days 1 || echo  [WARN] liga-sweep failed
+echo  [%time%] Starting MYP sweep...
+python -m src.cli.main myp-sweep --max-age-days 1 || echo  [WARN] myp-sweep failed
 
 echo  [%time%] Processing price request queue...
 python -m src.cli.main process-price-requests --limit 500 || echo  [WARN] process-price-requests failed

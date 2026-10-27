@@ -1213,6 +1213,67 @@ def _print_liga_sweep_summary(result):
     click.echo("=" * 60)
 
 
+@cli.command("myp-sweep")
+@click.option(
+    "--db",
+    default=None,
+    help="Database URL (default from TCG_DATABASE_URL or sqlite:///tcg_market.db)",
+)
+@click.option("--batch-size", default=20, type=int, help="Cards per batch")
+@click.option("--batch-pause", default=30, type=int, help="Seconds between batches")
+@click.option("--delay", default=1.5, type=float, help="Seconds between cards")
+@click.option(
+    "--max-age-days", default=7, type=int, help="Skip cards with MYP price newer than N days"
+)
+@click.option("--limit", default=None, type=int, help="Max total cards to process")
+@click.option("--dry-run", is_flag=True, help="Show eligible count without fetching")
+@click.option("--set", "set_filter", default=None, help="Only sweep this set code")
+def myp_sweep(db, batch_size, batch_pause, delay, max_age_days, limit, dry_run, set_filter):
+    """Sweep entire collection through MYP Cards for price updates."""
+    from src.collectors.myp_sweep import run_myp_sweep
+    from src.config import get_db_url
+    from src.database.repository import Repository
+    from src.services.alert_checker import make_alert_checker_hook
+    from src.services.scan_hooks import default_registry
+
+    db_url = db or get_db_url()
+    repo = Repository(db_url)
+    alert_hook = make_alert_checker_hook(repo)
+    default_registry.register(alert_hook)
+
+    result = asyncio.run(
+        run_myp_sweep(
+            db_url=db_url,
+            batch_size=batch_size,
+            batch_pause=batch_pause,
+            delay=delay,
+            max_age_days=max_age_days,
+            limit=limit,
+            dry_run=dry_run,
+            set_filter=set_filter,
+            on_complete=default_registry.notify,
+        )
+    )
+    _print_myp_sweep_summary(result)
+
+
+def _print_myp_sweep_summary(result):
+    """Format and print MYP sweep summary to stdout."""
+    click.echo("")
+    click.echo("=" * 60)
+    if result.dry_run:
+        click.echo("  DRY RUN -- no data was fetched")
+    click.echo("  MYP SWEEP SUMMARY")
+    click.echo(f"  Eligible cards:          {result.total_eligible}")
+    click.echo(f"  Processed:               {result.total_processed}")
+    click.echo(f"  Prices found:            {result.prices_found}")
+    click.echo(f"  Prices not found:        {result.prices_not_found}")
+    click.echo(f"  Errors:                  {result.errors}")
+    click.echo(f"  Batches completed:       {result.batches_completed}")
+    click.echo(f"  Daily snapshots:         {result.daily_snapshot_created}")
+    click.echo("=" * 60)
+
+
 @cli.command("process-price-requests")
 @click.option(
     "--db",
