@@ -41,6 +41,7 @@ class TestCardRowNewColumns:
             "mana_cost",
             "type_line",
             "image_uri",
+            "oracle_text",
             "created_at",
             "updated_at",
         }

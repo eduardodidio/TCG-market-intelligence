@@ -9,7 +9,7 @@ class TestGetDbUrl:
     def test_database_url_takes_priority(self, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "postgresql://neon:5432/db")
         monkeypatch.setenv("TCG_DATABASE_URL", "sqlite:///old.db")
-        assert get_db_url() == "postgresql://neon:5432/db"
+        assert get_db_url() == "postgresql+psycopg2://neon:5432/db"
 
     def test_tcg_database_url_fallback(self, monkeypatch):
         monkeypatch.delenv("DATABASE_URL", raising=False)
@@ -40,7 +40,7 @@ class TestGetDbUrl:
         """Explicit DATABASE_URL takes priority even if /data exists."""
         monkeypatch.setenv("DATABASE_URL", "postgresql://neon/prod")
         monkeypatch.setattr("os.path.isdir", lambda p: True)
-        assert get_db_url() == "postgresql://neon/prod"
+        assert get_db_url() == "postgresql+psycopg2://neon/prod"
 
     def test_tcg_url_empty_also_skipped(self, monkeypatch):
         """Both empty env vars should fall through to default."""

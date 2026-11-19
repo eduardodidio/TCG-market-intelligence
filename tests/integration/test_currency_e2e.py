@@ -247,7 +247,9 @@ class TestMissingRateFallback:
         resp = client.get("/api/v1/cards/1?currency=USD")
         assert resp.status_code == 200
         data = resp.json()["data"]
-        assert data["latest_price"] is None
+        # With fallback_to_brl=True (default), missing rate returns BRL value
+        assert data["latest_price"] is not None
+        assert float(data["latest_price"]) == 10.00
         assert data["currency"] == "USD"
 
     def test_closest_rate_used_for_weekends(self, seeded_repo, client):

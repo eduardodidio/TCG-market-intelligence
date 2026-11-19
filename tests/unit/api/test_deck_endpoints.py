@@ -406,6 +406,7 @@ def _mock_card_row(card_id=1, name="Lightning Bolt"):
     cr.type_line = "Instant"
     cr.color_identity = "R"
     cr.rarity = "common"
+    cr.oracle_text = ""
     return cr
 
 

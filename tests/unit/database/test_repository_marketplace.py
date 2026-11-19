@@ -17,15 +17,60 @@ from src.database.models import (
     TradeAgreementRow,
     TradeInterestRow,
     UserCollectionRow,
+    UserRow,
 )
 from src.database.repository import Repository
+
+
+def _seed_users(repo, *user_ids: int) -> None:
+    """Create UserRow entries so FK constraints on users.id are satisfied."""
+    with Session(repo.engine) as session:
+        for uid in user_ids:
+            existing = session.get(UserRow, uid)
+            if existing is None:
+                session.add(
+                    UserRow(
+                        id=uid,
+                        email=f"user{uid}@test.com",
+                        auth_provider="local",
+                    )
+                )
+        session.commit()
+
+
+def _seed_collection_entry(repo, entry_id: int, user_id: str = "1") -> None:
+    """Create a UserCollectionRow with a specific id for FK satisfaction."""
+    with Session(repo.engine) as session:
+        existing = session.get(UserCollectionRow, entry_id)
+        if existing is None:
+            session.add(
+                UserCollectionRow(
+                    id=entry_id,
+                    user_id=user_id,
+                    set_code="TST",
+                    collector_number="1",
+                    name_en="Test Card",
+                    quantity=1,
+                )
+            )
+        session.commit()
 
 
 @pytest.fixture()
 def repo(tmp_path):
     db_path = tmp_path / "test_marketplace.db"
     db_url = f"sqlite:///{db_path}"
-    return Repository(db_url=db_url)
+    r = Repository(db_url=db_url)
+    # Pre-seed users needed across most tests
+    _seed_users(r, 1, 2, 3, 4, 5, 42, 999)
+    # Pre-seed collection entries referenced by trade interest tests.
+    # Use user_id="_seed" to avoid interfering with TestGetSharedCollectionStats
+    # which counts collection entries by user_id="1", "2", etc.
+    _seed_collection_entry(r, 100, user_id="_seed")
+    _seed_collection_entry(r, 200, user_id="_seed")
+    for i in range(5):
+        _seed_collection_entry(r, 100 + i, user_id="_seed")
+    return r
 
 
 # ── SharedCollection CRUD ────────────────────────────────────────────

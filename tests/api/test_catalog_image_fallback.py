@@ -77,7 +77,7 @@ class TestCatalogImageFallback:
         items = resp.json()["data"]["items"]
         assert len(items) == 1
         assert items[0]["image_uri"] == (
-            "https://api.scryfall.com/cards/hob/44?format=image&version=normal"
+            "https://api.scryfall.com/cards/ashob/44?format=image&version=normal"
         )
 
     def test_list_existing_image_not_overridden(self, client):
@@ -94,7 +94,7 @@ class TestCatalogImageFallback:
         assert resp.status_code == 200
         card = resp.json()["data"]
         assert card["image_uri"] == (
-            "https://api.scryfall.com/cards/hob/44?format=image&version=normal"
+            "https://api.scryfall.com/cards/ashob/44?format=image&version=normal"
         )
 
     def test_detail_existing_image_not_overridden(self, client):

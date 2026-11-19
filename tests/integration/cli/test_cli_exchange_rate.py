@@ -117,9 +117,10 @@ class TestUpdateExchangeRateCLI:
 
     def test_backfill_is_idempotent(self, runner, db_url):
         """Running backfill twice doesn't create duplicates (upsert)."""
+        today = date.today()
         mock_rates = [
-            ExchangeRate(rate_date=date(2026, 8, 18), rate=Decimal("5.20")),
-            ExchangeRate(rate_date=date(2026, 8, 19), rate=Decimal("5.22")),
+            ExchangeRate(rate_date=today - timedelta(days=2), rate=Decimal("5.20")),
+            ExchangeRate(rate_date=today - timedelta(days=1), rate=Decimal("5.22")),
         ]
 
         with patch(

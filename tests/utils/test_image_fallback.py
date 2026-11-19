@@ -8,10 +8,10 @@ from src.utils.image_fallback import fallback_image_uri
 class TestFallbackImageUri:
     """Unit tests for fallback_image_uri helper."""
 
-    def test_art_series_set_code_mapped(self):
-        """Art series 'ashob' maps to 'hob' and suffix 'a' stripped."""
+    def test_art_series_set_code_preserved(self):
+        """Art series 'ashob' is used directly (Scryfall accepts variant codes)."""
         result = fallback_image_uri("ashob", "44a")
-        assert result == ("https://api.scryfall.com/cards/hob/44" "?format=image&version=normal")
+        assert result == ("https://api.scryfall.com/cards/ashob/44" "?format=image&version=normal")
 
     def test_regular_set_no_mapping_needed(self):
         """Regular set code passes through unchanged."""
@@ -48,15 +48,15 @@ class TestFallbackImageUri:
         result = fallback_image_uri("fdn", "42")
         assert result == ("https://api.scryfall.com/cards/fdn/42" "?format=image&version=normal")
 
-    def test_known_variant_mapping(self):
-        """Borderless variant 'bldmr' maps to 'dmr'."""
+    def test_variant_set_code_preserved(self):
+        """Variant set code 'bldmr' is used directly (Scryfall accepts it)."""
         result = fallback_image_uri("bldmr", "10")
-        assert result == ("https://api.scryfall.com/cards/dmr/10" "?format=image&version=normal")
+        assert result == ("https://api.scryfall.com/cards/bldmr/10" "?format=image&version=normal")
 
     def test_uppercase_set_code_lowered(self):
         """Set codes are lowercased for the URL."""
         result = fallback_image_uri("ASHOB", "44a")
-        assert result == ("https://api.scryfall.com/cards/hob/44" "?format=image&version=normal")
+        assert result == ("https://api.scryfall.com/cards/ashob/44" "?format=image&version=normal")
 
     def test_multi_letter_suffix_stripped(self):
         """Multiple trailing letters are stripped (e.g. '123ab')."""

@@ -8,7 +8,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.orm import Session
 
-from src.database.models import PriceObservationRow, SourceCardRow, UserCollectionRow
+from src.database.models import CardRow, PriceObservationRow, SourceCardRow, UserCollectionRow
 from src.database.repository import Repository
 
 
@@ -245,6 +245,10 @@ class TestCollectionSummaryPricedCount:
         """Linked cards without price observations: priced_count = 0."""
         with Session(repo.engine) as session:
             session.add(
+                CardRow(id=100, game="magic", name_en="Bolt", set_code="DMR", collector_number="1")
+            )
+            session.flush()
+            session.add(
                 UserCollectionRow(
                     user_id="u1",
                     set_code="DMR",
@@ -270,6 +274,14 @@ class TestCollectionSummaryPricedCount:
     def test_priced_count_with_observations(self, repo):
         """Linked cards with price observations are counted as priced."""
         with Session(repo.engine) as session:
+            # Create parent CardRow entries for FK satisfaction
+            session.add(
+                CardRow(id=100, game="magic", name_en="Bolt", set_code="DMR", collector_number="1")
+            )
+            session.add(
+                CardRow(id=200, game="magic", name_en="Vial", set_code="MH2", collector_number="2")
+            )
+            session.flush()
             # Card 100: linked and has price observation
             session.add(
                 UserCollectionRow(

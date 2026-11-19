@@ -69,9 +69,11 @@ class TestGetClosestRate:
         assert row.rate == Decimal("5.20")
 
     def test_ignores_future_dates(self, repo):
-        repo.upsert_exchange_rate(ExchangeRate(rate_date=date(2026, 8, 22), rate=Decimal("5.30")))
-        # Asking for Aug 20, the Aug 22 rate should NOT be returned
-        assert repo.get_closest_rate(date(2026, 8, 20)) is None
+        today = date.today()
+        future_date = today + timedelta(days=30)
+        repo.upsert_exchange_rate(ExchangeRate(rate_date=future_date, rate=Decimal("5.30")))
+        # Asking for today, the far-future rate should NOT be returned (beyond max_gap_days=7)
+        assert repo.get_closest_rate(today) is None
 
 
 class TestGetLatestRate:

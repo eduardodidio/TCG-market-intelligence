@@ -3,15 +3,36 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.orm import Session
 
 from src.database.models import CardRow, UserCollectionRow
 from src.database.repository import Repository
 
 
+def _seed_card(repo, card_id: int) -> None:
+    """Create a CardRow with a specific id for FK satisfaction."""
+    with Session(repo.engine) as session:
+        existing = session.get(CardRow, card_id)
+        if existing is None:
+            session.add(
+                CardRow(
+                    id=card_id,
+                    game="magic",
+                    name_en=f"Test Card {card_id}",
+                    set_code="tst",
+                    collector_number=str(card_id),
+                )
+            )
+        session.commit()
+
+
 @pytest.fixture
 def repo(tmp_path):
     db_path = tmp_path / "test.db"
-    return Repository(f"sqlite:///{db_path}")
+    r = Repository(f"sqlite:///{db_path}")
+    # Pre-seed card referenced by card_id FK in deck_cards
+    _seed_card(r, 42)
+    return r
 
 
 class TestCreateDeck:

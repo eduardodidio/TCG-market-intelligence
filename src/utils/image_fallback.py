@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import re
 
-from src.utils.set_code_map import _KNOWN_VARIANTS
-
 
 def fallback_image_uri(
     set_code: str | None,
@@ -30,8 +28,8 @@ def fallback_image_uri(
     if not set_code or not collector_number:
         return None
 
-    # Map variant/art-series set codes to Scryfall base set codes
-    scryfall_set = _KNOWN_VARIANTS.get(set_code.lower(), set_code.lower())
+    # Use the original set code — Scryfall accepts variant codes (e.g. smbro)
+    scryfall_set = set_code.lower()
 
     # Strip trailing letter suffix for art cards (e.g. 44a -> 44)
     base_number = re.sub(r"[a-zA-Z]+$", "", collector_number)

@@ -50,7 +50,9 @@ class TestConvert:
 
     def test_returns_none_when_no_rate(self, converter, mock_repo):
         mock_repo.get_closest_rate.return_value = None
-        result = converter.convert(Decimal("100.00"), date(2026, 8, 20), "USD")
+        result = converter.convert(
+            Decimal("100.00"), date(2026, 8, 20), "USD", fallback_to_brl=False
+        )
         assert result is None
 
     def test_accepts_float_value(self, converter, mock_repo):
