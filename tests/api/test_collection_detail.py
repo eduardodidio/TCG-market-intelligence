@@ -275,8 +275,8 @@ class TestGetCollectionEntry:
         resp = client.get("/collection/1")
         data = resp.json()["data"]
 
-        # bldmr should be mapped to dmr
-        assert "/cards/dmr/437?" in data["image_url"]
+        # bldmr is used as-is (Scryfall accepts variant set codes)
+        assert "/cards/bldmr/437?" in data["image_url"]
 
     def test_is_foil_true_when_extras_contains_foil(self) -> None:
         """Entry with extras='Foil' should have is_foil=True."""
