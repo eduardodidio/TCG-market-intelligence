@@ -135,7 +135,7 @@ describe("LegalityPanel in CollectionCardDetail", () => {
     });
   });
 
-  it("shows unavailable message when card_id is null", async () => {
+  it("hides legality panel when card_id is null", async () => {
     mockFetch(MOCK_ENTRY_UNLINKED);
     render(
       <MemoryRouter initialEntries={["/collection/1"]}>
@@ -143,9 +143,9 @@ describe("LegalityPanel in CollectionCardDetail", () => {
       </MemoryRouter>,
     );
     await waitFor(() => {
-      const panel = screen.getByTestId("legality-panel");
-      expect(panel.textContent).toContain("not available");
+      expect(screen.getByTestId("no-price-chart")).toBeInTheDocument();
     });
+    expect(screen.queryByTestId("legality-panel")).not.toBeInTheDocument();
   });
 
   it("shows expand button when more than 8 formats", async () => {
@@ -172,9 +172,9 @@ describe("LegalityPanel in CollectionCardDetail", () => {
     });
     fireEvent.click(screen.getByTestId("legality-panel-expand"));
     await waitFor(() => {
-      // All 10 badges should now be visible
+      // All 10 panel badges + 2 summary banner badges (1 banned + 1 restricted) = 12
       const badges = screen.getAllByTestId(/^legality-badge-/);
-      expect(badges.length).toBe(10);
+      expect(badges.length).toBe(12);
     });
   });
 
