@@ -49,8 +49,8 @@ def setup_data(repo):
         card_id = card.id
 
         source = SourceCardRow(
-            source="liga",
-            external_id=f"liga_{card_id}",
+            source="myp",
+            external_id=f"myp_{card_id}",
             card_id=card_id,
             url=f"https://example.com/{card_id}",
         )
@@ -58,8 +58,8 @@ def setup_data(repo):
 
         # Add a price observation
         obs = PriceObservationRow(
-            source="liga",
-            external_id=f"liga_{card_id}",
+            source="myp",
+            external_id=f"myp_{card_id}",
             observed_at=date.today(),
             median_price=Decimal("100.00"),
             currency="BRL",
@@ -229,20 +229,20 @@ class TestCheckAlertsAfterScan:
 
         scan_run = ScanRun(
             id=1,
-            scan_type="liga_full",
+            scan_type="collection",
             status="completed",
             cards_total=1,
             cards_processed=1,
         )
 
-        triggered = check_alerts_after_scan(scan_run, [f"liga_{card_id}"], repo)
+        triggered = check_alerts_after_scan(scan_run, [f"myp_{card_id}"], repo)
         assert triggered == 1
 
     def test_scan_no_external_ids(self, repo, setup_data):
         """Empty external_ids list does nothing."""
         scan_run = ScanRun(
             id=1,
-            scan_type="liga_full",
+            scan_type="collection",
             status="completed",
             cards_total=0,
             cards_processed=0,
@@ -255,13 +255,13 @@ class TestCheckAlertsAfterScan:
         """Unknown external_ids are silently skipped."""
         scan_run = ScanRun(
             id=1,
-            scan_type="liga_full",
+            scan_type="collection",
             status="completed",
             cards_total=1,
             cards_processed=1,
         )
 
-        triggered = check_alerts_after_scan(scan_run, ["liga_99999"], repo)
+        triggered = check_alerts_after_scan(scan_run, ["myp_99999"], repo)
         assert triggered == 0
 
 
@@ -273,7 +273,7 @@ class TestMakeAlertCheckerHook:
 
         scan_run = ScanRun(
             id=1,
-            scan_type="liga_full",
+            scan_type="collection",
             status="completed",
             cards_total=0,
             cards_processed=0,

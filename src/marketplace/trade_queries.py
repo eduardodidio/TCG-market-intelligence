@@ -17,6 +17,7 @@ from src.database.models import (
     CardRow,
     PriceObservationRow,
     SharedCollectionRow,
+    SourceCardRow,
     UserCollectionRow,
 )
 from src.marketplace.fees import calculate_trade_fee
@@ -29,17 +30,16 @@ DUPLICATE_SORTS = {"quantity", "name", "set", "number", "price"}
 SORT_DIRS = {"asc", "desc"}
 
 
-def _liga_price_expr():
-    """Correlated scalar subquery: latest Liga price (normal or foil)."""
-    liga_ext = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
-    liga_ext_foil = func.concat(liga_ext, "_foil")
+def _latest_price_expr():
+    """Correlated scalar subquery: latest price observation for a card via source_cards."""
     return (
         select(PriceObservationRow.median_price)
-        .where(
-            PriceObservationRow.source == "liga",
-            (PriceObservationRow.external_id == liga_ext)
-            | (PriceObservationRow.external_id == liga_ext_foil),
+        .join(
+            SourceCardRow,
+            (PriceObservationRow.source == SourceCardRow.source)
+            & (PriceObservationRow.external_id == SourceCardRow.external_id),
         )
+        .where(SourceCardRow.card_id == UserCollectionRow.card_id)
         .order_by(PriceObservationRow.observed_at.desc())
         .limit(1)
         .correlate(UserCollectionRow)
@@ -61,7 +61,7 @@ class TradeQueries:
             raise ValueError(f"Unknown sort_dir: {sort_dir!r}")
 
         if sort_by == "price":
-            sort_price = _liga_price_expr()
+            sort_price = _latest_price_expr()
             null_flag = case((sort_price.is_(None), 1), else_=0)
             sort_expr = sort_price.desc() if sort_dir == "desc" else sort_price.asc()
             return stmt.order_by(null_flag, sort_expr, UserCollectionRow.id.asc())
@@ -185,10 +185,7 @@ class TradeQueries:
             stmt = stmt.group_by(UserCollectionRow.set_code).order_by(UserCollectionRow.set_code)
 
             rows = session.execute(stmt).all()
-            return [
-                {"set_code": r[0], "set_name": r[1], "count": r[2]}
-                for r in rows
-            ]
+            return [{"set_code": r[0], "set_name": r[1], "count": r[2]} for r in rows]
 
     def list_duplicates(
         self,
@@ -274,7 +271,4 @@ class TradeQueries:
             )
 
             rows = session.execute(stmt).all()
-            return [
-                {"set_code": r[0], "set_name": r[1], "count": r[2]}
-                for r in rows
-            ]
+            return [{"set_code": r[0], "set_name": r[1], "count": r[2]} for r in rows]

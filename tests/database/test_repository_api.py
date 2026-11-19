@@ -134,9 +134,10 @@ class TestListCards:
         assert cards[0].name_en == "Lightning Bolt"
 
     def test_pagination_after_id(self, seeded_repo):
-        all_cards = seeded_repo.list_cards()
+        # Sort by id to get predictable cursor-based pagination
+        all_cards = seeded_repo.list_cards(sort_by="id", sort_dir="asc")
         first_id = all_cards[0].id
-        rest = seeded_repo.list_cards(after_id=first_id)
+        rest = seeded_repo.list_cards(after_id=first_id, sort_by="id", sort_dir="asc")
         assert len(rest) == 2
         assert all(c.id > first_id for c in rest)
 
@@ -560,9 +561,9 @@ class TestGetLatestObservationDate:
 
 class TestGetStaleCardsCount:
     def test_no_stale_when_all_fresh(self, seeded_repo):
-        # Observations at 2026-08-10 and 2026-08-15; with stale_days=30
-        # and today=2026-08-19, none are stale
-        count = seeded_repo.get_stale_cards_count(stale_days=30)
+        # Observations at 2026-08-10 and 2026-08-15; use a large stale_days
+        # window so they are always considered fresh
+        count = seeded_repo.get_stale_cards_count(stale_days=365)
         assert count == 0
 
     def test_with_stale_cards(self, seeded_repo):
@@ -940,8 +941,8 @@ class TestCollectionMoversOptimized:
         assert losers[0][1] == "Loser"
         assert losers[0][8] == pytest.approx(-50.0, abs=0.01)
 
-    def test_direct_liga_prices_included(self, repo):
-        """Direct liga_{card_id} pattern prices are picked up."""
+    def test_direct_myp_prices_included(self, repo):
+        """Direct myp_{card_id} pattern prices are picked up."""
         engine = repo.engine
         today = date.today()
         yesterday = today - timedelta(days=1)
@@ -949,7 +950,7 @@ class TestCollectionMoversOptimized:
         with Session(engine) as session:
             card = CardRow(
                 game="magic",
-                name_en="Liga Card",
+                name_en="MYP Card",
                 set_code="TST",
                 collector_number="1",
             )
@@ -961,24 +962,24 @@ class TestCollectionMoversOptimized:
                 card_id=card.id,
                 set_code="TST",
                 collector_number="1",
-                name_en="Liga Card",
+                name_en="MYP Card",
                 quantity=1,
             )
             session.add(uc)
 
-            # No source_card, only direct liga prices
+            # No source_card, only direct myp prices
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id=f"liga_{card.id}",
+                    source="myp",
+                    external_id=f"myp_{card.id}",
                     observed_at=yesterday,
                     median_price=Decimal("5.00"),
                 )
             )
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id=f"liga_{card.id}",
+                    source="myp",
+                    external_id=f"myp_{card.id}",
                     observed_at=today,
                     median_price=Decimal("15.00"),
                 )

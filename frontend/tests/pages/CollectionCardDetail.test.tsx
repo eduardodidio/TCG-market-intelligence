@@ -48,7 +48,6 @@ function makeLinkedEntry(
         },
       ],
       scryfall_url: "https://scryfall.com/search?q=Lightning+Bolt+set:DMR",
-      ligamagic_url: "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1",
       ...overrides,
     },
     meta: { cursor: null, total: null, offset: null, request_id: "test-001" },
@@ -256,7 +255,7 @@ describe("CollectionCardDetail page", () => {
     expect(link?.getAttribute("href")).toBe("/collection");
   });
 
-  it("renders external links (Scryfall and LigaMagic)", async () => {
+  it("renders external link (Scryfall)", async () => {
     globalThis.fetch = createMockFetch(makeLinkedEntry()) as unknown as typeof fetch;
     renderDetail();
 
@@ -267,10 +266,6 @@ describe("CollectionCardDetail page", () => {
     const scryfallLink = screen.getByTestId("scryfall-link");
     expect(scryfallLink.getAttribute("href")).toContain("scryfall.com");
     expect(scryfallLink.getAttribute("target")).toBe("_blank");
-
-    const ligamagicLink = screen.getByTestId("ligamagic-link");
-    expect(ligamagicLink.getAttribute("href")).toContain("ligamagic.com.br");
-    expect(ligamagicLink.getAttribute("target")).toBe("_blank");
   });
 
   it("shows 404 state for nonexistent entry", async () => {

@@ -58,8 +58,8 @@ def _find_nearest_observation(
     Searches multiple external_id patterns to match how
     ``get_latest_prices_batch`` resolves prices:
     1. source_cards linked to this card_id (catalog entries)
-    2. ``liga_{card_id}`` direct pattern (Liga scan convention)
-    3. ``liga_{card_id}_foil`` direct pattern (foil Liga prices)
+    2. ``myp_{card_id}`` direct pattern (MYP sweep convention)
+    3. ``myp_{card_id}_foil`` direct pattern (foil MYP prices)
     4. ``manual_{card_id}`` direct pattern (manual price entries)
     """
     target_date = target_dt.date() if isinstance(target_dt, datetime) else target_dt
@@ -72,13 +72,12 @@ def _find_nearest_observation(
     for sc in session.execute(source_cards_stmt).scalars().all():
         search_pairs.append((sc.source, sc.external_id))
 
-    # 2. Direct Liga pattern: liga_{card_id}
-    search_pairs.append(("liga", f"liga_{card_id}"))
+    # 2. Direct MYP pattern: myp_{card_id}
+    search_pairs.append(("myp", f"myp_{card_id}"))
 
-    # 2b. Foil-specific Liga pattern: liga_{card_id}_foil
+    # 2b. Foil-specific MYP pattern: myp_{card_id}_foil
     if is_foil:
-        # Insert foil pattern before normal liga so it is checked first
-        search_pairs.insert(-1, ("liga", f"liga_{card_id}_foil"))
+        search_pairs.insert(-1, ("myp", f"myp_{card_id}_foil"))
 
     # 3. Direct manual pattern: manual_{card_id}
     search_pairs.append(("manual", f"manual_{card_id}"))
@@ -353,12 +352,12 @@ def _load_card_external_ids(
 ) -> dict[int, list[str]]:
     """Map card_id -> list of external_ids from source_cards + direct patterns.
 
-    Includes both source_cards entries and the direct Liga/manual patterns
-    (``liga_{card_id}``, ``manual_{card_id}``) to match the lookup logic
+    Includes both source_cards entries and the direct MYP/manual patterns
+    (``myp_{card_id}``, ``manual_{card_id}``) to match the lookup logic
     in ``get_latest_prices_batch``.
 
-    For cards in *foil_card_ids*, also adds ``liga_{card_id}_foil`` so that
-    foil-specific Liga prices are included in backfill calculations.
+    For cards in *foil_card_ids*, also adds ``myp_{card_id}_foil`` so that
+    foil-specific MYP prices are included in backfill calculations.
     """
     if not card_ids:
         return {}
@@ -371,21 +370,21 @@ def _load_card_external_ids(
     for card_id, external_id in rows:
         result.setdefault(card_id, []).append(external_id)
 
-    # Add direct Liga and manual patterns for all card_ids
+    # Add direct MYP and manual patterns for all card_ids
     for card_id in card_ids:
         ext_list = result.setdefault(card_id, [])
-        liga_ext = f"liga_{card_id}"
+        myp_ext = f"myp_{card_id}"
         manual_ext = f"manual_{card_id}"
-        if liga_ext not in ext_list:
-            ext_list.append(liga_ext)
+        if myp_ext not in ext_list:
+            ext_list.append(myp_ext)
         if manual_ext not in ext_list:
             ext_list.append(manual_ext)
-        # Add foil-specific Liga pattern for foil entries.
+        # Add foil-specific MYP pattern for foil entries.
         # Placed first so _find_best_price prefers foil when dates match.
         if card_id in _foil_ids:
-            liga_foil_ext = f"liga_{card_id}_foil"
-            if liga_foil_ext not in ext_list:
-                ext_list.insert(0, liga_foil_ext)
+            myp_foil_ext = f"myp_{card_id}_foil"
+            if myp_foil_ext not in ext_list:
+                ext_list.insert(0, myp_foil_ext)
 
     return result
 

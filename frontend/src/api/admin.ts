@@ -158,13 +158,6 @@ export interface JobTriggerResult {
   set_code?: string;
 }
 
-export function triggerLigaScan(maxAgeDays = 1) {
-  return apiPost<JobTriggerResult>(
-    `/api/v1/admin/jobs/liga-scan?max_age_days=${maxAgeDays}`,
-    {},
-  );
-}
-
 export function triggerCatalogScan(setCode: string, delay = 2.0) {
   return apiPost<JobTriggerResult>(
     `/api/v1/admin/jobs/catalog-scan?set_code=${encodeURIComponent(setCode)}&delay=${delay}`,

@@ -4,12 +4,11 @@ A collection entry's price history is spread over several series
 (``source`` + ``external_id``) that are not all linked through
 ``source_cards``:
 
-* Liga sweep / refresh / scan write ``liga/liga_{card_id}`` and
-  ``liga/liga_{card_id}_foil`` directly (no ``source_cards`` row).
+* Legacy Liga observations may still exist as ``liga/liga_{card_id}``
+  and ``liga/liga_{card_id}_foil`` (no new data is written).
 * Manual prices live under ``manual/manual_{card_id}``.
-* ``source_cards`` link MYP (``myp/<id>``) and the Liga catalog
-  (``liga/liga_catalog_{set}_{num}``); MYP JSON-LD snapshots reuse the
-  same ``external_id`` under ``jsonld_snapshot``.
+* ``source_cards`` link MYP (``myp/<id>``); MYP JSON-LD snapshots reuse
+  the same ``external_id`` under ``jsonld_snapshot``.
 * The daily carry-forward (F168) writes ``daily_snapshot`` rows reusing
   the ``external_id`` of the series it copied.
 
@@ -17,11 +16,6 @@ This module decides which of those series belong to one variant
 (foil / normal) and collapses them to at most one point per day by source
 priority.  It has no DB or framework imports so it can be unit-tested in
 isolation (see ``src/collection/matcher.py`` for the same pattern).
-
-Contract: ``tasks/features/F176-collection-price-history/_brief/02-key-resolution.md``.
-Diagnosis (F176-T01) confirmed the contract unchanged: a source_card is
-foil only when its ``external_id`` ends with ``_foil``; MYP without that
-suffix stays out of the foil series.
 """
 
 from __future__ import annotations
@@ -49,9 +43,9 @@ BACKFILL_SOURCE = "daily_snapshot_backfill"
 # real observation.
 SOURCE_PRIORITY: dict[str, int] = {
     "manual": 0,
-    "liga": 1,
+    "myp": 1,
     "jsonld_snapshot": 2,
-    "myp": 3,
+    "liga": 3,  # legacy read-only (no new data written)
     SNAPSHOT_SOURCE: 9,
     BACKFILL_SOURCE: 9,
 }
@@ -80,10 +74,13 @@ def resolve_history_keys(
 ) -> list[SeriesKey]:
     """Return the series that make up the history of one card variant.
 
-    Order is deterministic (direct Liga, manual, then ``source_cards`` in
+    Order is deterministic (legacy Liga, manual, then ``source_cards`` in
     the given order) and duplicates are removed.  Foil and normal series
     never mix: the foil variant uses ``liga_{id}_foil`` and ``_foil``
     source_cards only; the normal variant excludes both.
+
+    Legacy Liga observations are still included so that historical price
+    charts remain continuous even though no new Liga data is written.
 
     Raises:
         ValueError: if *card_id* is not a positive integer.
@@ -95,6 +92,7 @@ def resolve_history_keys(
     manual_id = f"manual_{card_id}"
 
     keys: list[SeriesKey] = [
+        # Legacy Liga observations (read-only, no new data written)
         SeriesKey("liga", liga_id),
         SeriesKey(SNAPSHOT_SOURCE, liga_id),
         SeriesKey("manual", manual_id),

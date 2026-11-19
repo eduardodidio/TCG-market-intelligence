@@ -7,11 +7,9 @@ import asyncio
 import json
 from collections.abc import Callable
 from datetime import date, datetime
-from decimal import Decimal
 
 import structlog
 
-from src.collectors.liga_url_recorder import record_liga_url
 from src.database.repository import Repository
 from src.domain.events import ScanEvent
 from src.domain.models import (
@@ -19,76 +17,14 @@ from src.domain.models import (
     ScanFilter,
     ScanRun,
     ScanStatus,
-    ScanType,
 )
 from src.events import scan_bus
-from src.providers.liga.exceptions import (
-    LigaError,
-    LigaNotFoundError,
-    LigaRateLimitError,
-)
 from src.providers.myp.exceptions import NotFoundError, RateLimitError
 from src.providers.myp.provider import MypCardsProvider, MypConfig
 
 log = structlog.get_logger()
 
 MAX_REQUEUE_ATTEMPTS = 2
-
-# Liga-specific defaults
-LIGA_CONCURRENCY = 1
-LIGA_DEFAULT_DELAY = 5.0
-LIGA_REQUEUE_DELAY_MULTIPLIER = 6  # 5s * 6 = 30s cooldown
-
-
-from src.collection.converter import is_foil_entry as _is_foil  # noqa: E402
-
-
-async def _fetch_price_liga(
-    provider, entry: dict, card_id: int, *, is_foil: bool = False
-) -> tuple[HistoricalPrice, str | None] | None:
-    """Fetch price for a single card via the Liga provider.
-
-    Uses provider.search_card(name) which returns a parsed price dict
-    with structure: {"normal": {"low": Decimal|None, "mid": ..., "high": ...}, ...}
-
-    When is_foil=True, extracts foil prices and uses a '_foil' suffix
-    on the external_id to store them separately.
-
-    Returns a (HistoricalPrice, page_url) tuple, or None if no price found.
-    """
-    card_name = entry.get("name_en") or entry.get("name_pt", "")
-    if not card_name:
-        return None
-
-    collector_number = entry.get("collector_number")
-    prices = await provider.search_card(
-        card_name,
-        collector_number=collector_number,
-    )
-    page_url = prices.get("page_url")
-
-    if is_foil:
-        foil = prices.get("foil", {})
-        price: Decimal | None = foil.get("low") or foil.get("mid") or foil.get("high")
-        if price is None:
-            log.warning("liga_no_foil_prices", card=card_name, card_id=card_id)
-            return None
-        external_id = f"liga_{card_id}_foil"
-    else:
-        normal = prices.get("normal", {})
-        price = normal.get("low") or normal.get("mid") or normal.get("high")
-        if price is None:
-            return None
-        external_id = f"liga_{card_id}"
-
-    observation = HistoricalPrice(
-        source="liga",
-        external_id=external_id,
-        observed_at=date.today(),
-        median_price=price,
-        currency="BRL",
-    )
-    return observation, page_url
 
 
 async def run_scan(
@@ -113,40 +49,16 @@ async def run_scan(
         concurrency: Max concurrent requests.
         run_id: Pre-created scan run ID (from API).
         on_complete: Hook called after scan finishes.
-        provider: Provider instance; created internally if None (MYP only).
-        provider_name: Which provider to use ("myp" or "liga").
-        max_age_days: For Liga scans, skip cards scanned within N days.
+        provider: Provider instance; created internally if None.
+        provider_name: Which provider to use (currently only "myp").
+        max_age_days: Skip cards scanned within N days (unused, kept for API compat).
     """
-    is_liga = provider_name == "liga"
-
-    # Force Liga-specific constraints
-    if is_liga:
-        concurrency = LIGA_CONCURRENCY
-        if delay < LIGA_DEFAULT_DELAY:
-            delay = LIGA_DEFAULT_DELAY
-
     scan_filter = scan_filter or ScanFilter()
-
-    # Override scan_type for Liga if using default collection type
-    if is_liga and scan_filter.scan_type in (ScanType.COLLECTION, ScanType.CUSTOM):
-        scan_filter = ScanFilter(
-            scan_type=(
-                ScanType.LIGA_FULL
-                if scan_filter.scan_type == ScanType.COLLECTION
-                else ScanType.LIGA_PARTIAL
-            ),
-            set_codes=scan_filter.set_codes,
-            format_name=scan_filter.format_name,
-            rarities=scan_filter.rarities,
-            card_ids=scan_filter.card_ids,
-            collection_only=scan_filter.collection_only,
-            limit=scan_filter.limit,
-        )
 
     owns_provider = provider is None
     effective_delay = delay
 
-    if provider is None and not is_liga:
+    if provider is None:
         config = MypConfig(delay_seconds=delay)
         provider = MypCardsProvider(config)
 
@@ -160,10 +72,7 @@ async def run_scan(
 
     try:
         # 2. Get cards matching filter
-        if is_liga:
-            entries = repo.get_cards_for_liga_scan(scan_filter, max_age_days=max_age_days)
-        else:
-            entries = repo.get_cards_for_scan(scan_filter)
+        entries = repo.get_cards_for_scan(scan_filter)
         cards_total = len(entries)
         repo.update_scan_run(run_id, cards_total=cards_total)
         log.info(
@@ -234,38 +143,25 @@ async def run_scan(
             async with sem:
                 external_id = entry.get("external_id", "")
                 card_name = entry.get("name_en", "")
-                card_id = entry.get("card_id", 0)
 
-                # Identifier for logging/error messages
-                entry_ident = external_id if not is_liga else (card_name or f"card_{card_id}")
+                entry_ident = external_id
 
-                liga_page_url: str | None = None
                 try:
-                    if is_liga:
-                        foil = _is_foil(entry.get("extras"))
-                        liga_result = await _fetch_price_liga(
-                            provider, entry, card_id, is_foil=foil
-                        )
-                        if liga_result is not None:
-                            observation, liga_page_url = liga_result
-                        else:
-                            observation = None
-                    else:
-                        slug = entry.get("slug", "")
-                        jsonld_price = await provider.fetch_current_price(external_id, slug)
+                    slug = entry.get("slug", "")
+                    jsonld_price = await provider.fetch_current_price(external_id, slug)
 
-                        if jsonld_price is None or jsonld_price.price is None:
-                            observation = None
-                        else:
-                            observation = HistoricalPrice(
-                                source="jsonld_snapshot",
-                                external_id=external_id,
-                                observed_at=today,
-                                median_price=jsonld_price.price,
-                                tcg_price=None,
-                                currency=jsonld_price.currency,
-                            )
-                except (NotFoundError, LigaNotFoundError) as e:
+                    if jsonld_price is None or jsonld_price.price is None:
+                        observation = None
+                    else:
+                        observation = HistoricalPrice(
+                            source="jsonld_snapshot",
+                            external_id=external_id,
+                            observed_at=today,
+                            median_price=jsonld_price.price,
+                            tcg_price=None,
+                            currency=jsonld_price.currency,
+                        )
+                except NotFoundError as e:
                     async with lock:
                         cards_processed += 1
                         cards_failed += 1
@@ -294,7 +190,7 @@ async def run_scan(
                         provider=provider_name,
                     )
                     return
-                except (RateLimitError, LigaRateLimitError) as e:
+                except RateLimitError as e:
                     if attempt < MAX_REQUEUE_ATTEMPTS:
                         async with lock:
                             retry_queue.append((entry, attempt + 1))
@@ -334,7 +230,7 @@ async def run_scan(
                         provider=provider_name,
                     )
                     return
-                except (LigaError, Exception) as e:
+                except Exception as e:
                     async with lock:
                         cards_processed += 1
                         cards_failed += 1
@@ -391,8 +287,6 @@ async def run_scan(
 
                 obs_external_id = observation.external_id
                 inserted = repo.insert_price_observations([observation])
-                if is_liga:
-                    record_liga_url(repo, obs_external_id, liga_page_url)
                 async with lock:
                     cards_processed += 1
                     observations_saved += inserted
@@ -429,7 +323,7 @@ async def run_scan(
 
         # 3b. Retry pass for rate-limited cards
         if retry_queue:
-            requeue_delay_multiplier = LIGA_REQUEUE_DELAY_MULTIPLIER if is_liga else 3
+            requeue_delay_multiplier = 3
             log.info(
                 "scan_retry_pass",
                 run_id=run_id,

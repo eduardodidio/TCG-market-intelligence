@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
 from src.api.routers.collection import router
-from src.database.models import CardRow, PriceObservationRow, UserCollectionRow
+from src.database.models import CardRow, PriceObservationRow, SourceCardRow, UserCollectionRow
 from src.database.repository import Repository
 from src.services.currency import CurrencyConverter
 
@@ -64,11 +64,30 @@ def _make_collection_entry(repo: Repository, card_id: int | None, **overrides) -
 def _add_price_series(repo: Repository, card_id: int, n_days: int) -> None:
     today = date.today()
     with Session(repo.engine) as session:
+        # Ensure source_card exists for the card
+        from sqlalchemy import select
+
+        exists = session.execute(
+            select(SourceCardRow).where(
+                SourceCardRow.card_id == card_id,
+                SourceCardRow.source == "myp",
+            )
+        ).scalar_one_or_none()
+        if not exists:
+            session.add(
+                SourceCardRow(
+                    source="myp",
+                    external_id=f"myp_{card_id}",
+                    card_id=card_id,
+                    url=f"https://myp.example.com/{card_id}",
+                )
+            )
+            session.flush()
         for i in range(n_days):
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id=f"liga_{card_id}",
+                    source="myp",
+                    external_id=f"myp_{card_id}",
                     observed_at=today - timedelta(days=n_days - i),
                     median_price=Decimal("10") + Decimal(str(i)),
                     currency="BRL",
@@ -162,9 +181,17 @@ class TestGetCardMetrics:
         entry_id = _make_collection_entry(repo, card_id)
         with Session(repo.engine) as session:
             session.add(
+                SourceCardRow(
+                    source="myp",
+                    external_id=f"myp_{card_id}",
+                    card_id=card_id,
+                    url=f"https://myp.example.com/{card_id}",
+                )
+            )
+            session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id=f"liga_{card_id}",
+                    source="myp",
+                    external_id=f"myp_{card_id}",
                     observed_at=date.today(),
                     median_price=Decimal("10"),
                     currency="BRL",

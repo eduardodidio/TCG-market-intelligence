@@ -85,8 +85,8 @@ def _seed_collection_with_prices(repo: Repository, user_id: str = "u1"):
         ]
         for card_id, price in prices:
             obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}",
+                source="myp",
+                external_id=f"myp_{card_id}",
                 observed_at=date(2026, 1, 1),
                 median_price=price,
             )
@@ -181,7 +181,7 @@ class TestNameSort:
 
 class TestFoilPriceSort:
     def test_foil_entry_uses_foil_price_in_sort(self, repo):
-        """Foil entries with liga_{id}_foil external_id should sort by foil price."""
+        """Foil entries with myp_{id}_foil external_id should sort by foil price."""
         with Session(repo.engine) as session:
             card = CardRow(
                 id=1, game="magic", name_en="Foil Card", set_code="TST", collector_number="1"
@@ -227,8 +227,8 @@ class TestFoilPriceSort:
             # Price for card 1: 100
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id="liga_1",
+                    source="myp",
+                    external_id="myp_1",
                     observed_at=date(2026, 1, 1),
                     median_price=Decimal("100"),
                 )
@@ -236,8 +236,8 @@ class TestFoilPriceSort:
             # Price for card 2: 5
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id="liga_2",
+                    source="myp",
+                    external_id="myp_2",
                     observed_at=date(2026, 1, 1),
                     median_price=Decimal("5"),
                 )
@@ -252,15 +252,15 @@ class TestFoilPriceSort:
 class TestManualPriceSort:
     def test_manual_price_entries_do_not_break_sort(self, repo):
         """Manual prices use external_id='manual_{id}' which is NOT matched by
-        the sort subquery (source='liga' only). Manual-priced cards without
-        a liga price will sort as NULL-priced (at end)."""
+        the sort subquery (source='myp' only). Manual-priced cards without
+        a myp price will sort as NULL-priced (at end)."""
         with Session(repo.engine) as session:
             card = CardRow(
                 id=1, game="magic", name_en="Manual Card", set_code="TST", collector_number="1"
             )
             session.add(card)
             card2 = CardRow(
-                id=2, game="magic", name_en="Liga Card", set_code="TST", collector_number="2"
+                id=2, game="magic", name_en="MYP Card", set_code="TST", collector_number="2"
             )
             session.add(card2)
             session.flush()
@@ -284,7 +284,7 @@ class TestManualPriceSort:
                     card_id=2,
                     set_code="TST",
                     collector_number="2",
-                    name_en="Liga Card",
+                    name_en="MYP Card",
                     quantity=1,
                     quality="NM",
                     language="EN",
@@ -293,7 +293,7 @@ class TestManualPriceSort:
             )
             session.flush()
 
-            # Manual price for card 1 (source != 'liga', won't be picked up by sort subquery)
+            # Manual price for card 1 (source != 'myp', won't be picked up by sort subquery)
             session.add(
                 PriceObservationRow(
                     source="manual",
@@ -302,11 +302,11 @@ class TestManualPriceSort:
                     median_price=Decimal("500"),
                 )
             )
-            # Liga price for card 2
+            # MYP price for card 2
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id="liga_2",
+                    source="myp",
+                    external_id="myp_2",
                     observed_at=date(2026, 1, 1),
                     median_price=Decimal("10"),
                 )
@@ -314,15 +314,14 @@ class TestManualPriceSort:
             session.commit()
 
         rows = repo.list_collection("u1", sort_by="price", sort_dir="desc", limit=50)
-        # Liga Card has liga price (10), Manual Card has no liga price -> NULL -> at end
-        assert rows[0].name_en == "Liga Card"
+        # MYP Card has myp price (10), Manual Card has no myp price -> NULL -> at end
+        assert rows[0].name_en == "MYP Card"
         assert rows[1].name_en == "Manual Card"
 
 
 class TestMixedSourcePriceSort:
-    def test_liga_and_myp_prices_sort_by_liga_only(self, repo):
-        """The sort subquery only uses source='liga'. MYP prices do not affect sort order.
-        Cards with only MYP prices sort as NULL-priced."""
+    def test_myp_prices_sort(self, repo):
+        """The sort subquery uses source='myp'. Cards without MYP prices sort as NULL-priced."""
         with Session(repo.engine) as session:
             for i in range(1, 4):
                 session.add(
@@ -352,29 +351,21 @@ class TestMixedSourcePriceSort:
                 )
             session.flush()
 
-            # Card 1: liga price 20
+            # Card 1: myp price 20
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id="liga_1",
+                    source="myp",
+                    external_id="myp_1",
                     observed_at=date(2026, 1, 1),
                     median_price=Decimal("20"),
                 )
             )
-            # Card 2: MYP price 100 (not used in sort)
+            # Card 2: no price (NULL)
+            # Card 3: myp price 30
             session.add(
                 PriceObservationRow(
                     source="myp",
-                    external_id="myp_2",
-                    observed_at=date(2026, 1, 1),
-                    median_price=Decimal("100"),
-                )
-            )
-            # Card 3: liga price 30
-            session.add(
-                PriceObservationRow(
-                    source="liga",
-                    external_id="liga_3",
+                    external_id="myp_3",
                     observed_at=date(2026, 1, 1),
                     median_price=Decimal("30"),
                 )
@@ -382,7 +373,7 @@ class TestMixedSourcePriceSort:
             session.commit()
 
         rows = repo.list_collection("u1", sort_by="price", sort_dir="desc", limit=50)
-        # Card 3 (30) > Card 1 (20) > Card 2 (NULL in liga -> at end)
+        # Card 3 (30) > Card 1 (20) > Card 2 (NULL -> at end)
         assert rows[0].name_en == "Card 3"
         assert rows[1].name_en == "Card 1"
         assert rows[2].name_en == "Card 2"

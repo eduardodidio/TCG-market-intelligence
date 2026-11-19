@@ -303,22 +303,6 @@ describe("CardDetail page", () => {
     expect(link.textContent).toContain("View on Scryfall");
   });
 
-  it("renders LigaMagic external link with correct URL", async () => {
-    globalThis.fetch = createMockFetch() as unknown as typeof fetch;
-    renderCardDetail();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("external-links")).toBeDefined();
-    });
-
-    const link = screen.getByTestId("ligamagic-link");
-    expect(link.getAttribute("href")).toBe(
-      "https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt&show=1",
-    );
-    expect(link.getAttribute("target")).toBe("_blank");
-    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
-    expect(link.textContent).toContain("View on LigaMagic");
-  });
 
   it("renders Scryfall link without set code when set_code is null", async () => {
     const detailNoSet = mockCardDetail();
@@ -423,7 +407,6 @@ describe("CardDetail page", () => {
               price_history: [],
               source_cards: [],
               scryfall_url: null,
-              ligamagic_url: null,
               set_name_en: null,
             },
             meta: { cursor: null, total: null, offset: null, request_id: "req-test" },

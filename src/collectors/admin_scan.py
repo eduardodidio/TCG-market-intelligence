@@ -1,9 +1,11 @@
-"""Admin daily Liga scan orchestrator.
+"""Admin daily scan orchestrator.
 
 Collects all admin users' collection entries (deduplicated by card_id)
-and runs a single Liga scan. Used by the scheduler for the
-``admin_daily_liga`` scan type. No credit deduction — this is a
+and runs a single MYP sweep. Used by the scheduler for the
+``admin_daily_myp`` scan type. No credit deduction -- this is a
 system-level job.
+
+Note: Previously used Liga Magic; now delegates to MYP sweep.
 """
 
 from __future__ import annotations
@@ -13,23 +15,23 @@ from datetime import datetime
 
 import structlog
 
-from src.collectors.liga_scan import run_liga_scan
+from src.collectors.myp_sweep import run_myp_sweep
 from src.database.repository import Repository
-from src.domain.models import ScanFilter, ScanRun
+from src.domain.models import ScanRun
 
 log = structlog.get_logger()
 
 
-async def run_admin_daily_liga_scan(
+async def run_admin_daily_scan(
     db_url: str,
     run_id: int | None = None,
     max_age_days: int = 1,
     on_complete: Callable | None = None,
 ) -> ScanRun:
-    """Run a Liga scan for all admin users' collections.
+    """Run an MYP sweep for all admin users' collections.
 
     Gathers collection entries from every admin user, deduplicates by
-    ``card_id``, and delegates to :func:`run_liga_scan`.
+    ``card_id``, and delegates to :func:`run_myp_sweep`.
 
     Args:
         db_url: Database connection string.
@@ -44,8 +46,7 @@ async def run_admin_daily_liga_scan(
     admin_ids = repo.get_admin_user_ids()
 
     if not admin_ids:
-        log.info("admin_daily_liga_no_admins")
-        # Return a completed scan with 0 cards
+        log.info("admin_daily_scan_no_admins")
         if run_id is not None:
             repo.update_scan_run(
                 run_id,
@@ -57,51 +58,32 @@ async def run_admin_daily_liga_scan(
             )
         return ScanRun(
             id=run_id,
-            scan_type="admin_daily_liga",
-            status="completed",
-            cards_total=0,
-            cards_processed=0,
-        )
-
-    # Collect all card_ids from admin users, deduplicated
-    all_card_ids: set[int] = set()
-    for uid in admin_ids:
-        entries = repo.get_cards_for_liga_scan(
-            ScanFilter(), user_id=str(uid), max_age_days=max_age_days
-        )
-        all_card_ids.update(e["card_id"] for e in entries if e.get("card_id"))
-
-    if not all_card_ids:
-        log.info("admin_daily_liga_all_fresh", admin_count=len(admin_ids))
-        if run_id is not None:
-            repo.update_scan_run(
-                run_id,
-                status="completed",
-                cards_total=0,
-                cards_processed=0,
-                started_at=datetime.now(),
-                finished_at=datetime.now(),
-            )
-        return ScanRun(
-            id=run_id,
-            scan_type="admin_daily_liga",
+            scan_type="admin_daily_myp",
             status="completed",
             cards_total=0,
             cards_processed=0,
         )
 
     log.info(
-        "admin_daily_liga_start",
+        "admin_daily_scan_start",
         admin_count=len(admin_ids),
-        card_count=len(all_card_ids),
         max_age_days=max_age_days,
     )
 
-    scan_filter = ScanFilter(card_ids=list(all_card_ids))
-    return await run_liga_scan(
+    result = await run_myp_sweep(
         db_url=db_url,
-        scan_filter=scan_filter,
-        run_id=run_id,
         max_age_days=max_age_days,
         on_complete=on_complete,
     )
+
+    return ScanRun(
+        id=run_id,
+        scan_type="admin_daily_myp",
+        status="completed",
+        cards_total=result.total_eligible,
+        cards_processed=result.total_processed,
+    )
+
+
+# Keep old name as alias for backward compatibility
+run_admin_daily_liga_scan = run_admin_daily_scan

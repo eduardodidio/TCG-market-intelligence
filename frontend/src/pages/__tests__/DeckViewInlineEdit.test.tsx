@@ -16,7 +16,7 @@ vi.mock("../../api/deckRanking", () => ({
 }));
 
 vi.mock("../../api/collection", () => ({
-  refreshCardPriceLiga: vi.fn(),
+  refreshCardPrice: vi.fn(),
 }));
 
 vi.mock("recharts", () => ({

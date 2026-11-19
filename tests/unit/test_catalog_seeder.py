@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from src.catalog.scryfall import CatalogCard
 from src.catalog.seeder import SeedResult, _process_card_batch, seed_catalog
-from src.database.models import Base, CardRow, SourceCardRow
+from src.database.models import Base, CardRow
 
 
 def _make_catalog_card(
@@ -107,7 +107,7 @@ class TestSeedResult:
 
 
 class TestProcessCardBatch:
-    def test_inserts_cards_and_source_cards(self, db_url: str, sample_cards: list[CatalogCard]):
+    def test_inserts_cards(self, db_url: str, sample_cards: list[CatalogCard]):
         engine = create_engine(db_url)
         result = SeedResult()
 
@@ -117,13 +117,11 @@ class TestProcessCardBatch:
 
         assert result.cards_inserted == 5
         assert result.cards_skipped == 0
-        assert result.source_cards_created == 5
+        assert result.source_cards_created == 0
 
         with Session(engine) as session:
             cards = session.execute(select(CardRow)).scalars().all()
             assert len(cards) == 5
-            source_cards = session.execute(select(SourceCardRow)).scalars().all()
-            assert len(source_cards) == 5
 
         engine.dispose()
 
@@ -147,33 +145,10 @@ class TestProcessCardBatch:
         assert result2.cards_skipped == 0
         assert result2.source_cards_created == 0
 
-        # DB still has exactly 5 of each
+        # DB still has exactly 5 cards
         with Session(engine) as session:
             cards = session.execute(select(CardRow)).scalars().all()
             assert len(cards) == 5
-            source_cards = session.execute(select(SourceCardRow)).scalars().all()
-            assert len(source_cards) == 5
-
-        engine.dispose()
-
-    def test_source_card_fields(self, db_url: str):
-        engine = create_engine(db_url)
-        card = _make_catalog_card("Lightning Bolt", "lea", "161")
-        result = SeedResult()
-
-        with Session(engine) as session:
-            _process_card_batch(session, [card], result)
-            session.commit()
-
-        with Session(engine) as session:
-            sc = session.execute(select(SourceCardRow)).scalar_one()
-            assert sc.source == "liga"
-            assert sc.external_id == "liga_catalog_lea_161"
-            assert "Lightning+Bolt" in sc.url
-            assert sc.name_en == "Lightning Bolt"
-            assert sc.set_code == "lea"
-            assert sc.collector_number == "161"
-            assert sc.card_id is not None
 
         engine.dispose()
 
@@ -216,7 +191,7 @@ class TestSeedCatalog:
 
         assert result.cards_inserted == 5
         assert result.cards_skipped == 0
-        assert result.source_cards_created == 5
+        assert result.source_cards_created == 0
         assert result.errors == []
         assert result.elapsed_seconds > 0
 
@@ -224,8 +199,6 @@ class TestSeedCatalog:
         with Session(engine) as session:
             cards = session.execute(select(CardRow)).scalars().all()
             assert len(cards) == 5
-            source_cards = session.execute(select(SourceCardRow)).scalars().all()
-            assert len(source_cards) == 5
         engine.dispose()
 
     def test_idempotent_seed_twice(self, db_url: str, bulk_json_path: Path):
@@ -244,15 +217,11 @@ class TestSeedCatalog:
             assert len(cards) == 5
         engine.dispose()
 
-    def test_batch_commit_not_per_card(self, db_url: str, bulk_json_path: Path):
-        """Verify that commits happen per-batch, not per-card.
-
-        With batch_size=3 and 5 cards, we expect exactly 2 batches
-        (3 + 2), meaning 2 commits total.
-        """
+    def test_batch_commit_not_per_card_or_single_batch(self, db_url: str, bulk_json_path: Path):
+        """Verify that seed_catalog commits per batch. With source_cards removed,
+        there is only 1 commit per batch (card upsert only)."""
         commit_count = 0
 
-        # We patch Session.commit to count calls
         original_commit = Session.commit
 
         def counting_commit(self):
@@ -273,7 +242,7 @@ class TestSeedCatalog:
         assert result.cards_inserted == 5
         assert result.cards_updated == 0
         assert result.cards_skipped == 0
-        assert result.source_cards_created == 5
+        assert result.source_cards_created == 0
         assert result.errors == []
         assert isinstance(result.elapsed_seconds, float)
         assert result.elapsed_seconds >= 0
@@ -291,20 +260,12 @@ class TestSeedCatalog:
         result = seed_catalog(db_url, path, batch_size=10)
 
         assert result.cards_inserted == 3
-        assert result.source_cards_created == 3
+        assert result.source_cards_created == 0
 
         engine = create_engine(db_url)
         with Session(engine) as session:
-            source_cards = session.execute(select(SourceCardRow)).scalars().all()
-            ext_ids = {sc.external_id for sc in source_cards}
-            assert ext_ids == {
-                "liga_catalog_lea_161",
-                "liga_catalog_m10_146",
-                "liga_catalog_m11_149",
-            }
-            # All share the same URL (same card name)
-            urls = {sc.url for sc in source_cards}
-            assert len(urls) == 1  # same name -> same URL
+            cards_db = session.execute(select(CardRow)).scalars().all()
+            assert len(cards_db) == 3
         engine.dispose()
 
     def test_empty_bulk_file(self, db_url: str, tmp_path: Path):
@@ -325,4 +286,4 @@ class TestSeedCatalog:
         result = seed_catalog(db_url, path, batch_size=500)
 
         assert result.cards_inserted == 1
-        assert result.source_cards_created == 1
+        assert result.source_cards_created == 0

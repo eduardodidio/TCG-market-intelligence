@@ -9,7 +9,6 @@ class EvalCreateRequest(BaseModel):
     card_name: str = Field(..., min_length=1, max_length=500)
     set_code: str | None = None
     collector_number: str | None = None
-    liga_url: str | None = None
     source_data_json: str | None = None
     price_at_add: float | None = None
     card_id: int | None = None
@@ -20,7 +19,6 @@ class EvalEntryResponse(BaseModel):
     card_name: str
     set_code: str | None
     collector_number: str | None
-    liga_url: str | None
     price_at_add: float | None
     card_id: int | None
     image_url: str | None

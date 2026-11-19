@@ -95,7 +95,7 @@ vi.mock("../../api/collection", async (importOriginal) => {
     fetchCollection: (...args: unknown[]) => mockFetchCollection(...args),
     fetchCollectionSummary: (...args: unknown[]) => mockFetchCollectionSummary(...args),
     fetchCollectionSets: (...args: unknown[]) => mockFetchCollectionSets(...args),
-    refreshCardPriceLiga: vi.fn(),
+    refreshCardPrice: vi.fn(),
     bulkUpdateEntries: vi.fn(),
     bulkDeleteEntries: vi.fn(),
     fetchSetCompletion: (...args: unknown[]) => mockFetchSetCompletion(...args),

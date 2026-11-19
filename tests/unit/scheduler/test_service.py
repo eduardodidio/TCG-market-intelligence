@@ -444,30 +444,6 @@ class TestScheduleTokenCost:
 
     @patch("src.scheduler.service.Repository")
     @patch("src.scheduler.service.asyncio.run")
-    def test_admin_daily_liga_exempt(self, mock_asyncio_run, MockRepo) -> None:
-        """admin_daily_liga scans skip token checks entirely."""
-        mock_repo = MockRepo.return_value
-        mock_repo.get_scheduled_scan.return_value = self._make_schedule(
-            scan_type="admin_daily_liga",
-            filters_json='{"provider": "liga", "max_age_days": 1}',
-        )
-        mock_repo.create_scan_run.return_value = 200
-
-        scheduler = ScanScheduler("sqlite:///:memory:")
-        scheduler._scheduler = MagicMock()
-        scheduler._scheduler.get_job.return_value = None
-
-        scheduler._execute_scheduled_scan(1, scan_id=200)
-
-        # Should not check credits at all
-        mock_repo.count_collection.assert_not_called()
-        mock_repo.ensure_credit_balance.assert_not_called()
-
-        # Scan should have run
-        mock_asyncio_run.assert_called_once()
-
-    @patch("src.scheduler.service.Repository")
-    @patch("src.scheduler.service.asyncio.run")
     def test_scheduled_scan_zero_cards(self, mock_asyncio_run, MockRepo) -> None:
         """If user has 0 cards, scan proceeds with 0 cost (no deduction)."""
         mock_repo = MockRepo.return_value

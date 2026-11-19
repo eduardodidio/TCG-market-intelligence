@@ -1,7 +1,6 @@
 """MYP sweep orchestrator -- batch-processes the entire collection
 through MYP Cards with configurable pacing for price updates.
 
-Replaces Liga sweep when LigaMagic is blocked by Cloudflare.
 Uses curl_cffi (no browser needed, no Cloudflare issues).
 """
 
@@ -184,13 +183,12 @@ async def run_myp_sweep(
     db_url = db_url or get_db_url()
     repo = Repository(db_url)
 
-    # Reuse the Liga scan query (it returns the same card fields we need)
     scan_filter_obj = ScanFilter(
-        scan_type=ScanType.LIGA_FULL,
+        scan_type=ScanType.COLLECTION,
         set_codes=[set_filter] if set_filter else None,
         limit=limit,
     )
-    entries = repo.get_cards_for_liga_scan(
+    entries = repo.get_cards_for_sweep(
         scan_filter=scan_filter_obj,
         max_age_days=max_age_days,
     )

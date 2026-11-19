@@ -37,7 +37,6 @@ const MOCK_ENTRY = {
     price_history: [],
     source_cards: [],
     scryfall_url: null,
-    ligamagic_url: null,
   },
   meta: { cursor: null, total: null, offset: null, request_id: "r1" },
   errors: [],

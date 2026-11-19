@@ -6,7 +6,7 @@ from collections.abc import Generator
 from fastapi import Depends, Header, Request
 
 from src.api.error_codes import ErrorCode, api_error
-from src.config import get_db_url, is_liga_disabled
+from src.config import get_db_url
 from src.database.repository import Repository
 
 
@@ -75,16 +75,9 @@ def _create_market_data_service():
 def get_provider_registry():
     """FastAPI dependency for the ProviderRegistry singleton.
 
-    Returns a ProviderRegistry configured from the ``TCG_PROVIDER_ORDER``
-    environment variable (default: ``liga,myp``).  If LigaMagic is not
-    available (e.g. Playwright not installed), it is silently skipped.
+    Returns a ProviderRegistry with MYP as the sole provider.
     """
     if not hasattr(get_provider_registry, "_instance"):
-        import structlog
-
-        if is_liga_disabled():
-            structlog.get_logger().warning("liga_provider_disabled")
-
         from src.providers.registry import create_registry_from_env
 
         get_provider_registry._instance = create_registry_from_env()

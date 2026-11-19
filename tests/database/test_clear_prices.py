@@ -33,25 +33,25 @@ def seeded_repo(repo):
     """Seed repo with price observations from multiple sources + a scan_run."""
     engine = repo.engine
     with Session(engine) as session:
-        # MYP observations
+        # jsonld_snapshot observations (deletable)
         session.add_all(
             [
                 PriceObservationRow(
-                    source="myp",
+                    source="jsonld_snapshot",
                     external_id="ext1",
                     observed_at=date(2026, 8, 10),
                     median_price=Decimal("5.50"),
                     currency="BRL",
                 ),
                 PriceObservationRow(
-                    source="myp",
+                    source="jsonld_snapshot",
                     external_id="ext1",
                     observed_at=date(2026, 8, 11),
                     median_price=Decimal("6.00"),
                     currency="BRL",
                 ),
                 PriceObservationRow(
-                    source="myp",
+                    source="jsonld_snapshot",
                     external_id="ext2",
                     observed_at=date(2026, 8, 10),
                     median_price=Decimal("3.00"),
@@ -59,11 +59,11 @@ def seeded_repo(repo):
                 ),
             ]
         )
-        # jsonld_snapshot observations
+        # daily_snapshot observations (also deletable)
         session.add_all(
             [
                 PriceObservationRow(
-                    source="jsonld_snapshot",
+                    source="daily_snapshot",
                     external_id="ext1",
                     observed_at=date(2026, 8, 12),
                     median_price=Decimal("5.75"),
@@ -71,11 +71,11 @@ def seeded_repo(repo):
                 ),
             ]
         )
-        # Liga observations (protected)
+        # MYP observations (protected)
         session.add_all(
             [
                 PriceObservationRow(
-                    source="liga",
+                    source="myp",
                     external_id="ext1",
                     observed_at=date(2026, 8, 13),
                     median_price=Decimal("7.00"),
@@ -112,7 +112,7 @@ class TestClearPricesDryRun:
     def test_returns_correct_count(self, seeded_repo):
         """Dry-run should return count of matching rows without deleting."""
         db_url = str(seeded_repo.engine.url)
-        result = clear_prices_by_source(db_url, "myp", dry_run=True)
+        result = clear_prices_by_source(db_url, "jsonld_snapshot", dry_run=True)
 
         assert result.dry_run is True
         assert result.deleted == 3
@@ -121,7 +121,7 @@ class TestClearPricesDryRun:
     def test_does_not_mutate_database(self, seeded_repo):
         """After dry-run, row counts must be unchanged."""
         db_url = str(seeded_repo.engine.url)
-        clear_prices_by_source(db_url, "myp", dry_run=True)
+        clear_prices_by_source(db_url, "jsonld_snapshot", dry_run=True)
 
         with Session(seeded_repo.engine) as session:
             total = session.execute(select(func.count()).select_from(PriceObservationRow)).scalar()
@@ -139,29 +139,29 @@ class TestClearPricesActualDelete:
     def test_deletes_correct_rows(self, seeded_repo):
         """Actual delete should remove only rows matching the source."""
         db_url = str(seeded_repo.engine.url)
-        result = clear_prices_by_source(db_url, "myp", dry_run=False, skip_backup=True)
+        result = clear_prices_by_source(db_url, "jsonld_snapshot", dry_run=False, skip_backup=True)
 
         assert result.dry_run is False
         assert result.deleted == 3
 
         with Session(seeded_repo.engine) as session:
-            myp_count = session.execute(
+            jsonld_count = session.execute(
                 select(func.count())
                 .select_from(PriceObservationRow)
-                .where(PriceObservationRow.source == "myp")
+                .where(PriceObservationRow.source == "jsonld_snapshot")
             ).scalar()
-            assert myp_count == 0
+            assert jsonld_count == 0
 
             # Other sources untouched
             remaining = session.execute(
                 select(func.count()).select_from(PriceObservationRow)
             ).scalar()
-            assert remaining == 3  # 1 jsonld + 1 liga + 1 manual
+            assert remaining == 3  # 1 daily_snapshot + 1 myp + 1 manual
 
-    def test_deletes_jsonld_snapshot(self, seeded_repo):
-        """Can delete jsonld_snapshot source."""
+    def test_deletes_daily_snapshot(self, seeded_repo):
+        """Can delete daily_snapshot source."""
         db_url = str(seeded_repo.engine.url)
-        result = clear_prices_by_source(db_url, "jsonld_snapshot", dry_run=False, skip_backup=True)
+        result = clear_prices_by_source(db_url, "daily_snapshot", dry_run=False, skip_backup=True)
 
         assert result.deleted == 1
 
@@ -169,15 +169,15 @@ class TestClearPricesActualDelete:
             remaining = session.execute(
                 select(func.count()).select_from(PriceObservationRow)
             ).scalar()
-            assert remaining == 5  # 3 myp + 1 liga + 1 manual
+            assert remaining == 5  # 3 jsonld + 1 myp + 1 manual
 
 
 class TestProtectedSources:
-    def test_refuses_liga(self, seeded_repo):
-        """Must refuse to clear source='liga'."""
+    def test_refuses_myp(self, seeded_repo):
+        """Must refuse to clear source='myp'."""
         db_url = str(seeded_repo.engine.url)
-        with pytest.raises(ValueError, match="Refusing to clear protected source 'liga'"):
-            clear_prices_by_source(db_url, "liga", dry_run=False, skip_backup=True)
+        with pytest.raises(ValueError, match="Refusing to clear protected source 'myp'"):
+            clear_prices_by_source(db_url, "myp", dry_run=False, skip_backup=True)
 
     def test_refuses_manual(self, seeded_repo):
         """Must refuse to clear source='manual'."""
@@ -189,11 +189,11 @@ class TestProtectedSources:
         """Protected source check applies even in dry-run mode."""
         db_url = str(seeded_repo.engine.url)
         with pytest.raises(ValueError, match="protected source"):
-            clear_prices_by_source(db_url, "liga", dry_run=True)
+            clear_prices_by_source(db_url, "myp", dry_run=True)
 
     def test_protected_sources_set(self):
-        """PROTECTED_SOURCES must contain liga and manual."""
-        assert "liga" in PROTECTED_SOURCES
+        """PROTECTED_SOURCES must contain myp and manual."""
+        assert "myp" in PROTECTED_SOURCES
         assert "manual" in PROTECTED_SOURCES
 
 
@@ -204,7 +204,9 @@ class TestBackup:
 
         with patch("src.database.cleanup.backup_database") as mock_backup:
             mock_backup.return_value = Path(tmp_path / "fake_backup.db")
-            result = clear_prices_by_source(db_url, "myp", dry_run=False, skip_backup=False)
+            result = clear_prices_by_source(
+                db_url, "jsonld_snapshot", dry_run=False, skip_backup=False
+            )
 
         mock_backup.assert_called_once()
         assert result.backup_path is not None
@@ -214,7 +216,9 @@ class TestBackup:
         db_url = str(seeded_repo.engine.url)
 
         with patch("src.database.cleanup.backup_database") as mock_backup:
-            result = clear_prices_by_source(db_url, "myp", dry_run=False, skip_backup=True)
+            result = clear_prices_by_source(
+                db_url, "jsonld_snapshot", dry_run=False, skip_backup=True
+            )
 
         mock_backup.assert_not_called()
         assert result.backup_path is None
@@ -228,7 +232,7 @@ class TestScanRunsUntouched:
         with Session(seeded_repo.engine) as session:
             before = session.execute(select(func.count()).select_from(ScanRunRow)).scalar()
 
-        clear_prices_by_source(db_url, "myp", dry_run=False, skip_backup=True)
+        clear_prices_by_source(db_url, "jsonld_snapshot", dry_run=False, skip_backup=True)
 
         with Session(seeded_repo.engine) as session:
             after = session.execute(select(func.count()).select_from(ScanRunRow)).scalar()
@@ -244,7 +248,9 @@ class TestCLI:
 
         runner = CliRunner()
         db_url = str(seeded_repo.engine.url)
-        result = runner.invoke(cli, ["db-clear-prices", "--db", db_url, "--source", "myp"])
+        result = runner.invoke(
+            cli, ["db-clear-prices", "--db", db_url, "--source", "jsonld_snapshot"]
+        )
 
         assert result.exit_code == 0
         assert "DRY RUN" in result.output
@@ -264,19 +270,27 @@ class TestCLI:
         db_url = str(seeded_repo.engine.url)
         result = runner.invoke(
             cli,
-            ["db-clear-prices", "--db", db_url, "--source", "myp", "--confirm", "--skip-backup"],
+            [
+                "db-clear-prices",
+                "--db",
+                db_url,
+                "--source",
+                "jsonld_snapshot",
+                "--confirm",
+                "--skip-backup",
+            ],
         )
 
         assert result.exit_code == 0
         assert "Deleted 3" in result.output
 
         with Session(seeded_repo.engine) as session:
-            myp_count = session.execute(
+            jsonld_count = session.execute(
                 select(func.count())
                 .select_from(PriceObservationRow)
-                .where(PriceObservationRow.source == "myp")
+                .where(PriceObservationRow.source == "jsonld_snapshot")
             ).scalar()
-            assert myp_count == 0
+            assert jsonld_count == 0
 
     def test_protected_source_error(self, seeded_repo):
         """CLI with protected source should exit with error."""
@@ -286,7 +300,7 @@ class TestCLI:
         db_url = str(seeded_repo.engine.url)
         result = runner.invoke(
             cli,
-            ["db-clear-prices", "--db", db_url, "--source", "liga", "--confirm"],
+            ["db-clear-prices", "--db", db_url, "--source", "myp", "--confirm"],
         )
 
         assert result.exit_code == 1

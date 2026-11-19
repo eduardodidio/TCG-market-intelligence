@@ -61,11 +61,11 @@ def _seed_obs(
 
 
 class TestParseDirectCardId:
-    def test_liga_pattern(self):
-        assert parse_direct_card_id("liga_42") == 42
+    def test_myp_pattern(self):
+        assert parse_direct_card_id("myp_42") == 42
 
-    def test_liga_foil_is_excluded(self):
-        assert parse_direct_card_id("liga_42_foil") is None
+    def test_myp_foil_is_excluded(self):
+        assert parse_direct_card_id("myp_42_foil") is None
 
     def test_manual_pattern(self):
         assert parse_direct_card_id("manual_42") == 42
@@ -73,8 +73,8 @@ class TestParseDirectCardId:
     def test_liga_catalog_is_not_a_card_id(self):
         assert parse_direct_card_id("liga_catalog_mh3_12") is None
 
-    def test_liga_non_numeric_suffix_is_rejected(self):
-        assert parse_direct_card_id("liga_abc") is None
+    def test_myp_non_numeric_suffix_is_rejected(self):
+        assert parse_direct_card_id("myp_abc") is None
 
     def test_manual_with_no_id_is_rejected(self):
         assert parse_direct_card_id("manual_") is None
@@ -89,8 +89,8 @@ class TestLoadMarketTrendingPrices:
             for i in range(5):
                 _seed_obs(
                     session,
-                    "liga",
-                    "liga_42",
+                    "myp",
+                    "myp_42",
                     today - timedelta(days=4 - i),
                     Decimal(f"{10 + i}.00"),
                 )
@@ -112,7 +112,7 @@ class TestLoadMarketTrendingPrices:
             _seed_card(session, 7)
             _seed_source_card(session, 7, "myp", "myp_7")
             _seed_obs(session, "myp", "myp_7", today - timedelta(days=2), Decimal("5.00"))
-            _seed_obs(session, "liga", "liga_7", today - timedelta(days=1), Decimal("6.00"))
+            _seed_obs(session, "myp", "myp_7", today - timedelta(days=1), Decimal("6.00"))
             session.commit()
 
         result = load_market_trending_prices(engine, period_days=30)
@@ -124,7 +124,7 @@ class TestLoadMarketTrendingPrices:
         today = date.today()
         with Session(engine) as session:
             _seed_card(session, 42)
-            _seed_obs(session, "liga", "liga_42", today, Decimal("10.00"))
+            _seed_obs(session, "myp", "myp_42", today, Decimal("10.00"))
             _seed_obs(session, "manual", "manual_42", today, Decimal("12.00"))
             session.commit()
 
@@ -137,9 +137,9 @@ class TestLoadMarketTrendingPrices:
         today = date.today()
         with Session(engine) as session:
             _seed_card(session, 42)
-            _seed_obs(session, "liga", "liga_42", today, Decimal("10.00"))
-            _seed_obs(session, "liga", "liga_42_foil", today, Decimal("25.00"))
-            _seed_obs(session, "liga", "liga_42_foil", today - timedelta(days=1), Decimal("30.00"))
+            _seed_obs(session, "myp", "myp_42", today, Decimal("10.00"))
+            _seed_obs(session, "myp", "myp_42_foil", today, Decimal("25.00"))
+            _seed_obs(session, "myp", "myp_42_foil", today - timedelta(days=1), Decimal("30.00"))
             session.commit()
 
         result = load_market_trending_prices(engine, period_days=30)
@@ -150,8 +150,8 @@ class TestLoadMarketTrendingPrices:
         engine = _sqlite_engine_with_prices
         today = date.today()
         with Session(engine) as session:
-            _seed_obs(session, "liga", "liga_catalog_mh3_12", today, Decimal("10.00"))
-            _seed_obs(session, "liga", "liga_abc", today, Decimal("10.00"))
+            _seed_obs(session, "myp", "liga_catalog_mh3_12", today, Decimal("10.00"))
+            _seed_obs(session, "myp", "liga_abc", today, Decimal("10.00"))
             _seed_obs(session, "manual", "manual_", today, Decimal("10.00"))
             session.commit()
 
@@ -164,7 +164,7 @@ class TestLoadMarketTrendingPrices:
         cutoff = date.today() - timedelta(days=30)
         with Session(engine) as session:
             _seed_card(session, 42)
-            _seed_obs(session, "liga", "liga_42", cutoff, Decimal("10.00"))
+            _seed_obs(session, "myp", "myp_42", cutoff, Decimal("10.00"))
             session.commit()
 
         result = load_market_trending_prices(engine, period_days=30)
@@ -176,7 +176,7 @@ class TestLoadMarketTrendingPrices:
         before_cutoff = date.today() - timedelta(days=31)
         with Session(engine) as session:
             _seed_card(session, 42)
-            _seed_obs(session, "liga", "liga_42", before_cutoff, Decimal("10.00"))
+            _seed_obs(session, "myp", "myp_42", before_cutoff, Decimal("10.00"))
             session.commit()
 
         result = load_market_trending_prices(engine, period_days=30)
@@ -188,7 +188,7 @@ class TestLoadMarketTrendingPrices:
         today = date.today()
         with Session(engine) as session:
             _seed_card(session, 42)
-            _seed_obs(session, "liga", "liga_42", today, None)
+            _seed_obs(session, "myp", "myp_42", today, None)
             session.commit()
 
         result = load_market_trending_prices(engine, period_days=30)

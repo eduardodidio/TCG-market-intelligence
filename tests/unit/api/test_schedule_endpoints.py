@@ -29,7 +29,7 @@ def app(tmp_path):
     """Create test FastAPI app with isolated DB."""
     db_path = str(tmp_path / "test.db").replace("\\", "/")
     db_url = f"sqlite:///{db_path}"
-    with patch.dict(os.environ, {"TCG_DATABASE_URL": db_url}):
+    with patch.dict(os.environ, {"DATABASE_URL": db_url, "TCG_DATABASE_URL": db_url}):
         yield create_app()
 
 

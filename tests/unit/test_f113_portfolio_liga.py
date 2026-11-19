@@ -1,10 +1,10 @@
-"""Tests for F113-T07: Portfolio/Liga Dashboard Data Flow Fix.
+"""Tests for F113-T07: Portfolio/MYP Dashboard Data Flow Fix.
 
 Covers:
-- Bug A: _load_card_external_ids includes foil Liga patterns
-- Bug A: _find_nearest_observation includes foil Liga patterns
-- Bug B: get_collection_summary priced_count includes Liga-only cards
-- Bug D: get_trending_price_data_for_user includes Liga direct patterns
+- Bug A: _load_card_external_ids includes foil MYP patterns
+- Bug A: _find_nearest_observation includes foil MYP patterns
+- Bug B: get_collection_summary priced_count includes MYP-only cards
+- Bug D: get_trending_price_data_for_user includes MYP direct patterns
 """
 
 from __future__ import annotations
@@ -62,8 +62,8 @@ def _seed_card(session: Session, card_id: int = 1, name: str = "Test Card") -> C
 def _seed_source_card(
     session: Session,
     card_id: int,
-    source: str = "liga",
-    external_id: str = "liga_100",
+    source: str = "myp",
+    external_id: str = "myp_100",
 ) -> SourceCardRow:
     sc = SourceCardRow(
         source=source,
@@ -128,10 +128,10 @@ def _seed_collection_entry(
 
 
 class TestLoadCardExternalIdsFoil:
-    """Verify that _load_card_external_ids includes foil Liga patterns."""
+    """Verify that _load_card_external_ids includes foil MYP patterns."""
 
-    def test_no_foil_ids_only_liga_and_manual(self):
-        """Without foil_card_ids, only liga_{id} and manual_{id} are added."""
+    def test_no_foil_ids_only_myp_and_manual(self):
+        """Without foil_card_ids, only myp_{id} and manual_{id} are added."""
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
@@ -140,12 +140,12 @@ class TestLoadCardExternalIdsFoil:
         with Session(engine) as session:
             result = _load_card_external_ids(session, {1})
             ext_ids = result[1]
-            assert "liga_1" in ext_ids
+            assert "myp_1" in ext_ids
             assert "manual_1" in ext_ids
-            assert "liga_1_foil" not in ext_ids
+            assert "myp_1_foil" not in ext_ids
 
     def test_foil_card_gets_foil_pattern(self):
-        """When card_id is in foil_card_ids, liga_{id}_foil is added."""
+        """When card_id is in foil_card_ids, myp_{id}_foil is added."""
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
@@ -154,8 +154,8 @@ class TestLoadCardExternalIdsFoil:
         with Session(engine) as session:
             result = _load_card_external_ids(session, {1}, foil_card_ids={1})
             ext_ids = result[1]
-            assert "liga_1_foil" in ext_ids
-            assert "liga_1" in ext_ids
+            assert "myp_1_foil" in ext_ids
+            assert "myp_1" in ext_ids
             assert "manual_1" in ext_ids
 
     def test_foil_pattern_appears_first(self):
@@ -168,7 +168,7 @@ class TestLoadCardExternalIdsFoil:
         with Session(engine) as session:
             result = _load_card_external_ids(session, {5}, foil_card_ids={5})
             ext_ids = result[5]
-            assert ext_ids[0] == "liga_5_foil"
+            assert ext_ids[0] == "myp_5_foil"
 
     def test_mixed_foil_and_non_foil(self):
         """Only foil card_ids get the foil pattern."""
@@ -180,8 +180,8 @@ class TestLoadCardExternalIdsFoil:
 
         with Session(engine) as session:
             result = _load_card_external_ids(session, {1, 2}, foil_card_ids={2})
-            assert "liga_1_foil" not in result[1]
-            assert "liga_2_foil" in result[2]
+            assert "myp_1_foil" not in result[1]
+            assert "myp_2_foil" in result[2]
 
 
 # ── Bug A: _find_nearest_observation with foil support ───────────
@@ -191,14 +191,14 @@ class TestFindNearestObservationFoil:
     """Verify that _find_nearest_observation searches foil patterns."""
 
     def test_finds_foil_observation(self):
-        """When is_foil=True, finds liga_{id}_foil observations."""
+        """When is_foil=True, finds myp_{id}_foil observations."""
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1_foil",
+                source="myp",
+                external_id="myp_1_foil",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("25.00"),
             )
@@ -209,19 +209,19 @@ class TestFindNearestObservationFoil:
                 session, card_id=1, target_dt=datetime(2026, 8, 15), is_foil=True
             )
             assert obs is not None
-            assert obs.external_id == "liga_1_foil"
+            assert obs.external_id == "myp_1_foil"
             assert obs.median_price == Decimal("25.00")
 
     def test_foil_not_found_without_flag(self):
-        """When is_foil=False, does not search liga_{id}_foil."""
+        """When is_foil=False, does not search myp_{id}_foil."""
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
             # Only a foil observation exists
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1_foil",
+                source="myp",
+                external_id="myp_1_foil",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("25.00"),
             )
@@ -239,19 +239,19 @@ class TestFindNearestObservationFoil:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            # Normal Liga price from Aug 10
+            # Normal MYP price from Aug 10
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 10),
                 median_price=Decimal("10.00"),
             )
-            # Foil Liga price from Aug 14 (closer to target)
+            # Foil MYP price from Aug 14 (closer to target)
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1_foil",
+                source="myp",
+                external_id="myp_1_foil",
                 observed_at=date(2026, 8, 14),
                 median_price=Decimal("30.00"),
             )
@@ -262,7 +262,7 @@ class TestFindNearestObservationFoil:
                 session, card_id=1, target_dt=datetime(2026, 8, 15), is_foil=True
             )
             assert obs is not None
-            assert obs.external_id == "liga_1_foil"
+            assert obs.external_id == "myp_1_foil"
             assert obs.median_price == Decimal("30.00")
 
 
@@ -270,18 +270,18 @@ class TestFindNearestObservationFoil:
 
 
 class TestCollectionSummaryPricedCount:
-    """Verify priced_count includes Liga-only cards (no source_cards entry)."""
+    """Verify priced_count includes MYP-only cards (no source_cards entry)."""
 
-    def test_liga_only_card_counted_as_priced(self):
-        """A card with only a liga_{id} price observation should be counted as priced."""
+    def test_myp_only_card_counted_as_priced(self):
+        """A card with only a myp_{id} price observation should be counted as priced."""
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            # No source_card entry — only a direct Liga observation
+            # No source_card entry — only a direct MYP observation
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("10.00"),
             )
@@ -299,15 +299,15 @@ class TestCollectionSummaryPricedCount:
         summary = repo.get_collection_summary("user1")
         assert summary["priced_count"] == 1
 
-    def test_liga_foil_card_counted_as_priced(self):
-        """A card with only a liga_{id}_foil price observation should be counted as priced."""
+    def test_myp_foil_card_counted_as_priced(self):
+        """A card with only a myp_{id}_foil price observation should be counted as priced."""
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1_foil",
+                source="myp",
+                external_id="myp_1_foil",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("25.00"),
             )
@@ -380,32 +380,32 @@ class TestCollectionSummaryPricedCount:
         assert summary["priced_count"] == 1
 
 
-# ── Bug D: get_trending_price_data_for_user includes Liga ────────
+# ── Bug D: get_trending_price_data_for_user includes MYP ────────
 
 
-class TestTrendingPriceDataLiga:
-    """Verify movers endpoint data includes Liga direct patterns."""
+class TestTrendingPriceDataMYP:
+    """Verify movers endpoint data includes MYP direct patterns."""
 
-    def test_liga_only_card_appears_in_trending(self):
-        """A card with only Liga direct prices should appear in trending data."""
+    def test_myp_only_card_appears_in_trending(self):
+        """A card with only MYP direct prices should appear in trending data."""
         engine = _make_engine()
         today = date.today()
         yesterday = today - timedelta(days=1)
 
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            # No source_card entry — only direct Liga observations
+            # No source_card entry — only direct MYP observations
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=yesterday,
                 median_price=Decimal("10.00"),
             )
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=today,
                 median_price=Decimal("12.00"),
             )
@@ -428,8 +428,8 @@ class TestTrendingPriceDataLiga:
         assert Decimal("10.00") in prices
         assert Decimal("12.00") in prices
 
-    def test_liga_foil_card_appears_in_trending(self):
-        """A foil card with liga_{id}_foil prices should appear in trending data."""
+    def test_myp_foil_card_appears_in_trending(self):
+        """A foil card with myp_{id}_foil prices should appear in trending data."""
         engine = _make_engine()
         today = date.today()
         yesterday = today - timedelta(days=1)
@@ -438,15 +438,15 @@ class TestTrendingPriceDataLiga:
             _seed_card(session, card_id=2, name="Foil Card")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_2_foil",
+                source="myp",
+                external_id="myp_2_foil",
                 observed_at=yesterday,
                 median_price=Decimal("20.00"),
             )
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_2_foil",
+                source="myp",
+                external_id="myp_2_foil",
                 observed_at=today,
                 median_price=Decimal("25.00"),
             )

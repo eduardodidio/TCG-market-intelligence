@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 class ScanRequest(BaseModel):
     scan_type: str = "collection"
-    provider: str = "liga"  # "liga" | "myp", default liga
+    provider: str = "myp"
     set_codes: list[str] | None = None
     format_name: str | None = None
     rarities: list[str] | None = None

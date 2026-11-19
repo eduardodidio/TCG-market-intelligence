@@ -217,10 +217,10 @@ def _seed_card_with_prices(
     )
 
     today = date.today()
-    ext_id = f"liga_{card_id}"
+    ext_id = f"myp_{card_id}"
     session.add(
         PriceObservationRow(
-            source="liga",
+            source="myp",
             external_id=ext_id,
             observed_at=today - timedelta(days=days_ago),
             median_price=price_start,
@@ -228,7 +228,7 @@ def _seed_card_with_prices(
     )
     session.add(
         PriceObservationRow(
-            source="liga",
+            source="myp",
             external_id=ext_id,
             observed_at=today,
             median_price=price_end,

@@ -298,8 +298,6 @@ class ScanType(str, Enum):
     SET = "set"
     FORMAT = "format"
     CUSTOM = "custom"
-    LIGA_FULL = "liga_full"
-    LIGA_PARTIAL = "liga_partial"
 
 
 @dataclass

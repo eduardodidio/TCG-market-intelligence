@@ -1,8 +1,7 @@
-"""Tests for GET /cards/search-web — web card search via Liga / MYP fallback."""
+"""Tests for GET /cards/search-web — web card search via MYP Cards."""
 
 from __future__ import annotations
 
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
@@ -19,7 +18,6 @@ from src.credits.exceptions import InsufficientCreditsError
 from src.credits.service import CreditService
 from src.database.models import CardRow
 from src.domain.models import MypSearchResult, User
-from src.providers.liga.provider import LigaMagicProvider
 from src.providers.myp.provider import MypCardsProvider
 from src.providers.registry import ProviderRegistry
 
@@ -34,34 +32,11 @@ _TEST_USER = User(
 )
 
 
-def _liga_prices(
-    low=None,
-    mid=None,
-    high=None,
-    foil_low=None,
-    foil_mid=None,
-    foil_high=None,
-    card_name="Lightning Bolt",
-) -> dict:
-    return {
-        "card_name": card_name,
-        "normal": {"low": low, "mid": mid, "high": high},
-        "foil": {"low": foil_low, "mid": foil_mid, "high": foil_high},
-    }
-
-
 def _make_credit_svc(sufficient: bool = True) -> MagicMock:
     svc = MagicMock(spec=CreditService)
     if not sufficient:
         svc.deduct.side_effect = InsufficientCreditsError(balance=0, cost=1)
     return svc
-
-
-def _make_mock_provider() -> MagicMock:
-    provider = MagicMock(spec=LigaMagicProvider)
-    provider.source_name = "liga"
-    provider.search_card = AsyncMock()
-    return provider
 
 
 def _make_mock_myp_provider() -> MagicMock:
@@ -73,7 +48,6 @@ def _make_mock_myp_provider() -> MagicMock:
 
 def _make_app(
     mock_repo: MagicMock,
-    mock_provider: MagicMock | None = None,
     myp_provider: MagicMock | None = None,
     credit_svc: MagicMock | None = None,
     user: User | None = None,
@@ -89,33 +63,29 @@ def _make_app(
 
     app.dependency_overrides[get_credit_service] = lambda: credit_svc or _make_credit_svc()
 
-    providers = []
-    if mock_provider is not None:
-        providers.append(mock_provider)
     if myp_provider is not None:
-        providers.append(myp_provider)
-
-    if providers:
-        registry = ProviderRegistry(providers)
+        registry = ProviderRegistry([myp_provider])
         app.state.provider_registry = registry
 
     return app
 
 
 class TestSearchWebReturnsResults:
-    def test_returns_results_with_prices(self):
+    def test_returns_results_via_myp(self):
         mock_repo = MagicMock()
         mock_repo.list_cards.return_value = []
 
-        provider = _make_mock_provider()
-        provider.search_card.return_value = _liga_prices(
-            low=Decimal("2.50"),
-            mid=Decimal("3.00"),
-            high=Decimal("5.00"),
-            foil_low=Decimal("10.00"),
-        )
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = [
+            MypSearchResult(
+                external_id="12345",
+                name="Lightning Bolt",
+                slug="lightning-bolt",
+                url="https://mypcards.com/magic/produto/12345/lightning-bolt",
+            ),
+        ]
 
-        app = _make_app(mock_repo, mock_provider=provider)
+        app = _make_app(mock_repo, myp_provider=myp)
         client = TestClient(app)
 
         resp = client.get("/cards/search-web", params={"q": "Lightning Bolt"})
@@ -124,23 +94,6 @@ class TestSearchWebReturnsResults:
         data = resp.json()["data"]
         assert len(data) == 1
         assert data[0]["card_name"] == "Lightning Bolt"
-        assert data[0]["normal_price"] == 2.5
-        assert data[0]["foil_price"] == 10.0
-        assert data[0]["liga_url"] is not None
-        assert "ligamagic" in data[0]["liga_url"]
-        assert "card=Lightning" in data[0]["liga_url"]
-
-    def test_empty_results_when_no_prices(self):
-        mock_repo = MagicMock()
-        provider = _make_mock_provider()
-        provider.search_card.return_value = _liga_prices()  # all None
-
-        app = _make_app(mock_repo, mock_provider=provider)
-        client = TestClient(app)
-
-        resp = client.get("/cards/search-web", params={"q": "Nonexistent Card"})
-        assert resp.status_code == 200
-        assert resp.json()["data"] == []
 
     def test_includes_local_card_id_when_match(self):
         mock_repo = MagicMock()
@@ -149,10 +102,17 @@ class TestSearchWebReturnsResults:
         local_card.name_en = "Lightning Bolt"
         mock_repo.list_cards.return_value = [local_card]
 
-        provider = _make_mock_provider()
-        provider.search_card.return_value = _liga_prices(mid=Decimal("3.00"))
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = [
+            MypSearchResult(
+                external_id="12345",
+                name="Lightning Bolt",
+                slug="lightning-bolt",
+                url="https://mypcards.com/magic/produto/12345/lightning-bolt",
+            ),
+        ]
 
-        app = _make_app(mock_repo, mock_provider=provider)
+        app = _make_app(mock_repo, myp_provider=myp)
         client = TestClient(app)
 
         resp = client.get("/cards/search-web", params={"q": "Lightning Bolt"})
@@ -165,11 +125,18 @@ class TestSearchWebDeductsToken:
         mock_repo = MagicMock()
         mock_repo.list_cards.return_value = []
 
-        provider = _make_mock_provider()
-        provider.search_card.return_value = _liga_prices(mid=Decimal("3.00"))
+        myp = _make_mock_myp_provider()
+        myp.search_card.return_value = [
+            MypSearchResult(
+                external_id="12345",
+                name="Test Card",
+                slug="test-card",
+                url="https://mypcards.com/magic/produto/12345/test-card",
+            ),
+        ]
 
         credit_svc = _make_credit_svc()
-        app = _make_app(mock_repo, mock_provider=provider, credit_svc=credit_svc)
+        app = _make_app(mock_repo, myp_provider=myp, credit_svc=credit_svc)
         client = TestClient(app)
 
         client.get("/cards/search-web", params={"q": "Test"})
@@ -182,10 +149,10 @@ class TestSearchWebDeductsToken:
 class TestSearchWebInsufficientCredits:
     def test_returns_402(self):
         mock_repo = MagicMock()
-        provider = _make_mock_provider()
+        myp = _make_mock_myp_provider()
 
         credit_svc = _make_credit_svc(sufficient=False)
-        app = _make_app(mock_repo, mock_provider=provider, credit_svc=credit_svc)
+        app = _make_app(mock_repo, myp_provider=myp, credit_svc=credit_svc)
         client = TestClient(app)
 
         resp = client.get("/cards/search-web", params={"q": "Test"})
@@ -197,11 +164,11 @@ class TestSearchWebInsufficientCredits:
             assert "Insufficient" in detail
 
 
-class TestSearchWebLigaUnavailable:
+class TestSearchWebNoProvider:
     def test_returns_503_when_no_provider(self):
         mock_repo = MagicMock()
         # No provider registered
-        app = _make_app(mock_repo, mock_provider=None)
+        app = _make_app(mock_repo, myp_provider=None)
         client = TestClient(app)
 
         resp = client.get("/cards/search-web", params={"q": "Test"})
@@ -248,32 +215,10 @@ class TestSearchWebRequiresAuth:
         assert resp.status_code in (401, 403, 422)
 
 
-class TestSearchWebLigaError:
-    def test_returns_502_on_liga_error(self):
-        from src.providers.liga.exceptions import LigaError
+class TestSearchWebMypProvider:
+    """Tests for MYP search provider."""
 
-        mock_repo = MagicMock()
-        provider = _make_mock_provider()
-        provider.search_card.side_effect = LigaError(
-            "Connection failed", url="", status_code=0, attempts=1
-        )
-
-        app = _make_app(mock_repo, mock_provider=provider)
-        client = TestClient(app)
-
-        resp = client.get("/cards/search-web", params={"q": "Test"})
-        assert resp.status_code == 502
-        detail = resp.json()["detail"]
-        if isinstance(detail, dict):
-            assert detail["code"] == "EXTERNAL_FAILURE"
-        else:
-            assert "failed" in detail.lower()
-
-
-class TestSearchWebMypFallback:
-    """Tests for MYP fallback when Liga provider is unavailable."""
-
-    def test_returns_results_via_myp_fallback(self):
+    def test_returns_results_via_myp(self):
         mock_repo = MagicMock()
         mock_repo.list_cards.return_value = []
 
@@ -290,7 +235,7 @@ class TestSearchWebMypFallback:
             ),
         ]
 
-        # No Liga provider — only MYP
+        # MYP only
         app = _make_app(mock_repo, myp_provider=myp)
         client = TestClient(app)
 
@@ -302,9 +247,9 @@ class TestSearchWebMypFallback:
         assert data[0]["card_name"] == "Lightning Bolt"
         assert data[0]["normal_price"] is None
         assert data[0]["foil_price"] is None
-        assert data[0]["liga_url"] is None
+        # liga_url field was removed when Liga provider was deleted
 
-    def test_myp_fallback_returns_multiple_results(self):
+    def test_myp_returns_multiple_results(self):
         mock_repo = MagicMock()
         mock_repo.list_cards.return_value = []
 
@@ -331,7 +276,7 @@ class TestSearchWebMypFallback:
         assert resp.status_code == 200
         assert len(resp.json()["data"]) == 2
 
-    def test_myp_fallback_includes_local_card_id(self):
+    def test_myp_includes_local_card_id(self):
         mock_repo = MagicMock()
         local_card = MagicMock(spec=CardRow)
         local_card.id = 99
@@ -355,7 +300,7 @@ class TestSearchWebMypFallback:
         assert resp.status_code == 200
         assert resp.json()["data"][0]["local_card_id"] == 99
 
-    def test_myp_fallback_empty_results(self):
+    def test_myp_empty_results(self):
         mock_repo = MagicMock()
 
         myp = _make_mock_myp_provider()
@@ -368,7 +313,7 @@ class TestSearchWebMypFallback:
         assert resp.status_code == 200
         assert resp.json()["data"] == []
 
-    def test_myp_fallback_502_on_error(self):
+    def test_myp_502_on_error(self):
         mock_repo = MagicMock()
 
         myp = _make_mock_myp_provider()
@@ -385,41 +330,7 @@ class TestSearchWebMypFallback:
         else:
             assert "myp" in detail.lower()
 
-    def test_liga_preferred_over_myp_when_both_available(self):
-        """When both Liga and MYP are registered, Liga should be used."""
-        mock_repo = MagicMock()
-        mock_repo.list_cards.return_value = []
-
-        liga = _make_mock_provider()
-        liga.search_card.return_value = _liga_prices(mid=Decimal("5.00"))
-
-        myp = _make_mock_myp_provider()
-        myp.search_card.return_value = []
-
-        app = _make_app(mock_repo, mock_provider=liga, myp_provider=myp)
-        client = TestClient(app)
-
-        resp = client.get("/cards/search-web", params={"q": "Test"})
-        assert resp.status_code == 200
-        # Liga was used (has price), MYP was NOT called
-        liga.search_card.assert_called_once()
-        myp.search_card.assert_not_called()
-
-    def test_503_when_neither_provider_available(self):
-        """When no providers at all, return 503."""
-        mock_repo = MagicMock()
-        app = _make_app(mock_repo)  # no providers
-        client = TestClient(app)
-
-        resp = client.get("/cards/search-web", params={"q": "Test"})
-        assert resp.status_code == 503
-        detail = resp.json()["detail"]
-        if isinstance(detail, dict):
-            assert detail["code"] == "EXTERNAL_PROVIDER_UNAVAILABLE"
-        else:
-            assert "unavailable" in detail.lower()
-
-    def test_myp_fallback_includes_image_url(self):
+    def test_myp_includes_image_url(self):
         mock_repo = MagicMock()
         mock_repo.list_cards.return_value = []
 

@@ -27,7 +27,7 @@ async def process_pending_price_requests(
     limit: int = 50,
     delay: float = 2.0,
 ) -> ProcessingResult:
-    """Process pending price update requests via LigaMagic.
+    """Process pending price update requests via MYP Cards.
 
     Returns a ``ProcessingResult`` with counts of completed and failed requests.
 
@@ -40,10 +40,9 @@ async def process_pending_price_requests(
     delay:
         Seconds to wait between individual requests (rate limiting).
     """
-    from src.collectors.liga_sweep import _fetch_liga_price
+    from src.collectors.myp_sweep import _fetch_myp_price
     from src.database.repository import Repository
-    from src.providers.liga.exceptions import LigaError
-    from src.providers.liga.provider import LigaMagicProvider
+    from src.providers.myp.provider import MypCardsProvider, MypConfig
 
     repo = Repository(db_url=db_url)
     pending = repo.get_pending_price_requests(limit=limit)
@@ -51,13 +50,12 @@ async def process_pending_price_requests(
     if not pending:
         return ProcessingResult(total=0, completed=0, failed=0)
 
-    provider = LigaMagicProvider()
+    config = MypConfig(delay_seconds=delay)
+    provider = MypCardsProvider(config)
     completed = 0
     failed = 0
 
     try:
-        await provider.open()
-
         for req in pending:
             card = repo.get_card_by_id(req.card_id)
             if not card:
@@ -84,12 +82,11 @@ async def process_pending_price_requests(
                     "collector_number": card.collector_number,
                     "set_code": card.set_code,
                 }
-                result = await _fetch_liga_price(provider, card_dict)
+                result = await _fetch_myp_price(provider, card_dict)
 
                 if result is not None:
-                    observation, _page_url = result
-                    repo.insert_price_observations([observation])
-                    price = observation.median_price
+                    repo.insert_price_observations([result])
+                    price = result.median_price
                     repo.update_price_request_status(req.id, "completed", result_price=price)
                     logger.info(
                         "Price request completed: card_id=%d (%s) -> R$ %s",
@@ -100,7 +97,7 @@ async def process_pending_price_requests(
                     completed += 1
                 else:
                     repo.update_price_request_status(
-                        req.id, "completed", error_message="No price found on LigaMagic"
+                        req.id, "completed", error_message="No price found on MYP Cards"
                     )
                     logger.info(
                         "Price request completed (no price): card_id=%d (%s)",
@@ -109,15 +106,6 @@ async def process_pending_price_requests(
                     )
                     completed += 1
 
-            except LigaError as exc:
-                repo.update_price_request_status(req.id, "failed", error_message=str(exc))
-                logger.warning(
-                    "Price request failed: card_id=%d (%s) -> %s",
-                    card.id,
-                    card_name[:30],
-                    exc,
-                )
-                failed += 1
             except Exception as exc:
                 msg = f"{type(exc).__name__}: {exc}"
                 repo.update_price_request_status(req.id, "failed", error_message=msg)

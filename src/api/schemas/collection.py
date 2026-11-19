@@ -42,7 +42,6 @@ class CollectionCardDetail(CollectionCard):
     price_history: list[PriceObservation] = []
     source_cards: list[SourceCardSchema] = []
     scryfall_url: str | None = None
-    ligamagic_url: str | None = None
 
 
 class PriceHistoryMeta(BaseModel):
@@ -165,18 +164,6 @@ class ValuationResponse(BaseModel):
     change_abs: float | None = None
     currency: str = "BRL"
     snapshots: list[ValuationSnapshot] = []
-
-
-class LigaStatusResponse(BaseModel):
-    """Liga price coverage stats for a user's collection."""
-
-    total_cards: int
-    liga_priced: int
-    liga_stale: int
-    liga_missing: int
-    unlinked: int
-    coverage_pct: float
-    last_liga_scan: str | None = None
 
 
 # --- Batch collection management schemas ---

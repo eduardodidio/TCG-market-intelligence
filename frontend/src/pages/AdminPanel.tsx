@@ -13,7 +13,7 @@ import type { ApiResponse } from "../types/api";
 import { useAuth } from "../hooks/useAuth";
 import { AccordionSection } from "../components/AccordionSection";
 import { Breadcrumb } from "../components/Breadcrumb";
-import { AdminLigaSection } from "../components/admin/AdminLigaSection";
+
 import { AdminSchedulesSection } from "../components/admin/AdminSchedulesSection";
 import { AdminScansSection } from "../components/admin/AdminScansSection";
 import { AdminErrorsSection } from "../components/admin/AdminErrorsSection";
@@ -655,15 +655,6 @@ export function AdminPanel() {
             </div>
           ) : null}
         </div>
-      </AccordionSection>
-
-      {/* Liga Status Section */}
-      <AccordionSection
-        title={t("admin.section.ligaStatus")}
-        isOpen={openSection === "liga-status"}
-        onToggle={() => toggleSection("liga-status")}
-      >
-        <AdminLigaSection isOpen={openSection === "liga-status"} />
       </AccordionSection>
 
       {/* Schedules Section */}

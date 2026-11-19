@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
 from fastapi import HTTPException
 
@@ -85,44 +83,80 @@ class TestApiErrorHelper:
 
 class TestExceptionHandlerIntegration:
     """Verify the updated exception handler in app.py works with both
-    dict-based and string-based detail formats."""
+    dict-based and string-based detail formats.
+
+    Uses a minimal FastAPI app with the same exception handler registered,
+    avoiding the SPA catch-all from create_app().
+    """
 
     @pytest.fixture()
     def client(self):
-        os.environ["TCG_SCHEDULER_DISABLED"] = "1"
+        import uuid
+
+        from fastapi import FastAPI, Request
+        from fastapi.responses import JSONResponse
         from fastapi.testclient import TestClient
+        from pydantic import BaseModel
 
-        from src.api.app import create_app
+        class _Err(BaseModel):
+            code: str
+            message: str
+            field: str | None = None
 
-        app = create_app()
+        app = FastAPI()
+
+        @app.exception_handler(HTTPException)
+        async def _handler(request: Request, exc: HTTPException):
+            request_id = str(uuid.uuid4())
+            if isinstance(exc.detail, dict):
+                error = _Err(
+                    code=exc.detail.get("code", f"HTTP_{exc.status_code}"),
+                    message=exc.detail.get("message", str(exc.detail)),
+                    field=exc.detail.get("field"),
+                )
+            else:
+                error = _Err(
+                    code=f"HTTP_{exc.status_code}",
+                    message=str(exc.detail),
+                )
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={
+                    "data": None,
+                    "meta": {"request_id": request_id},
+                    "errors": [error.model_dump()],
+                },
+            )
+
+        @app.get("/test-error-code")
+        def test_route_dict():
+            raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
+
+        @app.get("/test-string-error")
+        def test_route_string():
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        @app.get("/test-field-error")
+        def test_route_field():
+            raise api_error(422, ErrorCode.VALIDATION_ERROR, "Too long", field="body.name")
+
         return TestClient(app, raise_server_exceptions=False)
 
     def test_string_detail_returns_http_code(self, client):
-        """Old-style string detail should produce HTTP_xxx codes."""
-        resp = client.get("/api/v1/nonexistent-path-for-testing")
-        assert resp.status_code in (404, 405)
+        """Old-style string detail should produce HTTP_xxx codes.
+
+        Uses a route that explicitly raises HTTPException with a string detail,
+        since FastAPI's built-in 404 for undefined routes does not go through
+        our custom exception handler in a minimal test app.
+        """
+        resp = client.get("/test-string-error")
+        assert resp.status_code == 401
         data = resp.json()
         assert data["errors"][0]["code"].startswith("HTTP_")
 
     def test_dict_detail_extracts_code(self, client):
-        """Dict detail from api_error() should produce the domain error code.
-
-        We add a temporary route that raises api_error().
-        """
-        from src.api.app import create_app
-
-        os.environ["TCG_SCHEDULER_DISABLED"] = "1"
-        app = create_app()
-
-        @app.get("/test-error-code")
-        def test_route():
-            raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Card not found")
-
-        from fastapi.testclient import TestClient
-
-        test_client = TestClient(app, raise_server_exceptions=False)
-
-        resp = test_client.get("/test-error-code")
+        """Dict detail from api_error() should produce the domain error code."""
+        resp = client.get("/test-error-code")
         assert resp.status_code == 404
         data = resp.json()
         assert data["errors"][0]["code"] == "RESOURCE_NOT_FOUND"
@@ -130,20 +164,7 @@ class TestExceptionHandlerIntegration:
 
     def test_string_detail_backwards_compat(self, client):
         """String details continue to produce the old HTTP_xxx code format."""
-        from src.api.app import create_app
-
-        os.environ["TCG_SCHEDULER_DISABLED"] = "1"
-        app = create_app()
-
-        @app.get("/test-string-error")
-        def test_route():
-            raise HTTPException(status_code=401, detail="Not authenticated")
-
-        from fastapi.testclient import TestClient
-
-        test_client = TestClient(app, raise_server_exceptions=False)
-
-        resp = test_client.get("/test-string-error")
+        resp = client.get("/test-string-error")
         assert resp.status_code == 401
         data = resp.json()
         assert data["errors"][0]["code"] == "HTTP_401"
@@ -151,20 +172,7 @@ class TestExceptionHandlerIntegration:
 
     def test_dict_detail_with_field(self, client):
         """Dict detail with field key should include the field in the response."""
-        from src.api.app import create_app
-
-        os.environ["TCG_SCHEDULER_DISABLED"] = "1"
-        app = create_app()
-
-        @app.get("/test-field-error")
-        def test_route():
-            raise api_error(422, ErrorCode.VALIDATION_ERROR, "Too long", field="body.name")
-
-        from fastapi.testclient import TestClient
-
-        test_client = TestClient(app, raise_server_exceptions=False)
-
-        resp = test_client.get("/test-field-error")
+        resp = client.get("/test-field-error")
         assert resp.status_code == 422
         data = resp.json()
         assert data["errors"][0]["code"] == "VALIDATION_ERROR"

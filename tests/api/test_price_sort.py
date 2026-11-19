@@ -66,8 +66,8 @@ def _seed_collection_with_prices(repo: Repository):
             # Add price observation (except for last card)
             if price is not None:
                 obs = PriceObservationRow(
-                    source="liga",
-                    external_id=f"liga_{card.id}",
+                    source="myp",
+                    external_id=f"myp_{card.id}",
                     observed_at=date(2026, 9, 1),
                     median_price=price,
                     currency="BRL",
@@ -142,8 +142,8 @@ class TestCollectionPriceSort:
             # Old price: high
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id=f"liga_{card.id}",
+                    source="myp",
+                    external_id=f"myp_{card.id}",
                     observed_at=date(2026, 1, 1),
                     median_price=Decimal("999.00"),
                     currency="BRL",
@@ -152,8 +152,8 @@ class TestCollectionPriceSort:
             # New price: low
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id=f"liga_{card.id}",
+                    source="myp",
+                    external_id=f"myp_{card.id}",
                     observed_at=date(2026, 9, 1),
                     median_price=Decimal("1.00"),
                     currency="BRL",
@@ -179,8 +179,8 @@ class TestCollectionPriceSort:
             session.add(entry2)
             session.add(
                 PriceObservationRow(
-                    source="liga",
-                    external_id=f"liga_{card2.id}",
+                    source="myp",
+                    external_id=f"myp_{card2.id}",
                     observed_at=date(2026, 9, 1),
                     median_price=Decimal("50.00"),
                     currency="BRL",
@@ -213,8 +213,8 @@ class TestCardsPriceSort:
                 if price is not None:
                     session.add(
                         PriceObservationRow(
-                            source="liga",
-                            external_id=f"liga_{card.id}",
+                            source="myp",
+                            external_id=f"myp_{card.id}",
                             observed_at=date(2026, 9, 1),
                             median_price=price,
                             currency="BRL",
@@ -244,8 +244,8 @@ class TestCardsPriceSort:
                 if price is not None:
                     session.add(
                         PriceObservationRow(
-                            source="liga",
-                            external_id=f"liga_{card.id}",
+                            source="myp",
+                            external_id=f"myp_{card.id}",
                             observed_at=date(2026, 9, 1),
                             median_price=price,
                             currency="BRL",

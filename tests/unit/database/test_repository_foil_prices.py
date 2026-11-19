@@ -1,10 +1,10 @@
 """F87-T03: Tests for foil-aware price lookup in get_latest_prices_batch.
 
 Covers:
-1. Foil entry gets foil price from liga_{card_id}_foil external_id
-2. Non-foil entry gets normal price from liga_{card_id} external_id
-3. Manual price still wins over foil Liga price
-4. Entry with no foil observation falls back to normal Liga price
+1. Foil entry gets foil price from myp_{card_id}_foil external_id
+2. Non-foil entry gets normal price from myp_{card_id} external_id
+3. Manual price still wins over foil MYP price
+4. Entry with no foil observation falls back to normal MYP price
 5. Mixed foil/non-foil batch returns correct prices for each
 6. foil_card_ids=None preserves existing behavior (backward compat)
 """
@@ -74,21 +74,21 @@ class TestFoilPriceLookup:
     """Tests for foil_card_ids parameter in get_latest_prices_batch."""
 
     def test_foil_entry_gets_foil_price(self, seeded_repo):
-        """Foil entry returns foil-specific Liga observation."""
+        """Foil entry returns foil-specific MYP observation."""
         repo, card_id = seeded_repo
         same_day = date(2026, 8, 28)
 
         with Session(repo.engine) as session:
             normal_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}",
+                source="myp",
+                external_id=f"myp_{card_id}",
                 observed_at=same_day,
                 median_price=Decimal("5.00"),
                 currency="BRL",
             )
             foil_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}_foil",
+                source="myp",
+                external_id=f"myp_{card_id}_foil",
                 observed_at=same_day,
                 median_price=Decimal("15.00"),
                 currency="BRL",
@@ -99,25 +99,25 @@ class TestFoilPriceLookup:
         result = repo.get_latest_prices_batch([card_id], foil_card_ids={card_id})
         winner = result[card_id]
         assert winner is not None
-        assert winner.external_id == f"liga_{card_id}_foil"
+        assert winner.external_id == f"myp_{card_id}_foil"
         assert winner.median_price == Decimal("15.00")
 
     def test_non_foil_entry_gets_normal_price(self, seeded_repo):
-        """Non-foil entry returns normal Liga observation (no foil_card_ids)."""
+        """Non-foil entry returns normal MYP observation (no foil_card_ids)."""
         repo, card_id = seeded_repo
         same_day = date(2026, 8, 28)
 
         with Session(repo.engine) as session:
             normal_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}",
+                source="myp",
+                external_id=f"myp_{card_id}",
                 observed_at=same_day,
                 median_price=Decimal("5.00"),
                 currency="BRL",
             )
             foil_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}_foil",
+                source="myp",
+                external_id=f"myp_{card_id}_foil",
                 observed_at=same_day,
                 median_price=Decimal("15.00"),
                 currency="BRL",
@@ -129,18 +129,18 @@ class TestFoilPriceLookup:
         result = repo.get_latest_prices_batch([card_id])
         winner = result[card_id]
         assert winner is not None
-        assert winner.external_id == f"liga_{card_id}"
+        assert winner.external_id == f"myp_{card_id}"
         assert winner.median_price == Decimal("5.00")
 
     def test_manual_beats_foil_liga_same_date(self, seeded_repo):
-        """Manual price wins over foil Liga price on the same date."""
+        """Manual price wins over foil MYP price on the same date."""
         repo, card_id = seeded_repo
         same_day = date(2026, 8, 28)
 
         with Session(repo.engine) as session:
             foil_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}_foil",
+                source="myp",
+                external_id=f"myp_{card_id}_foil",
                 observed_at=same_day,
                 median_price=Decimal("15.00"),
                 currency="BRL",
@@ -162,14 +162,14 @@ class TestFoilPriceLookup:
         assert winner.median_price == Decimal("20.00")
 
     def test_foil_entry_falls_back_to_normal_when_no_foil_obs(self, seeded_repo):
-        """Foil entry with no foil observation falls back to normal Liga price."""
+        """Foil entry with no foil observation falls back to normal MYP price."""
         repo, card_id = seeded_repo
         same_day = date(2026, 8, 28)
 
         with Session(repo.engine) as session:
             normal_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}",
+                source="myp",
+                external_id=f"myp_{card_id}",
                 observed_at=same_day,
                 median_price=Decimal("5.00"),
                 currency="BRL",
@@ -181,7 +181,7 @@ class TestFoilPriceLookup:
         result = repo.get_latest_prices_batch([card_id], foil_card_ids={card_id})
         winner = result[card_id]
         assert winner is not None
-        assert winner.external_id == f"liga_{card_id}"
+        assert winner.external_id == f"myp_{card_id}"
         assert winner.median_price == Decimal("5.00")
 
     def test_foil_entry_returns_none_when_no_observations(self, seeded_repo):
@@ -199,15 +199,15 @@ class TestFoilPriceLookup:
 
         with Session(repo.engine) as session:
             normal_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}",
+                source="myp",
+                external_id=f"myp_{card_id}",
                 observed_at=same_day,
                 median_price=Decimal("5.00"),
                 currency="BRL",
             )
             foil_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}_foil",
+                source="myp",
+                external_id=f"myp_{card_id}_foil",
                 observed_at=same_day,
                 median_price=Decimal("15.00"),
                 currency="BRL",
@@ -219,7 +219,7 @@ class TestFoilPriceLookup:
         result = repo.get_latest_prices_batch([card_id], foil_card_ids=None)
         winner = result[card_id]
         assert winner is not None
-        assert winner.external_id == f"liga_{card_id}"
+        assert winner.external_id == f"myp_{card_id}"
         assert winner.median_price == Decimal("5.00")
 
     def test_empty_foil_card_ids_same_as_none(self, seeded_repo):
@@ -229,8 +229,8 @@ class TestFoilPriceLookup:
 
         with Session(repo.engine) as session:
             normal_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}",
+                source="myp",
+                external_id=f"myp_{card_id}",
                 observed_at=same_day,
                 median_price=Decimal("5.00"),
                 currency="BRL",
@@ -241,26 +241,26 @@ class TestFoilPriceLookup:
         result = repo.get_latest_prices_batch([card_id], foil_card_ids=set())
         winner = result[card_id]
         assert winner is not None
-        assert winner.external_id == f"liga_{card_id}"
+        assert winner.external_id == f"myp_{card_id}"
         assert winner.median_price == Decimal("5.00")
 
     def test_foil_replaces_normal_liga_in_candidates(self, seeded_repo):
-        """When foil obs exists, normal Liga obs is removed from candidates."""
+        """When foil obs exists, normal MYP obs is removed from candidates."""
         repo, card_id = seeded_repo
         same_day = date(2026, 8, 28)
 
         with Session(repo.engine) as session:
             # Normal liga has higher price but foil should replace it
             normal_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}",
+                source="myp",
+                external_id=f"myp_{card_id}",
                 observed_at=same_day,
                 median_price=Decimal("50.00"),
                 currency="BRL",
             )
             foil_obs = PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{card_id}_foil",
+                source="myp",
+                external_id=f"myp_{card_id}_foil",
                 observed_at=same_day,
                 median_price=Decimal("12.00"),
                 currency="BRL",
@@ -272,7 +272,7 @@ class TestFoilPriceLookup:
         winner = result[card_id]
         assert winner is not None
         # Foil obs replaces normal, even though normal had higher price
-        assert winner.external_id == f"liga_{card_id}_foil"
+        assert winner.external_id == f"myp_{card_id}_foil"
         assert winner.median_price == Decimal("12.00")
 
 
@@ -331,25 +331,25 @@ class TestFoilPriceBatchMixed:
         with Session(repo.engine) as session:
             session.add_all(
                 [
-                    # Card 1: normal + foil Liga prices
+                    # Card 1: normal + foil MYP prices
                     PriceObservationRow(
-                        source="liga",
-                        external_id=f"liga_{foil_card_id}",
+                        source="myp",
+                        external_id=f"myp_{foil_card_id}",
                         observed_at=same_day,
                         median_price=Decimal("5.00"),
                         currency="BRL",
                     ),
                     PriceObservationRow(
-                        source="liga",
-                        external_id=f"liga_{foil_card_id}_foil",
+                        source="myp",
+                        external_id=f"myp_{foil_card_id}_foil",
                         observed_at=same_day,
                         median_price=Decimal("15.00"),
                         currency="BRL",
                     ),
-                    # Card 2: only normal Liga price
+                    # Card 2: only normal MYP price
                     PriceObservationRow(
-                        source="liga",
-                        external_id=f"liga_{normal_card_id}",
+                        source="myp",
+                        external_id=f"myp_{normal_card_id}",
                         observed_at=same_day,
                         median_price=Decimal("3.00"),
                         currency="BRL",
@@ -366,11 +366,11 @@ class TestFoilPriceBatchMixed:
         # Foil card gets foil price
         foil_winner = result[foil_card_id]
         assert foil_winner is not None
-        assert foil_winner.external_id == f"liga_{foil_card_id}_foil"
+        assert foil_winner.external_id == f"myp_{foil_card_id}_foil"
         assert foil_winner.median_price == Decimal("15.00")
 
         # Non-foil card gets normal price
         normal_winner = result[normal_card_id]
         assert normal_winner is not None
-        assert normal_winner.external_id == f"liga_{normal_card_id}"
+        assert normal_winner.external_id == f"myp_{normal_card_id}"
         assert normal_winner.median_price == Decimal("3.00")

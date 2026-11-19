@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -24,8 +23,7 @@ from sqlalchemy.orm import Session
 from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
 from src.api.routers.cards import router as cards_router
 from src.api.routers.collection import router as collection_router
-from src.collectors.liga_sweep import run_liga_sweep
-from src.collectors.price_snapshot import SNAPSHOT_SOURCE, backfill_snapshots, run_daily_snapshot
+from src.collectors.price_snapshot import backfill_snapshots, run_daily_snapshot
 from src.database.models import CardRow, PriceObservationRow, UserCollectionRow
 from src.database.repository import Repository
 from src.services.currency import CurrencyConverter
@@ -117,52 +115,9 @@ def _add_observation(
 def _observations_on(repo: Repository, day: date) -> list[tuple[str, str, Decimal]]:
     with Session(repo.engine) as session:
         rows = (
-            session.query(PriceObservationRow)
-            .filter(PriceObservationRow.observed_at == day)
-            .all()
+            session.query(PriceObservationRow).filter(PriceObservationRow.observed_at == day).all()
         )
         return [(r.source, r.external_id, r.median_price) for r in rows]
-
-
-def _mock_provider(prices_map: dict[str, dict] | None = None):
-    """Fake Liga provider. ``prices_map``: card_name -> {"normal": mid, "foil": mid}."""
-    provider = AsyncMock()
-    provider.open = AsyncMock()
-    provider.close = AsyncMock()
-
-    async def _search(name, **kwargs):
-        entry = (prices_map or {}).get(name, {})
-        normal_mid = entry.get("normal", Decimal("1.50"))
-        foil_mid = entry.get("foil")
-        return {
-            "normal": {"low": None, "mid": normal_mid, "high": None},
-            "foil": {"low": None, "mid": foil_mid, "high": None},
-            "page_url": "https://www.ligamagic.com.br/?view=cards/card&card=x&show=1",
-        }
-
-    provider.search_card = AsyncMock(side_effect=_search)
-    return provider
-
-
-async def _run_sweep(db_url: str, prices_map: dict | None = None, **kwargs):
-    """Run the real ``run_liga_sweep`` against *db_url* with a fake provider.
-
-    No network access: the Liga provider constructor and ``asyncio.sleep``
-    are patched, everything else (repository queries, snapshot writing)
-    runs for real against the SQLite file.
-    """
-    provider = _mock_provider(prices_map)
-    with (
-        patch("src.providers.liga.provider.LigaMagicProvider", return_value=provider),
-        patch("asyncio.sleep", new_callable=AsyncMock),
-    ):
-        return await run_liga_sweep(
-            db_url=db_url,
-            delay=0,
-            batch_pause=0,
-            collection_only=True,
-            **kwargs,
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -170,109 +125,18 @@ async def _run_sweep(db_url: str, prices_map: dict | None = None, **kwargs):
 # ---------------------------------------------------------------------------
 
 
-class TestNormalCardHistory:
-    @pytest.mark.asyncio
-    async def test_full_pipeline_yields_daily_points(self, repo, db_url, client):
-        card_id = _make_card(repo, "Normal Pipeline Card")
-        _make_collection_entry(repo, card_id, name_en="Normal Pipeline Card")
-
-        # Two real historical observations, no source_cards row (Liga-only path).
-        _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=20), "10.00")
-        _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=10), "12.00")
-
-        result = await _run_sweep(db_url, {"Normal Pipeline Card": {"normal": Decimal("15.00")}})
-        assert result.prices_found == 1
-
-        backfill_snapshots(repo, days=30)
-
-        resp = client.get(f"/api/v1/collection/{_entry_id_for(repo, card_id)}/history?period=30d")
-        assert resp.status_code == 200
-        observations = resp.json()["data"]["observations"]
-
-        assert len(observations) >= 21  # D-20..D inclusive
-        dates = [o["observed_at"] for o in observations]
-        assert min(dates) == str(TODAY - timedelta(days=20))
-        assert len(dates) == len(set(dates))  # one point per day
-        assert observations[-1]["median_price"] == "15.00"
-
-
 def _entry_id_for(repo: Repository, card_id: int) -> int:
     with Session(repo.engine) as session:
-        row = (
-            session.query(UserCollectionRow).filter(UserCollectionRow.card_id == card_id).first()
-        )
+        row = session.query(UserCollectionRow).filter(UserCollectionRow.card_id == card_id).first()
         return row.id
 
 
 # ---------------------------------------------------------------------------
-# Foil card
-# ---------------------------------------------------------------------------
-
-
-class TestFoilCardHistory:
-    @pytest.mark.asyncio
-    async def test_foil_entry_only_sees_foil_series(self, repo, db_url, client):
-        card_id = _make_card(repo, "Foil Pipeline Card")
-        entry_id = _make_collection_entry(
-            repo, card_id, extras="Foil", name_en="Foil Pipeline Card"
-        )
-
-        result = await _run_sweep(
-            db_url,
-            {"Foil Pipeline Card": {"normal": Decimal("5.00"), "foil": Decimal("500.00")}},
-        )
-        assert result.prices_found == 1
-
-        resp = client.get(f"/api/v1/collection/{entry_id}/history?period=30d")
-        assert resp.status_code == 200
-        body = resp.json()["data"]
-
-        prices = [o["median_price"] for o in body["observations"]]
-        assert prices == ["500.00"]
-        assert body["meta"]["variant"] == "foil"
-
-
-# ---------------------------------------------------------------------------
-# Daily recording (post-sweep snapshot)
+# Daily recording (snapshot)
 # ---------------------------------------------------------------------------
 
 
 class TestDailyRecording:
-    @pytest.mark.asyncio
-    async def test_sweep_creates_snapshot_for_series_without_collection_today(
-        self, repo, db_url
-    ):
-        # Card A is swept today (real liga obs); card B already has a real
-        # obs from 3 days ago and is skipped by max_age_days=7 -> it needs
-        # a carry-forward snapshot instead.
-        card_a = _make_card(repo, "Sweep Card A", collector_number="1")
-        card_b = _make_card(repo, "Sweep Card B", collector_number="2")
-        _make_collection_entry(
-            repo, card_a, collector_number="1", name_en="Sweep Card A"
-        )
-        _make_collection_entry(
-            repo, card_b, collector_number="2", name_en="Sweep Card B"
-        )
-        _add_observation(
-            repo, "liga", f"liga_{card_b}", TODAY - timedelta(days=3), "7.50"
-        )
-
-        result = await _run_sweep(
-            db_url, {"Sweep Card A": {"normal": Decimal("10.00")}, "Sweep Card B": {"normal": None}}
-        )
-
-        assert result.daily_snapshot_created == 1
-        today_rows = _observations_on(repo, TODAY)
-        assert (
-            "liga",
-            f"liga_{card_a}",
-            Decimal("10.00"),
-        ) in today_rows
-        snapshot_rows = [
-            r for r in today_rows if r[0] == SNAPSHOT_SOURCE and r[1] == f"liga_{card_b}"
-        ]
-        assert snapshot_rows == [(SNAPSHOT_SOURCE, f"liga_{card_b}", Decimal("7.50"))]
-
     def test_second_snapshot_same_day_does_not_duplicate(self, repo):
         card_id = _make_card(repo, "Dup Card")
         _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=3), "9.00")
@@ -376,9 +240,7 @@ class TestHistoryEdgeCases:
         card_id = _make_card(repo, "1y Card")
         entry_id = _make_collection_entry(repo, card_id)
         for i in range(0, 200, 10):
-            _add_observation(
-                repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=i), "10.00"
-            )
+            _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=i), "10.00")
 
         resp = client.get(f"/api/v1/collection/{entry_id}/history?period=1y")
 

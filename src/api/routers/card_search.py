@@ -1,4 +1,4 @@
-"""Web card search router — search LigaMagic (or MYP fallback) for cards not in local DB."""
+"""Web card search router — search MYP Cards for cards not in local DB."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ from src.credits.exceptions import InsufficientCreditsError
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
-from src.providers.liga.url import liga_url_for_card_name
 
 log = structlog.get_logger()
 
@@ -87,13 +86,12 @@ async def search_web(
     repo: Repository = Depends(get_db),
     credit_svc: CreditService = Depends(get_credit_service),
 ):
-    """Search for cards on LigaMagic.
+    """Search for cards on MYP Cards.
 
     Costs 1 credit token per search. Returns price data and optionally
     links to local cards if they exist in the DB.
 
-    Returns 503 if the Liga provider is not available (e.g. Playwright
-    not installed or disabled on this deployment).
+    Returns 503 if the MYP provider is not available.
     """
     # 1. Deduct token
     try:
@@ -101,30 +99,20 @@ async def search_web(
     except InsufficientCreditsError:
         raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Insufficient credits")
 
-    # 2. Get search provider from registry (Liga preferred, MYP fallback)
+    # 2. Get MYP provider from registry
     registry = getattr(request.app.state, "provider_registry", None)
-    liga_provider = None
     myp_provider = None
     if registry:
-        from src.providers.liga.provider import LigaMagicProvider
         from src.providers.myp.provider import MypCardsProvider
 
         for provider in registry.providers:
-            if isinstance(provider, LigaMagicProvider) and liga_provider is None:
-                liga_provider = provider
-            elif isinstance(provider, MypCardsProvider) and myp_provider is None:
+            if isinstance(provider, MypCardsProvider) and myp_provider is None:
                 myp_provider = provider
 
-    # Liga available — use it (original path)
-    if liga_provider is not None:
-        return await _search_via_liga(liga_provider, q, repo)
-
-    # MYP fallback
     if myp_provider is not None:
-        log.info("web_search_myp_fallback", query=q)
         return await _search_via_myp(myp_provider, q, repo)
 
-    # Neither provider available
+    # Provider not available
     raise api_error(
         503,
         ErrorCode.EXTERNAL_PROVIDER_UNAVAILABLE,
@@ -132,76 +120,12 @@ async def search_web(
     )
 
 
-async def _search_via_liga(
-    liga_provider,
-    q: str,
-    repo: Repository,
-) -> ApiResponse[list[WebSearchResult]]:
-    """Execute search via LigaMagic provider."""
-    try:
-        prices = await asyncio.wait_for(
-            liga_provider.search_card(q.strip()),
-            timeout=_SEARCH_TIMEOUT_SECONDS,
-        )
-    except asyncio.TimeoutError:
-        log.warning("web_search_timeout", query=q)
-        raise api_error(504, ErrorCode.EXTERNAL_TIMEOUT, "Liga search timed out")
-    except Exception as e:
-        log.warning("web_search_error", query=q, error=str(e))
-        raise api_error(502, ErrorCode.EXTERNAL_FAILURE, "Liga search failed")
-
-    normal = prices.get("normal", {})
-    foil = prices.get("foil", {})
-    has_normal = any(v is not None for v in normal.values())
-    has_foil = any(v is not None for v in foil.values())
-
-    if not has_normal and not has_foil:
-        # Retry with alternate-language name from local catalog
-        alt_name = _find_alternate_name(repo, q)
-        if alt_name:
-            log.info("web_search_liga_lang_fallback", original=q, alternate=alt_name)
-            try:
-                prices = await asyncio.wait_for(
-                    liga_provider.search_card(alt_name.strip()),
-                    timeout=_SEARCH_TIMEOUT_SECONDS,
-                )
-            except (asyncio.TimeoutError, Exception):
-                # If retry also fails, return empty — don't raise
-                return success_response(data=[])
-            normal = prices.get("normal", {})
-            foil = prices.get("foil", {})
-            has_normal = any(v is not None for v in normal.values())
-            has_foil = any(v is not None for v in foil.values())
-            if not has_normal and not has_foil:
-                return success_response(data=[])
-        else:
-            return success_response(data=[])
-
-    card_name = prices.get("card_name", q.strip())
-    local_card_id = _find_local_card(repo, card_name)
-
-    liga_url = liga_url_for_card_name(card_name)
-
-    normal_price = _decimal_to_float(normal.get("low") or normal.get("mid") or normal.get("high"))
-    foil_price = _decimal_to_float(foil.get("low") or foil.get("mid") or foil.get("high"))
-
-    result = WebSearchResult(
-        card_name=card_name,
-        liga_url=liga_url,
-        normal_price=normal_price,
-        foil_price=foil_price,
-        local_card_id=local_card_id,
-    )
-
-    return success_response(data=[result])
-
-
 async def _search_via_myp(
     myp_provider,
     q: str,
     repo: Repository,
 ) -> ApiResponse[list[WebSearchResult]]:
-    """Execute search via MYP provider (fallback when Liga is unavailable)."""
+    """Execute search via MYP provider."""
     try:
         myp_results = await asyncio.wait_for(
             myp_provider.search_card(q.strip()),
@@ -235,7 +159,6 @@ async def _search_via_myp(
         results.append(
             WebSearchResult(
                 card_name=item.name,
-                liga_url=None,
                 normal_price=None,
                 foil_price=None,
                 image_url=item.image_url,

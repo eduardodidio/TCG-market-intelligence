@@ -73,7 +73,6 @@ vi.mock("../../api/collection", () => ({
   fetchCollectionHistory: vi.fn(),
   patchCollectionEntry: vi.fn(),
   refreshCardPrice: vi.fn(),
-  refreshCardPriceLiga: vi.fn(),
   canonizeCard: vi.fn(),
 }));
 
@@ -156,7 +155,7 @@ const baseEntry: CollectionCardDetailType = {
   extras: null,
   is_foil: false,
   latest_price: 3.5,
-  price_source: "liga",
+  price_source: "myp",
   currency: "BRL",
   image_url: null,
   acquisition_price: null,
@@ -164,7 +163,6 @@ const baseEntry: CollectionCardDetailType = {
   price_history: [],
   source_cards: [],
   scryfall_url: null,
-  ligamagic_url: null,
 };
 
 function renderPage(entry: CollectionCardDetailType = baseEntry) {

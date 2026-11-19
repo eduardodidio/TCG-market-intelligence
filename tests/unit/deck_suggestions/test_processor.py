@@ -29,16 +29,39 @@ from src.deck_suggestions.repository import create_request, ensure_table, get_re
 
 USER = "user1"
 RESULT_KEYS = {
-    "deck_name", "strategy", "format_name", "commander", "cards", "summary",
-    "unresolved", "warnings", "provider", "model", "generated_at",
+    "deck_name",
+    "strategy",
+    "format_name",
+    "commander",
+    "cards",
+    "summary",
+    "unresolved",
+    "warnings",
+    "provider",
+    "model",
+    "generated_at",
 }
 CARD_KEYS = {
-    "name_en", "quantity", "category", "reason", "card_id", "set_code",
-    "collector_number", "image_uri", "is_owned", "owned_quantity",
-    "missing_quantity", "unit_price", "missing_cost",
+    "name_en",
+    "quantity",
+    "category",
+    "reason",
+    "card_id",
+    "set_code",
+    "collector_number",
+    "image_uri",
+    "is_owned",
+    "owned_quantity",
+    "missing_quantity",
+    "unit_price",
+    "missing_cost",
 }
 SUMMARY_KEYS = {
-    "total_cards", "owned_cards", "missing_cards", "missing_cost_brl", "unresolved_count",
+    "total_cards",
+    "owned_cards",
+    "missing_cards",
+    "missing_cost_brl",
+    "unresolved_count",
 }
 
 
@@ -67,8 +90,7 @@ def _reply(cards, deck_name="Deck Teste", strategy="Estratégia"):
             "deck_name": deck_name,
             "strategy": strategy,
             "cards": [
-                {"name": n, "quantity": q, "category": "Cat", "reason": "Motivo"}
-                for n, q in cards
+                {"name": n, "quantity": q, "category": "Cat", "reason": "Motivo"} for n, q in cards
             ],
         }
     )
@@ -84,15 +106,30 @@ def repo():
 _NUM = 0
 
 
-def _card(repo, name_en, *, name_pt=None, identity="", type_line="Artifact",
-          image="https://img/x.jpg", set_code="cmr", number=None):
+def _card(
+    repo,
+    name_en,
+    *,
+    name_pt=None,
+    identity="",
+    type_line="Artifact",
+    image="https://img/x.jpg",
+    set_code="cmr",
+    number=None,
+):
     global _NUM
     _NUM += 1
     number = number or str(_NUM)
     with Session(repo.engine) as s:
         row = CardRow(
-            game="magic", name_en=name_en, name_pt=name_pt, color_identity=identity,
-            type_line=type_line, image_uri=image, set_code=set_code, collector_number=number,
+            game="magic",
+            name_en=name_en,
+            name_pt=name_pt,
+            color_identity=identity,
+            type_line=type_line,
+            image_uri=image,
+            set_code=set_code,
+            collector_number=number,
         )
         s.add(row)
         s.commit()
@@ -101,27 +138,53 @@ def _card(repo, name_en, *, name_pt=None, identity="", type_line="Artifact",
 
 def _own(repo, card_id, qty, *, name_en=None, name_pt=None, user=USER):
     with Session(repo.engine) as s:
-        s.add(UserCollectionRow(
-            user_id=user, card_id=card_id, set_code="cmr", collector_number="1",
-            name_en=name_en, name_pt=name_pt, quantity=qty,
-        ))
+        s.add(
+            UserCollectionRow(
+                user_id=user,
+                card_id=card_id,
+                set_code="cmr",
+                collector_number="1",
+                name_en=name_en,
+                name_pt=name_pt,
+                quantity=qty,
+            )
+        )
         s.commit()
 
 
 def _price(repo, card_id, value):
     with Session(repo.engine) as s:
-        s.add(PriceObservationRow(
-            source="liga", external_id=f"liga_{card_id}", observed_at=date.today(),
-            median_price=Decimal(str(value)), currency="BRL",
-        ))
+        s.add(
+            PriceObservationRow(
+                source="myp",
+                external_id=f"myp_{card_id}",
+                observed_at=date.today(),
+                median_price=Decimal(str(value)),
+                currency="BRL",
+            )
+        )
         s.commit()
 
 
-def _request(repo, *, fmt="commander", commander=None, commander_id=None, colors="WUBG",
-             archetype=None, user=USER):
+def _request(
+    repo,
+    *,
+    fmt="commander",
+    commander=None,
+    commander_id=None,
+    colors="WUBG",
+    archetype=None,
+    user=USER,
+):
     return create_request(
-        repo.engine, user_id=user, format_name=fmt, commander_card_id=commander_id,
-        commander_name=commander, colors=colors, archetype=archetype, notes="gosto de +1/+1",
+        repo.engine,
+        user_id=user,
+        format_name=fmt,
+        commander_card_id=commander_id,
+        commander_name=commander,
+        colors=colors,
+        archetype=archetype,
+        notes="gosto de +1/+1",
     )
 
 
@@ -135,8 +198,11 @@ def _result(repo, request_id):
 
 def _set_created(repo, request_id, when):
     with Session(repo.engine) as s:
-        s.execute(update(DeckSuggestionRequestRow)
-                  .where(DeckSuggestionRequestRow.id == request_id).values(created_at=when))
+        s.execute(
+            update(DeckSuggestionRequestRow)
+            .where(DeckSuggestionRequestRow.id == request_id)
+            .values(created_at=when)
+        )
         s.commit()
 
 
@@ -152,8 +218,10 @@ def _sample_owned_cards():
 
 def test_commander_request_happy_path(repo):
     cmd = _card(repo, "Atraxa, Praetors' Voice", identity="WUBG", type_line="Legendary Creature")
-    ids = {n: _card(repo, n) for n in ["Sol Ring", "Arcane Signet", "Command Tower",
-                                        "Cyclonic Rift", "Smothering Tithe"]}
+    ids = {
+        n: _card(repo, n)
+        for n in ["Sol Ring", "Arcane Signet", "Command Tower", "Cyclonic Rift", "Smothering Tithe"]
+    }
     for n in ["Sol Ring", "Arcane Signet", "Command Tower"]:
         _own(repo, ids[n], 1)
     _own(repo, cmd, 1)
@@ -471,17 +539,30 @@ class _Req:
 
 def test_enrich_is_pure_and_computes_costs():
     parsed = ParsedSuggestion(
-        deck_name="D", strategy="S",
+        deck_name="D",
+        strategy="S",
         cards=[ParsedCard("Sol Ring", 2, "Ramp", "r"), ParsedCard("Island", 58, "Land", "")],
         warnings=["w0"],
     )
-    resolved = {"sol ring": {"card_id": 1, "name_en": "Sol Ring", "set_code": "x",
-                             "collector_number": "1", "image_uri": None}}
+    resolved = {
+        "sol ring": {
+            "card_id": 1,
+            "name_en": "Sol Ring",
+            "set_code": "x",
+            "collector_number": "1",
+            "image_uri": None,
+        }
+    }
     out = enrich(parsed, _Req(), {"sol ring": 1}, resolved, {1: 3.333}, provider="p", model="m")
     ring = out["cards"][0]
     assert ring["missing_quantity"] == 1 and ring["missing_cost"] == 3.33
-    assert out["summary"] == {"total_cards": 60, "owned_cards": 59, "missing_cards": 1,
-                              "missing_cost_brl": 3.33, "unresolved_count": 0}
+    assert out["summary"] == {
+        "total_cards": 60,
+        "owned_cards": 59,
+        "missing_cards": 1,
+        "missing_cost_brl": 3.33,
+        "unresolved_count": 0,
+    }
     assert out["warnings"] == ["w0"]
     assert out["provider"] == "p"
 

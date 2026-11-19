@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from src.api.routers.card_search import _find_alternate_name, _search_via_liga, _search_via_myp
+from src.api.routers.card_search import _find_alternate_name, _search_via_myp
 from src.database.models import Base, CardRow
 from src.database.repository import Repository
 
@@ -77,91 +76,6 @@ class TestFindAlternateName:
     def test_whitespace_stripped(self, repo_with_cards: Repository):
         result = _find_alternate_name(repo_with_cards, "  Mox de Ambar  ")
         assert result == "Mox Amber"
-
-
-# ---------------------------------------------------------------------------
-# _search_via_liga fallback tests
-# ---------------------------------------------------------------------------
-
-
-class TestSearchViaLigaFallback:
-    @pytest.mark.asyncio
-    async def test_retries_with_alternate_name_on_empty(self, repo_with_cards: Repository):
-        """When Liga returns empty for PT name, retry with EN and return results."""
-        liga = AsyncMock()
-        # First call (PT) -> empty, second call (EN) -> prices
-        liga.search_card = AsyncMock(
-            side_effect=[
-                {"normal": {}, "foil": {}, "card_name": ""},
-                {
-                    "normal": {"low": Decimal("10.00")},
-                    "foil": {},
-                    "card_name": "Mox Amber",
-                },
-            ]
-        )
-
-        response = await _search_via_liga(liga, "Mox de Ambar", repo_with_cards)
-        assert liga.search_card.call_count == 2
-        assert liga.search_card.call_args_list[1][0][0] == "Mox Amber"
-        assert response.data[0].card_name == "Mox Amber"
-        assert response.data[0].normal_price == 10.0
-
-    @pytest.mark.asyncio
-    async def test_returns_empty_when_no_alternate(self, repo_with_cards: Repository):
-        """When Liga returns empty and no alternate name exists, return empty."""
-        liga = AsyncMock()
-        liga.search_card = AsyncMock(return_value={"normal": {}, "foil": {}})
-
-        response = await _search_via_liga(liga, "Unknown Card XYZ", repo_with_cards)
-        assert liga.search_card.call_count == 1
-        assert response.data == []
-
-    @pytest.mark.asyncio
-    async def test_no_extra_credits_for_retry(self, repo_with_cards: Repository):
-        """The retry path does NOT deduct additional credits (credit deduction
-        happens only in the endpoint, not in _search_via_liga)."""
-        liga = AsyncMock()
-        liga.search_card = AsyncMock(
-            side_effect=[
-                {"normal": {}, "foil": {}},
-                {"normal": {"low": Decimal("5.00")}, "foil": {}, "card_name": "Mox Amber"},
-            ]
-        )
-
-        # _search_via_liga never touches credit_svc — it has no such parameter
-        response = await _search_via_liga(liga, "Mox de Ambar", repo_with_cards)
-        assert len(response.data) == 1
-
-    @pytest.mark.asyncio
-    async def test_retry_failure_returns_empty(self, repo_with_cards: Repository):
-        """When the retry itself fails (timeout/exception), return empty gracefully."""
-        liga = AsyncMock()
-        liga.search_card = AsyncMock(
-            side_effect=[
-                {"normal": {}, "foil": {}},
-                Exception("connection error"),
-            ]
-        )
-
-        response = await _search_via_liga(liga, "Mox de Ambar", repo_with_cards)
-        assert response.data == []
-
-    @pytest.mark.asyncio
-    async def test_no_retry_when_first_call_has_results(self, repo_with_cards: Repository):
-        """When Liga returns results on first try, no fallback is triggered."""
-        liga = AsyncMock()
-        liga.search_card = AsyncMock(
-            return_value={
-                "normal": {"low": Decimal("10.00")},
-                "foil": {},
-                "card_name": "Mox de Ambar",
-            }
-        )
-
-        response = await _search_via_liga(liga, "Mox de Ambar", repo_with_cards)
-        assert liga.search_card.call_count == 1
-        assert len(response.data) == 1
 
 
 # ---------------------------------------------------------------------------

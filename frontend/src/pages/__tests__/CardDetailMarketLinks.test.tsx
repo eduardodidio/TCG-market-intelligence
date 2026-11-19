@@ -96,7 +96,6 @@ const baseCard: CardDetailType = {
   latest_price: 3.5,
   source_cards: [],
   collection_entry_id: null,
-  ligamagic_url: null,
   created_at: "2026-01-01",
   updated_at: "2026-01-01",
 };

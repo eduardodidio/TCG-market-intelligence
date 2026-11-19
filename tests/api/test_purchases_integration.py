@@ -169,61 +169,6 @@ class TestImportPreviewNerdz:
 
 
 # ---------------------------------------------------------------------------
-# Test: Liga HTML upload via multipart form-data
-# ---------------------------------------------------------------------------
-
-
-class TestImportPreviewLiga:
-    """Verify that uploading a Liga Magic HTML file via multipart works."""
-
-    def test_import_preview_with_liga_html(self):
-        """Upload the liga_sample.html fixture and verify parsed results."""
-        mock_repo = MagicMock()
-        entry1 = _make_entry(
-            id=10, name_en="Sol Ring", name_pt=None, set_code="cmm", collector_number="406"
-        )
-        entry2 = _make_entry(
-            id=11, name_en="Command Tower", name_pt=None, set_code="cmm", collector_number="441"
-        )
-        mock_repo.list_collection.return_value = [entry1, entry2]
-
-        client = TestClient(_make_app(mock_repo))
-        html_content = _read_fixture("liga_sample.html")
-
-        resp = client.post(
-            "/api/v1/purchases/import-preview",
-            files=[("files", ("meus_pedidos.html", html_content, "text/html"))],
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-
-        assert data["total_files"] == 1
-        # Liga parser may produce 1+ orders
-        assert data["total_orders"] >= 1
-        assert data["total_items_parsed"] >= 1
-        # Matches depend on whether the Liga HTML structure was parsed correctly
-        # Even if 0 matches, the endpoint must not crash
-        assert "matches" in data
-        assert "unmatched" in data
-
-    def test_import_preview_liga_empty_collection(self):
-        """Liga HTML with no collection entries results in all unmatched."""
-        mock_repo = MagicMock()
-        mock_repo.list_collection.return_value = []
-
-        client = TestClient(_make_app(mock_repo))
-        html_content = _read_fixture("liga_sample.html")
-
-        resp = client.post(
-            "/api/v1/purchases/import-preview",
-            files=[("files", ("pedidos.html", html_content, "text/html"))],
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["total_items_matched"] == 0
-
-
-# ---------------------------------------------------------------------------
 # Test: Apply purchases updates collection
 # ---------------------------------------------------------------------------
 

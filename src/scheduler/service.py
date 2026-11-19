@@ -150,10 +150,7 @@ class ScanScheduler:
         return scan_id
 
     def _execute_scheduled_scan(self, schedule_id: int, scan_id: int | None = None) -> None:
-        """Callback executed by APScheduler. Runs scan, updates schedule metadata.
-
-        Routes to Liga provider when filters_json contains ``"provider": "liga"``.
-        """
+        """Callback executed by APScheduler. Runs scan, updates schedule metadata."""
         with self._lock:
             repo = Repository(self._db_url)
             schedule = repo.get_scheduled_scan(schedule_id)
@@ -173,41 +170,37 @@ class ScanScheduler:
                     return
 
             # --- Token cost enforcement ---
-            # admin_daily_liga is exempt from token checks
-            if schedule["scan_type"] != "admin_daily_liga":
-                user_id = schedule["user_id"]
-                # Count cards the user owns (approximation of scan cost)
-                card_count = repo.count_collection(user_id)
+            user_id = schedule["user_id"]
+            # Count cards the user owns (approximation of scan cost)
+            card_count = repo.count_collection(user_id)
 
-                if card_count > 0:
-                    credit_svc = CreditService(repo)
-                    if not credit_svc.check_sufficient(user_id, card_count):
-                        # Pause the schedule due to insufficient credits
-                        repo.update_scheduled_scan(
-                            schedule_id, status="paused_insufficient_credits"
-                        )
-                        self.pause_schedule(schedule_id)
-                        log.warning(
-                            "schedule_paused_insufficient_credits",
-                            schedule_id=schedule_id,
-                            user_id=user_id,
-                            card_count=card_count,
-                        )
-                        return
-
-                    # Deduct tokens before running the scan
-                    credit_svc.deduct(
-                        user_id=user_id,
-                        cost=card_count,
-                        reason="scheduled_scan",
-                        reference_id=f"schedule_{schedule_id}",
-                    )
-                    log.info(
-                        "schedule_tokens_deducted",
+            if card_count > 0:
+                credit_svc = CreditService(repo)
+                if not credit_svc.check_sufficient(user_id, card_count):
+                    # Pause the schedule due to insufficient credits
+                    repo.update_scheduled_scan(schedule_id, status="paused_insufficient_credits")
+                    self.pause_schedule(schedule_id)
+                    log.warning(
+                        "schedule_paused_insufficient_credits",
                         schedule_id=schedule_id,
                         user_id=user_id,
-                        cost=card_count,
+                        card_count=card_count,
                     )
+                    return
+
+                # Deduct tokens before running the scan
+                credit_svc.deduct(
+                    user_id=user_id,
+                    cost=card_count,
+                    reason="scheduled_scan",
+                    reference_id=f"schedule_{schedule_id}",
+                )
+                log.info(
+                    "schedule_tokens_deducted",
+                    schedule_id=schedule_id,
+                    user_id=user_id,
+                    cost=card_count,
+                )
 
             # Create scan run if not provided (APScheduler callback)
             if scan_id is None:
@@ -216,50 +209,15 @@ class ScanScheduler:
         try:
             scan_filter = ScanFilter.from_json(schedule["filters_json"])
 
-            # Determine provider from filters_json
-            import json as _json
+            from src.collectors.scan import run_scan
 
-            try:
-                filters_data = _json.loads(schedule["filters_json"] or "{}")
-            except (ValueError, TypeError):
-                filters_data = {}
-            provider_name = filters_data.get("provider", "myp")
-
-            if schedule["scan_type"] == "admin_daily_liga":
-                from src.collectors.admin_scan import run_admin_daily_liga_scan
-                from src.services.scan_hooks import default_registry
-
-                max_age_days = filters_data.get("max_age_days", 1)
-                asyncio.run(
-                    run_admin_daily_liga_scan(
-                        db_url=self._db_url,
-                        run_id=scan_id,
-                        max_age_days=max_age_days,
-                        on_complete=default_registry.notify,
-                    )
+            asyncio.run(
+                run_scan(
+                    db_url=self._db_url,
+                    scan_filter=scan_filter,
+                    run_id=scan_id,
                 )
-            elif provider_name == "liga":
-                from src.collectors.liga_scan import run_liga_scan
-
-                max_age_days = filters_data.get("max_age_days")
-                asyncio.run(
-                    run_liga_scan(
-                        db_url=self._db_url,
-                        scan_filter=scan_filter,
-                        run_id=scan_id,
-                        max_age_days=max_age_days,
-                    )
-                )
-            else:
-                from src.collectors.scan import run_scan
-
-                asyncio.run(
-                    run_scan(
-                        db_url=self._db_url,
-                        scan_filter=scan_filter,
-                        run_id=scan_id,
-                    )
-                )
+            )
 
             # Success: update schedule metadata
             repo = Repository(self._db_url)

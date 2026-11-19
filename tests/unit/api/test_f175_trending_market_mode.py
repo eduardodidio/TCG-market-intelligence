@@ -74,7 +74,7 @@ def _seed_series(
 
 
 def _seed_market_and_collection_cards(repo: Repository, user_id: int | None = None) -> None:
-    """Seed a rising Liga-only card, a falling Liga-only card, and a MYP card.
+    """Seed a rising MYP-only card, a falling MYP-only card, and a MYP card.
 
     Optionally adds a UserCollectionRow linking `user_id` to only the rising
     card, so collection-mode tests can assert the falling/MYP cards are
@@ -87,12 +87,12 @@ def _seed_market_and_collection_cards(repo: Repository, user_id: int | None = No
         _seed_card(session, FALLING_CARD_ID, "Falling Card")
         _seed_card(session, MYP_CARD_ID, "MYP Card")
 
-        # Rising card: Liga sweep only (no source_cards row), 5 consecutive
+        # Rising card: MYP sweep only (no source_cards row), 5 consecutive
         # rising days ending today.
         _seed_series(
             session,
-            "liga",
-            f"liga_{RISING_CARD_ID}",
+            "myp",
+            f"myp_{RISING_CARD_ID}",
             [
                 Decimal("10.00"),
                 Decimal("12.00"),
@@ -103,11 +103,11 @@ def _seed_market_and_collection_cards(repo: Repository, user_id: int | None = No
             start_days_ago=4,
         )
 
-        # Falling card: Liga sweep only, 5 consecutive falling days.
+        # Falling card: MYP sweep only, 5 consecutive falling days.
         _seed_series(
             session,
-            "liga",
-            f"liga_{FALLING_CARD_ID}",
+            "myp",
+            f"myp_{FALLING_CARD_ID}",
             [
                 Decimal("18.00"),
                 Decimal("16.00"),
@@ -141,7 +141,7 @@ def _seed_market_and_collection_cards(repo: Repository, user_id: int | None = No
         # break the response.
         session.add(
             PriceObservationRow(
-                source="liga",
+                source="myp",
                 external_id="liga_catalog_tst_999",
                 observed_at=date.today(),
                 median_price=Decimal("50.00"),
@@ -225,7 +225,7 @@ class TestMarketMode:
         with Session(repo.engine) as session:
             session.add(
                 PriceObservationRow(
-                    source="liga",
+                    source="myp",
                     external_id="liga_catalog_tst_999",
                     observed_at=date.today(),
                     median_price=Decimal("50.00"),
@@ -273,8 +273,8 @@ class TestBoundaries:
             # All points older than 7 days -- should be excluded entirely.
             _seed_series(
                 session,
-                "liga",
-                f"liga_{RISING_CARD_ID}",
+                "myp",
+                f"myp_{RISING_CARD_ID}",
                 [Decimal("10.00"), Decimal("12.00"), Decimal("14.00")],
                 start_days_ago=10,
             )

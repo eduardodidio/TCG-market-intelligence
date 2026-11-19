@@ -57,7 +57,7 @@ _KNOWN_VARIANTS: dict[str, str] = {
     "sc9": "sch",  # Store Championships
     # Art Series (ash*)
     "ashob": "hob",
-    # Liga legacy short codes → Scryfall standard codes
+    # Legacy short codes → Scryfall standard codes
     "4e": "4ed",  # 4th Edition
     "awot": "wot",  # Wilds of Eldraine: Enchanting Tales
     "eftle": "tle",  # Avatar: The Last Airbender Eternal

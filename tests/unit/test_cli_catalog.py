@@ -30,23 +30,6 @@ def _make_seed_result(**overrides):
     return SeedResult(**defaults)
 
 
-def _make_sweep_result(**overrides):
-    """Build a mock LigaSweepResult."""
-    from src.collectors.liga_sweep import LigaSweepResult
-
-    defaults = dict(
-        total_eligible=200,
-        total_processed=180,
-        prices_found=150,
-        prices_not_found=30,
-        errors=0,
-        batches_completed=9,
-        dry_run=False,
-    )
-    defaults.update(overrides)
-    return LigaSweepResult(**defaults)
-
-
 # ---------------------------------------------------------------------------
 # catalog seed
 # ---------------------------------------------------------------------------
@@ -172,89 +155,6 @@ class TestCatalogSeed:
 
 
 # ---------------------------------------------------------------------------
-# catalog scan
-# ---------------------------------------------------------------------------
-
-
-class TestCatalogScan:
-    def test_scan_requires_set_option(self):
-        """catalog scan without --set shows an error."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["catalog", "scan", "--db", "sqlite:///test.db"])
-        assert result.exit_code != 0
-        assert "Missing option" in result.output or "required" in result.output.lower()
-
-    def test_scan_calls_liga_sweep(self):
-        """catalog scan --set passes all options to run_liga_sweep."""
-        runner = CliRunner()
-        sweep_result = _make_sweep_result()
-
-        with patch("src.cli.main.asyncio.run", return_value=sweep_result) as mock_run:
-            result = runner.invoke(
-                cli,
-                [
-                    "catalog",
-                    "scan",
-                    "--db",
-                    "sqlite:///test.db",
-                    "--set",
-                    "mh3",
-                    "--limit",
-                    "10",
-                    "--delay",
-                    "2.0",
-                    "--batch-size",
-                    "5",
-                    "--batch-pause",
-                    "30",
-                    "--max-age-days",
-                    "3",
-                ],
-            )
-
-        assert result.exit_code == 0, result.output
-        mock_run.assert_called_once()
-        # Verify summary was printed
-        assert "LIGA SWEEP SUMMARY" in result.output
-
-    def test_scan_dry_run(self):
-        """catalog scan --dry-run passes dry_run=True and prints DRY RUN."""
-        runner = CliRunner()
-        sweep_result = _make_sweep_result(dry_run=True)
-
-        with patch("src.cli.main.asyncio.run", return_value=sweep_result):
-            result = runner.invoke(
-                cli,
-                [
-                    "catalog",
-                    "scan",
-                    "--db",
-                    "sqlite:///test.db",
-                    "--set",
-                    "mh3",
-                    "--dry-run",
-                ],
-            )
-
-        assert result.exit_code == 0, result.output
-        assert "DRY RUN" in result.output
-
-    def test_scan_default_options(self):
-        """catalog scan uses correct defaults for delay, batch-size, etc."""
-        runner = CliRunner()
-        sweep_result = _make_sweep_result()
-
-        with patch("src.cli.main.asyncio.run", return_value=sweep_result) as mock_run:
-            result = runner.invoke(
-                cli,
-                ["catalog", "scan", "--db", "sqlite:///test.db", "--set", "neo"],
-            )
-
-        assert result.exit_code == 0, result.output
-        assert mock_run.called
-
-
-# ---------------------------------------------------------------------------
 # catalog stats
 # ---------------------------------------------------------------------------
 
@@ -305,27 +205,27 @@ class TestCatalogStats:
                 )
             session.commit()
 
-            # Catalog source_cards use "liga_catalog_{set}_{num}" external_id
+            # Catalog source_cards use "myp_catalog_{set}_{num}" external_id
             for i in range(2):
                 session.add(
                     SourceCardRow(
-                        source="liga",
-                        external_id=f"liga_catalog_mh3_{i}",
+                        source="myp",
+                        external_id=f"myp_catalog_mh3_{i}",
                         card_id=i + 1,
-                        url=f"https://liga.example.com/card/{i}",
+                        url=f"https://myp.example.com/card/{i}",
                         name_en=f"Card {i}",
                         set_code="mh3",
                         collector_number=str(i),
                     )
                 )
-            # Liga sweep source_cards use "liga_{card_id}" external_id
+            # MYP sweep source_cards use "myp_{card_id}" external_id
             for i in range(2):
                 session.add(
                     SourceCardRow(
-                        source="liga",
-                        external_id=f"liga_{i + 1}",
+                        source="myp",
+                        external_id=f"myp_{i + 1}",
                         card_id=i + 1,
-                        url=f"https://liga.example.com/card/{i}",
+                        url=f"https://myp.example.com/card/{i}",
                         name_en=f"Card {i}",
                         set_code="mh3",
                         collector_number=str(i),
@@ -337,8 +237,8 @@ class TestCatalogStats:
             for i in range(2):
                 session.add(
                     PriceObservationRow(
-                        source="liga",
-                        external_id=f"liga_{i + 1}",
+                        source="myp",
+                        external_id=f"myp_{i + 1}",
                         observed_at=date.today(),
                         median_price=10.0 + i,
                         currency="BRL",
@@ -354,7 +254,7 @@ class TestCatalogStats:
         assert "CATALOG STATISTICS" in result.output
         assert "Total catalog cards:" in result.output
         assert "8" in result.output  # 5 + 3
-        assert "Cards with Liga price:" in result.output
+        assert "Cards with price:" in result.output
         assert "mh3" in result.output
         assert "neo" in result.output
 
@@ -362,9 +262,9 @@ class TestCatalogStats:
         """Cards with price count must work when price observation external_id
         differs from catalog source_card external_id (the real-world pattern).
 
-        Catalog source_cards: external_id = "liga_catalog_{set}_{num}"
-        Sweep source_cards:   external_id = "liga_{card_id}"
-        Price observations:   external_id = "liga_{card_id}"
+        Catalog source_cards: external_id = "myp_catalog_{set}_{num}"
+        Sweep source_cards:   external_id = "myp_{card_id}"
+        Price observations:   external_id = "myp_{card_id}"
 
         The query must link through card_id, not external_id string matching.
         """
@@ -399,10 +299,10 @@ class TestCatalogStats:
             for i in range(3):
                 session.add(
                     SourceCardRow(
-                        source="liga",
-                        external_id=f"liga_catalog_mh3_{i}",
+                        source="myp",
+                        external_id=f"myp_catalog_mh3_{i}",
                         card_id=i + 1,
-                        url=f"https://liga.example.com/card/{i}",
+                        url=f"https://myp.example.com/card/{i}",
                         name_en=f"Card {i}",
                         set_code="mh3",
                         collector_number=str(i),
@@ -412,10 +312,10 @@ class TestCatalogStats:
             for i in range(2):
                 session.add(
                     SourceCardRow(
-                        source="liga",
-                        external_id=f"liga_{i + 1}",
+                        source="myp",
+                        external_id=f"myp_{i + 1}",
                         card_id=i + 1,
-                        url=f"https://liga.example.com/card/{i}",
+                        url=f"https://myp.example.com/card/{i}",
                         name_en=f"Card {i}",
                         set_code="mh3",
                         collector_number=str(i),
@@ -427,8 +327,8 @@ class TestCatalogStats:
             for i in range(2):
                 session.add(
                     PriceObservationRow(
-                        source="liga",
-                        external_id=f"liga_{i + 1}",
+                        source="myp",
+                        external_id=f"myp_{i + 1}",
                         observed_at=date.today(),
                         median_price=10.0 + i,
                         currency="BRL",
@@ -442,7 +342,7 @@ class TestCatalogStats:
 
         assert result.exit_code == 0, result.output
         # Exactly 2 of 3 cards have prices
-        assert "Cards with Liga price:   2" in result.output
+        assert "Cards with price:        2" in result.output
         assert "Cards without price:     1" in result.output
 
     def test_stats_empty_database(self, tmp_path):
@@ -463,5 +363,5 @@ class TestCatalogStats:
 
         assert result.exit_code == 0, result.output
         assert "Total catalog cards:     0" in result.output
-        assert "Cards with Liga price:   0" in result.output
+        assert "Cards with price:        0" in result.output
         assert "Catalog seeded: no" in result.output

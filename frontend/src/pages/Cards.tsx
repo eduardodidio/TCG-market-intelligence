@@ -300,7 +300,6 @@ export function Cards() {
     try {
       const res = await createEvaluation({
         card_name: result.card_name,
-        liga_url: result.liga_url,
         price_at_add: result.normal_price,
         card_id: result.local_card_id,
       });
@@ -603,18 +602,6 @@ export function Cards() {
                       <span className="text-slate-500">{t("common.noPriceData")}</span>
                     )}
                   </div>
-
-                  {/* Liga link */}
-                  {result.liga_url && (
-                    <a
-                      href={result.liga_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-cyan-400 text-xs hover:underline"
-                    >
-                      LigaMagic
-                    </a>
-                  )}
 
                   {/* Action buttons */}
                   <div className="flex gap-2 mt-auto">

@@ -106,30 +106,30 @@ def db_repo():
         session.add_all(cards)
         session.flush()
 
-        # --- Source cards (Liga entries for cards 1, 2, 4) ---
+        # --- Source cards (MYP entries for cards 1, 2, 4) ---
         source_cards = [
             SourceCardRow(
                 id=1,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 card_id=1,
-                url="https://liga.com/bolt",
+                url="https://mypcards.com/bolt",
                 name_en="Lightning Bolt",
             ),
             SourceCardRow(
                 id=2,
-                source="liga",
-                external_id="liga_2",
+                source="myp",
+                external_id="myp_2",
                 card_id=2,
-                url="https://liga.com/counter",
+                url="https://mypcards.com/counter",
                 name_en="Counterspell",
             ),
             SourceCardRow(
                 id=3,
-                source="liga",
-                external_id="liga_4",
+                source="myp",
+                external_id="myp_4",
                 card_id=4,
-                url="https://liga.com/sol",
+                url="https://mypcards.com/sol",
                 name_en="Sol Ring",
             ),
         ]
@@ -139,22 +139,22 @@ def db_repo():
         # --- Price observations (cards 1 and 4 have prices) ---
         observations = [
             PriceObservationRow(
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 9, 1),
                 median_price=Decimal("5.00"),
                 currency="BRL",
             ),
             PriceObservationRow(
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 9, 3),
                 median_price=Decimal("6.50"),
                 currency="BRL",
             ),
             PriceObservationRow(
-                source="liga",
-                external_id="liga_4",
+                source="myp",
+                external_id="myp_4",
                 observed_at=date(2026, 9, 2),
                 median_price=Decimal("25.00"),
                 currency="BRL",
@@ -250,7 +250,7 @@ class TestListCatalogCards:
         body = resp.json()["data"]
         assert body["total"] == 3
         for item in body["items"]:
-            assert item["liga_price"] is None
+            assert item["latest_price"] is None
 
     def test_filter_min_price(self, client: TestClient) -> None:
         resp = client.get("/api/v1/catalog/cards?min_price=10")
@@ -280,28 +280,28 @@ class TestListCatalogCards:
         resp = client.get("/api/v1/catalog/cards?sort_by=price&sort_dir=asc")
         body = resp.json()["data"]
         # Priced cards come first, nulls at end
-        priced = [item for item in body["items"] if item["liga_price"] is not None]
-        unpriced = [item for item in body["items"] if item["liga_price"] is None]
+        priced = [item for item in body["items"] if item["latest_price"] is not None]
+        unpriced = [item for item in body["items"] if item["latest_price"] is None]
         assert len(priced) == 2
         assert len(unpriced) == 3
         # Priced should be ascending
-        assert priced[0]["liga_price"] <= priced[1]["liga_price"]
+        assert priced[0]["latest_price"] <= priced[1]["latest_price"]
 
     def test_card_without_price_returns_null(self, client: TestClient) -> None:
         resp = client.get("/api/v1/catalog/cards?name=Dark Ritual")
         body = resp.json()["data"]
         assert body["total"] == 1
         item = body["items"][0]
-        assert item["liga_price"] is None
-        assert item["liga_price_date"] is None
+        assert item["latest_price"] is None
+        assert item["latest_price_date"] is None
 
     def test_card_with_price_returns_latest(self, client: TestClient) -> None:
         resp = client.get("/api/v1/catalog/cards?name=Lightning Bolt")
         body = resp.json()["data"]
         item = body["items"][0]
         # Should be latest price (6.50 from 2026-09-03), not older (5.00)
-        assert item["liga_price"] == 6.5
-        assert "2026-09-03" in item["liga_price_date"]
+        assert item["latest_price"] == 6.5
+        assert "2026-09-03" in item["latest_price_date"]
 
     def test_limit_max_200(self, client: TestClient) -> None:
         resp = client.get("/api/v1/catalog/cards?limit=300")
@@ -319,7 +319,7 @@ class TestGetCatalogCard:
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["name_en"] == "Lightning Bolt"
-        assert data["liga_price"] == 6.5
+        assert data["latest_price"] == 6.5
         assert data["image_uri"] == "https://example.com/bolt.jpg"
 
     def test_returns_card_without_price(self, client: TestClient) -> None:
@@ -327,8 +327,8 @@ class TestGetCatalogCard:
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["name_en"] == "Dark Ritual"
-        assert data["liga_price"] is None
-        assert data["liga_price_date"] is None
+        assert data["latest_price"] is None
+        assert data["latest_price_date"] is None
 
     def test_returns_404_for_missing_card(self, client: TestClient) -> None:
         resp = client.get("/api/v1/catalog/cards/999")
@@ -346,7 +346,7 @@ class TestGetCatalogCard:
         assert data["color_identity"] == ""
         assert data["mana_cost"] == "{1}"
         assert data["type_line"] == "Artifact"
-        assert data["liga_price"] == 25.0
+        assert data["latest_price"] == 25.0
 
 
 # ---------------------------------------------------------------------------

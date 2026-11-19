@@ -34,7 +34,6 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import User
-from src.providers.liga.urls import resolve_liga_card_url
 from src.services.collection_price_history import build_history
 from src.services.currency import CurrencyConverter
 
@@ -192,12 +191,6 @@ def get_card(
         currency=currency,
         source_cards=[SourceCardSchema.model_validate(sc) for sc in source_cards],
         collection_entry_id=collection_entry_id,
-        ligamagic_url=resolve_liga_card_url(
-            card_id=card.id,
-            is_foil=False,
-            fallback_name=card.name_en or "",
-            lookup=repo.get_liga_card_url,
-        ),
         created_at=card.created_at,
         updated_at=card.updated_at,
     )
@@ -262,7 +255,7 @@ def refresh_card_price(
     user: User = Depends(get_current_user),
     credit_svc: CreditService = Depends(get_credit_service),
 ):
-    """Queue a price update request for a card via LigaMagic.
+    """Queue a price update request for a card.
 
     Deducts credit immediately and queues the request for async processing
     by the ``process-price-requests`` CLI command.
@@ -281,7 +274,7 @@ def refresh_card_price(
         raise api_error(
             422,
             ErrorCode.VALIDATION_ERROR,
-            "Card has no name (name_en or name_pt required for LigaMagic search)",
+            "Card has no name (name_en or name_pt required for price search)",
         )
 
     # Deduct credit immediately (before queuing)

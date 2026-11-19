@@ -1,8 +1,8 @@
 """Pure header-alias resolution and file-level currency detection (F171).
 
-Maps arbitrary CSV headers (Liga Magic, ManaBox, or a generic spreadsheet) to
-canonical collection fields, and decides which currency a file's price
-column is in without ever guessing a USD file into BRL storage.
+Maps arbitrary CSV headers (ManaBox or a generic spreadsheet) to canonical
+collection fields, and decides which currency a file's price column is in
+without ever guessing a USD file into BRL storage.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from src.currency.types import CurrencyChoice, CurrencyDetection, SupportedCurre
 
 _MAX_SAMPLE = 200
 
-# canonical field -> accepted headers (Liga header first where one exists).
+# canonical field -> accepted headers.
 FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "set_code": ("Edicao (Sigla)", "Set code", "Set", "Edition code", "Sigla"),
     "collector_number": ("Card #", "Collector number", "Number", "Numero"),
@@ -56,7 +56,7 @@ _SYMBOL_LABEL = {"BRL": "R$", "USD": "US$"}
 @dataclass
 class ColumnMap:
     fields: dict[str, str]
-    origin: Literal["liga", "manabox", "generic"]
+    origin: Literal["brazilian", "manabox", "generic"]
     header_currency: SupportedCurrency | None = None
 
 
@@ -88,9 +88,9 @@ def _header_currency(header: str) -> SupportedCurrency | None:
     return None
 
 
-def _detect_origin(normalized_map: dict[str, str]) -> Literal["liga", "manabox", "generic"]:
+def _detect_origin(normalized_map: dict[str, str]) -> Literal["brazilian", "manabox", "generic"]:
     if _normalize("Edicao (Sigla)") in normalized_map and _normalize("Card #") in normalized_map:
-        return "liga"
+        return "brazilian"
     has_set_code = _normalize("Set code") in normalized_map
     has_collector_number = _normalize("Collector number") in normalized_map
     if _normalize("Purchase price currency") in normalized_map or (
@@ -272,12 +272,12 @@ def detect_file_currency(
                 unsupported_symbols=unsupported,
             )
 
-    if cmap.origin == "liga":
+    if cmap.origin == "brazilian":
         return CurrencyDetection(
             currency="BRL",
             source="origin",
             confidence="medium",
-            evidence=["origin: liga"],
+            evidence=["origin: brazilian"],
             unsupported_symbols=unsupported,
         )
 

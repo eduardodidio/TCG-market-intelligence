@@ -42,7 +42,6 @@ export interface SourceCard {
 export interface CardDetail extends CardSummary {
   source_cards: SourceCard[];
   collection_entry_id: number | null;
-  ligamagic_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -163,7 +162,6 @@ export interface CollectionCardDetail extends CollectionCard {
   price_history: PriceObservation[];
   source_cards: SourceCard[];
   scryfall_url: string | null;
-  ligamagic_url: string | null;
 }
 
 export interface CollectionSummary {
@@ -556,18 +554,6 @@ export interface VolatileCardEntry {
   currency: string;
 }
 
-// Liga status types (F60)
-
-export interface LigaStatusResponse {
-  total_cards: number;
-  liga_priced: number;
-  liga_stale: number;
-  liga_missing: number;
-  unlinked: number;
-  coverage_pct: number;
-  last_liga_scan: string | null;
-}
-
 // Bulk canonize types (F49)
 
 export interface BulkCanonizeResult {
@@ -614,7 +600,6 @@ export interface TickerItemData {
 export interface WebSearchResult {
   card_name: string;
   set_name: string | null;
-  liga_url: string | null;
   normal_price: number | null;
   foil_price: number | null;
   image_url: string | null;

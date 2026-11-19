@@ -1,6 +1,6 @@
 """F176-T08: ``/collection/{id}/history`` and ``/collection/{id}/metrics`` use ``build_history``.
 
-Covers collection entries whose card only has Liga-sweep prices (no
+Covers collection entries whose card only has MYP-sweep prices (no
 ``source_cards`` row — previously returned 0 points, ADR 0017 H1), foil/normal
 isolation, ``daily_snapshot`` carry-forward points, ownership checks and the
 unchanged 422/empty-card behaviors.
@@ -18,10 +18,10 @@ from sqlalchemy.orm import Session
 
 from src.api.deps import get_currency_converter_dep, get_db, require_auth_or_api_key
 from src.api.routers.collection import router
-from src.database.models import CardRow, PriceObservationRow, UserCollectionRow
+from src.database.models import CardRow, PriceObservationRow, SourceCardRow, UserCollectionRow
 from src.services.currency import CurrencyConverter
 
-TODAY = date(2026, 9, 24)
+TODAY = date.today()
 _USER = "eduardo"
 
 
@@ -44,10 +44,25 @@ def client(repo):
     return TestClient(app)
 
 
-def _make_card(repo, name: str = "Card") -> int:
+def _make_card(repo, name: str = "Card", *, with_source_card: bool = True) -> int:
     with Session(repo.engine) as session:
         card = CardRow(game="magic", name_en=name, set_code="TST", collector_number="1")
         session.add(card)
+        session.flush()
+        if with_source_card:
+            sc = SourceCardRow(
+                source="myp",
+                external_id=f"myp_{card.id}",
+                card_id=card.id,
+                url=f"https://myp.example.com/{card.id}",
+            )
+            sc_foil = SourceCardRow(
+                source="myp",
+                external_id=f"myp_{card.id}_foil",
+                card_id=card.id,
+                url=f"https://myp.example.com/{card.id}_foil",
+            )
+            session.add_all([sc, sc_foil])
         session.commit()
         return card.id
 
@@ -82,11 +97,11 @@ def _add_observation(
         session.commit()
 
 
-class TestLigaOnlyEntry:
+class TestSweepOnlyEntry:
     def test_liga_only_card_returns_points(self, repo, client):
         card_id = _make_card(repo, "Liga Only Card")
         for i in range(3):
-            _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=i), "10.00")
+            _add_observation(repo, "myp", f"myp_{card_id}", TODAY - timedelta(days=i), "10.00")
         entry_id = _make_collection_entry(repo, card_id)
 
         resp = client.get(f"/collection/{entry_id}/history?period=30d")
@@ -94,12 +109,12 @@ class TestLigaOnlyEntry:
         assert resp.status_code == 200
         body = resp.json()["data"]
         assert len(body["observations"]) == 3
-        assert body["meta"]["sources"] == ["liga"]
+        assert body["meta"]["sources"] == ["myp"]
 
     def test_metrics_has_data_points_for_liga_only_card(self, repo, client):
         card_id = _make_card(repo, "Liga Only Card")
         for i in range(3):
-            _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=i), "10.00")
+            _add_observation(repo, "myp", f"myp_{card_id}", TODAY - timedelta(days=i), "10.00")
         entry_id = _make_collection_entry(repo, card_id)
 
         resp = client.get(f"/collection/{entry_id}/metrics?period=30d")
@@ -111,8 +126,8 @@ class TestLigaOnlyEntry:
 class TestFoilIsolation:
     def test_foil_entry_only_sees_foil_series(self, repo, client):
         card_id = _make_card(repo, "Foil Card")
-        _add_observation(repo, "liga", f"liga_{card_id}_foil", TODAY - timedelta(days=1), "100.00")
-        _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=1), "10.00")
+        _add_observation(repo, "myp", f"myp_{card_id}_foil", TODAY - timedelta(days=1), "100.00")
+        _add_observation(repo, "myp", f"myp_{card_id}", TODAY - timedelta(days=1), "10.00")
         entry_id = _make_collection_entry(repo, card_id, extras="Foil")
 
         resp = client.get(f"/collection/{entry_id}/history?period=30d")
@@ -126,9 +141,9 @@ class TestFoilIsolation:
 class TestDailySnapshot:
     def test_daily_snapshot_source_is_exposed(self, repo, client):
         card_id = _make_card(repo, "Snapshot Card")
-        _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=5), "10.00")
+        _add_observation(repo, "myp", f"myp_{card_id}", TODAY - timedelta(days=5), "10.00")
         _add_observation(
-            repo, "daily_snapshot", f"liga_{card_id}", TODAY - timedelta(days=3), "10.00"
+            repo, "daily_snapshot", f"myp_{card_id}", TODAY - timedelta(days=3), "10.00"
         )
         entry_id = _make_collection_entry(repo, card_id)
 

@@ -89,7 +89,7 @@ export function triggerScanAuth(
 ): Promise<ApiResponse<ScanTriggerResponse>> {
   return apiPost<ScanTriggerResponse>("/api/v1/scans", {
     ...request,
-    provider: request.provider ?? "liga",
+    provider: request.provider ?? "myp",
   });
 }
 

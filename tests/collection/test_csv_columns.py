@@ -45,9 +45,9 @@ def _read_csv(name: str, encoding: str = "utf-8") -> tuple[list[str], list[dict[
 # --- resolve_columns -------------------------------------------------------
 
 
-def test_all_13_liga_headers_resolve_and_origin_is_liga():
+def test_all_13_liga_headers_resolve_and_origin_is_brazilian():
     cmap = resolve_columns(LIGA_HEADERS)
-    assert cmap.origin == "liga"
+    assert cmap.origin == "brazilian"
     expected_fields = {
         "set_name_pt",
         "set_name_en",
@@ -68,10 +68,10 @@ def test_all_13_liga_headers_resolve_and_origin_is_liga():
     assert cmap.fields["collector_number"] == "Card #"
 
 
-def test_liga_brl_no_price_fixture_origin_liga_no_price_field():
+def test_liga_brl_no_price_fixture_origin_brazilian_no_price_field():
     headers, _ = _read_csv("liga_brl_no_price.csv", encoding="cp1252")
     cmap = resolve_columns(headers)
-    assert cmap.origin == "liga"
+    assert cmap.origin == "brazilian"
     assert "price" not in cmap.fields
 
 
@@ -124,13 +124,13 @@ def test_price_header_excludes_currency_column():
 
 def test_bom_on_first_header():
     cmap = resolve_columns(["﻿Edicao (Sigla)", "Card #"])
-    assert cmap.origin == "liga"
+    assert cmap.origin == "brazilian"
     assert cmap.fields["set_code"] == "Edicao (Sigla)"
 
 
 def test_extra_spaces_in_header():
     cmap = resolve_columns(["Edicao  (Sigla)", "Card  #"])
-    assert cmap.origin == "liga"
+    assert cmap.origin == "brazilian"
 
 
 def test_uppercase_preco_header():

@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { useCredits } from "../hooks/useCredits";
 import { usePendingDelete } from "../hooks/usePendingDelete";
-import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, patchCollectionEntry, refreshCardPrice, refreshCardPriceLiga } from "../api/collection";
+import { canonizeCard, fetchCollectionEntry, fetchCollectionHistory, patchCollectionEntry, refreshCardPrice } from "../api/collection";
 import { fetchCardBanHistory } from "../api/banlist";
 import { fetchEntryLegalities } from "../api/banEngine";
 import { useCardName } from "../hooks/useCardName";
@@ -46,7 +46,6 @@ const RARITY_LABEL_KEYS: Record<string, string> = {
 function sourceLabel(source: string): string {
   const labels: Record<string, string> = {
     myp: "MYP Cards",
-    liga: "LigaMagic",
   };
   return labels[source] ?? source;
 }
@@ -119,11 +118,9 @@ export function CollectionCardDetail() {
 
   const [period, setPeriod] = useState("30d");
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshingLiga, setRefreshingLiga] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
   const [canonizing, setCanonizing] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
-  const [creditModalTarget, setCreditModalTarget] = useState<"liga" | "myp">("liga");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
   const { balance, isAdmin, bonusEligible, claimBonus, refetch: refetchCredits } = useCredits();
@@ -161,43 +158,6 @@ export function CollectionCardDetail() {
       setTimeout(() => setRefreshMsg(null), 3000);
     }
   }, [refreshing, entry, entryId, currency, t, setEntry, refetchCredits]);
-
-  const handleRefreshLiga = useCallback(async () => {
-    if (refreshingLiga || !entry) return;
-    const hasName = !!(entry.name_en || entry.name_pt);
-    if (!hasName) return;
-    setRefreshingLiga(true);
-    setRefreshMsg(null);
-    try {
-      const params: Record<string, string> = {};
-      if (currency !== "BRL") params.currency = currency;
-      const res = await refreshCardPriceLiga(entryId, Object.keys(params).length > 0 ? params : undefined);
-      if (res.data) {
-        setEntry(res.data);
-        if (res.errors && res.errors.length > 0) {
-          const errMsg = res.errors[0].message;
-          const hint = res.errors[0].code === "liga_warning" ? ` ${t("collection.ligaErrorHint")}` : "";
-          setRefreshMsg({ type: "warning", text: `${errMsg}.${hint}` });
-        } else {
-          setRefreshMsg({ type: "success", text: t("collection.refreshLigaSuccess") });
-        }
-      } else {
-        const msg = res.errors?.[0]?.message || t("collection.refreshLigaError");
-        setRefreshMsg({ type: "error", text: msg });
-      }
-    } catch (err: unknown) {
-      const status = (err as { status?: number })?.status;
-      if (status === 402) {
-        refetchCredits();
-        setRefreshMsg({ type: "error", text: t("credits.insufficient") });
-      } else {
-        setRefreshMsg({ type: "error", text: t("collection.refreshLigaError") });
-      }
-    } finally {
-      setRefreshingLiga(false);
-      setTimeout(() => setRefreshMsg(null), 5000);
-    }
-  }, [refreshingLiga, entry, entryId, currency, t, setEntry, refetchCredits]);
 
   const handleCanonize = useCallback(async () => {
     if (canonizing || !entry || entry.card_id != null) return;
@@ -524,44 +484,18 @@ export function CollectionCardDetail() {
               <p className="text-sm text-slate-400">{entry.is_foil ? t("card.foilPrice") : t("cardDetail.latestPrice")}</p>
               <PriceSourceBadge priceSource={entry.price_source} />
             </div>
-            {/* Refresh button hierarchy: Liga primary, MYP secondary */}
+            {/* Refresh button */}
             <div className="flex items-center gap-2 mb-2" data-testid="refresh-buttons">
-              {!!(entry.name_en || entry.name_pt) && (
-                <button
-                  data-testid="refresh-liga-btn"
-                  onClick={() => { setCreditModalTarget("liga"); setCreditModalOpen(true); }}
-                  disabled={refreshingLiga}
-                  title={t("collection.refreshLigaTooltip")}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-                >
-                  <svg
-                    className={`h-4 w-4 ${refreshingLiga ? "animate-spin" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                  {t("card.refreshLiga")}
-                  <CostBadge cost={1} balance={balance} />
-                </button>
-              )}
               {entry.card_id != null && (
                 <button
                   data-testid="refresh-price-btn"
-                  onClick={() => { setCreditModalTarget("myp"); setCreditModalOpen(true); }}
+                  onClick={() => setCreditModalOpen(true)}
                   disabled={refreshing}
                   title={refreshing ? t("collection.refreshing") : t("collection.refresh")}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-500 bg-transparent hover:bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
                   <svg
-                    className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -698,20 +632,6 @@ export function CollectionCardDetail() {
                   </svg>
                 </a>
               )}
-              {entry.ligamagic_url && (
-                <a
-                  href={entry.ligamagic_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid="ligamagic-link"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-slate-700 px-3 py-1.5 text-sm text-cyan-400 hover:bg-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-                >
-                  {t("cardDetail.viewOnLigaMagic")}
-                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              )}
             </div>
           </div>
         </div>
@@ -760,11 +680,7 @@ export function CollectionCardDetail() {
         onCancel={() => setCreditModalOpen(false)}
         onConfirm={() => {
           setCreditModalOpen(false);
-          if (creditModalTarget === "liga") {
-            handleRefreshLiga();
-          } else {
-            handleRefresh();
-          }
+          handleRefresh();
         }}
         cost={1}
         balance={balance ?? 0}

@@ -16,11 +16,17 @@ def repo(tmp_path):
     return Repository(db_url=f"sqlite:///{db_path}")
 
 
+@pytest.fixture()
+def today():
+    """Return today's date for use in tests that need recent dates."""
+    return date.today()
+
+
 class TestUpsertPortfolioSnapshot:
-    def test_insert_new_snapshot(self, repo):
+    def test_insert_new_snapshot(self, repo, today):
         row_id = repo.upsert_portfolio_snapshot(
             user_id="1",
-            snapshot_date=date(2026, 8, 27),
+            snapshot_date=today,
             total_value_brl=Decimal("1234.56"),
             priced_card_count=300,
             total_card_count=349,
@@ -33,17 +39,17 @@ class TestUpsertPortfolioSnapshot:
         assert snapshots[0].priced_card_count == 300
         assert snapshots[0].total_card_count == 349
 
-    def test_upsert_same_date_updates_value(self, repo):
+    def test_upsert_same_date_updates_value(self, repo, today):
         repo.upsert_portfolio_snapshot(
             user_id="1",
-            snapshot_date=date(2026, 8, 27),
+            snapshot_date=today,
             total_value_brl=Decimal("1000.00"),
             priced_card_count=200,
             total_card_count=300,
         )
         repo.upsert_portfolio_snapshot(
             user_id="1",
-            snapshot_date=date(2026, 8, 27),
+            snapshot_date=today,
             total_value_brl=Decimal("1500.00"),
             priced_card_count=250,
             total_card_count=300,
@@ -54,17 +60,17 @@ class TestUpsertPortfolioSnapshot:
         assert snapshots[0].total_value_brl == Decimal("1500.00")
         assert snapshots[0].priced_card_count == 250
 
-    def test_different_users_separate_snapshots(self, repo):
+    def test_different_users_separate_snapshots(self, repo, today):
         repo.upsert_portfolio_snapshot(
             user_id="1",
-            snapshot_date=date(2026, 8, 27),
+            snapshot_date=today,
             total_value_brl=Decimal("1000.00"),
             priced_card_count=100,
             total_card_count=200,
         )
         repo.upsert_portfolio_snapshot(
             user_id="2",
-            snapshot_date=date(2026, 8, 27),
+            snapshot_date=today,
             total_value_brl=Decimal("2000.00"),
             priced_card_count=150,
             total_card_count=250,
@@ -77,10 +83,10 @@ class TestUpsertPortfolioSnapshot:
         assert s1[0].total_value_brl == Decimal("1000.00")
         assert s2[0].total_value_brl == Decimal("2000.00")
 
-    def test_zero_value_snapshot(self, repo):
+    def test_zero_value_snapshot(self, repo, today):
         repo.upsert_portfolio_snapshot(
             user_id="1",
-            snapshot_date=date(2026, 8, 27),
+            snapshot_date=today,
             total_value_brl=Decimal("0"),
             priced_card_count=0,
             total_card_count=100,
@@ -91,11 +97,11 @@ class TestUpsertPortfolioSnapshot:
 
 
 class TestGetPortfolioSnapshots:
-    def test_ordered_by_date_desc(self, repo):
+    def test_ordered_by_date_desc(self, repo, today):
         for i in range(5):
             repo.upsert_portfolio_snapshot(
                 user_id="1",
-                snapshot_date=date(2026, 8, 23) + timedelta(days=i),
+                snapshot_date=today - timedelta(days=4 - i),
                 total_value_brl=Decimal(str(1000 + i * 10)),
                 priced_card_count=100,
                 total_card_count=200,
@@ -136,17 +142,17 @@ class TestGetPortfolioSnapshots:
         snapshots = repo.get_portfolio_snapshots("nonexistent", days=30)
         assert snapshots == []
 
-    def test_only_returns_requested_user(self, repo):
+    def test_only_returns_requested_user(self, repo, today):
         repo.upsert_portfolio_snapshot(
             user_id="1",
-            snapshot_date=date(2026, 8, 27),
+            snapshot_date=today,
             total_value_brl=Decimal("1000.00"),
             priced_card_count=100,
             total_card_count=200,
         )
         repo.upsert_portfolio_snapshot(
             user_id="2",
-            snapshot_date=date(2026, 8, 27),
+            snapshot_date=today,
             total_value_brl=Decimal("2000.00"),
             priced_card_count=150,
             total_card_count=250,

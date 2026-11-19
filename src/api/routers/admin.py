@@ -312,102 +312,6 @@ def list_audit_log(
 # ── Job triggers (F100-T03) ─────────────────────────────────────────
 
 
-@router.post("/jobs/liga-scan")
-def trigger_liga_scan(
-    request: Request,
-    admin: User = Depends(require_admin),
-    repo: Repository = Depends(get_db),
-    audit: AuditService = Depends(get_audit_service),
-    max_age_days: int = Query(1, ge=1),
-):
-    """Trigger a Liga scan for all admin collections (no credit cost)."""
-    import asyncio
-    import json
-    import threading
-
-    from src.collectors.admin_scan import run_admin_daily_liga_scan
-    from src.config import get_db_url
-    from src.services.scan_hooks import default_registry
-
-    db_url = get_db_url()
-    scan_id = repo.create_scan_run(
-        "admin_liga_scan",
-        json.dumps({"triggered_by": admin.id, "max_age_days": max_age_days}),
-    )
-
-    def _run():
-        asyncio.run(
-            run_admin_daily_liga_scan(
-                db_url=db_url,
-                run_id=scan_id,
-                max_age_days=max_age_days,
-                on_complete=default_registry.notify,
-            )
-        )
-
-    thread = threading.Thread(target=_run, daemon=True)
-    thread.start()
-
-    audit.log(
-        actor=admin,
-        action="job_trigger",
-        target_type="scan",
-        target_id=str(scan_id),
-        details={"job_type": "liga_scan", "max_age_days": max_age_days},
-        ip_address=request.client.host if request.client else None,
-    )
-
-    return success_response(data={"scan_id": scan_id, "status": "pending"})
-
-
-@router.post("/jobs/catalog-scan")
-def trigger_catalog_scan(
-    request: Request,
-    admin: User = Depends(require_admin),
-    repo: Repository = Depends(get_db),
-    audit: AuditService = Depends(get_audit_service),
-    set_code: str = Query(..., min_length=2, max_length=10),
-    delay: float = Query(2.0, ge=0.5, le=10.0),
-):
-    """Trigger a Liga price sweep for a catalog set (no credit cost)."""
-    import asyncio
-    import json
-    import threading
-
-    from src.collectors.liga_sweep import run_liga_sweep
-    from src.config import get_db_url
-
-    db_url = get_db_url()
-    scan_id = repo.create_scan_run(
-        "catalog_sweep",
-        json.dumps({"triggered_by": admin.id, "set_code": set_code}),
-    )
-
-    def _run():
-        asyncio.run(
-            run_liga_sweep(
-                db_url=db_url,
-                set_filter=set_code,
-                delay=delay,
-                collection_only=False,
-            )
-        )
-
-    thread = threading.Thread(target=_run, daemon=True)
-    thread.start()
-
-    audit.log(
-        actor=admin,
-        action="job_trigger",
-        target_type="scan",
-        target_id=str(scan_id),
-        details={"job_type": "catalog_sweep", "set_code": set_code, "delay": delay},
-        ip_address=request.client.host if request.client else None,
-    )
-
-    return success_response(data={"scan_id": scan_id, "set_code": set_code, "status": "pending"})
-
-
 @router.get("/jobs/status")
 def get_job_status(
     admin: User = Depends(require_admin),
@@ -499,7 +403,7 @@ def trigger_process_price_requests(
 
     Spawns a background thread that runs the same logic as the
     ``process-price-requests`` CLI command. Only works when the server
-    has access to LigaMagic (residential IP + Playwright).
+    has access to price providers.
     """
     import asyncio
     import json

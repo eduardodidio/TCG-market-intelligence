@@ -154,7 +154,7 @@ export function useCollectionRefresh(
 
     const res = await triggerScanAuth({
       scan_type: "collection",
-      provider: "liga",
+      provider: "myp",
       ...(maxAgeDays != null ? { max_age_days: maxAgeDays } : {}),
     });
 

@@ -44,26 +44,10 @@ describe("AdminOperationsSection", () => {
     expect(screen.queryByTestId("operations-section")).not.toBeInTheDocument();
   });
 
-  it("renders three action cards when open", () => {
+  it("renders two action cards when open", () => {
     renderSection();
-    expect(screen.getByTestId("liga-scan-title")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-sweep-title")).toBeInTheDocument();
     expect(screen.getByTestId("db-backup-title")).toBeInTheDocument();
-  });
-
-  it("Run Liga Scan button calls API and shows scan_id", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(makeApiResponse({ scan_id: 42, status: "pending" })),
-    });
-
-    renderSection();
-    fireEvent.click(screen.getByTestId("run-liga-scan-btn"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("liga-scan-result")).toBeInTheDocument();
-    });
-    expect(screen.getByTestId("liga-scan-result").textContent).toContain("42");
   });
 
   it("Sweep Set button validates set_code is not empty", () => {
@@ -101,7 +85,7 @@ describe("AdminOperationsSection", () => {
     openSpy.mockRestore();
   });
 
-  it("shows error messages on API failure", async () => {
+  it("shows error messages on catalog API failure", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -109,10 +93,13 @@ describe("AdminOperationsSection", () => {
     });
 
     renderSection();
-    fireEvent.click(screen.getByTestId("run-liga-scan-btn"));
+    fireEvent.change(screen.getByTestId("catalog-set-code-input"), {
+      target: { value: "mh3" },
+    });
+    fireEvent.click(screen.getByTestId("sweep-set-btn"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("liga-scan-error")).toBeInTheDocument();
+      expect(screen.getByTestId("catalog-scan-error")).toBeInTheDocument();
     });
   });
 });

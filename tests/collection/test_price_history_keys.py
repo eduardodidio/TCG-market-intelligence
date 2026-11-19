@@ -68,9 +68,9 @@ def test_backfill_source_priority_matches_snapshot_priority():
     ("source", "expected"),
     [
         ("manual", 0),
-        ("liga", 1),
+        ("myp", 1),
         ("jsonld_snapshot", 2),
-        ("myp", 3),
+        ("liga", 3),
         ("foo", UNKNOWN_SOURCE_PRIORITY),
         ("daily_snapshot", 9),
         ("daily_snapshot_backfill", 9),
@@ -119,54 +119,74 @@ def test_resolve_foil_happy_path_exact_order():
     ("source_cards", "is_foil", "must_include", "must_exclude"),
     [
         pytest.param(
-            [], False,
+            [],
+            False,
             [_k("liga", "liga_7"), _k("daily_snapshot", "liga_7"), _k("manual", "manual_7")],
             [_k("liga", "liga_7_foil")],
             id="no-source-cards-normal",
         ),
         pytest.param(
-            [], True,
-            [_k("liga", "liga_7_foil"), _k("daily_snapshot", "liga_7_foil"),
-             _k("manual", "manual_7")],
+            [],
+            True,
+            [
+                _k("liga", "liga_7_foil"),
+                _k("daily_snapshot", "liga_7_foil"),
+                _k("manual", "manual_7"),
+            ],
             [_k("liga", "liga_7"), _k("daily_snapshot", "liga_7")],
             id="no-source-cards-foil",
         ),
         pytest.param(
-            [("myp", "123")], False,
+            [("myp", "123")],
+            False,
             [_k("myp", "123"), _k("jsonld_snapshot", "123"), _k("daily_snapshot", "123")],
             [_k("liga", "liga_7_foil")],
             id="myp-normal",
         ),
         pytest.param(
-            [("myp", "123")], True,
+            [("myp", "123")],
+            True,
             [_k("liga", "liga_7_foil")],
-            [_k("myp", "123"), _k("jsonld_snapshot", "123"), _k("daily_snapshot", "123"),
-             _k("liga", "liga_7")],
+            [
+                _k("myp", "123"),
+                _k("jsonld_snapshot", "123"),
+                _k("daily_snapshot", "123"),
+                _k("liga", "liga_7"),
+            ],
             id="myp-normal-card-in-foil-variant",
         ),
         pytest.param(
-            [("myp", "123_foil")], True,
-            [_k("myp", "123_foil"), _k("jsonld_snapshot", "123_foil"),
-             _k("daily_snapshot", "123_foil")],
+            [("myp", "123_foil")],
+            True,
+            [
+                _k("myp", "123_foil"),
+                _k("jsonld_snapshot", "123_foil"),
+                _k("daily_snapshot", "123_foil"),
+            ],
             [_k("liga", "liga_7")],
             id="myp-foil",
         ),
         pytest.param(
-            [("myp", "123_foil")], False,
+            [("myp", "123_foil")],
+            False,
             [_k("liga", "liga_7")],
             [_k("myp", "123_foil"), _k("jsonld_snapshot", "123_foil")],
             id="myp-foil-card-in-normal-variant",
         ),
         pytest.param(
-            [("liga", "liga_catalog_M21_123")], False,
-            [_k("liga", "liga_catalog_M21_123"),
-             _k("jsonld_snapshot", "liga_catalog_M21_123"),
-             _k("daily_snapshot", "liga_catalog_M21_123")],
+            [("liga", "liga_catalog_M21_123")],
+            False,
+            [
+                _k("liga", "liga_catalog_M21_123"),
+                _k("jsonld_snapshot", "liga_catalog_M21_123"),
+                _k("daily_snapshot", "liga_catalog_M21_123"),
+            ],
             [],
             id="catalog-normal",
         ),
         pytest.param(
-            [("liga", "liga_catalog_M21_123")], True,
+            [("liga", "liga_catalog_M21_123")],
+            True,
             [],
             [_k("liga", "liga_catalog_M21_123")],
             id="catalog-foil",
@@ -229,30 +249,36 @@ def test_resolve_boundary_card_id_one():
 # --- merge_series_by_priority ------------------------------------------------
 
 
-def test_merge_same_day_liga_wins():
-    result = merge_series_by_priority([
-        _obs("myp", "123", price="40.00"),
-        _obs("daily_snapshot", "liga_7", price="45.00"),
-        _obs("liga", "liga_7", price="50.00"),
-    ])
+def test_merge_same_day_myp_wins():
+    result = merge_series_by_priority(
+        [
+            _obs("myp", "123", price="40.00"),
+            _obs("daily_snapshot", "liga_7", price="45.00"),
+            _obs("liga", "liga_7", price="50.00"),
+        ]
+    )
     assert len(result) == 1
-    assert result[0].source == "liga"
-    assert result[0].median_price == Decimal("50.00")
+    assert result[0].source == "myp"
+    assert result[0].median_price == Decimal("40.00")
 
 
 def test_merge_manual_beats_liga():
-    result = merge_series_by_priority([
-        _obs("liga", "liga_7", price="50.00"),
-        _obs("manual", "manual_7", price="99.00"),
-    ])
+    result = merge_series_by_priority(
+        [
+            _obs("liga", "liga_7", price="50.00"),
+            _obs("manual", "manual_7", price="99.00"),
+        ]
+    )
     assert [r.source for r in result] == ["manual"]
 
 
 def test_merge_snapshot_only_day_is_kept():
-    result = merge_series_by_priority([
-        _obs("liga", "liga_7", day=D - timedelta(days=1)),
-        _obs("daily_snapshot", "liga_7", day=D, price="12.00"),
-    ])
+    result = merge_series_by_priority(
+        [
+            _obs("liga", "liga_7", day=D - timedelta(days=1)),
+            _obs("daily_snapshot", "liga_7", day=D, price="12.00"),
+        ]
+    )
     assert [(r.observed_at, r.source) for r in result] == [
         (D - timedelta(days=1), "liga"),
         (D, "daily_snapshot"),
@@ -260,12 +286,24 @@ def test_merge_snapshot_only_day_is_kept():
 
 
 def test_merge_unknown_source_between_myp_and_snapshot():
-    assert merge_series_by_priority([
-        _obs("foo", "x"), _obs("myp", "123"),
-    ])[0].source == "myp"
-    assert merge_series_by_priority([
-        _obs("daily_snapshot", "x"), _obs("foo", "y"),
-    ])[0].source == "foo"
+    assert (
+        merge_series_by_priority(
+            [
+                _obs("foo", "x"),
+                _obs("myp", "123"),
+            ]
+        )[0].source
+        == "myp"
+    )
+    assert (
+        merge_series_by_priority(
+            [
+                _obs("daily_snapshot", "x"),
+                _obs("foo", "y"),
+            ]
+        )[0].source
+        == "foo"
+    )
 
 
 def test_merge_same_day_snapshot_vs_backfill_deterministic_tie():
@@ -273,18 +311,22 @@ def test_merge_same_day_snapshot_vs_backfill_deterministic_tie():
     # backfill key landing on the same day for the same variant: must not
     # panic, must pick a deterministic winner by smallest external_id, and
     # both are still "snapshot, not real" regardless of which one wins.
-    result = merge_series_by_priority([
-        _obs("daily_snapshot", "manual_7", price="10.00"),
-        _obs("daily_snapshot_backfill", "liga_7", price="11.00"),
-    ])
+    result = merge_series_by_priority(
+        [
+            _obs("daily_snapshot", "manual_7", price="10.00"),
+            _obs("daily_snapshot_backfill", "liga_7", price="11.00"),
+        ]
+    )
     assert len(result) == 1
     assert result[0].source == "daily_snapshot_backfill"
     assert result[0].external_id == "liga_7"
 
-    reversed_result = merge_series_by_priority([
-        _obs("daily_snapshot_backfill", "liga_7", price="11.00"),
-        _obs("daily_snapshot", "manual_7", price="10.00"),
-    ])
+    reversed_result = merge_series_by_priority(
+        [
+            _obs("daily_snapshot_backfill", "liga_7", price="11.00"),
+            _obs("daily_snapshot", "manual_7", price="10.00"),
+        ]
+    )
     assert reversed_result == result
 
 
@@ -295,11 +337,13 @@ def test_merge_priority_tie_smallest_external_id_wins():
 
 
 def test_merge_ignores_none_price():
-    result = merge_series_by_priority([
-        _obs("liga", "liga_7", price=None),
-        _obs("myp", "123", price="40.00"),
-        _obs("manual", "manual_7", day=D - timedelta(days=1), price=None),
-    ])
+    result = merge_series_by_priority(
+        [
+            _obs("liga", "liga_7", price=None),
+            _obs("myp", "123", price="40.00"),
+            _obs("manual", "manual_7", day=D - timedelta(days=1), price=None),
+        ]
+    )
     assert [(r.observed_at, r.source) for r in result] == [(D, "myp")]
 
 

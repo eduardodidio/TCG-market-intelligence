@@ -65,7 +65,7 @@ def _seed_card(session, card_id=1, name="Test Card"):
     return card
 
 
-def _seed_source_card(session, card_id, source="liga", external_id="liga_100"):
+def _seed_source_card(session, card_id, source="myp", external_id="myp_100"):
     sc = SourceCardRow(
         source=source,
         external_id=external_id,
@@ -175,13 +175,13 @@ class TestFoilEntries:
             _seed_source_card(
                 session,
                 card_id=1,
-                source="liga",
-                external_id="liga_100_foil",
+                source="myp",
+                external_id="myp_100_foil",
             )
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_100_foil",
+                source="myp",
+                external_id="myp_100_foil",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("25.00"),
             )
@@ -207,21 +207,21 @@ class TestFoilEntries:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_100")
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_100_foil")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_100")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_100_foil")
             # Regular: observation 5 days before target
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_100",
+                source="myp",
+                external_id="myp_100",
                 observed_at=date(2026, 8, 10),
                 median_price=Decimal("10.00"),
             )
             # Foil: observation 1 day before target (closer)
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_100_foil",
+                source="myp",
+                external_id="myp_100_foil",
                 observed_at=date(2026, 8, 14),
                 median_price=Decimal("50.00"),
             )
@@ -332,7 +332,7 @@ class TestEmptyPriceObservations:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_collection_entry(
                 session,
                 user_id="user1",
@@ -351,7 +351,7 @@ class TestEmptyPriceObservations:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             session.commit()
 
         with Session(engine) as session:
@@ -424,11 +424,11 @@ class TestQuantityMultiplier:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("10.00"),
             )

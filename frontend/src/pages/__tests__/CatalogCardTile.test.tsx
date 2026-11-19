@@ -65,8 +65,8 @@ const baseCatalogCard: CatalogCard = {
   mana_cost: "{U}{U}",
   type_line: "Instant",
   image_uri: "https://example.com/counterspell.jpg",
-  liga_price: 8.0,
-  liga_price_date: "2026-09-10",
+  latest_price: 8.0,
+  latest_price_date: "2026-09-10",
   owned: null,
 };
 

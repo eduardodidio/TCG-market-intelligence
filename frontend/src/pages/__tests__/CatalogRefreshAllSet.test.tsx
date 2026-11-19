@@ -17,8 +17,8 @@ const mockCatalogCards = [
     mana_cost: "{1}{W}",
     type_line: "Creature",
     image_uri: "https://img.example.com/1.jpg",
-    liga_price: 10.0,
-    liga_price_date: "2026-09-15",
+    latest_price: 10.0,
+    latest_price_date: "2026-09-15",
     owned: null,
   },
 ];

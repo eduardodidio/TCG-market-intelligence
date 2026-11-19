@@ -54,27 +54,9 @@ describe("PriceSourceBadge", () => {
     expect(svg!.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("renders emerald badge with 'LigaMagic' text for source='liga'", () => {
+  it("renders no badge for unknown source 'liga'", () => {
     render(<PriceSourceBadge priceSource="liga" />);
-    const badge = screen.getByTestId("price-source-badge");
-    expect(badge).toBeDefined();
-    expect(badge.textContent).toContain("LigaMagic");
-    expect(badge.className).toContain("text-emerald-400");
-    expect(badge.className).toContain("bg-emerald-500/20");
-  });
-
-  it("renders globe icon SVG for liga source", () => {
-    render(<PriceSourceBadge priceSource="liga" />);
-    const badge = screen.getByTestId("price-source-badge");
-    const svg = badge.querySelector("svg");
-    expect(svg).not.toBeNull();
-    expect(svg!.getAttribute("aria-hidden")).toBe("true");
-  });
-
-  it("has tooltip with LigaMagic label for liga source", () => {
-    render(<PriceSourceBadge priceSource="liga" />);
-    const badge = screen.getByTestId("price-source-badge");
-    expect(badge.getAttribute("title")).toBe("LigaMagic");
+    expect(screen.queryByTestId("price-source-badge")).toBeNull();
   });
 
   it("uses i18n t() for badge text (renders translated text)", () => {

@@ -13,8 +13,8 @@ export interface CatalogCard {
   mana_cost: string | null;
   type_line: string | null;
   image_uri: string | null;
-  liga_price: number | null;
-  liga_price_date: string | null;
+  latest_price: number | null;
+  latest_price_date: string | null;
   owned: boolean | null;
 }
 

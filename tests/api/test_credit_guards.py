@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -31,7 +31,6 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.models import CardRow, PriceObservationRow, UserCollectionRow
 from src.domain.models import CreditBalance, User
-from src.providers.liga.provider import LigaMagicProvider
 from src.providers.registry import ProviderRegistry
 from src.services.currency import CurrencyConverter
 
@@ -112,16 +111,6 @@ def _make_converter() -> MagicMock:
     return converter
 
 
-def _make_liga_provider(**overrides) -> MagicMock:
-    provider = MagicMock(spec=LigaMagicProvider)
-    provider.source_name = "liga"
-    provider.search_card = AsyncMock()
-    provider.close = AsyncMock()
-    for k, v in overrides.items():
-        setattr(provider, k, v)
-    return provider
-
-
 def _mock_repo_for_detail(mock_repo: MagicMock, entry: MagicMock) -> None:
     mock_repo.get_collection_entry.return_value = entry
     price_obs = _make_price_obs()
@@ -161,14 +150,6 @@ def _make_scans_app(user: User, credit_svc: MagicMock) -> FastAPI:
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_credit_service] = lambda: credit_svc
     return app
-
-
-def _liga_prices(mid=None, low=None, high=None) -> dict:
-    return {
-        "card_name": "Lightning Bolt",
-        "normal": {"low": low, "mid": mid, "high": high},
-        "foil": {"low": None, "mid": None, "high": None},
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -225,126 +206,6 @@ class TestRefreshMypCreditGuard:
         # 404 = credit guard passed, no deduction because action failed
         assert resp.status_code == 404
         credit_svc.check_sufficient.assert_called_once_with(user.id, CARD_REFRESH_COST)
-        credit_svc.deduct.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# POST /collection/{id}/refresh-liga — Liga credit guards
-# ---------------------------------------------------------------------------
-
-
-class TestRefreshLigaCreditGuard:
-    """Credit guards on POST /collection/{id}/refresh-liga."""
-
-    def test_insufficient_credits_returns_402(self) -> None:
-        user = _make_user(is_admin=False)
-        credit_svc = _make_credit_svc(balance=0)
-        entry = _make_collection_row()
-        mock_repo = MagicMock()
-        mock_repo.get_collection_entry.return_value = entry
-
-        provider = _make_liga_provider()
-        app = _make_collection_app(mock_repo, user, credit_svc, mock_provider=provider)
-        client = TestClient(app)
-
-        resp = client.post("/collection/1/refresh-liga")
-        assert resp.status_code == 402
-        body = resp.json()
-        assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
-        provider.search_card.assert_not_called()
-
-    def test_admin_with_zero_balance_gets_402(self) -> None:
-        """Admin user with 0 balance gets 402 (admin bypass removed in F81)."""
-        admin = _make_user(is_admin=True)
-        credit_svc = _make_credit_svc(balance=0)
-        entry = _make_collection_row()
-        mock_repo = MagicMock()
-        mock_repo.get_collection_entry.return_value = entry
-
-        provider = _make_liga_provider()
-        app = _make_collection_app(mock_repo, admin, credit_svc, mock_provider=provider)
-        client = TestClient(app)
-
-        resp = client.post("/collection/1/refresh-liga")
-        assert resp.status_code == 402
-        body = resp.json()
-        assert body["detail"]["code"] == "CREDIT_INSUFFICIENT"
-        provider.search_card.assert_not_called()
-
-    def test_successful_refresh_deducts_credit(self) -> None:
-        user = _make_user(is_admin=False)
-        credit_svc = _make_credit_svc(balance=5)
-        entry = _make_collection_row()
-        mock_repo = MagicMock()
-        _mock_repo_for_detail(mock_repo, entry)
-
-        provider = _make_liga_provider()
-        provider.search_card.return_value = _liga_prices(mid=Decimal("5.50"))
-
-        app = _make_collection_app(mock_repo, user, credit_svc, mock_provider=provider)
-        client = TestClient(app)
-
-        resp = client.post("/collection/1/refresh-liga")
-        assert resp.status_code == 200
-        credit_svc.deduct.assert_called_once_with(
-            user.id, CARD_REFRESH_COST, "card_refresh", reference_id="1"
-        )
-
-    def test_refresh_liga_balance_1_succeeds(self) -> None:
-        """With exactly 1 credit (cost=1), refresh succeeds and balance goes to 0."""
-        user = _make_user(is_admin=False)
-        credit_svc = _make_credit_svc(balance=1)
-        entry = _make_collection_row()
-        mock_repo = MagicMock()
-        _mock_repo_for_detail(mock_repo, entry)
-
-        provider = _make_liga_provider()
-        provider.search_card.return_value = _liga_prices(mid=Decimal("3.00"))
-
-        app = _make_collection_app(mock_repo, user, credit_svc, mock_provider=provider)
-        client = TestClient(app)
-
-        resp = client.post("/collection/1/refresh-liga")
-        assert resp.status_code == 200
-        credit_svc.deduct.assert_called_once()
-
-    def test_provider_error_no_deduction(self) -> None:
-        """Liga errors return 200 with warning but do NOT deduct credits."""
-        from src.providers.liga.exceptions import LigaNotFoundError
-
-        user = _make_user(is_admin=False)
-        credit_svc = _make_credit_svc(balance=5)
-        entry = _make_collection_row()
-        mock_repo = MagicMock()
-        _mock_repo_for_detail(mock_repo, entry)
-
-        provider = _make_liga_provider()
-        provider.search_card.side_effect = LigaNotFoundError("not found")
-
-        app = _make_collection_app(mock_repo, user, credit_svc, mock_provider=provider)
-        client = TestClient(app)
-
-        resp = client.post("/collection/1/refresh-liga")
-        assert resp.status_code == 200
-        # Errors returned but no deduction
-        credit_svc.deduct.assert_not_called()
-
-    def test_no_price_found_no_deduction(self) -> None:
-        """When Liga returns all-None prices, no deduction."""
-        user = _make_user(is_admin=False)
-        credit_svc = _make_credit_svc(balance=5)
-        entry = _make_collection_row()
-        mock_repo = MagicMock()
-        _mock_repo_for_detail(mock_repo, entry)
-
-        provider = _make_liga_provider()
-        provider.search_card.return_value = _liga_prices()  # all None
-
-        app = _make_collection_app(mock_repo, user, credit_svc, mock_provider=provider)
-        client = TestClient(app)
-
-        resp = client.post("/collection/1/refresh-liga")
-        assert resp.status_code == 200
         credit_svc.deduct.assert_not_called()
 
 
@@ -461,11 +322,10 @@ class TestCreditErrorFormat:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = entry
 
-        provider = _make_liga_provider()
-        app = _make_collection_app(mock_repo, user, credit_svc, mock_provider=provider)
+        app = _make_collection_app(mock_repo, user, credit_svc)
         client = TestClient(app)
 
-        resp = client.post("/collection/1/refresh-liga")
+        resp = client.post("/collection/1/refresh")
         assert resp.status_code == 402
         detail = resp.json()["detail"]
         assert "message" in detail

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { refreshCardPrice } from "../api/cards";
-import { importLigaCard, refreshCatalogSet } from "../api/catalog";
+import { refreshCatalogSet } from "../api/catalog";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
@@ -125,7 +125,7 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
 
   // Determine the visual state of the refresh button
   const pollingTimedOut = queued && !isPolling && requestStatus !== "completed" && requestStatus !== "failed";
-  const isUnpriced = card.liga_price == null;
+  const isUnpriced = card.latest_price == null;
   const showAlwaysVisible = refreshError || queued || completed || failed || isUnpriced;
 
   const buttonColor = refreshError || failed
@@ -265,9 +265,9 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
           </span>
         )}
 
-        {card.liga_price != null ? (
+        {card.latest_price != null ? (
           <p className="mt-2 text-sm font-bold text-cyan-400" data-testid="card-price">
-            R$ {card.liga_price.toFixed(2)}
+            R$ {card.latest_price.toFixed(2)}
           </p>
         ) : (
           <div className="mt-2">
@@ -313,78 +313,6 @@ export function CatalogCardTile({ card, ownedView, compact }: { card: CatalogCar
       />
     )}
     </Card3DTilt>
-  );
-}
-
-function ImportLigaLink() {
-  const { t } = useTranslation();
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const isValidUrl = url.includes("ligamagic.com.br");
-
-  const handleImport = async () => {
-    if (!isValidUrl || loading) return;
-    setLoading(true);
-    setFeedback(null);
-    try {
-      const res = await importLigaCard(url.trim());
-      if (res.errors && res.errors.length > 0) {
-        setFeedback({ type: "error", text: res.errors.map((e) => e.message).join("; ") });
-      } else if (res.data) {
-        setFeedback({
-          type: "success",
-          text: t("catalog.importSuccess", {
-            name: res.data.card_name,
-            defaultValue: "{{name}} queued for price update",
-          }),
-        });
-        setUrl("");
-      }
-    } catch {
-      setFeedback({ type: "error", text: t("catalog.importError", { defaultValue: "Failed to import card" }) });
-    } finally {
-      setLoading(false);
-      setTimeout(() => setFeedback(null), 6000);
-    }
-  };
-
-  return (
-    <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center" data-testid="import-liga-section">
-      <div className="flex gap-2 items-center flex-1 w-full sm:w-auto">
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder={t("catalog.importPlaceholder", { defaultValue: "Paste Liga Magic URL..." })}
-          className="flex-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded-md
-            text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-400
-            focus:border-cyan-400"
-          data-testid="import-liga-input"
-        />
-        <button
-          onClick={handleImport}
-          disabled={!isValidUrl || loading}
-          className="px-4 py-1.5 text-sm font-medium bg-cyan-600 hover:bg-cyan-500 text-white
-            rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-            whitespace-nowrap"
-          data-testid="import-liga-btn"
-        >
-          {loading
-            ? t("common.loading")
-            : t("catalog.importBtn", { defaultValue: "Importar" })}
-        </button>
-      </div>
-      {feedback && (
-        <span
-          className={`text-sm ${feedback.type === "success" ? "text-green-400" : "text-red-400"}`}
-          data-testid="import-liga-feedback"
-        >
-          {feedback.text}
-        </span>
-      )}
-    </div>
   );
 }
 
@@ -595,13 +523,6 @@ export function CatalogPage() {
             priced: stats.cards_with_price.toLocaleString(),
           })}
         </p>
-      )}
-
-      {/* Import via Liga link */}
-      {isAuthenticated && (
-        <div className="mb-4">
-          <ImportLigaLink />
-        </div>
       )}
 
       {/* Search and filters — sticky bar */}

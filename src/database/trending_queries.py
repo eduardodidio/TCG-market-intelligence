@@ -1,13 +1,13 @@
 """Market-wide trending price series (F175-T03).
 
-Loads price series for the "market" view of Tendências (no user filter),
+Loads price series for the "market" view of Tendencias (no user filter),
 unioning two sources:
 
 1. ``source_cards`` joined to ``price_observations`` (MYP, jsonld_snapshot, ...).
-2. Direct Liga/manual observations whose ``external_id`` encodes the card id
-   (``liga_{card_id}``, ``manual_{card_id}``), which have no ``source_cards``
+2. Direct MYP/manual observations whose ``external_id`` encodes the card id
+   (``myp_{card_id}``, ``manual_{card_id}``), which have no ``source_cards``
    row and would otherwise be invisible to the market ranking. Foil
-   observations (``liga_{card_id}_foil``) are excluded: mixing foil and
+   observations (``myp_{card_id}_foil``) are excluded: mixing foil and
    non-foil prices in one series would create spurious trends.
 """
 
@@ -23,16 +23,15 @@ from sqlalchemy.orm import Session
 
 from src.database.models import PriceObservationRow, SourceCardRow
 
-_EXTID_RE = re.compile(r"^(?:liga|manual)_(\d+)$")
+_EXTID_RE = re.compile(r"^(?:myp|manual)_(\d+)$")
 
 
 def parse_direct_card_id(external_id: str) -> int | None:
-    """Extract the card id from a direct non-foil Liga/manual external_id.
+    """Extract the card id from a direct non-foil MYP/manual external_id.
 
-    Matches ``liga_{id}`` and ``manual_{id}``. Returns ``None`` for anything
-    else, notably ``liga_{id}_foil`` (foil series are not part of the market
-    trend) and ``liga_catalog_{set}_{num}`` (which belongs to
-    ``source_cards``, not a direct observation).
+    Matches ``myp_{id}`` and ``manual_{id}``. Returns ``None`` for anything
+    else, notably ``myp_{id}_foil`` (foil series are not part of the market
+    trend) and catalog entries (which belong to ``source_cards``).
     """
     match = _EXTID_RE.match(external_id)
     return int(match.group(1)) if match else None
@@ -45,7 +44,7 @@ def load_market_trending_prices(
 
     Returns a dict mapping card_id to a list of (date, median_price)
     tuples, sorted by date ascending. Merges the ``source_cards`` path with
-    direct non-foil Liga/manual observations. When several sources land on
+    direct non-foil MYP/manual observations. When several sources land on
     the same date for the same card, the highest price wins for that date.
     """
     cutoff = date.today() - timedelta(days=period_days)
@@ -78,7 +77,7 @@ def load_market_trending_prices(
         for card_id, obs_date, median_price in session.execute(stmt).all():
             result.setdefault(card_id, []).append((obs_date, Decimal(str(median_price))))
 
-        # Path 2: direct Liga/manual observations (no source_cards row).
+        # Path 2: direct MYP/manual observations (no source_cards row).
         direct_stmt = (
             select(
                 PriceObservationRow.external_id,
@@ -86,7 +85,7 @@ def load_market_trending_prices(
                 func.max(PriceObservationRow.median_price),
             )
             .where(
-                PriceObservationRow.source.in_(["liga", "manual"]),
+                PriceObservationRow.source.in_(["myp", "manual"]),
                 PriceObservationRow.observed_at >= cutoff,
                 PriceObservationRow.median_price.isnot(None),
             )

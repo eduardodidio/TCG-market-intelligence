@@ -458,10 +458,6 @@ export default function App() {
                   </Suspense>
                 }
               />
-              <Route
-                path="/admin/liga-status"
-                element={<Navigate to="/admin" replace />}
-              />
             </Route>
 
             {/* 404 catch-all */}

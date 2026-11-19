@@ -13,7 +13,7 @@ class TestScanRequestDefaults:
     def test_empty_request_has_defaults(self) -> None:
         req = ScanRequest()
         assert req.scan_type == "collection"
-        assert req.provider == "liga"
+        assert req.provider == "myp"
         assert req.dry_run is False
         assert req.set_codes is None
         assert req.format_name is None
@@ -26,9 +26,9 @@ class TestScanRequestDefaults:
         req = ScanRequest(max_age_days=7)
         assert req.max_age_days == 7
 
-    def test_provider_defaults_to_liga(self) -> None:
+    def test_provider_defaults_to_myp(self) -> None:
         req = ScanRequest()
-        assert req.provider == "liga"
+        assert req.provider == "myp"
 
     def test_provider_can_be_myp(self) -> None:
         req = ScanRequest(provider="myp")
@@ -91,11 +91,11 @@ class TestScanRunResponse:
             "cards_processed": 10,
             "cards_failed": 0,
             "observations_saved": 10,
-            "provider": "liga",
+            "provider": "myp",
             "created_at": "2026-08-20T10:00:00",
         }
         resp = ScanRunResponse(**data)
-        assert resp.provider == "liga"
+        assert resp.provider == "myp"
 
     def test_provider_field_defaults_to_none(self) -> None:
         data = {

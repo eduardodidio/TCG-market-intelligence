@@ -1,6 +1,6 @@
 """Purchase HTML import endpoints.
 
-Allows users to upload saved HTML files from Nerdz Cards and Liga Magic
+Allows users to upload saved HTML files from Nerdz Cards
 purchase history, preview matched cards, and bulk-apply acquisition prices
 to their collection.
 """
@@ -318,9 +318,7 @@ def _load_full_collection(repo: Repository, user_id: str) -> list[UserCollection
     return entries
 
 
-def _convert_item(
-    item: ParsedPurchaseItem, rate_lookup: RateLookup
-) -> tuple[str | None, dict]:
+def _convert_item(item: ParsedPurchaseItem, rate_lookup: RateLookup) -> tuple[str | None, dict]:
     """Convert a parsed item's unit_price to BRL.
 
     Returns ``(brl_price_str, extra_fields)`` where ``extra_fields`` carries

@@ -6,7 +6,6 @@ export interface EvalEntry {
   card_name: string;
   set_code: string | null;
   collector_number: string | null;
-  liga_url: string | null;
   price_at_add: number | null;
   card_id: number | null;
   image_url: string | null;
@@ -17,7 +16,6 @@ export interface EvalCreateBody {
   card_name: string;
   set_code?: string | null;
   collector_number?: string | null;
-  liga_url?: string | null;
   source_data_json?: string | null;
   price_at_add?: number | null;
   card_id?: number | null;

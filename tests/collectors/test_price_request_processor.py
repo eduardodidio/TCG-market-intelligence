@@ -38,17 +38,18 @@ def _make_observation(price=12.50):
     return obs
 
 
-def _patch_deps(mock_repo, mock_provider, mock_fetch_liga=None):
+def _patch_deps(mock_repo, mock_provider=None, mock_fetch_myp=None):
     """Create context managers for patching the lazy imports."""
     mock_repo_cls = MagicMock(return_value=mock_repo)
-    mock_provider_cls = MagicMock(return_value=mock_provider)
 
     patches = [
         patch("src.database.repository.Repository", mock_repo_cls),
-        patch("src.providers.liga.provider.LigaMagicProvider", mock_provider_cls),
     ]
-    if mock_fetch_liga is not None:
-        patches.append(patch("src.collectors.liga_sweep._fetch_liga_price", mock_fetch_liga))
+    if mock_provider is not None:
+        mock_provider_cls = MagicMock(return_value=mock_provider)
+        patches.append(patch("src.providers.myp.provider.MypCardsProvider", mock_provider_cls))
+    if mock_fetch_myp is not None:
+        patches.append(patch("src.collectors.myp_sweep._fetch_myp_price", mock_fetch_myp))
     return patches
 
 
@@ -67,7 +68,7 @@ async def test_processes_pending_requests():
     mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
-    mock_fetch = AsyncMock(return_value=(obs, "https://ligamagic.com/page"))
+    mock_fetch = AsyncMock(return_value=obs)
 
     patches = _patch_deps(mock_repo, mock_provider, mock_fetch)
     for p in patches:
@@ -90,10 +91,8 @@ async def test_processes_pending_requests():
 
 
 @pytest.mark.asyncio
-async def test_handles_liga_error():
-    """Marks request as failed when Liga raises an error."""
-    from src.providers.liga.exceptions import LigaError
-
+async def test_handles_provider_error():
+    """Marks request as failed when provider raises an error."""
     request = _make_request_row(req_id=2, card_id=20)
     card = _make_card_row(card_id=20, name_en="Counterspell")
 
@@ -105,7 +104,7 @@ async def test_handles_liga_error():
     mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
-    mock_fetch = AsyncMock(side_effect=LigaError("Rate limited"))
+    mock_fetch = AsyncMock(side_effect=RuntimeError("Rate limited"))
 
     patches = _patch_deps(mock_repo, mock_provider, mock_fetch)
     for p in patches:
@@ -118,7 +117,9 @@ async def test_handles_liga_error():
 
     assert result.completed == 0
     assert result.failed == 1
-    mock_repo.update_price_request_status.assert_any_call(2, "failed", error_message="Rate limited")
+    mock_repo.update_price_request_status.assert_any_call(
+        2, "failed", error_message="RuntimeError: Rate limited"
+    )
 
 
 @pytest.mark.asyncio
@@ -137,7 +138,7 @@ async def test_respects_limit():
     mock_provider.open = AsyncMock()
     mock_provider.close = AsyncMock()
 
-    mock_fetch = AsyncMock(return_value=(obs, None))
+    mock_fetch = AsyncMock(return_value=obs)
 
     patches = _patch_deps(mock_repo, mock_provider, mock_fetch)
     for p in patches:
@@ -233,7 +234,7 @@ async def test_card_not_found():
 
 @pytest.mark.asyncio
 async def test_no_price_found_still_completes():
-    """When Liga returns None, request is still marked completed."""
+    """When provider returns None, request is still marked completed."""
     request = _make_request_row(req_id=3, card_id=30)
     card = _make_card_row(card_id=30)
 
@@ -247,7 +248,7 @@ async def test_no_price_found_still_completes():
 
     mock_fetch = AsyncMock(return_value=None)
 
-    patches = _patch_deps(mock_repo, mock_provider, mock_fetch)
+    patches = _patch_deps(mock_repo, mock_provider, mock_fetch_myp=mock_fetch)
     for p in patches:
         p.start()
     try:
@@ -259,5 +260,5 @@ async def test_no_price_found_still_completes():
     assert result.completed == 1
     assert result.failed == 0
     mock_repo.update_price_request_status.assert_any_call(
-        3, "completed", error_message="No price found on LigaMagic"
+        3, "completed", error_message="No price found on MYP Cards"
     )

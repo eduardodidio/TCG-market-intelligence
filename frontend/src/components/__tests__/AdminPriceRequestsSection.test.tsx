@@ -85,7 +85,7 @@ const sampleRequests = [
     requested_at: "2026-09-17T10:00:00",
     processed_at: "2026-09-17T10:02:00",
     result_price: null,
-    error_message: "Card not found on Liga",
+    error_message: "Card not found",
     attempts: 3,
   },
 ];
@@ -194,7 +194,7 @@ describe("AdminPriceRequestsSection", () => {
     const row3 = screen.getByTestId("price-request-row-3");
     expect(row3).toHaveTextContent("Dark Ritual");
     expect(row3).toHaveTextContent("failed");
-    expect(row3).toHaveTextContent("Card not found on Liga");
+    expect(row3).toHaveTextContent("Card not found");
     expect(row3).toHaveTextContent("3");
   });
 

@@ -84,20 +84,20 @@ def _count_obs_selects(repo: Repository) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def test_liga_only_card_includes_daily_snapshot(repo):
-    """H1 + H2: card without source_cards still gets liga + daily_snapshot points."""
-    cid = _card(repo)
+def test_myp_card_includes_daily_snapshot(repo):
+    """H1 + H2: card with source_cards gets myp + daily_snapshot points."""
+    cid = _card(repo, source_cards=[("myp", "myp_ext_1")])
     for n in (5, 3, 1):
-        _obs(repo, "liga", f"liga_{cid}", D(n), "10")
+        _obs(repo, "myp", "myp_ext_1", D(n), "10")
     for n in (4, 2, 0):
-        _obs(repo, SNAPSHOT_SOURCE, f"liga_{cid}", D(n), "10")
+        _obs(repo, SNAPSHOT_SOURCE, "myp_ext_1", D(n), "10")
 
     series, meta = build_history(repo, cid, is_foil=False, days=30, today=TODAY)
 
     assert [p.observed_at for p in series] == [D(5), D(4), D(3), D(2), D(1), D(0)]
     assert meta == {
         "variant": "normal",
-        "sources": ["liga", SNAPSHOT_SOURCE],
+        "sources": ["myp", SNAPSHOT_SOURCE],
         "first_observed_at": D(5),
         "last_observed_at": D(0),
         "real_points": 3,
@@ -106,25 +106,26 @@ def test_liga_only_card_includes_daily_snapshot(repo):
     PriceHistoryMeta(**meta)  # compatible with the API schema
 
 
-def test_liga_beats_myp_same_day(repo):
+def test_manual_beats_myp_same_day_service(repo):
+    """manual source has higher priority than myp on the same day."""
     cid = _card(repo, source_cards=[("myp", "myp_99")])
     _obs(repo, "myp", "myp_99", D(2), "20")
-    _obs(repo, "liga", f"liga_{cid}", D(2), "15")
+    _obs(repo, "manual", f"manual_{cid}", D(2), "15")
     _obs(repo, "myp", "myp_99", D(1), "21")
 
     series, meta = build_history(repo, cid, is_foil=False, days=None, today=TODAY)
 
-    assert [(p.observed_at, p.source) for p in series] == [(D(2), "liga"), (D(1), "myp")]
-    assert meta["sources"] == ["liga", "myp"]
+    assert [(p.observed_at, p.source) for p in series] == [(D(2), "manual"), (D(1), "myp")]
+    assert meta["sources"] == ["manual", "myp"]
     assert meta["real_points"] == 2
 
 
 def test_foil_isolated_from_normal(repo):
     """H4: foil series never mixes with normal prices."""
-    cid = _card(repo)
+    cid = _card(repo, source_cards=[("myp", "myp_ext_1"), ("myp", "myp_ext_1_foil")])
     for n in (3, 2, 1):
-        _obs(repo, "liga", f"liga_{cid}_foil", D(n), "100")
-        _obs(repo, "liga", f"liga_{cid}", D(n), "10")
+        _obs(repo, "myp", "myp_ext_1_foil", D(n), "100")
+        _obs(repo, "myp", "myp_ext_1", D(n), "10")
 
     series, meta = build_history(repo, cid, is_foil=True, days=30, today=TODAY)
 
@@ -137,9 +138,9 @@ def test_foil_isolated_from_normal(repo):
     assert normal_meta["variant"] == "normal"
 
 
-def test_manual_beats_liga_same_day(repo):
-    cid = _card(repo)
-    _obs(repo, "liga", f"liga_{cid}", D(1), "10")
+def test_manual_beats_myp_same_day(repo):
+    cid = _card(repo, source_cards=[("myp", "myp_ext_1")])
+    _obs(repo, "myp", "myp_ext_1", D(1), "10")
     _obs(repo, "manual", f"manual_{cid}", D(1), "12")
 
     series, meta = build_history(repo, cid, is_foil=False, days=None, today=TODAY)
@@ -151,9 +152,9 @@ def test_manual_beats_liga_same_day(repo):
 
 
 def test_period_filter_keeps_first_observed_at(repo):
-    cid = _card(repo)
-    _obs(repo, "liga", f"liga_{cid}", D(10), "8")
-    _obs(repo, "liga", f"liga_{cid}", D(3), "9")
+    cid = _card(repo, source_cards=[("myp", "myp_ext_1")])
+    _obs(repo, "myp", "myp_ext_1", D(10), "8")
+    _obs(repo, "myp", "myp_ext_1", D(3), "9")
 
     series, meta = build_history(repo, cid, is_foil=False, days=7, today=TODAY)
 
@@ -163,9 +164,9 @@ def test_period_filter_keeps_first_observed_at(repo):
 
 
 def test_days_none_returns_all_history(repo):
-    cid = _card(repo)
-    _obs(repo, "liga", f"liga_{cid}", D(400), "8")
-    _obs(repo, "liga", f"liga_{cid}", D(3), "9")
+    cid = _card(repo, source_cards=[("myp", "myp_ext_1")])
+    _obs(repo, "myp", "myp_ext_1", D(400), "8")
+    _obs(repo, "myp", "myp_ext_1", D(3), "9")
 
     series, _ = build_history(repo, cid, is_foil=False, days=None, today=TODAY)
 
@@ -189,9 +190,9 @@ def test_no_observations(repo):
 
 
 def test_only_snapshots_have_no_first_real_observation(repo):
-    cid = _card(repo)
-    _obs(repo, SNAPSHOT_SOURCE, f"liga_{cid}", D(2), "10")
-    _obs(repo, BACKFILL_SOURCE, f"liga_{cid}", D(1), "10")
+    cid = _card(repo, source_cards=[("myp", "myp_ext_1")])
+    _obs(repo, SNAPSHOT_SOURCE, "myp_ext_1", D(2), "10")
+    _obs(repo, BACKFILL_SOURCE, "myp_ext_1", D(1), "10")
 
     series, meta = build_history(repo, cid, is_foil=False, days=30, today=TODAY)
 
@@ -202,23 +203,23 @@ def test_only_snapshots_have_no_first_real_observation(repo):
 
 
 def test_other_card_key_never_appears(repo):
-    cid = _card(repo, "7")
-    other = _card(repo, "8")
-    _obs(repo, "liga", f"liga_{cid}", D(1), "10")
-    _obs(repo, "liga", f"liga_{other}", D(1), "99")
-    _obs(repo, "liga", f"liga_{other}", D(2), "99")
-    _obs(repo, SNAPSHOT_SOURCE, f"liga_{other}", D(3), "99")
+    cid = _card(repo, "7", source_cards=[("myp", "myp_ext_7")])
+    _card(repo, "8", source_cards=[("myp", "myp_ext_8")])
+    _obs(repo, "myp", "myp_ext_7", D(1), "10")
+    _obs(repo, "myp", "myp_ext_8", D(1), "99")
+    _obs(repo, "myp", "myp_ext_8", D(2), "99")
+    _obs(repo, SNAPSHOT_SOURCE, "myp_ext_8", D(3), "99")
 
     series, meta = build_history(repo, cid, is_foil=False, days=None, today=TODAY)
 
-    assert [p.external_id for p in series] == [f"liga_{cid}"]
+    assert [p.external_id for p in series] == ["myp_ext_7"]
     assert meta["first_observed_at"] == D(1)
 
 
 def test_single_point_and_inclusive_cutoff(repo):
-    cid = _card(repo)
-    _obs(repo, "liga", f"liga_{cid}", D(7), "10")  # exactly on the cutoff
-    _obs(repo, "liga", f"liga_{cid}", D(8), "11")  # one day before
+    cid = _card(repo, source_cards=[("myp", "myp_ext_1")])
+    _obs(repo, "myp", "myp_ext_1", D(7), "10")  # exactly on the cutoff
+    _obs(repo, "myp", "myp_ext_1", D(8), "11")  # one day before
 
     series, meta = build_history(repo, cid, is_foil=False, days=7, today=TODAY)
 
@@ -229,9 +230,9 @@ def test_single_point_and_inclusive_cutoff(repo):
 
 
 def test_null_price_ignored(repo):
-    cid = _card(repo)
-    _obs(repo, "liga", f"liga_{cid}", D(2), None)
-    _obs(repo, "liga", f"liga_{cid}", D(1), "10")
+    cid = _card(repo, source_cards=[("myp", "myp_ext_1")])
+    _obs(repo, "myp", "myp_ext_1", D(2), None)
+    _obs(repo, "myp", "myp_ext_1", D(1), "10")
 
     series, meta = build_history(repo, cid, is_foil=False, days=None, today=TODAY)
 
@@ -240,20 +241,20 @@ def test_null_price_ignored(repo):
 
 
 def test_catalog_source_card_and_jsonld_snapshot_included(repo):
-    cid = _card(repo, source_cards=[("liga", "liga_catalog_TST_7"), ("myp", "myp_5")])
-    _obs(repo, "liga", "liga_catalog_TST_7", D(3), "10")
+    cid = _card(repo, source_cards=[("myp", "myp_catalog_TST_7"), ("myp", "myp_5")])
+    _obs(repo, "myp", "myp_catalog_TST_7", D(3), "10")
     _obs(repo, "jsonld_snapshot", "myp_5", D(2), "11")
     _obs(repo, SNAPSHOT_SOURCE, "myp_5", D(1), "11")
 
     series, meta = build_history(repo, cid, is_foil=False, days=None, today=TODAY)
 
-    assert [p.source for p in series] == ["liga", "jsonld_snapshot", SNAPSHOT_SOURCE]
-    assert meta["sources"] == ["liga", "jsonld_snapshot", SNAPSHOT_SOURCE]
+    assert [p.source for p in series] == ["myp", "jsonld_snapshot", SNAPSHOT_SOURCE]
+    assert meta["sources"] == ["myp", "jsonld_snapshot", SNAPSHOT_SOURCE]
 
 
 def test_build_history_uses_single_observation_query(repo):
     cid = _card(repo, source_cards=[("myp", "myp_1"), ("myp", "myp_2")])
-    _obs(repo, "liga", f"liga_{cid}", D(1), "10")
+    _obs(repo, "myp", "myp_1", D(1), "10")
     _obs(repo, "myp", "myp_2", D(2), "11")
 
     statements = _count_obs_selects(repo)
@@ -275,13 +276,13 @@ def test_invalid_card_id_raises(repo):
 
 
 def test_load_series_single_query_and_ordering(repo):
-    _obs(repo, "liga", "liga_1", D(1), "10")
+    _obs(repo, "myp", "myp_1", D(1), "10")
     _obs(repo, "myp", "myp_1", D(3), "12")
-    _obs(repo, SNAPSHOT_SOURCE, "liga_1", D(2), "10")
+    _obs(repo, SNAPSHOT_SOURCE, "myp_1", D(2), "10")
     keys = [
-        SeriesKey("liga", "liga_1"),
         SeriesKey("myp", "myp_1"),
-        SeriesKey(SNAPSHOT_SOURCE, "liga_1"),
+        SeriesKey("myp", "myp_1"),
+        SeriesKey(SNAPSHOT_SOURCE, "myp_1"),
     ]
 
     statements = _count_obs_selects(repo)
@@ -295,8 +296,8 @@ def test_load_series_single_query_and_ordering(repo):
 
 def test_load_series_does_not_cross_source_and_external_id(repo):
     """(source, external_id) pairs match together, not as independent IN lists."""
-    _obs(repo, "myp", "liga_1", D(1), "99")
-    rows = load_series(repo, [SeriesKey("liga", "liga_1"), SeriesKey("myp", "myp_1")], days=None)
+    _obs(repo, "myp", "ext_A", D(1), "99")
+    rows = load_series(repo, [SeriesKey("manual", "ext_A"), SeriesKey("myp", "ext_B")], days=None)
     assert rows == []
 
 
@@ -307,27 +308,27 @@ def test_load_series_empty_keys_skips_query(repo):
 
 
 def test_load_series_defaults_today(repo):
-    _obs(repo, "liga", "liga_1", date.today(), "10")
-    _obs(repo, "liga", "liga_1", date.today() - timedelta(days=40), "9")
-    rows = load_series(repo, [SeriesKey("liga", "liga_1")], days=30)
+    _obs(repo, "myp", "myp_1", date.today(), "10")
+    _obs(repo, "myp", "myp_1", date.today() - timedelta(days=40), "9")
+    rows = load_series(repo, [SeriesKey("myp", "myp_1")], days=30)
     assert [r.observed_at for r in rows] == [date.today()]
 
 
 def test_first_real_observation_ignores_snapshots_and_nulls(repo):
-    _obs(repo, SNAPSHOT_SOURCE, "liga_1", D(10), "10")
-    _obs(repo, "liga", "liga_1", D(8), None)
-    _obs(repo, "liga", "liga_1", D(5), "10")
-    keys = [SeriesKey("liga", "liga_1"), SeriesKey(SNAPSHOT_SOURCE, "liga_1")]
+    _obs(repo, SNAPSHOT_SOURCE, "myp_1", D(10), "10")
+    _obs(repo, "myp", "myp_1", D(8), None)
+    _obs(repo, "myp", "myp_1", D(5), "10")
+    keys = [SeriesKey("myp", "myp_1"), SeriesKey(SNAPSHOT_SOURCE, "myp_1")]
 
     assert first_real_observation(repo, keys) == D(5)
 
 
 def test_first_real_observation_only_snapshot_keys(repo):
     statements = _count_obs_selects(repo)
-    assert first_real_observation(repo, [SeriesKey(SNAPSHOT_SOURCE, "liga_1")]) is None
+    assert first_real_observation(repo, [SeriesKey(SNAPSHOT_SOURCE, "myp_1")]) is None
     assert first_real_observation(repo, []) is None
     assert statements == []
 
 
 def test_first_real_observation_no_rows(repo):
-    assert first_real_observation(repo, [SeriesKey("liga", "liga_1")]) is None
+    assert first_real_observation(repo, [SeriesKey("myp", "myp_1")]) is None

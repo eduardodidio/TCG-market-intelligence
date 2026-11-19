@@ -1,10 +1,9 @@
-"""Catalog seeder — batch upsert cards + source_cards from Scryfall bulk data.
+"""Catalog seeder — batch upsert cards from Scryfall bulk data.
 
 Reads parsed CatalogCard objects and upserts them into the database in
-batches, creating both ``cards`` rows and ``source_cards`` entries pointing
-to LigaMagic search URLs.  Fully idempotent: running twice produces no
-duplicates.  On conflict, Scryfall metadata (type_line, rarity, etc.) is
-filled in via COALESCE so that pre-existing bare cards get enriched.
+batches.  Fully idempotent: running twice produces no duplicates.  On
+conflict, Scryfall metadata (type_line, rarity, etc.) is filled in via
+COALESCE so that pre-existing bare cards get enriched.
 """
 
 from __future__ import annotations
@@ -19,8 +18,7 @@ from sqlalchemy.orm import Session
 
 from src.catalog.scryfall import CatalogCard, parse_bulk_cards
 from src.database.compat import dialect_insert, is_sqlite
-from src.database.models import Base, CardRow, SourceCardRow
-from src.providers.liga.url import liga_url_for_card_name
+from src.database.models import Base, CardRow
 
 log = structlog.get_logger()
 
@@ -54,7 +52,7 @@ def _process_card_batch(
     batch: list[CatalogCard],
     result: SeedResult,
 ) -> None:
-    """Insert a batch of cards and their source_cards entries."""
+    """Insert a batch of cards."""
     # --- Step 0: Pre-query existing card keys to distinguish inserts vs updates ---
     from sqlalchemy import or_
 
@@ -114,55 +112,6 @@ def _process_card_batch(
         else:
             result.cards_skipped += 1
 
-    # Flush so that card IDs are visible for the look-up below
-    session.flush()
-
-    # --- Step 2: Look up card IDs and create source_cards entries ---
-    # Build a mapping of (set_code, collector_number) -> card_id
-    set_cn_pairs = [(c.set_code, c.collector_number) for c in batch]
-    # Query all card IDs for this batch in one go
-    card_id_map: dict[tuple[str, str], int] = {}
-    # Process in sub-batches to avoid overly large IN clauses
-    for i in range(0, len(set_cn_pairs), 200):
-        sub = set_cn_pairs[i : i + 200]
-        conditions = [(CardRow.set_code == sc) & (CardRow.collector_number == cn) for sc, cn in sub]
-        if not conditions:
-            continue
-        stmt = select(CardRow.id, CardRow.set_code, CardRow.collector_number).where(
-            CardRow.game == "magic",
-            or_(*conditions),
-        )
-        rows = session.execute(stmt).all()
-        for row in rows:
-            card_id_map[(row.set_code, row.collector_number)] = row.id
-
-    # Insert source_cards
-    for card in batch:
-        card_id = card_id_map.get((card.set_code, card.collector_number))
-        if card_id is None:
-            continue
-
-        external_id = f"liga_catalog_{card.set_code}_{card.collector_number}"
-        url = liga_url_for_card_name(card.name_en)
-
-        stmt = (
-            dialect_insert(session.get_bind(), SourceCardRow)
-            .values(
-                source="liga",
-                external_id=external_id,
-                card_id=card_id,
-                url=url,
-                name_en=card.name_en,
-                name_pt=card.name_pt,
-                set_code=card.set_code,
-                collector_number=card.collector_number,
-            )
-            .on_conflict_do_nothing(index_elements=["source", "external_id"])
-        )
-        row_result = session.execute(stmt)
-        if row_result.rowcount > 0:
-            result.source_cards_created += 1
-
 
 def seed_catalog(
     db_url: str,
@@ -171,9 +120,8 @@ def seed_catalog(
 ) -> SeedResult:
     """Seed the database with cards from a Scryfall bulk data file.
 
-    Iterates through the parsed cards in batches, inserting cards and
-    creating Liga source_cards entries.  Commits per batch so that
-    progress is not lost on failure.
+    Iterates through the parsed cards in batches, inserting cards.
+    Commits per batch so that progress is not lost on failure.
 
     Args:
         db_url: SQLAlchemy database URL (e.g. ``sqlite:///tcg_market.db``).

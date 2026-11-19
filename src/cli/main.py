@@ -431,16 +431,13 @@ def cleanup_orphans(db, execute, skip_backup):
 @click.option("--concurrency", default=3, type=int, help="Max concurrent requests")
 @click.option(
     "--provider",
-    type=click.Choice(["auto", "liga", "myp"]),
-    default="auto",
-    help="Price provider: auto (registry), liga, or myp",
+    type=click.Choice(["myp"]),
+    default="myp",
+    help="Price provider: myp",
 )
 def snapshot_prices(db, limit, dry_run, delay, concurrency, provider):
     """Daily price snapshot from JSON-LD on product pages."""
     from src.collectors.snapshot_prices import run_snapshot_prices
-
-    if provider == "liga":
-        click.echo("Note: LigaMagic not yet wired for snapshots — using MYP.")
 
     summary = asyncio.run(
         run_snapshot_prices(
@@ -548,26 +545,16 @@ def _resolve_provider(provider_name: str, delay: float = 1.0):
     """Create a provider based on the --provider flag.
 
     Args:
-        provider_name: "auto", "liga", or "myp".
+        provider_name: "auto" or "myp".
         delay: Delay between requests for MYP.
 
     Returns:
-        Tuple of (provider_instance_or_None, effective_provider_name).
-        For Liga, returns (None, "liga") — the scan orchestrator handles
-        Liga internally via ``provider_name="liga"``.
+        Tuple of (provider_instance, effective_provider_name).
     """
-    if provider_name == "myp":
-        from src.providers.myp.provider import MypCardsProvider, MypConfig
+    from src.providers.myp.provider import MypCardsProvider, MypConfig
 
-        config = MypConfig(delay_seconds=delay)
-        return MypCardsProvider(config), "myp"
-
-    if provider_name == "liga":
-        # Liga is handled internally by run_scan via provider_name="liga"
-        return None, "liga"
-
-    # "auto" — default to Liga
-    return None, "liga"
+    config = MypConfig(delay_seconds=delay)
+    return MypCardsProvider(config), "myp"
 
 
 @cli.command()
@@ -596,9 +583,9 @@ def _resolve_provider(provider_name: str, delay: float = 1.0):
 @click.option("--concurrency", default=3, type=int, help="Max concurrent requests")
 @click.option(
     "--provider",
-    type=click.Choice(["auto", "liga", "myp"]),
-    default="liga",
-    help="Price provider: liga (default), myp, or auto (defaults to liga)",
+    type=click.Choice(["myp"]),
+    default="myp",
+    help="Price provider: myp",
 )
 def scan(
     db,
@@ -1152,67 +1139,6 @@ def _print_canonize_summary(result):
     click.echo("")
 
 
-@cli.command("liga-sweep")
-@click.option(
-    "--db",
-    default=None,
-    help="Database URL (default from TCG_DATABASE_URL or sqlite:///tcg_market.db)",
-)
-@click.option("--batch-size", default=20, type=int, help="Cards per batch")
-@click.option("--batch-pause", default=60, type=int, help="Seconds between batches")
-@click.option("--delay", default=5.0, type=float, help="Seconds between cards")
-@click.option(
-    "--max-age-days", default=7, type=int, help="Skip cards with Liga price newer than N days"
-)
-@click.option("--limit", default=None, type=int, help="Max total cards to process")
-@click.option("--dry-run", is_flag=True, help="Show eligible count without fetching")
-@click.option("--set", "set_filter", default=None, help="Only sweep this set code")
-def liga_sweep(db, batch_size, batch_pause, delay, max_age_days, limit, dry_run, set_filter):
-    """Sweep entire collection through LigaMagic with configurable pacing."""
-    from src.collectors.liga_sweep import run_liga_sweep
-    from src.config import get_db_url
-    from src.database.repository import Repository
-    from src.services.alert_checker import make_alert_checker_hook
-    from src.services.scan_hooks import default_registry
-
-    # Register alert checker hook for CLI path
-    db_url = db or get_db_url()
-    repo = Repository(db_url)
-    alert_hook = make_alert_checker_hook(repo)
-    default_registry.register(alert_hook)
-
-    result = asyncio.run(
-        run_liga_sweep(
-            db_url=db_url,
-            batch_size=batch_size,
-            batch_pause=batch_pause,
-            delay=delay,
-            max_age_days=max_age_days,
-            limit=limit,
-            dry_run=dry_run,
-            set_filter=set_filter,
-            on_complete=default_registry.notify,
-        )
-    )
-    _print_liga_sweep_summary(result)
-
-
-def _print_liga_sweep_summary(result):
-    """Format and print Liga sweep summary to stdout."""
-    click.echo("")
-    click.echo("=" * 60)
-    if result.dry_run:
-        click.echo("  DRY RUN -- no data was fetched")
-    click.echo("  LIGA SWEEP SUMMARY")
-    click.echo(f"  Eligible cards:          {result.total_eligible}")
-    click.echo(f"  Processed:               {result.total_processed}")
-    click.echo(f"  Prices found:            {result.prices_found}")
-    click.echo(f"  Prices not found:        {result.prices_not_found}")
-    click.echo(f"  Errors:                  {result.errors}")
-    click.echo(f"  Batches completed:       {result.batches_completed}")
-    click.echo("=" * 60)
-
-
 @cli.command("myp-sweep")
 @click.option(
     "--db",
@@ -1287,7 +1213,7 @@ def _print_myp_sweep_summary(result):
 @click.option("--delay", default=2.0, type=float, help="Seconds between requests")
 @click.option("--dry-run", is_flag=True, help="Show pending count without processing")
 def process_price_requests(db, limit, delay, dry_run):
-    """Process pending price update requests via LigaMagic."""
+    """Process pending price update requests."""
     from src.collectors.price_request_processor import process_pending_price_requests
     from src.database.repository import Repository
 
@@ -1397,14 +1323,14 @@ def db_reset_scans(db, confirm):
 @click.option(
     "--source",
     default=None,
-    help="Only delete observations from this source (e.g. liga, myp, manual, jsonld_snapshot)",
+    help="Only delete observations from this source (e.g. myp, manual, jsonld_snapshot)",
 )
 @click.option("--confirm", is_flag=True, help="Required to actually delete (without it, dry-run)")
 def reset_prices(db, source, confirm):
     """Reset (delete) all price observations, optionally filtered by source.
 
     Unlike db-clear-prices, this command has NO protected-source restrictions
-    and can delete liga/manual observations. Use with care.
+    and can delete any source observations. Use with care.
     """
     from sqlalchemy import func, select
     from sqlalchemy.orm import Session
@@ -1579,164 +1505,6 @@ def error_cleanup(db, max_age_days, max_entries, dry_run):
 
     click.echo(f"  Database entries removed: {db_removed}")
     click.echo(f"  JSONL entries removed:    {jsonl_removed}\n")
-
-
-@cli.command("push-prices")
-@click.option(
-    "--db",
-    default=None,
-    callback=_resolve_db,
-    is_eager=True,
-    expose_value=True,
-    help="Database URL (default: auto-detect)",
-)
-@click.option(
-    "--remote", required=True, help="Remote API base URL (e.g. https://tedhc.onrender.com)"
-)
-@click.option(
-    "--api-key", envvar="TCG_API_KEY", default=None, help="API key for remote ($TCG_API_KEY)"
-)
-@click.option("--delay", default=5.0, type=float, help="Seconds between Liga requests")
-@click.option("--limit", default=None, type=int, help="Max cards to process")
-@click.option("--dry-run", is_flag=True, help="Fetch prices but don't push to remote")
-@click.option("--max-age-days", default=None, type=int, help="Skip cards scanned within N days")
-def push_prices(db, remote, api_key, delay, limit, dry_run, max_age_days):
-    """Scan collection prices via Liga locally, push results to remote API.
-
-    Runs LigaMagic price scan on your local machine (requires Playwright),
-    then POSTs the price observations to the remote Render deployment.
-
-    Example:
-        collector push-prices --remote https://tedhc.onrender.com --api-key SECRET
-    """
-    asyncio.run(_push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age_days))
-
-
-async def _push_prices_async(db, remote, api_key, delay, limit, dry_run, max_age_days):
-    from datetime import date
-    from decimal import Decimal
-
-    import httpx
-
-    from src.collection.converter import is_foil_entry
-    from src.database.repository import Repository
-    from src.domain.models import ScanFilter
-    from src.providers.liga.provider import LigaMagicProvider
-
-    repo = Repository(db_url=db)
-    scan_filter = ScanFilter(limit=limit)
-    entries = repo.get_cards_for_liga_scan(scan_filter, max_age_days=max_age_days)
-    total = len(entries)
-
-    if total == 0:
-        click.echo("No cards to scan.")
-        return
-
-    click.echo(f"Found {total} cards to scan via Liga.")
-
-    provider = LigaMagicProvider()
-    observations = []
-    processed = 0
-    failed = 0
-
-    try:
-        await provider.open()
-
-        for i, entry in enumerate(entries, 1):
-            card_id = entry["card_id"]
-            card_name = entry.get("name_en") or entry.get("name_pt", "")
-            is_foil = is_foil_entry(entry.get("extras"))
-
-            if not card_name:
-                click.echo(f"  [{i}/{total}] Skipped (no name) card_id={card_id}")
-                continue
-
-            try:
-                collector_number = entry.get("collector_number")
-                prices = await provider.search_card(
-                    card_name,
-                    collector_number=collector_number,
-                )
-
-                if is_foil:
-                    foil = prices.get("foil", {})
-                    price: Decimal | None = foil.get("low") or foil.get("mid") or foil.get("high")
-                    external_id = f"liga_{card_id}_foil"
-                else:
-                    normal = prices.get("normal", {})
-                    price = normal.get("low") or normal.get("mid") or normal.get("high")
-                    external_id = f"liga_{card_id}"
-
-                if price is not None:
-                    observations.append(
-                        {
-                            "source": "liga",
-                            "external_id": external_id,
-                            "observed_at": date.today().isoformat(),
-                            "median_price": str(price),
-                            "currency": "BRL",
-                        }
-                    )
-                    # NOTE: push-prices does NOT record the Liga page URL. The
-                    # price observation here is pushed to a *remote* DB over HTTP,
-                    # while liga_card_urls would be written to the *local* DB — the
-                    # two would never coexist, breaking the "link matches the price"
-                    # guarantee. URL recording is owned by the direct-to-Neon
-                    # writers (liga-sweep, refresh-liga, scan). See F124 / ADR 0012.
-                    click.echo(f"  [{i}/{total}] {card_name}: R${price}")
-                    processed += 1
-                else:
-                    click.echo(f"  [{i}/{total}] {card_name}: no price")
-                    failed += 1
-
-            except Exception as exc:
-                click.echo(f"  [{i}/{total}] {card_name}: ERROR {exc}")
-                failed += 1
-
-            if i < total:
-                await asyncio.sleep(delay)
-
-    finally:
-        await provider.close()
-
-    click.echo(f"\nScan complete: {processed} prices, {failed} failed, {total} total.")
-
-    if not observations:
-        click.echo("No prices to push.")
-        return
-
-    if dry_run:
-        click.echo(f"[DRY RUN] Would push {len(observations)} observations to {remote}")
-        return
-
-    # Push to remote
-    remote_url = remote.rstrip("/") + "/api/v1/prices/ingest"
-    headers = {}
-    if api_key:
-        headers["X-API-Key"] = api_key
-
-    click.echo(f"Pushing {len(observations)} observations to {remote_url}...")
-
-    # Send in batches of 500
-    batch_size = 500
-    total_inserted = 0
-    for start in range(0, len(observations), batch_size):
-        batch = observations[start : start + batch_size]
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(
-                remote_url,
-                json={"observations": batch},
-                headers=headers,
-            )
-        if resp.status_code == 200:
-            result = resp.json().get("data", {})
-            inserted = result.get("inserted", 0)
-            total_inserted += inserted
-            click.echo(f"  Batch {start // batch_size + 1}: {inserted} inserted")
-        else:
-            click.echo(f"  Batch {start // batch_size + 1}: FAILED {resp.status_code} {resp.text}")
-
-    click.echo(f"\nDone! {total_inserted} prices pushed to remote.")
 
 
 @cli.command("push-db")
@@ -2062,7 +1830,7 @@ def serve(host, port, production):
 
 @cli.group()
 def catalog():
-    """Manage the offline card catalog (Scryfall bulk data + Liga prices)."""
+    """Manage the offline card catalog (Scryfall bulk data)."""
     pass
 
 
@@ -2129,53 +1897,6 @@ def catalog_seed(db, skip_download, batch_size, dry_run):
     click.echo("")
 
 
-@catalog.command("scan")
-@click.option(
-    "--db",
-    default=None,
-    callback=_resolve_db,
-    is_eager=True,
-    expose_value=True,
-    help="Database URL (default: auto-detect)",
-)
-@click.option("--set", "set_code", required=True, help="Set code to scan (e.g. 'mh3')")
-@click.option("--limit", default=None, type=int, help="Max cards to scan")
-@click.option("--delay", default=5.0, type=float, help="Seconds between requests")
-@click.option("--batch-size", default=20, type=int, help="Cards per batch")
-@click.option("--batch-pause", default=60, type=int, help="Seconds between batches")
-@click.option("--max-age-days", default=7, type=int, help="Skip cards with price newer than N days")
-@click.option("--dry-run", is_flag=True, help="Show eligible count without scanning")
-def catalog_scan(db, set_code, limit, delay, batch_size, batch_pause, max_age_days, dry_run):
-    """Scan Liga prices for catalog cards in a specific set."""
-    from src.collectors.liga_sweep import run_liga_sweep
-    from src.database.repository import Repository
-    from src.services.alert_checker import make_alert_checker_hook
-    from src.services.scan_hooks import default_registry
-
-    click.echo(f"Catalog scan: set={set_code}, limit={limit}, delay={delay}s")
-
-    # Register alert checker hook for CLI path
-    repo = Repository(db)
-    alert_hook = make_alert_checker_hook(repo)
-    default_registry.register(alert_hook)
-
-    result = asyncio.run(
-        run_liga_sweep(
-            db_url=db,
-            batch_size=batch_size,
-            batch_pause=batch_pause,
-            delay=delay,
-            max_age_days=max_age_days,
-            limit=limit,
-            dry_run=dry_run,
-            set_filter=set_code,
-            collection_only=False,
-            on_complete=default_registry.notify,
-        )
-    )
-    _print_liga_sweep_summary(result)
-
-
 @catalog.command("stats")
 @click.option(
     "--db",
@@ -2203,23 +1924,15 @@ def catalog_stats(db):
             or 0
         )
 
-        # Cards with Liga price: catalog cards whose card_id also has
+        # Cards with price: catalog cards whose card_id also has
         # a source_card entry with a matching price observation.
-        # Catalog source_cards use external_id="liga_catalog_...", but
-        # price observations use external_id="liga_{card_id}" from sweep,
-        # so we join through card_id instead of external_id.
         priced_source = select(SourceCardRow.card_id).where(
-            SourceCardRow.source == "liga",
             SourceCardRow.card_id.isnot(None),
-            SourceCardRow.external_id.in_(
-                select(PriceObservationRow.external_id).where(PriceObservationRow.source == "liga")
-            ),
+            SourceCardRow.external_id.in_(select(PriceObservationRow.external_id)),
         )
         with_price = (
             session.execute(
                 select(func.count(func.distinct(SourceCardRow.card_id))).where(
-                    SourceCardRow.source == "liga",
-                    SourceCardRow.external_id.like("liga_catalog_%"),
                     SourceCardRow.card_id.in_(priced_source),
                 )
             ).scalar()
@@ -2237,12 +1950,8 @@ def catalog_stats(db):
             .limit(10)
         ).all()
 
-        # Last seed date (most recent card creation)
-        last_seed_row = session.execute(
-            select(func.max(SourceCardRow.id)).where(
-                SourceCardRow.external_id.like("liga_catalog_%")
-            )
-        ).scalar()
+        # Last seed date (most recent source_card creation)
+        last_seed_row = session.execute(select(func.max(SourceCardRow.id))).scalar()
 
     engine.dispose()
 
@@ -2251,7 +1960,7 @@ def catalog_stats(db):
     click.echo("  CATALOG STATISTICS")
     click.echo("=" * 60)
     click.echo(f"  Total catalog cards:     {total:,}")
-    click.echo(f"  Cards with Liga price:   {with_price:,}")
+    click.echo(f"  Cards with price:        {with_price:,}")
     click.echo(f"  Cards without price:     {without_price:,}")
     if total > 0:
         coverage = (with_price / total) * 100
@@ -2292,7 +2001,7 @@ def catalog_stats(db):
     help="Output format: table (human) or script (paste into batch)",
 )
 def catalog_missing(db, user_id, min_cards, fmt):
-    """Show catalog sets without Liga prices — find scanning gaps."""
+    """Show catalog sets without prices — find scanning gaps."""
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import Session
 
@@ -2308,12 +2017,13 @@ def catalog_missing(db, user_id, min_cards, fmt):
         ).fetchall()
         catalog_map = {r[0]: r[1] for r in catalog_rows}
 
-        # Sets with any Liga price data
+        # Sets with any price data
         priced_rows = session.execute(
             text(
                 "SELECT c.set_code, COUNT(DISTINCT c.id) as priced"
                 " FROM cards c"
-                " JOIN price_observations po ON po.external_id = 'liga_' || CAST(c.id AS TEXT)"
+                " JOIN source_cards sc ON sc.card_id = c.id"
+                " JOIN price_observations po ON po.external_id = sc.external_id"
                 " WHERE c.set_code IS NOT NULL"
                 " GROUP BY c.set_code"
             )
@@ -3161,309 +2871,6 @@ def daily_snapshot(db):
     repo = Repository(db_url=db)
     count = run_daily_snapshot(repo)
     click.echo(f"Snapshot complete: {count} new observations recorded.")
-
-
-@cli.command("liga-verify-links")
-@click.option(
-    "--db",
-    default=None,
-    callback=_resolve_db,
-    is_eager=True,
-    expose_value=True,
-    help="Database URL (default: auto-detect)",
-)
-@click.option("--limit", default=50, type=int, help="Max URLs to verify")
-@click.option("--dry-run", is_flag=True, help="Only show what would be verified")
-@click.option("--output", "output_file", default=None, help="Write results to JSON file")
-def liga_verify_links(db, limit, dry_run, output_file):
-    """Verify stored Liga URLs point to the expected cards."""
-    import json as json_mod
-
-    from src.database.repository import Repository
-
-    repo = Repository(db_url=db)
-    all_urls = repo.get_all_liga_card_urls()
-    click.echo(f"Found {len(all_urls)} stored Liga URLs.")
-
-    urls_to_check = all_urls[:limit]
-    results = []
-    match_count = 0
-    mismatch_count = 0
-    orphan_count = 0
-    error_count = 0
-
-    if dry_run:
-        for row in urls_to_check:
-            expected = repo.get_card_name_by_liga_external_id(row.external_id)
-            if expected is None:
-                click.echo(f"  [ORPHAN] {row.external_id} -> {row.url}")
-                orphan_count += 1
-            else:
-                click.echo(f"  Would verify: {row.external_id} ({expected}) -> {row.url}")
-        click.echo(
-            f"\nDry run complete. {len(urls_to_check)} URLs would be verified "
-            f"({orphan_count} orphans)."
-        )
-        return
-
-    # Lazy import Playwright
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        click.echo("ERROR: Playwright is not installed. Install with: pip install playwright")
-        click.echo("Then run: playwright install chromium")
-        raise SystemExit(1)
-
-    click.echo(f"Verifying up to {len(urls_to_check)} URLs with Playwright...")
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-
-        for i, row in enumerate(urls_to_check, 1):
-            expected_name = repo.get_card_name_by_liga_external_id(row.external_id)
-
-            if expected_name is None:
-                click.echo(f"  [{i}/{len(urls_to_check)}] [ORPHAN] {row.external_id} -> {row.url}")
-                orphan_count += 1
-                results.append(
-                    {
-                        "external_id": row.external_id,
-                        "url": row.url,
-                        "status": "orphan",
-                        "expected_name": None,
-                        "found_name": None,
-                    }
-                )
-                continue
-
-            try:
-                page.goto(row.url, timeout=15000)
-                title = page.title() or ""
-
-                # Liga pages have titles like "Card Name - LigaMagic"
-                found_name = title.split(" - ")[0].strip() if " - " in title else title.strip()
-
-                # Also try h1 if title is not informative
-                if not found_name or found_name.lower() in ("ligamagic", "liga magic", ""):
-                    h1 = page.query_selector("h1")
-                    if h1:
-                        found_name = (h1.inner_text() or "").strip()
-
-                # Compare: case-insensitive, check if expected name appears in found name
-                is_match = (
-                    expected_name.lower() in found_name.lower()
-                    or found_name.lower() in expected_name.lower()
-                )
-
-                if is_match:
-                    click.echo(
-                        f"  [{i}/{len(urls_to_check)}] [MATCH] {row.external_id}: "
-                        f"expected='{expected_name}', found='{found_name}'"
-                    )
-                    match_count += 1
-                    status = "match"
-                else:
-                    click.echo(
-                        f"  [{i}/{len(urls_to_check)}] [MISMATCH] {row.external_id}: "
-                        f"expected='{expected_name}', found='{found_name}'"
-                    )
-                    mismatch_count += 1
-                    status = "mismatch"
-
-                results.append(
-                    {
-                        "external_id": row.external_id,
-                        "url": row.url,
-                        "status": status,
-                        "expected_name": expected_name,
-                        "found_name": found_name,
-                    }
-                )
-
-            except Exception as exc:
-                click.echo(f"  [{i}/{len(urls_to_check)}] [ERROR] {row.external_id}: {exc!s:.80}")
-                error_count += 1
-                results.append(
-                    {
-                        "external_id": row.external_id,
-                        "url": row.url,
-                        "status": "error",
-                        "expected_name": expected_name,
-                        "found_name": None,
-                        "error": str(exc)[:200],
-                    }
-                )
-
-        browser.close()
-
-    # Summary
-    click.echo("")
-    click.echo("=" * 60)
-    click.echo("  LIGA VERIFY LINKS SUMMARY")
-    click.echo(f"  Total checked:  {len(urls_to_check)}")
-    click.echo(f"  Matches:        {match_count}")
-    click.echo(f"  Mismatches:     {mismatch_count}")
-    click.echo(f"  Orphans:        {orphan_count}")
-    click.echo(f"  Errors:         {error_count}")
-    click.echo("=" * 60)
-
-    if output_file:
-        with open(output_file, "w", encoding="utf-8") as f:
-            json_mod.dump(results, f, indent=2, ensure_ascii=False)
-        click.echo(f"\nResults written to {output_file}")
-
-
-@cli.command("liga-relink")
-@click.option(
-    "--db",
-    default=None,
-    callback=_resolve_db,
-    is_eager=True,
-    expose_value=True,
-    help="Database URL (default: auto-detect)",
-)
-@click.option(
-    "--input",
-    "input_file",
-    default=None,
-    help="JSON file from liga-verify-links --output",
-)
-@click.option("--external-ids", default=None, help="Comma-separated external_ids to relink")
-@click.option("--dry-run", is_flag=True, help="Show what would be relinked")
-@click.option("--delay", default=3.0, type=float, help="Delay between requests (seconds)")
-def liga_relink(db, input_file, external_ids, dry_run, delay):
-    """Re-fetch correct Liga URLs for mismatched cards."""
-    import json as json_mod
-    import time
-
-    from src.database.repository import Repository
-    from src.providers.liga.urls import is_valid_liga_card_url
-
-    repo = Repository(db_url=db)
-
-    # --- Resolve which external_ids to process ---
-    ids_to_relink: list[str] = []
-
-    if input_file and external_ids:
-        click.echo("ERROR: Use --input or --external-ids, not both.")
-        raise SystemExit(1)
-
-    if input_file:
-        try:
-            with open(input_file, encoding="utf-8") as f:
-                data = json_mod.load(f)
-        except (OSError, json_mod.JSONDecodeError) as exc:
-            click.echo(f"ERROR: Could not read input file: {exc}")
-            raise SystemExit(1)
-
-        for entry in data:
-            if entry.get("status") == "mismatch":
-                ids_to_relink.append(entry["external_id"])
-        click.echo(f"Loaded {len(ids_to_relink)} MISMATCH entries from {input_file}.")
-
-    elif external_ids:
-        ids_to_relink = [eid.strip() for eid in external_ids.split(",") if eid.strip()]
-        click.echo(f"Processing {len(ids_to_relink)} explicit external_id(s).")
-
-    else:
-        click.echo("ERROR: Provide --input or --external-ids.")
-        raise SystemExit(1)
-
-    if not ids_to_relink:
-        click.echo("Nothing to relink.")
-        return
-
-    # --- Counters ---
-    relinked = 0
-    skipped = 0
-    orphans = 0
-    errors = 0
-    total = len(ids_to_relink)
-
-    if dry_run:
-        for ext_id in ids_to_relink:
-            card_name = repo.get_card_name_by_liga_external_id(ext_id)
-            if card_name is None:
-                click.echo(f"  [ORPHAN]   {ext_id}  no card found")
-                orphans += 1
-            else:
-                click.echo(f'  [SKIPPED]  {ext_id}  "{card_name}"  dry-run')
-                skipped += 1
-        click.echo("")
-        click.echo("=" * 60)
-        click.echo("  LIGA RELINK SUMMARY (dry-run)")
-        click.echo(f"  Total:     {total}")
-        click.echo(f"  Skipped:   {skipped}")
-        click.echo(f"  Orphans:   {orphans}")
-        click.echo("=" * 60)
-        return
-
-    # --- Lazy import Playwright ---
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        click.echo("ERROR: Playwright is not installed. Install with: pip install playwright")
-        click.echo("Then run: playwright install chromium")
-        raise SystemExit(1)
-
-    click.echo(f"Relinking {total} URL(s) with Playwright...")
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-
-        for i, ext_id in enumerate(ids_to_relink, 1):
-            card_name = repo.get_card_name_by_liga_external_id(ext_id)
-
-            if card_name is None:
-                click.echo(f"  [{i}/{total}] [ORPHAN]   {ext_id}  no card found")
-                orphans += 1
-                continue
-
-            try:
-                from src.providers.liga.url_resolver import resolve_liga_page_url_sync
-
-                new_url = resolve_liga_page_url_sync(card_name, page)
-
-                if new_url is None or not is_valid_liga_card_url(new_url):
-                    click.echo(
-                        f'  [{i}/{total}] [ERROR]    {ext_id}  "{card_name}"  '
-                        f"invalid URL: {new_url}"
-                    )
-                    errors += 1
-                    continue
-
-                # Fetch old URL for display
-                old_url = repo.get_liga_card_url(ext_id)
-
-                repo.upsert_liga_card_url(ext_id, new_url)
-                click.echo(
-                    f'  [{i}/{total}] [RELINKED] {ext_id}  "{card_name}"  '
-                    f"old={old_url}  new={new_url}"
-                )
-                relinked += 1
-
-            except Exception as exc:
-                click.echo(f'  [{i}/{total}] [ERROR]    {ext_id}  "{card_name}"  {exc!s:.80}')
-                errors += 1
-
-            # Delay between requests
-            if i < total:
-                time.sleep(delay)
-
-        browser.close()
-
-    # Summary
-    click.echo("")
-    click.echo("=" * 60)
-    click.echo("  LIGA RELINK SUMMARY")
-    click.echo(f"  Total:     {total}")
-    click.echo(f"  Relinked:  {relinked}")
-    click.echo(f"  Skipped:   {skipped}")
-    click.echo(f"  Orphans:   {orphans}")
-    click.echo(f"  Errors:    {errors}")
-    click.echo("=" * 60)
 
 
 @cli.command("backfill-snapshots")

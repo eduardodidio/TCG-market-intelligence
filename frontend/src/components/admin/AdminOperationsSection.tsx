@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  triggerLigaScan,
   triggerCatalogScan,
   downloadBackup,
 } from "../../api/admin";
@@ -20,12 +19,6 @@ function safeConfirm(message: string): boolean {
 function OperationsContent() {
   const { t } = useTranslation();
 
-  // Liga scan state
-  const [maxAgeDays, setMaxAgeDays] = useState("1");
-  const [ligaLoading, setLigaLoading] = useState(false);
-  const [ligaResult, setLigaResult] = useState<{ scan_id: number } | null>(null);
-  const [ligaError, setLigaError] = useState<string | null>(null);
-
   // Catalog scan state
   const [setCode, setSetCode] = useState("");
   const [delay, setDelay] = useState("2.0");
@@ -35,19 +28,6 @@ function OperationsContent() {
 
   // Backup state
   const [backupLoading, setBackupLoading] = useState(false);
-
-  const handleLigaScan = useCallback(async () => {
-    setLigaLoading(true);
-    setLigaError(null);
-    setLigaResult(null);
-    const resp = await triggerLigaScan(parseInt(maxAgeDays, 10) || 1);
-    setLigaLoading(false);
-    if (resp.errors.length > 0) {
-      setLigaError(resp.errors.map((e) => e.message).join("; "));
-    } else if (resp.data) {
-      setLigaResult({ scan_id: resp.data.scan_id });
-    }
-  }, [maxAgeDays]);
 
   const handleCatalogScan = useCallback(async () => {
     if (!setCode.trim()) return;
@@ -72,55 +52,6 @@ function OperationsContent() {
 
   return (
     <div data-testid="operations-section" className="space-y-6">
-      {/* Liga Scan */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-        <h3 className="text-white font-medium mb-3" data-testid="liga-scan-title">
-          {t("admin.ops.ligaScan")}
-        </h3>
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">
-              {t("admin.ops.maxAgeDays")}
-            </label>
-            <input
-              type="number"
-              value={maxAgeDays}
-              onChange={(e) => setMaxAgeDays(e.target.value)}
-              min={1}
-              className="w-20 px-3 py-2 text-sm bg-slate-900 border border-slate-600 text-white rounded focus:outline-none focus:border-cyan-400"
-              data-testid="liga-max-age-input"
-            />
-          </div>
-          <button
-            onClick={() => {
-              if (!safeConfirm(t("admin.ops.confirmLigaScan"))) return;
-              handleLigaScan();
-            }}
-            disabled={ligaLoading}
-            className="px-4 py-2 text-sm bg-indigo-700 hover:bg-indigo-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded"
-            data-testid="run-liga-scan-btn"
-          >
-            {ligaLoading ? t("common.pleaseWait") : t("admin.ops.runLigaScan")}
-          </button>
-        </div>
-        {ligaLoading && (
-          <div className="flex items-center gap-2 mt-2 text-sm text-cyan-400" data-testid="liga-scan-spinner">
-            <div className="h-4 w-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-            {t("admin.ops.scanRunning")}
-          </div>
-        )}
-        {ligaResult && (
-          <p className="mt-2 text-sm text-green-400" data-testid="liga-scan-result">
-            {t("admin.ops.jobStarted")} - {t("admin.ops.scanId")}: {ligaResult.scan_id}
-          </p>
-        )}
-        {ligaError && (
-          <p className="mt-2 text-sm text-red-400" data-testid="liga-scan-error">
-            {ligaError}
-          </p>
-        )}
-      </div>
-
       {/* Catalog Sweep */}
       <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
         <h3 className="text-white font-medium mb-3" data-testid="catalog-sweep-title">

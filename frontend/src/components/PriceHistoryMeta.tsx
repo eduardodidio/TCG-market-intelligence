@@ -6,7 +6,6 @@ export interface PriceHistoryMetaProps {
 }
 
 const SOURCE_LABEL_KEYS: Record<string, string> = {
-  liga: "priceHistory.sourceLiga",
   myp: "priceHistory.sourceMyp",
   manual: "priceHistory.sourceManual",
   jsonld_snapshot: "priceHistory.sourceJsonld",

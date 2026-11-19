@@ -7,7 +7,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import quote_plus
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile
 from fastapi.exceptions import HTTPException
 
 from src.analytics.aggregation import (
@@ -47,7 +47,6 @@ from src.api.schemas.collection import (
     CollectionSummary,
     CollectionUpdateRequest,
     ImportResult,
-    LigaStatusResponse,
     ManualPriceRequest,
     ParsedLineResponse,
     PortfolioHistoryPoint,
@@ -74,7 +73,6 @@ from src.credits.constants import CARD_REFRESH_COST
 from src.credits.service import CreditService
 from src.database.repository import Repository
 from src.domain.models import CardAnalytics, User
-from src.providers.liga.urls import resolve_liga_card_url
 from src.services import ban_analyzer
 from src.services.collection_price_history import build_history
 from src.services.currency import CurrencyConverter
@@ -84,6 +82,30 @@ from src.utils.set_code_map import map_to_scryfall_set_code
 log = structlog.get_logger()
 
 router = APIRouter(prefix="/collection", tags=["collection"])
+
+
+def _safe_float(val: object) -> float | None:
+    """Convert a numeric value to float, returning None for non-numeric values."""
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_date_str(val: object) -> str | None:
+    """Convert a date/datetime to ISO string, returning None for invalid values."""
+    from datetime import date as _date
+    from datetime import datetime as _datetime
+
+    if val is None:
+        return None
+    if isinstance(val, (_date, _datetime)):
+        return val.isoformat()
+    if isinstance(val, str):
+        return val
+    return None
 
 
 def _encode_cursor(row_id: int) -> str:
@@ -198,6 +220,8 @@ def list_collection(
                 image_url=getattr(r, "image_uri", None)
                 or fallback_image_uri(r.set_code, r.collector_number)
                 or _scryfall_image_url(r.set_code, r.collector_number),
+                acquisition_price=_safe_float(getattr(r, "acquisition_price", None)),
+                acquired_at=_safe_date_str(getattr(r, "acquired_at", None)),
             )
         )
 
@@ -624,59 +648,6 @@ async def canonize_all(
     return success_response(data=data)
 
 
-@router.get("/liga-status", response_model=ApiResponse[LigaStatusResponse])
-def get_liga_status(
-    stale_days: int = Query(default=7, ge=1),
-    repo: Repository = Depends(get_db),
-    user_id: str = Depends(require_auth_or_api_key),
-):
-    """Get Liga price coverage stats for the user's collection."""
-    stats = repo.get_liga_coverage_stats(user_id, stale_days=stale_days)
-    data = LigaStatusResponse(**stats)
-    return success_response(data=data)
-
-
-@router.get("/liga-missing", response_model=ApiResponse[list[CollectionCard]])
-def list_liga_missing(
-    stale_days: int = Query(default=7, ge=1),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-    repo: Repository = Depends(get_db),
-    user_id: str = Depends(require_auth_or_api_key),
-):
-    """List collection cards missing or with stale Liga prices."""
-    cards, total = repo.get_liga_missing_cards(
-        user_id, stale_days=stale_days, limit=limit, offset=offset
-    )
-    data = [
-        CollectionCard(
-            id=c["id"],
-            card_id=c["card_id"],
-            set_code=c["set_code"],
-            collector_number=c["collector_number"],
-            name_en=c["name_en"],
-            name_pt=c["name_pt"],
-            set_name_en=c["set_name_en"],
-            quantity=c["quantity"],
-            quality=c["quality"],
-            language=c["language"],
-            rarity=c["rarity"],
-            color=c["color"],
-            extras=c["extras"],
-            image_url=c.get("image_uri")
-            or fallback_image_uri(c["set_code"], c["collector_number"])
-            or _scryfall_image_url(c["set_code"], c["collector_number"]),
-        )
-        for c in cards
-    ]
-    return paginated_response(
-        data=data,
-        cursor=None,
-        total=total,
-        offset=offset + limit if offset + limit < total else None,
-    )
-
-
 @router.patch("/bulk", response_model=ApiResponse[BulkUpdateResponse])
 def bulk_update_collection(
     request: BulkUpdateRequest,
@@ -812,7 +783,7 @@ def get_card_metrics(
 
     analytics = compute_card_analytics(
         all_prices,
-        source=all_prices[0].source if all_prices else "liga",
+        source=all_prices[0].source if all_prices else "unknown",
         external_id=all_prices[0].external_id if all_prices else "",
         period_days=days,
     )
@@ -1331,274 +1302,6 @@ async def refresh_card_price(
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
 
 
-@router.post("/{entry_id}/refresh-liga", response_model=ApiResponse[CollectionCardDetail])
-async def refresh_card_price_liga(
-    entry_id: int,
-    request: Request,
-    currency: str = Query(default="BRL", pattern="^(BRL|USD|PILA)$"),
-    repo: Repository = Depends(get_db),
-    converter: CurrencyConverter = Depends(get_currency_converter_dep),
-    user_id: str = Depends(require_auth_or_api_key),
-    user: User = Depends(get_current_user),
-    credit_svc: CreditService = Depends(get_credit_service),
-):
-    """Refresh a single card's price from LigaMagic in real-time."""
-    import traceback as _tb
-
-    from src.collectors.liga_url_recorder import record_liga_url
-    from src.domain.models import HistoricalPrice
-    from src.providers.liga.exceptions import (
-        LigaError,
-        LigaNotFoundError,
-        LigaRateLimitError,
-    )
-    from src.providers.liga.provider import LigaMagicProvider
-
-    # Credit guard — all users pay
-    if not credit_svc.check_sufficient(user.id, CARD_REFRESH_COST):
-        raise api_error(402, ErrorCode.CREDIT_INSUFFICIENT, "Not enough treasure tokens.")
-
-    entry = repo.get_collection_entry(entry_id)
-    if not entry or entry.user_id != user_id:
-        raise api_error(404, ErrorCode.RESOURCE_NOT_FOUND, "Collection entry not found")
-
-    card_name = entry.name_en or entry.name_pt
-    if not card_name:
-        raise api_error(
-            422,
-            ErrorCode.VALIDATION_ERROR,
-            "Card has no name (name_en or name_pt required for LigaMagic search)",
-        )
-
-    # Reuse singleton provider from registry (avoids Playwright resource conflicts)
-    registry = getattr(request.app.state, "provider_registry", None)
-    provider = None
-    if registry is not None:
-        provider = next(
-            (p for p in registry.providers if isinstance(p, LigaMagicProvider)),
-            None,
-        )
-    if provider is None:
-        # MYP fallback when Liga is unavailable (e.g. Render deployment)
-        log.info("liga_refresh_myp_fallback", entry_id=entry_id, card_name=card_name)
-        return await _refresh_via_myp_fallback(
-            entry,
-            entry_id,
-            card_name,
-            currency,
-            repo,
-            converter,
-            user_id,
-            user,
-            credit_svc,
-        )
-
-    log.debug("liga_refresh_start", entry_id=entry_id, card_name=card_name)
-
-    try:
-        prices = await provider.search_card(
-            card_name,
-            collector_number=entry.collector_number,
-        )
-    except LigaNotFoundError:
-        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(
-            ErrorDetail(code="liga_warning", message="Card not found on LigaMagic")
-        )
-        return response
-    except LigaRateLimitError:
-        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(
-            ErrorDetail(
-                code="liga_warning",
-                message="LigaMagic rate limited, try again later",
-            )
-        )
-        return response
-    except LigaError as exc:
-        log.warning(
-            "liga_refresh_error",
-            entry_id=entry_id,
-            error=str(exc),
-            exc_type=type(exc).__name__,
-        )
-        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(ErrorDetail(code="liga_warning", message=f"LigaMagic error: {exc}"))
-        return response
-    except Exception as exc:
-        msg = f"{type(exc).__name__}: {exc}" if str(exc) else f"{type(exc).__name__} (no details)"
-        log.warning(
-            "liga_refresh_unexpected_error",
-            entry_id=entry_id,
-            error=str(exc),
-            exc_type=type(exc).__name__,
-            traceback=_tb.format_exc(),
-        )
-        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(ErrorDetail(code="liga_warning", message=f"LigaMagic error: {msg}"))
-        return response
-
-    log.debug(
-        "liga_refresh_prices_received",
-        entry_id=entry_id,
-        card_name=card_name,
-        normal=prices.get("normal"),
-        foil=prices.get("foil"),
-    )
-
-    # Detect foil from collection entry extras field
-    is_foil = is_foil_entry(entry.extras)
-
-    # Extract price based on finish type
-    if is_foil:
-        foil_prices = prices.get("foil", {})
-        price = foil_prices.get("low") or foil_prices.get("mid") or foil_prices.get("high")
-    else:
-        normal = prices.get("normal", {})
-        price = normal.get("low") or normal.get("mid") or normal.get("high")
-
-    if price is None:
-        finish_label = "foil" if is_foil else "normal"
-        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(
-            ErrorDetail(
-                code="liga_warning",
-                message=f"No {finish_label} price found on LigaMagic for this card",
-            )
-        )
-        return response
-
-    # Auto-create canonical card if entry has no card_id
-    if entry.card_id is None:
-        card_id = repo.create_canonical_card(
-            game="magic",
-            name_en=entry.name_en or "Unknown",
-            name_pt=entry.name_pt,
-            set_code=entry.set_code,
-            collector_number=entry.collector_number,
-        )
-        repo.link_collection_entry(entry_id, card_id)
-        log.info("liga_refresh_auto_created_card", entry_id=entry_id, card_id=card_id)
-        # Reload entry to get card_id
-        entry = repo.get_collection_entry(entry_id)
-
-    ext_id = f"liga_{entry.card_id}_foil" if is_foil else f"liga_{entry.card_id}"
-    obs = HistoricalPrice(
-        source="liga",
-        external_id=ext_id,
-        observed_at=date.today(),
-        median_price=price,
-    )
-    repo.insert_price_observations([obs])
-    record_liga_url(repo, ext_id, prices.get("page_url"))
-    log.info(
-        "card_price_refreshed_liga",
-        entry_id=entry_id,
-        card_name=card_name,
-        price=str(price),
-        is_foil=is_foil,
-    )
-
-    # Deduct credit after successful refresh — all users pay
-    credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
-
-    return _build_collection_detail(entry_id, currency, repo, converter, user_id)
-
-
-async def _refresh_via_myp_fallback(
-    entry,
-    entry_id: int,
-    card_name: str,
-    currency: str,
-    repo: Repository,
-    converter: CurrencyConverter,
-    user_id: str,
-    user: User,
-    credit_svc: CreditService,
-) -> ApiResponse[CollectionCardDetail]:
-    """Fallback: refresh card price via MYP when Liga is unavailable."""
-    from src.domain.models import HistoricalPrice
-    from src.providers.myp.provider import MypCardsProvider
-
-    # If card has a linked MYP source, use JSON-LD price directly
-    if entry.card_id is not None:
-        source_cards = repo.get_source_cards_for_card(entry.card_id)
-        myp_sources = [sc for sc in source_cards if sc.source == "myp"]
-        if myp_sources:
-            sc = myp_sources[0]
-            slug = sc.url.rsplit("/", 1)[-1]
-            external_id = sc.external_id
-
-            provider = MypCardsProvider()
-            try:
-                jsonld = await provider.fetch_current_price(external_id, slug)
-            finally:
-                await provider.close()
-
-            if jsonld and jsonld.price and jsonld.price > 0:
-                obs = HistoricalPrice(
-                    source="jsonld_snapshot",
-                    external_id=external_id,
-                    observed_at=date.today(),
-                    median_price=jsonld.price,
-                )
-                repo.insert_price_observations([obs])
-                credit_svc.deduct(
-                    user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id)
-                )
-                return _build_collection_detail(entry_id, currency, repo, converter, user_id)
-
-    # No MYP source linked — try MYP search
-    provider = MypCardsProvider()
-    try:
-        search_results = await provider.search_card(card_name)
-    except Exception as exc:
-        log.warning("myp_fallback_search_failed", entry_id=entry_id, error=str(exc))
-        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(
-            ErrorDetail(code="liga_warning", message=f"Price refresh unavailable: {exc}")
-        )
-        return response
-    finally:
-        await provider.close()
-
-    if not search_results:
-        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(ErrorDetail(code="liga_warning", message="Card not found on MYP"))
-        return response
-
-    # Use first result to fetch price
-    best = search_results[0]
-    provider = MypCardsProvider()
-    try:
-        jsonld = await provider.fetch_current_price(best.external_id, best.slug)
-    except Exception as exc:
-        log.warning("myp_fallback_price_failed", entry_id=entry_id, error=str(exc))
-        response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-        response.errors.append(
-            ErrorDetail(code="liga_warning", message=f"MYP price fetch failed: {exc}")
-        )
-        return response
-    finally:
-        await provider.close()
-
-    if jsonld and jsonld.price and jsonld.price > 0:
-        ext_id = best.external_id
-        obs = HistoricalPrice(
-            source="jsonld_snapshot",
-            external_id=ext_id,
-            observed_at=date.today(),
-            median_price=jsonld.price,
-        )
-        repo.insert_price_observations([obs])
-        credit_svc.deduct(user.id, CARD_REFRESH_COST, "card_refresh", reference_id=str(entry_id))
-        return _build_collection_detail(entry_id, currency, repo, converter, user_id)
-
-    response = _build_collection_detail(entry_id, currency, repo, converter, user_id)
-    response.errors.append(ErrorDetail(code="liga_warning", message="No price available from MYP"))
-    return response
-
-
 def _build_collection_detail(
     entry_id: int,
     currency: str,
@@ -1632,26 +1335,9 @@ def _build_collection_detail(
         source_cards = repo.get_source_cards_for_card(entry.card_id)
         source_cards_data = [SourceCardSchema.model_validate(sc) for sc in source_cards]
 
-    # Use canonical card name from cards table for Liga URL (entry.name_en can be stale)
-    canonical_name = ""
-    if entry.card_id is not None:
-        card_row = repo.get_card_by_id(entry.card_id)
-        if card_row:
-            _cn = card_row.name_en or card_row.name or ""
-            if isinstance(_cn, str):
-                canonical_name = _cn
-    if not canonical_name:
-        canonical_name = entry.name_en or entry.name_pt or ""
-
     name = entry.name_en or entry.name_pt or ""
     scryfall_url = None
     is_foil = is_foil_entry(entry.extras)
-    ligamagic_url = resolve_liga_card_url(
-        card_id=entry.card_id,
-        is_foil=is_foil,
-        fallback_name=canonical_name or name,
-        lookup=repo.get_liga_card_url,
-    )
     if name:
         encoded_name = quote_plus(name)
         scryfall_q = encoded_name
@@ -1678,10 +1364,11 @@ def _build_collection_detail(
         price_source=price_source,
         currency=currency,
         image_url=image_url,
+        acquisition_price=_safe_float(getattr(entry, "acquisition_price", None)),
+        acquired_at=_safe_date_str(getattr(entry, "acquired_at", None)),
         price_history=[],
         source_cards=source_cards_data,
         scryfall_url=scryfall_url,
-        ligamagic_url=ligamagic_url,
     )
 
     return success_response(data=data)

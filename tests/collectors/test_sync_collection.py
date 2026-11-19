@@ -194,8 +194,14 @@ class TestRunSyncCollection:
         repo.upsert_card.assert_called_once()
         repo.upsert_source_card.assert_called_once()
         repo.insert_price_observations.assert_called_once()
-        repo.link_collection_entry.assert_called_once_with(1, 42)
-        repo.mark_errors_resolved.assert_called_once_with("myp", "1000")
+        # link_collection_entry may receive session= kwarg from transaction context
+        repo.link_collection_entry.assert_called_once()
+        call_args = repo.link_collection_entry.call_args
+        assert call_args[0] == (1, 42) or (call_args[0][0] == 1 and call_args[0][1] == 42)
+        # mark_errors_resolved may also receive session= kwarg
+        repo.mark_errors_resolved.assert_called_once()
+        me_args = repo.mark_errors_resolved.call_args
+        assert me_args[0] == ("myp", "1000")
 
     @patch("src.collectors.sync_collection.MypCardsProvider")
     @patch("src.collectors.sync_collection.Repository")
@@ -679,7 +685,9 @@ class TestRunSyncCollection:
         assert summary.matched == 1
         assert summary.observations_saved == 0
         # Card is still linked even with no history
-        repo.link_collection_entry.assert_called_once_with(1, 42)
+        repo.link_collection_entry.assert_called_once()
+        call_args = repo.link_collection_entry.call_args
+        assert call_args[0] == (1, 42) or (call_args[0][0] == 1 and call_args[0][1] == 42)
 
     @patch("src.collectors.sync_collection.MypCardsProvider")
     @patch("src.collectors.sync_collection.Repository")

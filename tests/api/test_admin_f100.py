@@ -115,49 +115,12 @@ class TestAuditLogEndpoint:
 
 
 class TestJobTriggerEndpoints:
-    def test_liga_scan_403_non_admin(self, nonadmin_client):
-        resp = nonadmin_client.post("/api/v1/admin/jobs/liga-scan")
-        assert resp.status_code == 403
-
-    @patch("src.collectors.admin_scan.run_admin_daily_liga_scan")
-    def test_liga_scan_returns_scan_id(self, mock_scan, admin_client):
-        """POST /admin/jobs/liga-scan returns scan_id and pending status."""
-        resp = admin_client.post("/api/v1/admin/jobs/liga-scan", params={"max_age_days": "2"})
-        assert resp.status_code == 200
-        body = resp.json()
-        assert "scan_id" in body["data"]
-        assert body["data"]["status"] == "pending"
-
-    def test_catalog_scan_403_non_admin(self, nonadmin_client):
-        resp = nonadmin_client.post("/api/v1/admin/jobs/catalog-scan", params={"set_code": "mh3"})
-        assert resp.status_code == 403
-
-    @patch("src.collectors.liga_sweep.run_liga_sweep")
-    def test_catalog_scan_returns_scan_id(self, mock_sweep, admin_client):
-        resp = admin_client.post(
-            "/api/v1/admin/jobs/catalog-scan",
-            params={"set_code": "mh3", "delay": "3.0"},
-        )
-        assert resp.status_code == 200
-        body = resp.json()
-        assert "scan_id" in body["data"]
-        assert body["data"]["set_code"] == "mh3"
-        assert body["data"]["status"] == "pending"
-
-    def test_catalog_scan_validates_set_code(self, admin_client):
-        """set_code must be at least 2 chars."""
-        resp = admin_client.post(
-            "/api/v1/admin/jobs/catalog-scan",
-            params={"set_code": "x"},
-        )
-        assert resp.status_code == 422
-
     def test_job_status_403_non_admin(self, nonadmin_client):
         resp = nonadmin_client.get("/api/v1/admin/jobs/status")
         assert resp.status_code == 403
 
     def test_job_status_returns_runs(self, admin_client, repo):
-        repo.create_scan_run("admin_liga_scan", "{}")
+        repo.create_scan_run("admin_daily_myp", "{}")
         resp = admin_client.get("/api/v1/admin/jobs/status")
         assert resp.status_code == 200
         body = resp.json()

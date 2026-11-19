@@ -202,7 +202,6 @@ class TestGetCollectionEntry:
         mock_repo = MagicMock()
         mock_repo.get_collection_entry.return_value = _make_collection_row()
         mock_repo.get_card_by_id.return_value = _make_card_row()
-        mock_repo.get_liga_card_url.return_value = None
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
 
@@ -216,11 +215,6 @@ class TestGetCollectionEntry:
         assert "scryfall.com" in data["scryfall_url"]
         assert "Lightning+Bolt" in data["scryfall_url"]
 
-        assert data["ligamagic_url"] is not None
-        assert "ligamagic.com.br" in data["ligamagic_url"]
-        assert "Lightning+Bolt" in data["ligamagic_url"]
-        assert "&show=1" in data["ligamagic_url"]
-
     def test_external_links_with_special_chars_in_name(self) -> None:
         """Card names with spaces and special chars are URL-encoded."""
         mock_repo = MagicMock()
@@ -231,7 +225,6 @@ class TestGetCollectionEntry:
         mock_repo.get_card_by_id.return_value = _make_card_row(
             name_en="Jace, the Mind Sculptor",
         )
-        mock_repo.get_liga_card_url.return_value = None
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
 
@@ -244,10 +237,6 @@ class TestGetCollectionEntry:
         # Scryfall URL should be URL-encoded
         assert data["scryfall_url"] is not None
         assert "Jace%2C+the+Mind+Sculptor" in data["scryfall_url"]
-        # LigaMagic URL should be URL-encoded and include &show=1
-        assert data["ligamagic_url"] is not None
-        assert "Jace%2C+the+Mind+Sculptor" in data["ligamagic_url"]
-        assert "&show=1" in data["ligamagic_url"]
 
     def test_no_external_links_when_name_is_empty(self) -> None:
         """Entry with no name_en and no name_pt produces null external links."""
@@ -260,7 +249,6 @@ class TestGetCollectionEntry:
             name_en=None,
             name=None,
         )
-        mock_repo.get_liga_card_url.return_value = None
         mock_repo.get_source_cards_for_card.return_value = []
         mock_repo.get_latest_prices_batch.return_value = {}
 
@@ -271,7 +259,6 @@ class TestGetCollectionEntry:
         data = resp.json()["data"]
 
         assert data["scryfall_url"] is None
-        assert data["ligamagic_url"] is None
 
     def test_variant_set_code_mapped_in_image_url(self) -> None:
         """Detail endpoint maps variant set codes in the image_url field."""

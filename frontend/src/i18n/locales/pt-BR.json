@@ -46,7 +46,6 @@
     "signOut": "Sair",
     "settings": "Configuracoes",
     "admin": "Administracao",
-    "ligaStatus": "Status Liga",
     "marketplace": "Marketplace",
     "evaluations": "Avaliacoes",
     "catalog": "Catalogo de Cartas",
@@ -92,10 +91,6 @@
     "filterAll": "Todas",
     "filterOwned": "Possui",
     "filterNotOwned": "Nao Possui",
-    "importPlaceholder": "Cole o link da Liga Magic...",
-    "importBtn": "Importar",
-    "importSuccess": "{{name}} enfileirado para atualizacao de preco",
-    "importError": "Falha ao importar carta",
     "clickToFetch": "Clique para buscar preco"
   },
   "admin": {
@@ -141,7 +136,6 @@
     "section": {
       "users": "Usuarios",
       "dashboard": "Dashboard",
-      "ligaStatus": "Status Liga",
       "schedules": "Agendamentos",
       "scans": "Scans de Preco",
       "operations": "Operacoes",
@@ -169,19 +163,15 @@
       "processingStarted": "Processamento iniciado. Atualize para ver os resultados.",
       "processingRunning": "Processando...",
       "noPending": "Nenhuma solicitacao pendente",
-      "localOnly": "Requer servidor local com acesso Liga"
+      "localOnly": "Requer servidor local"
     },
     "ops": {
-      "ligaScan": "Scan Liga Colecao",
-      "runLigaScan": "Executar Scan Liga",
-      "maxAgeDays": "Idade max (dias)",
       "catalogSweep": "Varredura Set Catalogo",
       "sweepSet": "Varrer Set",
       "setCode": "Codigo do set",
       "delay": "Atraso (s)",
       "dbBackup": "Backup do Banco",
       "downloadBackup": "Baixar Backup",
-      "confirmLigaScan": "Iniciar scan de precos Liga? Pode levar alguns minutos.",
       "confirmCatalogScan": "Iniciar scan do catalogo para este set? Pode levar alguns minutos.",
       "scanRunning": "Scan em execucao... pode levar alguns minutos",
       "jobStarted": "Job iniciado",
@@ -212,20 +202,6 @@
       "detail": "Detalhes do Erro",
       "extra": "Dados Extras",
       "line": "Linha"
-    },
-    "ligaStatus": {
-      "title": "Cobertura de Precos Liga",
-      "totalCards": "Total de Cards",
-      "ligaPriced": "Com Preco Liga",
-      "ligaMissing": "Sem Preco",
-      "ligaStale": "Desatualizado (>7d)",
-      "coverage": "Cobertura",
-      "scanAllMissing": "Escanear Faltantes",
-      "lastScan": "Ultimo Scan Liga",
-      "unlinked": "Nao Linkados",
-      "noMissing": "Todos os cards tem preco Liga!",
-      "colSet": "Edicao",
-      "colQty": "Qtd"
     }
   },
   "dashboard": {
@@ -273,7 +249,7 @@
     "setsLoadError": "Falha ao carregar filtro de edicoes",
     "searchWeb": "Busca Web",
     "localSearch": "Local",
-    "webSearchPlaceholder": "Buscar nome do card na Liga...",
+    "webSearchPlaceholder": "Buscar nome do card...",
     "searching": "Buscando...",
     "noWebResults": "Nenhum resultado encontrado",
     "addToCollection": "Adicionar a Colecao",
@@ -282,7 +258,7 @@
     "addToEvaluation": "Adicionar a Avaliacao",
     "searchCooldown": "Aguarde antes de buscar novamente",
     "webSearchCost": "Custa 1 token",
-    "ligaUnavailable": "Busca Liga indisponivel",
+    "ligaUnavailable": "Busca indisponivel",
     "comingSoon": "Em breve",
     "priceUpdateQueued": "Atualizacao solicitada",
     "priceUpdateQueuedDesc": "Sua solicitacao de atualizacao de preco esta na fila e sera processada em breve.",
@@ -306,7 +282,6 @@
     "lastUpdated": "Ultima atualizacao",
     "externalLinks": "Links Externos",
     "viewOnScryfall": "Ver no Scryfall",
-    "viewOnLigaMagic": "Ver no LigaMagic",
     "rarity": "Raridade",
     "addToCollection": "Adicionar a Colecao",
     "signInToAdd": "Entre para adicionar a colecao",
@@ -354,13 +329,6 @@
     "canonizeFailed": "{{failed}} cartas falharam",
     "canonizeScheduled": "Canonizacao agendada",
     "refreshFallbackHint": "Ultimo preco conhecido exibido. Use a entrada manual abaixo para atualizar.",
-    "refreshLiga": "LigaMagic",
-    "refreshLigaTooltip": "Buscar preço na LigaMagic (~10s)",
-    "refreshLigaSuccess": "Preço atualizado via LigaMagic",
-    "refreshLigaNotFound": "Carta não encontrada na LigaMagic",
-    "refreshLigaError": "Falha ao buscar na LigaMagic",
-    "refreshLigaRateLimit": "LigaMagic limitou requisições, tente depois",
-    "ligaErrorHint": "Tente o botao MYP como alternativa.",
     "maxAgeDays": "Ignorar escaneados recentemente",
     "maxAgeDaysOption1": "Ultimas 24 horas",
     "maxAgeDaysOption3": "Ultimos 3 dias",
@@ -786,17 +754,14 @@
   "card": {
     "foil": "Foil",
     "foilPrice": "Preco Foil",
-    "refreshLiga": "Atualizar Liga",
-    "refreshMyp": "Atualizar MYP (alternativo)",
+    "refreshMyp": "Atualizar Preco",
     "priceSource": {
-      "liga": "Liga",
       "myp": "MYP",
       "manual": "Manual"
     }
   },
   "scan": {
     "provider": {
-      "liga": "LigaMagic",
       "myp": "MYP Cards"
     },
     "streaming": {
@@ -1080,9 +1045,7 @@
       "auto": "Automatico"
     }
   },
-  "priceSource": {
-    "liga": "LigaMagic"
-  },
+  "priceSource": {},
   "settings": {
     "title": "Configuracoes",
     "account": "Conta",
@@ -1274,7 +1237,7 @@
     "exploreCards": "Explorar Cards",
     "runScan": "Executar Scan de Precos",
     "collectionEmptyTitle": "Comece a montar sua colecao",
-    "collectionEmptyDesc": "Importe um CSV da LigaMagic ou adicione cards manualmente para rastrear precos e valor.",
+    "collectionEmptyDesc": "Importe um CSV ou adicione cards manualmente para rastrear precos e valor.",
     "evalEmptyDesc": "Pesquise cards em Explorar e adicione aqui para avaliar antes de comprar.",
     "dismiss": "Dispensar"
   },
@@ -1298,7 +1261,7 @@
   "arbitrage": {
     "best": "Melhor: {{source}} -{{gap}}%",
     "sourceOnly": "Apenas {{source}}",
-    "tooltip": "Liga: {{liga}} | TCG: {{tcg}}"
+    "tooltip": "MYP: {{myp}} | TCG: {{tcg}}"
   },
   "alerts": {
     "title": "Alertas de Preco",
@@ -1518,7 +1481,7 @@
     "breadcrumbCollection": "Colecao",
     "breadcrumbImport": "Importar Compras",
     "dropZoneText": "Arraste arquivos HTML aqui ou clique para selecionar",
-    "dropZoneHint": "Aceita arquivos .html e .htm do Nerdz Cards e Liga Magic",
+    "dropZoneHint": "Aceita arquivos .html e .htm do Nerdz Cards",
     "onlyHtmlAccepted": "Apenas arquivos .html e .htm sao aceitos",
     "remove": "Remover",
     "overwriteLabel": "Sobrescrever precos de aquisicao existentes",
@@ -1589,12 +1552,11 @@
     "variantLabel": "Versão do card: {{variant}}",
     "sources": "Fontes",
     "since": "Histórico desde {{date}}",
-    "sourceLiga": "Liga",
     "sourceMyp": "MYP",
     "sourceManual": "Manual",
     "sourceJsonld": "JSON-LD",
     "sourceSnapshot": "Snapshot diário",
-    "emptyNeverCollected": "Ainda não há preços registrados para esta versão ({{variant}}). O histórico começa na próxima varredura Liga.",
+    "emptyNeverCollected": "Ainda não há preços registrados para esta versão ({{variant}}). O histórico começa na próxima varredura de preços.",
     "emptyPeriod": "Sem pontos neste período. Histórico desde {{date}} — tente um período maior.",
     "snapshotPoint": "Preço repetido (sem nova coleta neste dia)",
     "realVsSnapshot": "{{real}} coletas reais · {{snapshot}} dias repetidos"

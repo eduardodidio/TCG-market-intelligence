@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import structlog
 
 from src.domain.interfaces import CardSourceProvider
@@ -85,36 +83,8 @@ class ProviderRegistry:
 
 
 def create_registry_from_env() -> ProviderRegistry:
-    """Create registry based on TCG_PROVIDER_ORDER env var.
+    """Create registry with MYP as the sole provider."""
+    from src.providers.myp.provider import MypCardsProvider
 
-    Default order: ``liga,myp`` (LigaMagic first, MYP fallback).
-    Set ``TCG_PROVIDER_ORDER=myp`` to use only MYP.
-    """
-    order = os.environ.get("TCG_PROVIDER_ORDER", "liga,myp").split(",")
-
-    providers: list[CardSourceProvider] = []
-    for name in order:
-        name = name.strip()
-        if name == "liga":
-            from src.config import is_liga_disabled
-
-            if is_liga_disabled():
-                log.warning("liga_provider_disabled", reason="TCG_LIGA_DISABLED=1")
-                continue
-            try:
-                from src.providers.liga.provider import LigaMagicProvider
-
-                providers.append(LigaMagicProvider())
-            except ImportError:
-                log.warning(
-                    "liga_provider_unavailable",
-                    reason="playwright not installed",
-                )
-        elif name == "myp":
-            from src.providers.myp.provider import MypCardsProvider
-
-            providers.append(MypCardsProvider())
-        else:
-            log.warning("unknown_provider", name=name)
-
+    providers: list[CardSourceProvider] = [MypCardsProvider()]
     return ProviderRegistry(providers)

@@ -38,7 +38,7 @@ describe("useCollectionRefresh", () => {
     expect(lastTriggerRequest).toBeTruthy();
     expect(lastTriggerRequest!.max_age_days).toBe(3);
     expect(lastTriggerRequest!.scan_type).toBe("collection");
-    expect(lastTriggerRequest!.provider).toBe("liga");
+    expect(lastTriggerRequest!.provider).toBe("myp");
   });
 
   it("does not include max_age_days when not provided", async () => {

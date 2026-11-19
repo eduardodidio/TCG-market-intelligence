@@ -3,7 +3,7 @@
  *
  * Heuristic:
  * - set_code starting with "p" and length >= 4 (e.g. "pone", "pltr", "pmkm")
- *   follows Liga Magic's p{base_set} convention for promo sets.
+ *   follows the p{base_set} convention for promo sets.
  *   Short set codes like "pip" (3 chars) are real sets, not promo prefixes.
  * - extras field containing "promo" (case-insensitive)
  */

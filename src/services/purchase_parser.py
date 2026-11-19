@@ -1,13 +1,10 @@
-"""Parse purchase HTML files from Nerdz Cards and Liga Magic.
+"""Parse purchase HTML files from Nerdz Cards.
 
 Extracts card purchase data (name, set, quantity, unit price, order date)
-from saved HTML files.  Two formats are supported:
+from saved HTML files.
 
-1. **Nerdz Cards** -- individual order pages (``Pedido #XXXXXXX``).
-2. **Liga Magic "Meus Pedidos"** -- aggregate page with multiple orders.
-
-The public entry point is :func:`parse_purchase_html` which auto-detects
-the format and returns a list of :class:`ParsedOrder`.
+The public entry point is :func:`parse_purchase_html` which parses a
+Nerdz Cards order page and returns a list of :class:`ParsedOrder`.
 """
 
 from __future__ import annotations
@@ -78,8 +75,8 @@ def parse_brl_price(text: str) -> Decimal:
 def parse_price_with_currency(text: str) -> tuple[Decimal, str]:
     """Parse a price and its currency, defaulting to BRL when no symbol.
 
-    Liga Magic and Nerdz Cards are Brazilian stores, so the absence of a
-    currency symbol means BRL; a detected ``USD``/``EUR`` symbol is kept.
+    Nerdz Cards is a Brazilian store, so the absence of a currency symbol
+    means BRL; a detected ``USD``/``EUR`` symbol is kept.
     """
     amount, symbol = parse_money(text, hint="BRL")
     return (amount if amount is not None else Decimal("0")), (symbol or "BRL")
@@ -303,235 +300,12 @@ def parse_nerdz_order(soup: BeautifulSoup, filename: str) -> ParsedOrder:
 
 
 # ---------------------------------------------------------------------------
-# Liga Magic parser
-# ---------------------------------------------------------------------------
-
-_DATE_RE = re.compile(r"(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2})")
-_ED_RE = re.compile(r"ed=([A-Za-z0-9]+)")
-
-
-def _parse_liga_card_row(
-    row: Tag,
-    order_number: str,
-    order_date: date | None,
-    store_name: str,
-    source_file: str,
-) -> ParsedPurchaseItem | None:
-    """Parse a single card row from an expanded Liga order."""
-    # --- Card name ---
-    card_name_pt: str | None = None
-    card_name_en: str | None = None
-
-    cardtitle_p = row.select_one("p.cardtitle a, p[cardtitle] a")
-    if cardtitle_p:
-        raw_name = cardtitle_p.get_text(strip=True)
-        card_name_pt, card_name_en = _split_bilingual_name(raw_name)
-    else:
-        return None
-
-    # --- Set code ---
-    set_code: str | None = None
-    edition_td = row.select_one("td[editioncard] a")
-    if edition_td:
-        href = edition_td.get("href", "")
-        ed_match = _ED_RE.search(href)
-        if ed_match:
-            set_code = ed_match.group(1).upper()
-    # Fallback: from edition icon href or text
-    if not set_code:
-        edition_link = row.select_one("td[editioncard] a")
-        if edition_link:
-            link_text = edition_link.get_text(strip=True)
-            # Try to extract ed= from card link within text like "ed=DTK"
-            ed_match2 = _ED_RE.search(link_text)
-            if ed_match2:
-                set_code = ed_match2.group(1).upper()
-
-    # --- Set name ---
-    set_name: str | None = None
-    icon_img = row.select_one("img.icon-edicao")
-    if icon_img:
-        set_name = icon_img.get("title")
-    if not set_name:
-        set_label = row.select_one("td.label.hidden-md a")
-        if set_label:
-            set_name = set_label.get_text(strip=True)
-
-    # --- Language ---
-    language: str | None = None
-    lang_td = row.select_one("td[languagecard] img")
-    if lang_td:
-        alt = (lang_td.get("alt") or "").strip()
-        if "portugu" in alt.lower():
-            language = "PT"
-        elif "ingl" in alt.lower():
-            language = "EN"
-    # Check sibling label
-    if language is None:
-        for td_el in row.select("td.label"):
-            txt = td_el.get_text(strip=True)
-            if txt in ("PT", "EN"):
-                language = txt
-                break
-
-    # --- Quality ---
-    quality: str | None = None
-    quality_td = row.select_one("td[qualitycard]")
-    if quality_td:
-        quality = quality_td.get_text(strip=True)
-        # May contain an anchor with title
-        quality_a = quality_td.select_one("a")
-        if quality_a:
-            title = quality_a.get("title", "")
-            code = _extract_quality_code(title)
-            if code:
-                quality = code
-            else:
-                quality = quality_a.get_text(strip=True)
-
-    # --- Quantity ---
-    quantity = 1
-    qty_div = row.select_one("div.item-estoque")
-    if qty_div:
-        qty_text = qty_div.get_text(strip=True)
-        m = re.match(r"(\d+)", qty_text)
-        if m:
-            quantity = int(m.group(1))
-
-    # --- Unit price ---
-    unit_price = Decimal("0")
-    currency = "BRL"
-    price_div = row.select_one("div.item-subpreco")
-    if price_div:
-        unit_price, currency = parse_price_with_currency(price_div.get_text(strip=True))
-
-    # --- Foil / extras (Liga orders don't typically have extras in the HTML) ---
-    extras: list[str] = []
-    is_foil = False
-
-    return ParsedPurchaseItem(
-        card_name_pt=card_name_pt,
-        card_name_en=card_name_en,
-        set_name=set_name,
-        set_code=set_code,
-        collector_number=None,  # Liga doesn't show collector number
-        language=language,
-        quality=quality,
-        quantity=quantity,
-        unit_price=unit_price,
-        is_foil=is_foil,
-        extras=extras,
-        order_number=order_number,
-        order_date=order_date,
-        store_name=store_name,
-        source_file=source_file,
-        currency=currency,
-    )
-
-
-def parse_liga_orders(soup: BeautifulSoup, filename: str) -> list[ParsedOrder]:
-    """Parse all expanded orders from a Liga Magic "Meus Pedidos" page."""
-    orders: list[ParsedOrder] = []
-    warnings: list[str] = []
-
-    for box in soup.select("div.boxshadow.conteudo.box-interna"):
-        # --- Order number ---
-        order_num_tag = box.select_one("font.titleorder")
-        order_number = order_num_tag.get_text(strip=True) if order_num_tag else ""
-
-        # --- Order date ---
-        order_date: date | None = None
-        date_tag = box.select_one("font.titledate")
-        if date_tag:
-            date_text = date_tag.get_text(strip=True)
-            m = _DATE_RE.search(date_text)
-            if m:
-                try:
-                    dt = datetime.strptime(f"{m.group(1)} {m.group(2)}", "%d/%m/%Y %H:%M")
-                    order_date = dt.date()
-                except ValueError:
-                    pass
-
-        # --- Find sub-orders (each store is a separate div.infovendas) ---
-        store_divs = box.select("div.row.infovendas")
-        if not store_divs:
-            # Might be a direct order (not MP)
-            continue
-
-        for store_div in store_divs:
-            # --- Store name ---
-            store_label = store_div.select_one("div.venda-store label.title")
-            store_name = store_label.get_text(strip=True) if store_label else "Liga Magic"
-            # Clean store name: remove trailing badge images text
-            store_name = store_name.split("\n")[0].strip()
-
-            # --- Store order number ---
-            store_order_tag = store_div.select_one("div.venda-store label.aux a")
-            store_order_num = (
-                store_order_tag.get_text(strip=True) if store_order_tag else order_number
-            )
-
-            # Find the card container for this store: next sibling with meucarrinho
-            pedido_id_tag = store_div.get("id", "")
-            # The id is like "pedido_main_11752528"
-            pedido_id = pedido_id_tag.replace("pedido_main_", "")
-
-            # The card data is in div#venda_{pedido_id}
-            card_container = box.select_one(f"div#venda_{pedido_id}")
-            if card_container is None:
-                warnings.append(f"Order {store_order_num} has no expanded card data (Liga format)")
-                continue
-
-            # Check if it's a loading spinner (not expanded)
-            loading_div = card_container.select_one("div.loading-itens")
-            meucarrinho = card_container.select_one("div#meucarrinho")
-            if meucarrinho is None and loading_div is not None:
-                warnings.append(f"Order {store_order_num} has no expanded card data (Liga format)")
-                continue
-
-            if meucarrinho is None:
-                continue
-
-            # --- Parse card rows ---
-            items: list[ParsedPurchaseItem] = []
-            itens_div = meucarrinho.select_one("div.itens")
-            if itens_div is None:
-                continue
-
-            for card_row in itens_div.select("div.row"):
-                # Skip header/footer rows
-                if "header" in card_row.get("class", []):
-                    continue
-                if "footer" in card_row.get("class", []):
-                    continue
-
-                item = _parse_liga_card_row(
-                    card_row, store_order_num, order_date, store_name, filename
-                )
-                if item is not None:
-                    items.append(item)
-
-            if items:
-                orders.append(
-                    ParsedOrder(
-                        order_number=store_order_num,
-                        order_date=order_date,
-                        store_name=store_name,
-                        items=items,
-                        source_file=filename,
-                    )
-                )
-
-    return orders
-
-
-# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
 
 def parse_purchase_html(html_content: str, filename: str) -> list[ParsedOrder]:
-    """Auto-detect format and parse.  Returns list of orders.
+    """Parse a Nerdz Cards order page.  Returns list of orders.
 
     Raises :class:`ValueError` if the HTML format is unrecognised.
     """
@@ -540,7 +314,5 @@ def parse_purchase_html(html_content: str, filename: str) -> list[ParsedOrder]:
 
     if "Nerdz Cards" in (title or "") or "nerdzcards" in html_content[:2000]:
         return [parse_nerdz_order(soup, filename)]
-    elif "LigaMagic" in (title or "") or "Meus Pedidos" in (title or ""):
-        return parse_liga_orders(soup, filename)
     else:
         raise ValueError(f"Unrecognized HTML format in {filename}")

@@ -23,7 +23,7 @@ vi.mock("recharts", () => ({
   ReferenceLine: () => null,
 }));
 
-function obs(date: string, source: string | null = "liga"): PriceObservation {
+function obs(date: string, source: string | null = "myp"): PriceObservation {
   return {
     observed_at: date,
     median_price: 10,
@@ -37,7 +37,7 @@ function obs(date: string, source: string | null = "liga"): PriceObservation {
 
 const META: PriceHistoryMeta = {
   variant: "foil",
-  sources: ["liga", "daily_snapshot"],
+  sources: ["myp", "daily_snapshot"],
   first_observed_at: "2026-09-10",
   last_observed_at: "2026-09-12",
   real_points: 2,
@@ -141,7 +141,7 @@ describe("ChartTooltip", () => {
   });
 
   it("does not show snapshot text for real points", () => {
-    renderTooltip(obs("2026-09-11", "liga"));
+    renderTooltip(obs("2026-09-11", "myp"));
     expect(screen.queryByTestId("tooltip-snapshot-point")).not.toBeInTheDocument();
   });
 

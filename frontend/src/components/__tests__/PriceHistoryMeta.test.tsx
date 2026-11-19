@@ -10,7 +10,7 @@ import ptBR from "../../i18n/locales/pt-BR.json";
 function makeMeta(overrides: Partial<PriceHistoryMetaData> = {}): PriceHistoryMetaData {
   return {
     variant: "foil",
-    sources: ["liga", "daily_snapshot"],
+    sources: ["myp", "daily_snapshot"],
     first_observed_at: "2026-09-10",
     last_observed_at: "2026-09-24",
     real_points: 5,
@@ -36,7 +36,7 @@ describe("PriceHistoryMeta", () => {
     expect(badge).toHaveTextContent("Foil");
     expect(badge).toHaveAttribute("aria-label", expect.stringContaining("Foil"));
     const sources = screen.getByTestId("price-history-sources");
-    expect(sources).toHaveTextContent("Liga");
+    expect(sources).toHaveTextContent("MYP");
     expect(sources).toHaveTextContent("Daily snapshot");
     expect(screen.getByTestId("price-history-since")).toHaveTextContent("History since 10/09");
     expect(screen.getByTestId("price-history-points")).toHaveTextContent("5 real collections · 9 repeated days");
@@ -109,7 +109,7 @@ describe("formatHistoryDate", () => {
 
 describe("priceHistory i18n keys", () => {
   const required = [
-    "variantFoil", "variantNormal", "sources", "since", "sourceLiga", "sourceMyp",
+    "variantFoil", "variantNormal", "sources", "since", "sourceMyp",
     "sourceManual", "sourceJsonld", "sourceSnapshot", "emptyNeverCollected",
     "emptyPeriod", "snapshotPoint", "realVsSnapshot",
   ];

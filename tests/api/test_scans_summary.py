@@ -29,7 +29,7 @@ class TestParseErrorCounts:
             "Sol Ring: NotFoundError: card not found on MYP",
             "Lightning Bolt: NotFoundError: 404",
             "Black Lotus: RateLimitError: 429 too many requests",
-            "Mox Pearl: LigaError: unexpected response",
+            "Mox Pearl: RuntimeError: unexpected response",
         ]
         result = _parse_error_counts(json.dumps(errors))
         assert result == {"not_found": 2, "rate_limited": 1}

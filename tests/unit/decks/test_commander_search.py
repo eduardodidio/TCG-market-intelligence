@@ -300,8 +300,8 @@ def _price(repo: Repository, card_ids: list[int], value: str) -> None:
         repo,
         *[
             PriceObservationRow(
-                source="liga",
-                external_id=f"liga_{cid}",
+                source="myp",
+                external_id=f"myp_{cid}",
                 observed_at=date(2026, 9, 1),
                 median_price=Decimal(value),
             )

@@ -72,7 +72,9 @@ def _add_observation(
 class TestLigaOnlyCard:
     def test_card_only_liga_returns_points(self, repo, client):
         card_id = _make_card(repo, "Liga Only Card")
-        _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=5), Decimal("10.00"))
+        _add_observation(
+            repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=5), Decimal("10.00")
+        )
 
         resp = client.get(f"/cards/{card_id}/history")
 
@@ -85,7 +87,9 @@ class TestLigaOnlyCard:
 class TestVariantIsolation:
     def test_normal_series_never_includes_foil(self, repo, client):
         card_id = _make_card(repo, "Foil Mixed Card")
-        _add_observation(repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=3), Decimal("20.00"))
+        _add_observation(
+            repo, "liga", f"liga_{card_id}", TODAY - timedelta(days=3), Decimal("20.00")
+        )
         _add_observation(
             repo, "liga", f"liga_{card_id}_foil", TODAY - timedelta(days=3), Decimal("99.00")
         )
@@ -111,7 +115,7 @@ class TestVariantIsolation:
 
 
 class TestSourcePriorityMerge:
-    def test_liga_beats_myp_on_same_day(self, repo, client):
+    def test_myp_beats_liga_on_same_day(self, repo, client):
         card_id = _make_card(repo, "Multi Source Card")
         with Session(repo.engine) as session:
             session.add(
@@ -134,7 +138,7 @@ class TestSourcePriorityMerge:
 
         observations = resp.json()["data"]["observations"]
         assert len(observations) == 1
-        assert observations[0]["median_price"] == "15.00"
+        assert observations[0]["median_price"] == "12.00"
 
 
 class TestManualPriority:

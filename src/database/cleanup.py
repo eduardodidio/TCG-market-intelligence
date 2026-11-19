@@ -36,7 +36,7 @@ log = structlog.get_logger()
 # Clear prices by source
 # ---------------------------------------------------------------------------
 
-PROTECTED_SOURCES = {"liga", "manual"}
+PROTECTED_SOURCES = {"myp", "manual"}
 
 
 @dataclass
@@ -58,7 +58,7 @@ def clear_prices_by_source(
     """Delete all price_observations for a given source.
 
     Safety rules:
-    - Refuses to delete protected sources (liga, manual).
+    - Refuses to delete protected sources (myp, manual).
     - Creates a backup before deleting (unless *skip_backup*).
     - Runs VACUUM after deletion to reclaim space.
     - Does NOT touch scan_runs (preserves audit trail).

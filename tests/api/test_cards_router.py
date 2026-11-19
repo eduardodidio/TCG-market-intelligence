@@ -257,7 +257,8 @@ class TestGetHistory:
 
     def test_specific_period(self, test_app):
         client, ids = test_app
-        resp = client.get(f"/cards/{ids['c2']}/history?period=30d")
+        # Use 1y period to ensure seeded observations (from 2026-09) are within range
+        resp = client.get(f"/cards/{ids['c2']}/history?period=1y")
         assert resp.status_code == 200
         body = resp.json()
         observations = body["data"]["observations"]

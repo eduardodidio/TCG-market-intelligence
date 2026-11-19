@@ -184,13 +184,16 @@ describe("AdminPanel", () => {
     expect(screen.getByTestId("page-admin-panel")).toBeInTheDocument();
   });
 
-  it("renders 5 accordion sections", () => {
+  it("renders 8 accordion sections", () => {
     renderPage();
     expect(screen.getByTestId("accordion-users")).toBeInTheDocument();
     expect(screen.getByTestId("accordion-dashboard")).toBeInTheDocument();
-    expect(screen.getByTestId("accordion-liga-status")).toBeInTheDocument();
     expect(screen.getByTestId("accordion-schedules")).toBeInTheDocument();
     expect(screen.getByTestId("accordion-price-scans")).toBeInTheDocument();
+    expect(screen.getByTestId("accordion-operations")).toBeInTheDocument();
+    expect(screen.getByTestId("accordion-application-errors")).toBeInTheDocument();
+    expect(screen.getByTestId("accordion-price-requests")).toBeInTheDocument();
+    expect(screen.getByTestId("accordion-audit-log")).toBeInTheDocument();
   });
 
   it("default open section is users", async () => {

@@ -23,7 +23,7 @@ _MAX_WARNINGS = 20
 
 
 def _detect_encoding(file_path: Path) -> str:
-    """Try UTF-8 first (with BOM), fall back to cp1252 for Liga exports."""
+    """Try UTF-8 first (with BOM), fall back to cp1252 for legacy exports."""
     raw = file_path.read_bytes()
     try:
         raw.decode("utf-8-sig")

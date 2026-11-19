@@ -46,7 +46,6 @@
     "signOut": "Sign out",
     "settings": "Settings",
     "admin": "Admin",
-    "ligaStatus": "Liga Status",
     "marketplace": "Marketplace",
     "evaluations": "Evaluations",
     "catalog": "Card Catalog",
@@ -92,10 +91,6 @@
     "filterAll": "All",
     "filterOwned": "Owned",
     "filterNotOwned": "Not Owned",
-    "importPlaceholder": "Paste Liga Magic URL...",
-    "importBtn": "Import",
-    "importSuccess": "{{name}} queued for price update",
-    "importError": "Failed to import card",
     "clickToFetch": "Click to fetch price"
   },
   "admin": {
@@ -141,7 +136,6 @@
     "section": {
       "users": "Users",
       "dashboard": "Dashboard",
-      "ligaStatus": "Liga Status",
       "schedules": "Schedules",
       "scans": "Price Scans",
       "operations": "Operations",
@@ -169,19 +163,15 @@
       "processingStarted": "Processing started. Refresh to see updates.",
       "processingRunning": "Processing...",
       "noPending": "No pending requests",
-      "localOnly": "Requires local server with Liga access"
+      "localOnly": "Requires local server"
     },
     "ops": {
-      "ligaScan": "Liga Collection Scan",
-      "runLigaScan": "Run Liga Scan",
-      "maxAgeDays": "Max age (days)",
       "catalogSweep": "Catalog Set Sweep",
       "sweepSet": "Sweep Set",
       "setCode": "Set code",
       "delay": "Delay (s)",
       "dbBackup": "Database Backup",
       "downloadBackup": "Download Backup",
-      "confirmLigaScan": "Start Liga price scan? This may take several minutes.",
       "confirmCatalogScan": "Start catalog scan for this set? This may take several minutes.",
       "scanRunning": "Scan running... this may take a few minutes",
       "jobStarted": "Job started",
@@ -212,20 +202,6 @@
       "detail": "Error Detail",
       "extra": "Extra Data",
       "line": "Line"
-    },
-    "ligaStatus": {
-      "title": "Liga Price Coverage",
-      "totalCards": "Total Cards",
-      "ligaPriced": "Liga Priced",
-      "ligaMissing": "Missing",
-      "ligaStale": "Stale (>7d)",
-      "coverage": "Coverage",
-      "scanAllMissing": "Scan All Missing",
-      "lastScan": "Last Liga Scan",
-      "unlinked": "Unlinked",
-      "noMissing": "All cards have Liga prices!",
-      "colSet": "Set",
-      "colQty": "Qty"
     }
   },
   "dashboard": {
@@ -273,7 +249,7 @@
     "setsLoadError": "Failed to load sets filter",
     "searchWeb": "Web Search",
     "localSearch": "Local",
-    "webSearchPlaceholder": "Search card name on Liga...",
+    "webSearchPlaceholder": "Search card name...",
     "searching": "Searching...",
     "noWebResults": "No results found",
     "addToCollection": "Add to Collection",
@@ -282,7 +258,7 @@
     "addToEvaluation": "Add to Evaluation",
     "searchCooldown": "Wait before searching again",
     "webSearchCost": "Costs 1 token",
-    "ligaUnavailable": "Liga search unavailable",
+    "ligaUnavailable": "Search unavailable",
     "comingSoon": "Coming soon",
     "priceUpdateQueued": "Update requested",
     "priceUpdateQueuedDesc": "Your price update request is in the queue and will be processed shortly.",
@@ -306,7 +282,6 @@
     "lastUpdated": "Last updated",
     "externalLinks": "External Links",
     "viewOnScryfall": "View on Scryfall",
-    "viewOnLigaMagic": "View on LigaMagic",
     "rarity": "Rarity",
     "addToCollection": "Add to Collection",
     "signInToAdd": "Sign in to add to collection",
@@ -354,13 +329,6 @@
     "canonizeFailed": "{{failed}} cards failed",
     "canonizeScheduled": "Canonization scheduled",
     "refreshFallbackHint": "Last known price shown. Use manual entry below to update.",
-    "refreshLiga": "LigaMagic",
-    "refreshLigaTooltip": "Fetch price from LigaMagic (~10s)",
-    "refreshLigaSuccess": "Price updated from LigaMagic",
-    "refreshLigaNotFound": "Card not found on LigaMagic",
-    "refreshLigaError": "LigaMagic fetch failed",
-    "refreshLigaRateLimit": "LigaMagic rate limited, try later",
-    "ligaErrorHint": "Try the MYP refresh button as fallback.",
     "maxAgeDays": "Skip recently scanned",
     "maxAgeDaysOption1": "Last 24 hours",
     "maxAgeDaysOption3": "Last 3 days",
@@ -786,17 +754,14 @@
   "card": {
     "foil": "Foil",
     "foilPrice": "Foil price",
-    "refreshLiga": "Refresh Liga",
-    "refreshMyp": "Refresh MYP (fallback)",
+    "refreshMyp": "Refresh Price",
     "priceSource": {
-      "liga": "Liga",
       "myp": "MYP",
       "manual": "Manual"
     }
   },
   "scan": {
     "provider": {
-      "liga": "LigaMagic",
       "myp": "MYP Cards"
     },
     "streaming": {
@@ -1080,9 +1045,7 @@
       "auto": "Automatic"
     }
   },
-  "priceSource": {
-    "liga": "LigaMagic"
-  },
+  "priceSource": {},
   "settings": {
     "title": "Settings",
     "account": "Account",
@@ -1274,7 +1237,7 @@
     "exploreCards": "Explore Cards",
     "runScan": "Run Price Scan",
     "collectionEmptyTitle": "Start building your collection",
-    "collectionEmptyDesc": "Import a CSV from LigaMagic or add cards manually to begin tracking prices and value.",
+    "collectionEmptyDesc": "Import a CSV or add cards manually to begin tracking prices and value.",
     "evalEmptyDesc": "Search for cards in Explore and add them here to evaluate before buying.",
     "dismiss": "Dismiss"
   },
@@ -1298,7 +1261,7 @@
   "arbitrage": {
     "best": "Best: {{source}} -{{gap}}%",
     "sourceOnly": "{{source}} only",
-    "tooltip": "Liga: {{liga}} | TCG: {{tcg}}"
+    "tooltip": "MYP: {{myp}} | TCG: {{tcg}}"
   },
   "alerts": {
     "title": "Price Alerts",
@@ -1518,7 +1481,7 @@
     "breadcrumbCollection": "Collection",
     "breadcrumbImport": "Import Purchases",
     "dropZoneText": "Drop HTML files here or click to browse",
-    "dropZoneHint": "Accepts .html and .htm files from Nerdz Cards and Liga Magic",
+    "dropZoneHint": "Accepts .html and .htm files from Nerdz Cards",
     "onlyHtmlAccepted": "Only .html and .htm files are accepted",
     "remove": "Remove",
     "overwriteLabel": "Overwrite existing acquisition prices",
@@ -1589,12 +1552,11 @@
     "variantLabel": "Card version: {{variant}}",
     "sources": "Sources",
     "since": "History since {{date}}",
-    "sourceLiga": "Liga",
     "sourceMyp": "MYP",
     "sourceManual": "Manual",
     "sourceJsonld": "JSON-LD",
     "sourceSnapshot": "Daily snapshot",
-    "emptyNeverCollected": "No prices recorded for this version ({{variant}}) yet. History starts with the next Liga sweep.",
+    "emptyNeverCollected": "No prices recorded for this version ({{variant}}) yet. History starts with the next price scan.",
     "emptyPeriod": "No points in this period. History since {{date}} — try a longer period.",
     "snapshotPoint": "Repeated price (no new collection on this day)",
     "realVsSnapshot": "{{real}} real collections · {{snapshot}} repeated days"

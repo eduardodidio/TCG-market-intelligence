@@ -179,11 +179,10 @@ async def trigger_scan(
     credit_svc: CreditService = Depends(get_credit_service),
 ):
     """Trigger a new collection price scan in a background thread."""
-    from src.collectors.liga_scan import run_liga_scan
     from src.collectors.scan import run_scan
 
     db_url = _get_db_url()
-    provider_name = request.provider if request.provider in ("liga", "myp") else "liga"
+    provider_name = request.provider if request.provider == "myp" else "myp"
 
     scan_filter = ScanFilter(
         scan_type=ScanType(request.scan_type),
@@ -221,28 +220,16 @@ async def trigger_scan(
     def _run() -> None:
         from src.services.scan_hooks import default_registry
 
-        if provider_name == "liga":
-            asyncio.run(
-                run_liga_scan(
-                    db_url=db_url,
-                    scan_filter=scan_filter,
-                    dry_run=request.dry_run,
-                    run_id=scan_id,
-                    on_complete=default_registry.notify,
-                    max_age_days=request.max_age_days,
-                )
+        asyncio.run(
+            run_scan(
+                db_url=db_url,
+                scan_filter=scan_filter,
+                dry_run=request.dry_run,
+                run_id=scan_id,
+                on_complete=default_registry.notify,
+                provider_name=provider_name,
             )
-        else:
-            asyncio.run(
-                run_scan(
-                    db_url=db_url,
-                    scan_filter=scan_filter,
-                    dry_run=request.dry_run,
-                    run_id=scan_id,
-                    on_complete=default_registry.notify,
-                    provider_name=provider_name,
-                )
-            )
+        )
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()

@@ -24,7 +24,7 @@ from src.database.models import (
     EvaluationEntryRow,
     ExchangeRateRow,
     LegalityHistoryRow,
-    LigaCardUrlRow,  # noqa: F401 (needed for create_all)
+    LigaCardUrlRow,  # noqa: F401 (needed for create_all, table kept for data compat)
     NewsItemRow,  # noqa: F401 (needed for create_all)
     PortfolioSnapshotRow,
     PriceAlertRow,  # noqa: F401 (needed for create_all)
@@ -684,8 +684,8 @@ class Repository:
 
             if sort_by == "price":
                 latest = self._latest_price_subquery()
-                liga_ext = func.concat("liga_", sa_cast(CardRow.id, SAString))
-                stmt = stmt.outerjoin(latest, liga_ext == latest.c.external_id)
+                myp_ext = func.concat("myp_", sa_cast(CardRow.id, SAString))
+                stmt = stmt.outerjoin(latest, myp_ext == latest.c.external_id)
                 null_flag = case((latest.c.median_price.is_(None), 1), else_=0)
                 if sort_dir == "desc":
                     price_order = latest.c.median_price.desc()
@@ -736,9 +736,8 @@ class Repository:
     # Source priority for same-date tiebreaking (lower = higher priority)
     SOURCE_PRIORITY: dict[str, int] = {
         "manual": 0,
-        "liga": 1,
+        "myp": 1,
         "jsonld_snapshot": 2,
-        "myp": 3,
     }
 
     def get_latest_prices_batch(
@@ -751,10 +750,10 @@ class Repository:
         Priority logic:
         - Latest observation by date wins (newer data always beats older)
         - When multiple sources share the same date, SOURCE_PRIORITY decides:
-          manual > liga > jsonld_snapshot > myp
-        - Checks source_cards (MYP/jsonld_snapshot), manual, and liga observations
-        - For card_ids in *foil_card_ids*, also checks ``liga_{card_id}_foil``
-          observations and prefers them over normal Liga observations.
+          manual > myp > jsonld_snapshot
+        - Checks source_cards (MYP/jsonld_snapshot), manual, and direct myp observations
+        - For card_ids in *foil_card_ids*, also checks ``myp_{card_id}_foil``
+          observations and prefers them over normal MYP observations.
           Manual prices still win regardless of foil status.
 
         Optimized: uses batch queries instead of per-card loops to avoid
@@ -783,23 +782,23 @@ class Repository:
                 sc_sources.setdefault(sc.external_id, set()).add(sc.source)
                 sc_sources[sc.external_id].add("jsonld_snapshot")
 
-            # Step 2: Build all direct external_ids (manual, liga, liga_foil)
+            # Step 2: Build all direct external_ids (manual, myp, myp_foil)
             direct_ext_ids: set[str] = set()
             # Map: direct external_id -> (card_id, type)
             direct_ext_to_card: dict[str, tuple[int, str]] = {}
 
             for cid in card_ids:
                 manual_eid = f"manual_{cid}"
-                liga_eid = f"liga_{cid}"
+                myp_eid = f"myp_{cid}"
                 direct_ext_ids.add(manual_eid)
-                direct_ext_ids.add(liga_eid)
+                direct_ext_ids.add(myp_eid)
                 direct_ext_to_card[manual_eid] = (cid, "manual")
-                direct_ext_to_card[liga_eid] = (cid, "liga")
+                direct_ext_to_card[myp_eid] = (cid, "myp")
 
                 if cid in _foil_ids:
-                    foil_eid = f"liga_{cid}_foil"
+                    foil_eid = f"myp_{cid}_foil"
                     direct_ext_ids.add(foil_eid)
-                    direct_ext_to_card[foil_eid] = (cid, "liga_foil")
+                    direct_ext_to_card[foil_eid] = (cid, "myp_foil")
 
             # Step 3: Collect all external_ids we need to query
             all_ext_ids = set(ext_id_to_card_ids.keys()) | direct_ext_ids
@@ -869,19 +868,19 @@ class Repository:
                 if manual_obs:
                     candidates.append(manual_obs)
 
-                # Direct patterns: liga
-                liga_match = obs_index.get(("liga", f"liga_{card_id}"))
-                if liga_match:
-                    candidates.append(liga_match)
+                # Direct patterns: myp
+                myp_match = obs_index.get(("myp", f"myp_{card_id}"))
+                if myp_match:
+                    candidates.append(myp_match)
 
-                # Direct patterns: liga foil
+                # Direct patterns: myp foil
                 if card_id in _foil_ids:
-                    liga_foil_match = obs_index.get(("liga", f"liga_{card_id}_foil"))
-                    if liga_foil_match:
-                        # Remove normal liga match — foil-specific takes priority
-                        if liga_match and liga_match in candidates:
-                            candidates.remove(liga_match)
-                        candidates.append(liga_foil_match)
+                    myp_foil_match = obs_index.get(("myp", f"myp_{card_id}_foil"))
+                    if myp_foil_match:
+                        # Remove normal myp match — foil-specific takes priority
+                        if myp_match and myp_match in candidates:
+                            candidates.remove(myp_match)
+                        candidates.append(myp_foil_match)
 
                 # Pick winner: latest date first, then source priority (lower = better)
                 if candidates:
@@ -1094,7 +1093,7 @@ class Repository:
         Returns a dict mapping card_id to a list of (date, median_price)
         tuples, sorted by date ascending. Only cards with at least one
         non-null median_price observation are included. Includes both
-        source_cards-based prices and direct Liga/manual observations.
+        source_cards-based prices and direct MYP/manual observations.
         """
         return load_market_trending_prices(self.engine, period_days)
 
@@ -1103,9 +1102,9 @@ class Repository:
     ) -> dict[int, list[tuple[date, Decimal]]]:
         """Like get_trending_price_data but filtered to user's collection cards.
 
-        Includes prices from both source_cards joins AND direct Liga/manual
-        external_id patterns (``liga_{card_id}``, ``liga_{card_id}_foil``,
-        ``manual_{card_id}``), so Liga-only cards appear in movers.
+        Includes prices from both source_cards joins AND direct MYP/manual
+        external_id patterns (``myp_{card_id}``, ``myp_{card_id}_foil``,
+        ``manual_{card_id}``), so sweep-priced cards appear in movers.
         """
         cutoff = date.today() - timedelta(days=period_days)
 
@@ -1145,7 +1144,7 @@ class Repository:
                     result[card_id] = []
                 result[card_id].append((obs_date, Decimal(str(median_price))))
 
-            # 2. Direct Liga/manual pattern prices for user's collection cards
+            # 2. Direct MYP/manual pattern prices for user's collection cards
             user_card_ids = (
                 session.execute(
                     select(func.distinct(UserCollectionRow.card_id)).where(
@@ -1160,8 +1159,8 @@ class Repository:
             if user_card_ids:
                 direct_patterns: dict[str, int] = {}
                 for cid in user_card_ids:
-                    direct_patterns[f"liga_{cid}"] = cid
-                    direct_patterns[f"liga_{cid}_foil"] = cid
+                    direct_patterns[f"myp_{cid}"] = cid
+                    direct_patterns[f"myp_{cid}_foil"] = cid
                     direct_patterns[f"manual_{cid}"] = cid
 
                 # Batch IN clause to avoid huge query plans on PostgreSQL
@@ -1215,7 +1214,7 @@ class Repository:
 
         Uses CTEs with ROW_NUMBER() to find earliest/latest prices in SQL,
         avoiding the N+1 pattern of fetching all price history to Python.
-        Includes both source_cards-based and direct Liga/manual prices.
+        Includes both source_cards-based and direct MYP/manual prices.
         """
         from sqlalchemy import String as SAString
         from sqlalchemy import cast as sa_cast
@@ -1260,16 +1259,16 @@ class Repository:
                 )
             )
 
-            # Source 2: direct Liga/manual patterns (liga_{id}, liga_{id}_foil, manual_{id})
+            # Source 2: direct MYP/manual patterns (myp_{id}, myp_{id}_foil, manual_{id})
             # Build external_id from card_id using concat
-            liga_prefix = text("'liga_'")
-            liga_foil_suffix = text("'_foil'")
+            myp_prefix = text("'myp_'")
+            myp_foil_suffix = text("'_foil'")
             manual_prefix = text("'manual_'")
 
             card_id_str = sa_cast(user_cards.c.card_id, SAString)
 
-            liga_ext = func.concat(liga_prefix, card_id_str)
-            liga_foil_ext = func.concat(liga_prefix, card_id_str, liga_foil_suffix)
+            myp_ext = func.concat(myp_prefix, card_id_str)
+            myp_foil_ext = func.concat(myp_prefix, card_id_str, myp_foil_suffix)
             manual_ext = func.concat(manual_prefix, card_id_str)
 
             direct_prices = (
@@ -1281,8 +1280,8 @@ class Repository:
                 .join(
                     PriceObservationRow,
                     or_(
-                        PriceObservationRow.external_id == liga_ext,
-                        PriceObservationRow.external_id == liga_foil_ext,
+                        PriceObservationRow.external_id == myp_ext,
+                        PriceObservationRow.external_id == myp_foil_ext,
                         PriceObservationRow.external_id == manual_ext,
                     ),
                 )
@@ -1742,25 +1741,21 @@ class Repository:
     }
 
     def _latest_price_subquery(self):
-        """Subquery returning the latest median_price per card_id.
+        """Subquery returning the latest median_price per external_id.
 
-        Uses the liga external_id pattern ``liga_{card_id}`` and picks the
-        most recent observation per card via ROW_NUMBER().
+        Picks the most recent observation per external_id via ROW_NUMBER(),
+        across all price sources (MYP, jsonld_snapshot, manual, etc.).
         """
-        ranked = (
-            select(
-                PriceObservationRow.external_id,
-                PriceObservationRow.median_price,
-                func.row_number()
-                .over(
-                    partition_by=PriceObservationRow.external_id,
-                    order_by=PriceObservationRow.observed_at.desc(),
-                )
-                .label("rn"),
+        ranked = select(
+            PriceObservationRow.external_id,
+            PriceObservationRow.median_price,
+            func.row_number()
+            .over(
+                partition_by=PriceObservationRow.external_id,
+                order_by=PriceObservationRow.observed_at.desc(),
             )
-            .where(PriceObservationRow.source == "liga")
-            .subquery("ranked_prices")
-        )
+            .label("rn"),
+        ).subquery("ranked_prices")
         latest = (
             select(
                 ranked.c.external_id,
@@ -1803,15 +1798,14 @@ class Repository:
 
             # Sorting
             if sort_by == "price":
-                # Correlated scalar subquery: latest liga price (normal OR foil)
-                liga_ext = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
-                liga_ext_foil = func.concat(liga_ext, "_foil")
+                # Correlated scalar subquery: latest price (normal OR foil)
+                myp_ext = func.concat("myp_", sa_cast(UserCollectionRow.card_id, SAString))
+                myp_ext_foil = func.concat(myp_ext, "_foil")
                 sort_price = (
                     select(PriceObservationRow.median_price)
                     .where(
-                        PriceObservationRow.source == "liga",
-                        (PriceObservationRow.external_id == liga_ext)
-                        | (PriceObservationRow.external_id == liga_ext_foil),
+                        (PriceObservationRow.external_id == myp_ext)
+                        | (PriceObservationRow.external_id == myp_ext_foil),
                     )
                     .order_by(PriceObservationRow.observed_at.desc())
                     .limit(1)
@@ -1926,8 +1920,8 @@ class Repository:
                     .where(SourceCardRow.card_id.isnot(None))
                 )
 
-                # Cards priced via direct Liga/manual patterns
-                # (liga_{id}, liga_{id}_foil, manual_{id})
+                # Cards priced via direct MYP/manual patterns
+                # (myp_{id}, myp_{id}_foil, manual_{id})
                 linked_card_ids_stmt = select(UserCollectionRow.card_id).where(
                     UserCollectionRow.user_id == user_id,
                     UserCollectionRow.card_id.isnot(None),
@@ -1940,8 +1934,8 @@ class Repository:
                     for cid in set(linked_card_ids):
                         direct_patterns.extend(
                             [
-                                f"liga_{cid}",
-                                f"liga_{cid}_foil",
+                                f"myp_{cid}",
+                                f"myp_{cid}_foil",
                                 f"manual_{cid}",
                             ]
                         )
@@ -1959,7 +1953,7 @@ class Repository:
                         for ext_id in found_ext_ids:
                             # Extract card_id from pattern
                             parts = (
-                                ext_id.replace("liga_", "")
+                                ext_id.replace("myp_", "")
                                 .replace("manual_", "")
                                 .replace("_foil", "")
                             )
@@ -2020,7 +2014,7 @@ class Repository:
         Sums (median_price * quantity) for each linked card. Returns None
         if there are no linked cards or none of them have prices.
 
-        Foil entries get foil-specific Liga prices when available.
+        Foil entries get foil-specific prices when available.
         """
         from src.collection.converter import is_foil_entry
 
@@ -2294,19 +2288,19 @@ class Repository:
                 )
             return results
 
-    def get_cards_for_liga_scan(
+    def get_cards_for_sweep(
         self,
         scan_filter: ScanFilter,
         user_id: str | None = None,
         max_age_days: int | None = None,
     ) -> list[dict]:
-        """Return collection entries eligible for Liga scanning.
+        """Return collection entries eligible for price sweeping.
 
-        Unlike get_cards_for_scan (MYP), this does NOT require a source_card.
-        Returns entries with card_id + name_en/name_pt for Liga search.
+        Does NOT require a source_card — returns entries with
+        card_id + name_en/name_pt for name-based search.
         Optionally filters by set_codes, rarities, card_ids, limit.
-        When max_age_days is set, excludes cards that have a source='liga'
-        price observation within the last N days.
+        When max_age_days is set, excludes cards that have a recent
+        MYP price observation within the last N days.
         """
         with Session(self.engine) as session:
             stmt = select(
@@ -2331,29 +2325,27 @@ class Repository:
 
             if max_age_days is not None:
                 cutoff = date.today() - timedelta(days=max_age_days)
-                # Subquery: card names that have a recent liga observation
-                recent_liga = (
+                # Subquery: external_ids that have a recent MYP observation
+                recent_myp = (
                     select(PriceObservationRow.external_id)
                     .where(
-                        PriceObservationRow.source == "liga",
+                        PriceObservationRow.source == "myp",
                         PriceObservationRow.observed_at >= cutoff,
                     )
                     .distinct()
                     .subquery()
                 )
-                # Exclude entries whose liga external_id (liga_{card_id}) is in recent
-                # We build the liga external_id as 'liga_' || card_id
                 from sqlalchemy import String as SAString
                 from sqlalchemy import cast as sa_cast
 
-                liga_ext_id = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
-                liga_ext_id_foil = func.concat(
-                    "liga_", sa_cast(UserCollectionRow.card_id, SAString), "_foil"
+                myp_ext_id = func.concat("myp_", sa_cast(UserCollectionRow.card_id, SAString))
+                myp_ext_id_foil = func.concat(
+                    "myp_", sa_cast(UserCollectionRow.card_id, SAString), "_foil"
                 )
                 # Exclude entries that have a recent observation for EITHER normal or foil variant
                 stmt = stmt.where(
-                    liga_ext_id.notin_(select(recent_liga.c.external_id)),
-                    liga_ext_id_foil.notin_(select(recent_liga.c.external_id)),
+                    myp_ext_id.notin_(select(recent_myp.c.external_id)),
+                    myp_ext_id_foil.notin_(select(recent_myp.c.external_id)),
                 )
 
             stmt = stmt.order_by(UserCollectionRow.id.asc())
@@ -2375,26 +2367,27 @@ class Repository:
                 for r in rows
             ]
 
-    def get_catalog_cards_for_liga_scan(
+    # Keep old name as alias for backward compatibility
+    get_cards_for_liga_scan = get_cards_for_sweep
+
+    def get_catalog_cards_for_sweep(
         self,
         set_codes: list[str] | None = None,
         max_age_days: int = 7,
         limit: int | None = None,
     ) -> list[dict]:
-        """Return catalog cards (cards + source_cards) eligible for Liga scanning.
+        """Return catalog cards (cards + source_cards) eligible for price sweeping.
 
-        Unlike get_cards_for_liga_scan, this queries the cards/source_cards tables
-        instead of user_collection, allowing price sweeps for cards not in any
-        user's collection.
+        Queries the cards/source_cards tables instead of user_collection,
+        allowing price sweeps for cards not in any user's collection.
 
         Args:
             set_codes: Only include cards from these set codes (recommended).
-            max_age_days: Exclude cards with a Liga price observation newer than N days.
+            max_age_days: Exclude cards with an MYP price observation newer than N days.
             limit: Max cards to return.
 
         Returns:
-            List of dicts compatible with _fetch_liga_price:
-            {card_id, name_en, name_pt, set_code, collector_number, extras}.
+            List of dicts: {card_id, name_en, name_pt, set_code, collector_number, extras}.
         """
         with Session(self.engine) as session:
             stmt = (
@@ -2409,7 +2402,6 @@ class Repository:
                 .join(SourceCardRow, SourceCardRow.card_id == CardRow.id)
                 .where(
                     CardRow.game == "magic",
-                    SourceCardRow.source == "liga",
                 )
             )
 
@@ -2418,22 +2410,21 @@ class Repository:
 
             if max_age_days is not None:
                 cutoff = date.today() - timedelta(days=max_age_days)
-                recent_liga = (
+                recent_myp = (
                     select(PriceObservationRow.external_id)
                     .where(
-                        PriceObservationRow.source == "liga",
+                        PriceObservationRow.source == "myp",
                         PriceObservationRow.observed_at >= cutoff,
                     )
                     .distinct()
                     .subquery()
                 )
-                # Exclude cards whose liga external_id already has a recent observation
                 from sqlalchemy import String as SAString
                 from sqlalchemy import cast as sa_cast
 
-                liga_ext_id = func.concat("liga_", sa_cast(CardRow.id, SAString))
+                myp_ext_id = func.concat("myp_", sa_cast(CardRow.id, SAString))
                 stmt = stmt.where(
-                    liga_ext_id.notin_(select(recent_liga.c.external_id)),
+                    myp_ext_id.notin_(select(recent_myp.c.external_id)),
                 )
 
             stmt = stmt.order_by(CardRow.id.asc())
@@ -2453,6 +2444,9 @@ class Repository:
                 }
                 for r in rows
             ]
+
+    # Keep old name as alias for backward compatibility
+    get_catalog_cards_for_liga_scan = get_catalog_cards_for_sweep
 
     # ── Exchange Rates ──────────────────────────────────────────
 
@@ -3285,64 +3279,55 @@ class Repository:
             stmt = select(UserRow.id).where(UserRow.is_admin == 1)
             return list(session.execute(stmt).scalars().all())
 
-    def seed_default_liga_schedules(self, system_user_id: str = "system") -> int:
-        """Seed default Liga scheduled scans if none exist.
+    def seed_default_myp_schedules(self, system_user_id: str = "system") -> int:
+        """Seed default MYP scheduled scans if none exist.
 
-        Creates up to three schedules:
-        - Liga Daily Partial: 3 AM daily, 50 cards, max_age_days=1
-        - Liga Weekly Full: 1 AM Sunday, all cards
-        - Admin Daily Liga: 6 AM daily, admin collections, max_age_days=1
+        Creates up to two schedules:
+        - MYP Daily Partial: 3 AM daily, 50 cards, max_age_days=1
+        - Admin Daily MYP: 6 AM daily, admin collections, max_age_days=1
 
         Returns the number of schedules created (0 if already seeded).
         """
         created = 0
         with Session(self.engine) as session:
-            # Check if Liga partial/full schedules already exist
-            existing_liga = session.execute(
+            # Check if MYP partial schedule already exists
+            existing_myp = session.execute(
                 select(func.count(ScheduledScanRow.id)).where(
-                    ScheduledScanRow.scan_type.in_(["liga_partial", "liga_full"])
+                    ScheduledScanRow.scan_type.in_(["myp_partial", "collection"])
                 )
             ).scalar_one()
 
-            if existing_liga == 0:
+            if existing_myp == 0:
                 defaults = [
                     ScheduledScanRow(
                         user_id=system_user_id,
-                        name="Liga Daily Partial",
+                        name="MYP Daily Partial",
                         cron_expression="0 3 * * *",
-                        scan_type="liga_partial",
+                        scan_type="collection",
                         filters_json=(
-                            '{"scan_type": "liga_partial", "limit": 50,'
-                            ' "provider": "liga", "max_age_days": 1}'
+                            '{"scan_type": "collection", "limit": 50,'
+                            ' "provider": "myp", "max_age_days": 1}'
                         ),
-                        status="active",
-                    ),
-                    ScheduledScanRow(
-                        user_id=system_user_id,
-                        name="Liga Weekly Full",
-                        cron_expression="0 1 * * 0",
-                        scan_type="liga_full",
-                        filters_json='{"scan_type": "liga_full", "provider": "liga"}',
                         status="active",
                     ),
                 ]
                 session.add_all(defaults)
                 created += len(defaults)
 
-            # Check if admin daily liga schedule already exists
+            # Check if admin daily schedule already exists
             existing_admin = session.execute(
                 select(func.count(ScheduledScanRow.id)).where(
-                    ScheduledScanRow.scan_type == "admin_daily_liga"
+                    ScheduledScanRow.scan_type == "admin_daily_myp"
                 )
             ).scalar_one()
 
             if existing_admin == 0:
                 admin_schedule = ScheduledScanRow(
                     user_id=system_user_id,
-                    name="Admin Daily Liga",
+                    name="Admin Daily MYP",
                     cron_expression="0 6 * * *",
-                    scan_type="admin_daily_liga",
-                    filters_json='{"provider": "liga", "max_age_days": 1}',
+                    scan_type="admin_daily_myp",
+                    filters_json='{"provider": "myp", "max_age_days": 1}',
                     status="active",
                 )
                 session.add(admin_schedule)
@@ -3350,6 +3335,9 @@ class Repository:
 
             session.commit()
             return created
+
+    # Keep old name as alias for backward compatibility
+    seed_default_liga_schedules = seed_default_myp_schedules
 
     # --- Ban engine (collection) methods ---
 
@@ -3494,10 +3482,10 @@ class Repository:
                 for r in rows
             ]
 
-    # ── Liga Coverage ─────────────────────────────────────────
+    # ── Price Coverage ─────────────────────────────────────────
 
-    def get_liga_coverage_stats(self, user_id: str, stale_days: int = 7) -> dict:
-        """Count cards with/without/stale Liga prices for a user's collection."""
+    def get_price_coverage_stats(self, user_id: str, stale_days: int = 7) -> dict:
+        """Count cards with/without/stale prices for a user's collection."""
         cutoff = date.today() - timedelta(days=stale_days)
         with Session(self.engine) as session:
             # Total entries with card_id
@@ -3526,31 +3514,31 @@ class Repository:
                 or 0
             )
 
-            # Liga external_ids follow pattern "liga_{card_id}"
-            # Use a single query with LEFT JOIN for efficiency (M1 fix)
+            # MYP external_ids follow pattern "myp_{card_id}"
+            # Use a single query with LEFT JOIN for efficiency
             from sqlalchemy import String as SAString
             from sqlalchemy import cast as sa_cast
 
-            liga_obs_sub = (
+            myp_obs_sub = (
                 select(
                     PriceObservationRow.external_id,
                     func.max(PriceObservationRow.observed_at).label("latest"),
                 )
-                .where(PriceObservationRow.source == "liga")
+                .where(PriceObservationRow.source == "myp")
                 .group_by(PriceObservationRow.external_id)
                 .subquery()
             )
 
-            liga_ext = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
+            myp_ext = func.concat("myp_", sa_cast(UserCollectionRow.card_id, SAString))
 
             rows = session.execute(
                 select(
                     UserCollectionRow.id,
-                    liga_obs_sub.c.latest,
+                    myp_obs_sub.c.latest,
                 )
                 .outerjoin(
-                    liga_obs_sub,
-                    liga_obs_sub.c.external_id == liga_ext,
+                    myp_obs_sub,
+                    myp_obs_sub.c.external_id == myp_ext,
                 )
                 .where(
                     UserCollectionRow.user_id == user_id,
@@ -3558,82 +3546,84 @@ class Repository:
                 )
             ).all()
 
-            liga_priced = 0
-            liga_stale = 0
-            liga_missing = 0
+            priced = 0
+            stale = 0
+            missing = 0
 
             for row in rows:
-                latest_liga = row.latest
-                if latest_liga is None:
-                    liga_missing += 1
-                elif latest_liga < cutoff:
-                    liga_stale += 1
+                latest_obs = row.latest
+                if latest_obs is None:
+                    missing += 1
+                elif latest_obs < cutoff:
+                    stale += 1
                 else:
-                    liga_priced += 1
+                    priced += 1
 
-            coverage_pct = (liga_priced / total_cards * 100) if total_cards > 0 else 0.0
+            coverage_pct = (priced / total_cards * 100) if total_cards > 0 else 0.0
 
-            # Last liga scan: most recent liga observation timestamp
-            last_liga_obs = session.execute(
+            # Last scan: most recent MYP observation timestamp
+            last_obs = session.execute(
                 select(PriceObservationRow.observed_at)
-                .where(PriceObservationRow.source == "liga")
+                .where(PriceObservationRow.source == "myp")
                 .order_by(PriceObservationRow.observed_at.desc())
                 .limit(1)
             ).scalar_one_or_none()
 
-            last_liga_scan = str(last_liga_obs) if last_liga_obs else None
+            last_scan = str(last_obs) if last_obs else None
 
             return {
                 "total_cards": total_cards,
-                "liga_priced": liga_priced,
-                "liga_stale": liga_stale,
-                "liga_missing": liga_missing,
+                "liga_priced": priced,
+                "liga_stale": stale,
+                "liga_missing": missing,
                 "unlinked": unlinked,
                 "coverage_pct": round(coverage_pct, 1),
-                "last_liga_scan": last_liga_scan,
+                "last_liga_scan": last_scan,
             }
 
-    def get_liga_missing_cards(
+    # Keep old name as alias for backward compatibility
+    get_liga_coverage_stats = get_price_coverage_stats
+
+    def get_missing_price_cards(
         self,
         user_id: str,
         stale_days: int = 7,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[dict], int]:
-        """Return collection entries missing or with stale Liga prices.
+        """Return collection entries missing or with stale prices.
 
         Returns (list_of_card_dicts, total_count).
         """
         cutoff = date.today() - timedelta(days=stale_days)
         with Session(self.engine) as session:
-            # Liga external_ids follow pattern "liga_{card_id}"
             from sqlalchemy import String as SAString
             from sqlalchemy import cast as sa_cast
 
-            liga_obs_sub = (
+            myp_obs_sub = (
                 select(
                     PriceObservationRow.external_id,
                     func.max(PriceObservationRow.observed_at).label("latest"),
                 )
-                .where(PriceObservationRow.source == "liga")
+                .where(PriceObservationRow.source == "myp")
                 .group_by(PriceObservationRow.external_id)
                 .subquery()
             )
 
-            liga_ext = func.concat("liga_", sa_cast(UserCollectionRow.card_id, SAString))
+            myp_ext = func.concat("myp_", sa_cast(UserCollectionRow.card_id, SAString))
 
-            # Get entries where liga price is missing or stale
+            # Get entries where price is missing or stale
             stmt = (
                 select(UserCollectionRow)
                 .outerjoin(
-                    liga_obs_sub,
-                    liga_obs_sub.c.external_id == liga_ext,
+                    myp_obs_sub,
+                    myp_obs_sub.c.external_id == myp_ext,
                 )
                 .where(
                     UserCollectionRow.user_id == user_id,
                     UserCollectionRow.card_id.isnot(None),
                 )
-                .where((liga_obs_sub.c.latest.is_(None)) | (liga_obs_sub.c.latest < cutoff))
+                .where((myp_obs_sub.c.latest.is_(None)) | (myp_obs_sub.c.latest < cutoff))
                 .order_by(UserCollectionRow.id.asc())
             )
 
@@ -3662,6 +3652,9 @@ class Repository:
                 )
 
             return results, total_count
+
+    # Keep old name as alias for backward compatibility
+    get_liga_missing_cards = get_missing_price_cards
 
     def get_recently_changed_card_ids(self, user_id: str, days: int = 7) -> set[int]:
         """Find card_ids in the user's collection that had legality changes recently.
@@ -4898,14 +4891,13 @@ class Repository:
                 for r in rows
             ], total or 0
 
-    # --- Liga card URLs (F124) ---
+    # --- Liga card URLs (F124) — DEPRECATED, kept for data compat ---
 
     def upsert_liga_card_url(self, external_id: str, url: str) -> None:
-        """Insert or update the Liga page URL a price was scraped from.
+        """Insert or update a stored card URL (deprecated, was Liga-specific).
 
-        Keyed by the same external_id used for the price observation
-        (liga_{card_id} or liga_{card_id}_foil) so the link and the price
-        always refer to the same page.
+        Keyed by external_id. Kept for backward compatibility with
+        existing data in the liga_card_urls table.
         """
         if not external_id:
             raise ValueError("external_id must not be empty")
@@ -4928,7 +4920,7 @@ class Repository:
             session.commit()
 
     def get_liga_card_url(self, external_id: str) -> str | None:
-        """Return the stored Liga page URL for external_id, or None if unknown."""
+        """Return the stored card URL for external_id, or None (deprecated)."""
         with Session(self.engine) as session:
             return session.execute(
                 select(LigaCardUrlRow.url).where(LigaCardUrlRow.external_id == external_id)
@@ -5225,10 +5217,10 @@ class Repository:
                 ),
             }
 
-    # ── Liga verify links (F169) ────────────────────────────────
+    # ── Card URL records (deprecated, was Liga F169) ────────────
 
     def get_all_liga_card_urls(self) -> list[LigaCardUrlRow]:
-        """Return all stored Liga card URL records."""
+        """Return all stored card URL records (deprecated)."""
         with Session(self.engine) as session:
             rows = session.execute(select(LigaCardUrlRow)).scalars().all()
             for r in rows:
@@ -5236,15 +5228,17 @@ class Repository:
             return list(rows)
 
     def get_card_name_by_liga_external_id(self, external_id: str) -> str | None:
-        """Resolve a Liga external_id (liga_{card_id} or liga_{card_id}_foil) to a card name.
+        """Resolve an external_id (liga_{card_id}, myp_{card_id}, etc.) to a card name.
 
         The external_id encodes our database card_id directly, so we parse it
-        and look up cards.name_en.
+        and look up cards.name_en. Kept for backward compatibility.
         """
-        # Parse card_id from external_id: liga_42 -> 42, liga_42_foil -> 42
+        # Parse card_id from external_id: liga_42 -> 42, myp_42_foil -> 42
         stripped = external_id
-        if stripped.startswith("liga_"):
-            stripped = stripped[5:]
+        for prefix in ("liga_", "myp_", "manual_"):
+            if stripped.startswith(prefix):
+                stripped = stripped[len(prefix) :]
+                break
         stripped = stripped.removesuffix("_foil")
         try:
             card_id = int(stripped)

@@ -1,10 +1,10 @@
-"""Tests for the CLI scan --provider flag (F60-T06).
+"""Tests for the CLI scan --provider flag.
 
 Covers:
- 1. --provider liga: passes provider_name="liga" to run_scan (no provider instance)
- 2. --provider myp: creates MypCardsProvider and passes provider_name="myp"
- 3. --provider auto: defaults to liga behavior
- 4. Default (no flag): defaults to liga
+ 1. --provider myp: creates MypCardsProvider and passes provider_name="myp"
+ 2. Default (no flag): defaults to myp
+ 3. Invalid provider rejected
+ 4. scan --help shows --provider option
  5. snapshot-prices --provider flag accepted
 """
 
@@ -41,23 +41,6 @@ def _make_scan_run(**overrides) -> ScanRun:
 class TestScanProviderFlag:
     """Tests for --provider flag on the scan CLI command."""
 
-    def test_provider_liga_passes_provider_name_liga(self):
-        """--provider liga passes provider_name='liga' to run_scan."""
-        runner = CliRunner()
-        scan_run = _make_scan_run()
-        captured_kwargs = {}
-
-        async def capture_scan(**kwargs):
-            captured_kwargs.update(kwargs)
-            return scan_run
-
-        with patch("src.collectors.scan.run_scan", side_effect=capture_scan):
-            result = runner.invoke(cli, ["scan", "--provider", "liga"])
-
-        assert result.exit_code == 0
-        assert captured_kwargs["provider_name"] == "liga"
-        assert captured_kwargs["provider"] is None
-
     def test_provider_myp_creates_myp_provider(self):
         """--provider myp creates a MypCardsProvider and passes provider_name='myp'."""
         runner = CliRunner()
@@ -83,8 +66,8 @@ class TestScanProviderFlag:
         MockMypProvider.assert_called_once()
         assert captured_kwargs["provider"] is not None
 
-    def test_provider_auto_defaults_to_liga(self):
-        """--provider auto defaults to liga behavior."""
+    def test_provider_default_is_myp(self):
+        """No --provider flag defaults to myp."""
         runner = CliRunner()
         scan_run = _make_scan_run()
         captured_kwargs = {}
@@ -93,28 +76,17 @@ class TestScanProviderFlag:
             captured_kwargs.update(kwargs)
             return scan_run
 
-        with patch("src.collectors.scan.run_scan", side_effect=capture_scan):
-            result = runner.invoke(cli, ["scan", "--provider", "auto"])
-
-        assert result.exit_code == 0
-        assert captured_kwargs["provider_name"] == "liga"
-        assert captured_kwargs["provider"] is None
-
-    def test_provider_default_is_liga(self):
-        """No --provider flag defaults to liga."""
-        runner = CliRunner()
-        scan_run = _make_scan_run()
-        captured_kwargs = {}
-
-        async def capture_scan(**kwargs):
-            captured_kwargs.update(kwargs)
-            return scan_run
-
-        with patch("src.collectors.scan.run_scan", side_effect=capture_scan):
+        with (
+            patch("src.collectors.scan.run_scan", side_effect=capture_scan),
+            patch(
+                "src.providers.myp.provider.MypCardsProvider",
+                autospec=True,
+            ),
+        ):
             result = runner.invoke(cli, ["scan"])
 
         assert result.exit_code == 0
-        assert captured_kwargs["provider_name"] == "liga"
+        assert captured_kwargs["provider_name"] == "myp"
 
     def test_provider_invalid_choice_rejected(self):
         """Invalid --provider value is rejected by Click."""
@@ -131,7 +103,6 @@ class TestScanProviderFlag:
 
         assert result.exit_code == 0
         assert "--provider" in result.output
-        assert "liga" in result.output
         assert "myp" in result.output
 
 
@@ -145,28 +116,3 @@ class TestSnapshotPricesProviderFlag:
 
         assert result.exit_code == 0
         assert "--provider" in result.output
-
-    def test_snapshot_provider_liga_shows_note(self):
-        """snapshot-prices --provider liga shows note about MYP fallback."""
-        runner = CliRunner()
-
-        # Build a minimal SnapshotSummary
-        from src.domain.models import SnapshotSummary
-
-        summary = SnapshotSummary(
-            total_entries=0,
-            fetched=0,
-            stored=0,
-            skipped_existing=0,
-            skipped_zero_price=0,
-            errors=0,
-            error_details=[],
-            started_at=datetime(2026, 8, 24, 10, 0, 0),
-            finished_at=datetime(2026, 8, 24, 10, 0, 1),
-        )
-
-        with patch("src.cli.main.asyncio.run", return_value=summary):
-            result = runner.invoke(cli, ["snapshot-prices", "--provider", "liga"])
-
-        assert result.exit_code == 0
-        assert "LigaMagic not yet wired for snapshots" in result.output

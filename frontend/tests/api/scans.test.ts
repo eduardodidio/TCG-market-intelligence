@@ -25,14 +25,14 @@ describe("triggerScanAuth", () => {
     });
   });
 
-  it("sends provider field defaulting to liga", async () => {
+  it("sends provider field defaulting to myp", async () => {
     const { triggerScanAuth } = await import("../../src/api/scans");
 
     await triggerScanAuth({ scan_type: "collection" });
 
     expect(mockApiPost).toHaveBeenCalledWith("/api/v1/scans", {
       scan_type: "collection",
-      provider: "liga",
+      provider: "myp",
     });
   });
 

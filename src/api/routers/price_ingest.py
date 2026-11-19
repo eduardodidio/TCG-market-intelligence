@@ -1,6 +1,6 @@
 """Price ingest router — accepts externally-fetched price observations.
 
-Designed for the push-prices CLI: run Liga scan locally, POST results here.
+Designed for the push-prices CLI: run price scan locally, POST results here.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/prices", tags=["prices"])
 
 
 class PriceObservationIn(BaseModel):
-    source: str = Field(..., description="Price source (e.g. 'liga', 'jsonld_snapshot')")
+    source: str = Field(..., description="Price source (e.g. 'myp', 'jsonld_snapshot', 'manual')")
     external_id: str = Field(..., description="External ID for the price observation")
     observed_at: date = Field(..., description="Date the price was observed")
     median_price: Decimal | None = None

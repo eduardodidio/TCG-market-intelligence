@@ -57,8 +57,8 @@ def _seed_card(session: Session, card_id: int = 1, name: str = "Test Card") -> C
 def _seed_source_card(
     session: Session,
     card_id: int,
-    source: str = "liga",
-    external_id: str = "liga_100",
+    source: str = "myp",
+    external_id: str = "myp_100",
 ) -> SourceCardRow:
     sc = SourceCardRow(
         source=source,
@@ -135,7 +135,7 @@ class FakeRepo:
 class TestPickPrice:
     def test_prefers_median_price(self):
         obs = PriceObservationRow(
-            source="liga",
+            source="myp",
             external_id="x",
             observed_at=date(2026, 1, 1),
             median_price=Decimal("10.00"),
@@ -146,7 +146,7 @@ class TestPickPrice:
 
     def test_falls_back_to_tcg_price(self):
         obs = PriceObservationRow(
-            source="liga",
+            source="myp",
             external_id="x",
             observed_at=date(2026, 1, 1),
             median_price=None,
@@ -157,7 +157,7 @@ class TestPickPrice:
 
     def test_falls_back_to_last_sold_price(self):
         obs = PriceObservationRow(
-            source="liga",
+            source="myp",
             external_id="x",
             observed_at=date(2026, 1, 1),
             median_price=None,
@@ -168,7 +168,7 @@ class TestPickPrice:
 
     def test_returns_none_when_all_null(self):
         obs = PriceObservationRow(
-            source="liga",
+            source="myp",
             external_id="x",
             observed_at=date(2026, 1, 1),
             median_price=None,
@@ -188,11 +188,11 @@ class TestFindNearestObservation:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("5.00"),
             )
@@ -207,18 +207,18 @@ class TestFindNearestObservation:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 10),
                 median_price=Decimal("4.00"),
             )
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 20),
                 median_price=Decimal("6.00"),
             )
@@ -234,11 +234,11 @@ class TestFindNearestObservation:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 20),
                 median_price=Decimal("6.00"),
             )
@@ -263,7 +263,7 @@ class TestFindNearestObservation:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             session.commit()
 
         with Session(engine) as session:
@@ -281,11 +281,11 @@ class TestBackfillAcquisitionPrices:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("10.50"),
             )
@@ -311,11 +311,11 @@ class TestBackfillAcquisitionPrices:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("10.50"),
             )
@@ -361,7 +361,7 @@ class TestBackfillAcquisitionPrices:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_collection_entry(
                 session,
                 user_id="user1",
@@ -380,28 +380,28 @@ class TestBackfillAcquisitionPrices:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             # Observation 5 days before
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 10),
                 median_price=Decimal("8.00"),
             )
             # Observation 1 day before (closer)
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 14),
                 median_price=Decimal("9.50"),
             )
             # Observation 3 days after
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 18),
                 median_price=Decimal("11.00"),
             )
@@ -429,11 +429,11 @@ class TestBackfillAcquisitionPrices:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("10.00"),
             )
@@ -444,11 +444,11 @@ class TestBackfillAcquisitionPrices:
                 created_at=datetime(2026, 8, 15),
             )
             _seed_card(session, card_id=2, name="Card 2")
-            _seed_source_card(session, card_id=2, source="liga", external_id="liga_2")
+            _seed_source_card(session, card_id=2, source="myp", external_id="myp_2")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_2",
+                source="myp",
+                external_id="myp_2",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("20.00"),
             )
@@ -478,11 +478,11 @@ class TestBackfillAcquisitionPrices:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("10.00"),
             )
@@ -513,11 +513,11 @@ class TestBackfillAcquisitionPrices:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=None,
                 tcg_price=Decimal("7.25"),
@@ -544,11 +544,11 @@ class TestBackfillAcquisitionPrices:
         engine = _make_engine()
         with Session(engine) as session:
             _seed_card(session, card_id=1)
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=None,
                 tcg_price=None,
@@ -573,17 +573,17 @@ class TestBackfillAcquisitionPrices:
         with Session(engine) as session:
             # Card 1: has price observations
             _seed_card(session, card_id=1, name="Card A")
-            _seed_source_card(session, card_id=1, source="liga", external_id="liga_1")
+            _seed_source_card(session, card_id=1, source="myp", external_id="myp_1")
             _seed_observation(
                 session,
-                source="liga",
-                external_id="liga_1",
+                source="myp",
+                external_id="myp_1",
                 observed_at=date(2026, 8, 15),
                 median_price=Decimal("10.00"),
             )
             # Card 2: no price observations
             _seed_card(session, card_id=2, name="Card B")
-            _seed_source_card(session, card_id=2, source="liga", external_id="liga_2")
+            _seed_source_card(session, card_id=2, source="myp", external_id="myp_2")
 
             # Entry 1: should be updated
             _seed_collection_entry(

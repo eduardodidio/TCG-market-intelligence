@@ -11,7 +11,6 @@ Covers edge cases identified during QA validation:
 
 from __future__ import annotations
 
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import FastAPI
@@ -28,7 +27,7 @@ from src.credits.service import CreditService
 from src.database.models import Base, EvaluationEntryRow
 from src.database.repository import Repository
 from src.domain.models import User
-from src.providers.liga.provider import LigaMagicProvider
+from src.providers.myp.provider import MypCardsProvider
 from src.providers.registry import ProviderRegistry
 from src.services.trending import TrendingService
 
@@ -154,11 +153,11 @@ class TestSchedulerTokenCostZeroCards:
 
 
 class TestSearchWebMalformedData:
-    """T05: What if Liga returns malformed/incomplete data."""
+    """T05: What if MYP returns unexpected/empty data."""
 
     def _make_provider(self):
-        provider = MagicMock(spec=LigaMagicProvider)
-        provider.source_name = "liga"
+        provider = MagicMock(spec=MypCardsProvider)
+        provider.source_name = "myp"
         provider.search_card = AsyncMock()
         return provider
 
@@ -176,63 +175,19 @@ class TestSearchWebMalformedData:
             app.state.provider_registry = registry
         return app
 
-    def test_missing_normal_key_returns_empty(self) -> None:
-        """Liga returns dict without 'normal' or 'foil' keys."""
+    def test_empty_results_returns_empty(self) -> None:
+        """MYP returns empty list."""
         provider = self._make_provider()
-        provider.search_card.return_value = {"card_name": "Test Card"}
-
-        app = self._make_app(provider)
-        client = TestClient(app)
-        resp = client.get("/cards/search-web", params={"q": "Test"})
-        assert resp.status_code == 200
-        # Missing normal/foil keys -> .get returns {} -> no prices -> empty
-        assert resp.json()["data"] == []
-
-    def test_normal_with_all_none_values(self) -> None:
-        """Liga returns normal prices but all None."""
-        provider = self._make_provider()
-        provider.search_card.return_value = {
-            "card_name": "Test Card",
-            "normal": {"low": None, "mid": None, "high": None},
-            "foil": {"low": None, "mid": None, "high": None},
-        }
+        provider.search_card.return_value = []
 
         app = self._make_app(provider)
         client = TestClient(app)
         resp = client.get("/cards/search-web", params={"q": "Test"})
         assert resp.status_code == 200
         assert resp.json()["data"] == []
-
-    def test_only_foil_price_returns_result(self) -> None:
-        """Liga returns only foil price, no normal."""
-        provider = self._make_provider()
-        provider.search_card.return_value = {
-            "card_name": "Test Card",
-            "normal": {"low": None, "mid": None, "high": None},
-            "foil": {"low": Decimal("50.00"), "mid": None, "high": None},
-        }
-
-        mock_repo = MagicMock()
-        mock_repo.list_cards.return_value = []
-
-        app = FastAPI()
-        app.include_router(card_search_router)
-        app.dependency_overrides[get_db] = lambda: mock_repo
-        app.dependency_overrides[get_current_user] = lambda: _TEST_USER
-        app.dependency_overrides[get_credit_service] = lambda: self._make_credit_svc()
-        registry = ProviderRegistry([provider])
-        app.state.provider_registry = registry
-
-        client = TestClient(app)
-        resp = client.get("/cards/search-web", params={"q": "Test"})
-        assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert len(data) == 1
-        assert data[0]["foil_price"] == 50.0
-        assert data[0]["normal_price"] is None
 
     def test_timeout_returns_504(self) -> None:
-        """Liga search times out."""
+        """MYP search times out."""
         import asyncio
 
         provider = self._make_provider()
@@ -362,7 +317,6 @@ class TestSearchWebToEvaluationIntegration:
         # Simulate a web search result
         result = WebSearchResult(
             card_name="Lightning Bolt",
-            liga_url="https://www.ligamagic.com.br/?view=cards/card&card=Lightning+Bolt",
             normal_price=5.50,
             foil_price=None,
             local_card_id=42,
@@ -371,13 +325,11 @@ class TestSearchWebToEvaluationIntegration:
         # Create an eval body from the result (mimicking frontend logic)
         eval_body = EvalCreateRequest(
             card_name=result.card_name,
-            liga_url=result.liga_url,
             price_at_add=result.normal_price,
             card_id=result.local_card_id,
         )
 
         assert eval_body.card_name == "Lightning Bolt"
-        assert eval_body.liga_url is not None
         assert eval_body.price_at_add == 5.50
         assert eval_body.card_id == 42
 
@@ -398,4 +350,3 @@ class TestSearchWebToEvaluationIntegration:
         )
 
         assert eval_body.card_id is None
-        assert eval_body.liga_url is None
