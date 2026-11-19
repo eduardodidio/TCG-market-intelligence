@@ -3046,5 +3046,107 @@ def diagnose_prices(db, limit: int):
         click.echo(f"\n  Total: {len(ratio_rows)} extreme ratio(s)\n")
 
 
+@cli.command("backfill-prices")
+@click.option(
+    "--file",
+    "csv_file",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to DeckCheck Binder CSV with purchase prices",
+)
+@click.option("--user-id", default="1", help="User ID to update (default: 1)")
+@click.option(
+    "--currency",
+    default="USD",
+    type=click.Choice(["USD", "BRL"], case_sensitive=False),
+    help="Currency of Purchase Price column (default: USD)",
+)
+@click.option(
+    "--exchange-rate",
+    type=float,
+    default=None,
+    help="USD->BRL rate (auto-detect from DB if omitted)",
+)
+@click.option("--dry-run", is_flag=True, help="Show counts without writing")
+@click.option("--overwrite", is_flag=True, help="Overwrite existing acquisition prices")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+def backfill_prices(csv_file, user_id, currency, exchange_rate, dry_run, overwrite, db):
+    """Import acquisition prices from a DeckCheck Binder CSV into existing collection entries."""
+    from decimal import Decimal
+
+    from src.collection.price_backfill import backfill_from_deckcheck_csv
+    from src.database.repository import Repository
+
+    repo = Repository(db)
+
+    # Resolve exchange rate
+    rate = None
+    if currency.upper() == "USD":
+        if exchange_rate is not None:
+            rate = Decimal(str(exchange_rate))
+        else:
+            # Try to get rate from DB
+            from src.services.currency import CurrencyConverter
+
+            converter = CurrencyConverter(repo)
+            db_rate = converter.get_display_rate()
+            if db_rate is not None:
+                rate = db_rate
+                click.echo(f"  Auto-detected USD->BRL rate: {rate}")
+            else:
+                click.echo(
+                    "ERROR: No USD->BRL exchange rate found in DB. "
+                    "Please provide --exchange-rate (e.g. --exchange-rate 5.70)"
+                )
+                raise SystemExit(1)
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  BACKFILL ACQUISITION PRICES")
+    click.echo(f"  File:           {csv_file}")
+    click.echo(f"  User ID:        {user_id}")
+    click.echo(f"  Currency:       {currency.upper()}")
+    if rate is not None:
+        click.echo(f"  Exchange rate:  {rate}")
+    click.echo(f"  Overwrite:      {overwrite}")
+    click.echo(f"  Dry run:        {dry_run}")
+    click.echo("=" * 60)
+
+    result = backfill_from_deckcheck_csv(
+        csv_path=csv_file,
+        repo=repo,
+        user_id=user_id,
+        currency=currency.upper(),
+        exchange_rate=rate,
+        overwrite=overwrite,
+        dry_run=dry_run,
+    )
+
+    click.echo("")
+    click.echo("  Results:")
+    click.echo(f"    CSV rows:              {result.total_csv_rows}")
+    click.echo(f"    Matched:               {result.matched}")
+    click.echo(f"    Skipped (has price):   {result.skipped_has_price}")
+    click.echo(f"    Not found:             {result.not_found}")
+    click.echo(f"    Applied:               {result.applied}")
+    if result.errors:
+        click.echo(f"    Errors:                {len(result.errors)}")
+        for err in result.errors[:10]:
+            click.echo(f"      - {err}")
+    click.echo("")
+    if dry_run:
+        click.echo("  (dry run -- no data was written)")
+    else:
+        click.echo(f"  Done! Updated {result.applied} collection entries.")
+    click.echo("")
+
+
 if __name__ == "__main__":
     cli()
