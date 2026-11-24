@@ -1,14 +1,13 @@
-"""Market-wide trending price series (F175-T03).
+"""Market-wide trending price series (F175-T03, updated F213-T02).
 
 Loads price series for the "market" view of Tendencias (no user filter),
 unioning two sources:
 
 1. ``source_cards`` joined to ``price_observations`` (MYP, jsonld_snapshot, ...).
-2. Direct MYP/manual observations whose ``external_id`` encodes the card id
-   (``myp_{card_id}``, ``manual_{card_id}``), which have no ``source_cards``
-   row and would otherwise be invisible to the market ranking. Foil
-   observations (``myp_{card_id}_foil``) are excluded: mixing foil and
-   non-foil prices in one series would create spurious trends.
+2. Direct Liga/MYP/manual observations whose ``external_id`` encodes the
+   card id (``liga_{card_id}``, ``myp_{card_id}``, ``manual_{card_id}``
+   and their ``_foil`` variants), which may have no ``source_cards`` row
+   and would otherwise be invisible to the market ranking.
 """
 
 from __future__ import annotations
@@ -23,18 +22,26 @@ from sqlalchemy.orm import Session
 
 from src.database.models import PriceObservationRow, SourceCardRow
 
-_EXTID_RE = re.compile(r"^(?:myp|manual)_(\d+)$")
+_EXTID_NON_FOIL_RE = re.compile(r"^(?:myp|manual)_(\d+)$")
+_EXTID_LIGA_RE = re.compile(r"^liga_(\d+)(?:_foil)?$")
 
 
 def parse_direct_card_id(external_id: str) -> int | None:
-    """Extract the card id from a direct non-foil MYP/manual external_id.
+    """Extract the card id from a direct Liga/MYP/manual external_id.
 
-    Matches ``myp_{id}`` and ``manual_{id}``. Returns ``None`` for anything
-    else, notably ``myp_{id}_foil`` (foil series are not part of the market
-    trend) and catalog entries (which belong to ``source_cards``).
+    Matches ``liga_{id}`` and ``liga_{id}_foil`` (Liga observations may only
+    exist as direct records), plus ``myp_{id}`` and ``manual_{id}`` (non-foil
+    only — foil MYP/manual observations like ``myp_{id}_foil`` are excluded
+    to prevent mixing foil and non-foil prices in the same trend series).
+
+    Returns ``None`` for catalog entries (``liga_catalog_*``) and anything
+    else that does not match.
     """
-    match = _EXTID_RE.match(external_id)
-    return int(match.group(1)) if match else None
+    m = _EXTID_LIGA_RE.match(external_id)
+    if m:
+        return int(m.group(1))
+    m = _EXTID_NON_FOIL_RE.match(external_id)
+    return int(m.group(1)) if m else None
 
 
 def load_market_trending_prices(
@@ -77,7 +84,7 @@ def load_market_trending_prices(
         for card_id, obs_date, median_price in session.execute(stmt).all():
             result.setdefault(card_id, []).append((obs_date, Decimal(str(median_price))))
 
-        # Path 2: direct MYP/manual observations (no source_cards row).
+        # Path 2: direct Liga/MYP/manual observations (no source_cards row).
         direct_stmt = (
             select(
                 PriceObservationRow.external_id,
@@ -85,7 +92,7 @@ def load_market_trending_prices(
                 func.max(PriceObservationRow.median_price),
             )
             .where(
-                PriceObservationRow.source.in_(["myp", "manual"]),
+                PriceObservationRow.source.in_(["liga", "myp", "manual"]),
                 PriceObservationRow.observed_at >= cutoff,
                 PriceObservationRow.median_price.isnot(None),
             )

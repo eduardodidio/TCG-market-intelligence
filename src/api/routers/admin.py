@@ -11,6 +11,7 @@ from starlette.background import BackgroundTask
 
 from src.api.deps import get_audit_service, get_db, require_admin
 from src.api.error_codes import ErrorCode, api_error
+from src.api.job_tracker import job_tracker
 from src.api.schemas.admin import (
     CreateUserRequest,
     CreateUserResponse,
@@ -318,9 +319,261 @@ def get_job_status(
     repo: Repository = Depends(get_db),
     limit: int = Query(10, ge=1, le=50),
 ):
-    """List recent admin-triggered job runs."""
-    runs = repo.list_scan_runs(limit=limit, offset=0)
-    return success_response(data=runs)
+    """List recent admin-triggered job runs (scan_runs + in-memory tracker)."""
+    scan_runs = repo.list_scan_runs(limit=limit, offset=0)
+    tracked_jobs = job_tracker.list_jobs(limit=limit)
+    return success_response(data={"scan_runs": scan_runs, "tracked_jobs": tracked_jobs})
+
+
+# ── MYP sweep job (F213-T04) ────────────────────────────────────────
+
+
+@router.post("/jobs/myp-sweep")
+def trigger_myp_sweep(
+    request: Request,
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+    max_age_days: int = Query(1, ge=1, le=30),
+    limit: int | None = Query(None, ge=1, le=5000),
+):
+    """Trigger a MYP Cards price sweep for collection cards (admin only).
+
+    Runs in a background thread. Returns 409 if a sweep is already running.
+    """
+    import asyncio
+    import threading
+
+    from src.collectors.myp_sweep import run_myp_sweep
+    from src.config import get_db_url
+
+    if job_tracker.is_running("myp-sweep"):
+        raise api_error(409, ErrorCode.RESOURCE_CONFLICT, "MYP sweep is already running")
+
+    job = job_tracker.start("myp-sweep", {"max_age_days": max_age_days, "limit": limit})
+    db_url = get_db_url()
+
+    def _run():
+        try:
+            job_tracker.mark_running(job.job_id)
+            result = asyncio.run(
+                run_myp_sweep(
+                    db_url=db_url,
+                    max_age_days=max_age_days,
+                    limit=limit,
+                )
+            )
+            job_tracker.mark_completed(
+                job.job_id,
+                {"cards_processed": result.cards_processed if result else 0},
+            )
+        except Exception as exc:
+            job_tracker.mark_failed(job.job_id, str(exc))
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    audit.log(
+        actor=admin,
+        action="job_trigger",
+        target_type="job",
+        target_id=job.job_id,
+        details={"job_type": "myp-sweep", "max_age_days": max_age_days, "limit": limit},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return success_response(data={"job_id": job.job_id, "status": "started", "type": "myp-sweep"})
+
+
+# ── Portfolio snapshot job (F213-T04) ────────────────────────────────
+
+
+@router.post("/jobs/snapshot-portfolio")
+def trigger_snapshot_portfolio(
+    request: Request,
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+):
+    """Snapshot portfolio values for all active users (admin only).
+
+    Runs in a background thread. Returns 409 if already running.
+    """
+    import threading
+
+    from src.config import get_db_url
+
+    if job_tracker.is_running("snapshot-portfolio"):
+        raise api_error(409, ErrorCode.RESOURCE_CONFLICT, "Portfolio snapshot is already running")
+
+    job = job_tracker.start("snapshot-portfolio")
+    db_url = get_db_url()
+
+    def _run():
+        from sqlalchemy import select
+        from sqlalchemy.orm import Session as SaSession
+
+        from src.collectors.portfolio_snapshot import take_snapshot
+        from src.database.models import UserRow
+        from src.database.repository import Repository as Repo
+
+        try:
+            job_tracker.mark_running(job.job_id)
+            snap_repo = Repo(db_url=db_url)
+            count = 0
+            with SaSession(snap_repo.engine) as session:
+                users = (
+                    session.execute(select(UserRow).where(UserRow.is_active == 1)).scalars().all()
+                )
+                user_ids = [str(u.id) for u in users]
+
+            for uid in user_ids:
+                take_snapshot(uid, snap_repo)
+                count += 1
+
+            job_tracker.mark_completed(job.job_id, {"users_processed": count})
+        except Exception as exc:
+            job_tracker.mark_failed(job.job_id, str(exc))
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    audit.log(
+        actor=admin,
+        action="job_trigger",
+        target_type="job",
+        target_id=job.job_id,
+        details={"job_type": "snapshot-portfolio"},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return success_response(
+        data={"job_id": job.job_id, "status": "started", "type": "snapshot-portfolio"}
+    )
+
+
+# ── Catalog seed job (F213-T04) ──────────────────────────────────────
+
+
+@router.post("/jobs/catalog-seed")
+def trigger_catalog_seed(
+    request: Request,
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+):
+    """Seed the card catalog from Scryfall bulk data (admin only).
+
+    Downloads the latest Scryfall default_cards file and seeds the DB.
+    Runs in a background thread. Returns 409 if already running.
+    """
+    import tempfile
+    import threading
+
+    from src.config import get_db_url
+
+    if job_tracker.is_running("catalog-seed"):
+        raise api_error(409, ErrorCode.RESOURCE_CONFLICT, "Catalog seed is already running")
+
+    job = job_tracker.start("catalog-seed")
+    db_url = get_db_url()
+
+    def _run():
+        from src.catalog.scryfall import download_bulk_data
+        from src.catalog.seeder import seed_catalog
+
+        try:
+            job_tracker.mark_running(job.job_id)
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                bulk_path = download_bulk_data(tmp_dir)
+                result = seed_catalog(db_url=db_url, bulk_path=bulk_path)
+            job_tracker.mark_completed(
+                job.job_id,
+                {
+                    "cards_inserted": result.cards_inserted,
+                    "cards_updated": result.cards_updated,
+                    "cards_skipped": result.cards_skipped,
+                },
+            )
+        except Exception as exc:
+            job_tracker.mark_failed(job.job_id, str(exc))
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    audit.log(
+        actor=admin,
+        action="job_trigger",
+        target_type="job",
+        target_id=job.job_id,
+        details={"job_type": "catalog-seed"},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return success_response(
+        data={"job_id": job.job_id, "status": "started", "type": "catalog-seed"}
+    )
+
+
+# ── Banlist sync job (F213-T04) ──────────────────────────────────────
+
+
+@router.post("/jobs/banlist-sync")
+def trigger_banlist_sync(
+    request: Request,
+    admin: User = Depends(require_admin),
+    repo: Repository = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+):
+    """Sync card legalities from Scryfall banlist data (admin only).
+
+    Downloads Scryfall bulk data and updates card_legalities + legality_history.
+    Runs in a background thread. Returns 409 if already running.
+    """
+    import asyncio
+    import threading
+
+    from src.config import get_db_url
+
+    if job_tracker.is_running("banlist-sync"):
+        raise api_error(409, ErrorCode.RESOURCE_CONFLICT, "Banlist sync is already running")
+
+    job = job_tracker.start("banlist-sync")
+    db_url = get_db_url()
+
+    def _run():
+        from src.collectors.banlist_sync import run_banlist_sync
+
+        try:
+            job_tracker.mark_running(job.job_id)
+            summary = asyncio.run(run_banlist_sync(db_url=db_url))
+            job_tracker.mark_completed(
+                job.job_id,
+                {
+                    "cards_processed": summary.cards_processed,
+                    "legalities_upserted": summary.legalities_upserted,
+                    "changes_detected": summary.changes_detected,
+                    "errors": summary.errors,
+                },
+            )
+        except Exception as exc:
+            job_tracker.mark_failed(job.job_id, str(exc))
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    audit.log(
+        actor=admin,
+        action="job_trigger",
+        target_type="job",
+        target_id=job.job_id,
+        details={"job_type": "banlist-sync"},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return success_response(
+        data={"job_id": job.job_id, "status": "started", "type": "banlist-sync"}
+    )
 
 
 # ── DB backup (F100-T04) ────────────────────────────────────────────
