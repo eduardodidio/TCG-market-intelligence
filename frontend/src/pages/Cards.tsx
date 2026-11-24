@@ -590,12 +590,12 @@ export function Cards() {
                   <div className="flex gap-4 text-sm">
                     {result.normal_price != null && (
                       <span className="text-green-400">
-                        Normal: R$ {result.normal_price.toFixed(2)}
+                        {t("cards.normalPrice", { price: result.normal_price.toFixed(2) })}
                       </span>
                     )}
                     {result.foil_price != null && (
                       <span className="text-yellow-400">
-                        Foil: R$ {result.foil_price.toFixed(2)}
+                        {t("cards.foilPrice", { price: result.foil_price.toFixed(2) })}
                       </span>
                     )}
                     {result.normal_price == null && result.foil_price == null && (

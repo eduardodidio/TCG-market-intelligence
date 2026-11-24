@@ -9,7 +9,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 
-from src.api.deps import get_db, get_optional_user, require_auth_or_api_key
+from src.api.deps import get_db, get_optional_user, require_admin
 from src.api.error_codes import ErrorCode, api_error
 from src.api.schemas.banlist import (
     BanImpactSchema,
@@ -52,9 +52,7 @@ def list_banlist(
 ):
     """List banned/restricted cards for a format, grouped by card name."""
     if owned_only and user is None:
-        raise api_error(
-            401, ErrorCode.AUTH_TOKEN_INVALID, "Login required for owned_only"
-        )
+        raise api_error(401, ErrorCode.AUTH_TOKEN_INVALID, "Login required for owned_only")
 
     rows, total = banlist_queries.list_banlist_grouped(
         db.engine,
@@ -221,9 +219,9 @@ def get_ban_impact(
 @router.post("/sync", response_model=ApiResponse[JobStatus])
 async def trigger_sync(
     request: SyncTriggerRequest,
-    _user_id: str = Depends(require_auth_or_api_key),
+    _admin: User = Depends(require_admin),
 ):
-    """Trigger a Scryfall legality sync (auth required)."""
+    """Trigger a Scryfall legality sync (admin-only)."""
     from src.api.jobs import job_tracker
 
     job_id = job_tracker.start("banlist_sync")

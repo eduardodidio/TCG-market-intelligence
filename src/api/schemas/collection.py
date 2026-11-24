@@ -42,6 +42,7 @@ class CollectionCardDetail(CollectionCard):
     price_history: list[PriceObservation] = []
     source_cards: list[SourceCardSchema] = []
     scryfall_url: str | None = None
+    liga_url: str | None = None
 
 
 class PriceHistoryMeta(BaseModel):
@@ -415,3 +416,19 @@ class CollectionMoversResponse(BaseModel):
     gainers: list[CollectionMover] = []
     losers: list[CollectionMover] = []
     period_days: int
+
+
+class DuplicateCard(BaseModel):
+    """A collection card with surplus copies beyond deck usage needs."""
+
+    card_id: int
+    name_en: str
+    name_pt: str | None = None
+    set_code: str | None = None
+    collector_number: str | None = None
+    owned_qty: int
+    needed_qty: int
+    surplus: int
+    current_price: float | None = None
+    estimated_value: float = 0.0
+    image_uri: str | None = None

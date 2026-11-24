@@ -3148,5 +3148,55 @@ def backfill_prices(csv_file, user_id, currency, exchange_rate, dry_run, overwri
     click.echo("")
 
 
+@cli.command("price-history-backfill")
+@click.option(
+    "--db",
+    default=None,
+    callback=_resolve_db,
+    is_eager=True,
+    expose_value=True,
+    help="Database URL (default: auto-detect)",
+)
+@click.option(
+    "--days",
+    default=90,
+    type=int,
+    help="How far back to backfill (default: 90, max: 90)",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show report without writing to database",
+)
+def price_history_backfill(db, days, dry_run):
+    """Forward-fill price history gaps for cards with existing observations.
+
+    For each card with real price observations, fills missing days by carrying
+    the previous price forward (capped at 30 consecutive days without real data).
+    Backfilled entries use source 'daily_snapshot_backfill'.
+    """
+    from src.collectors.price_snapshot import backfill_snapshots
+    from src.database.repository import Repository
+
+    repo = Repository(db_url=db)
+    try:
+        count = backfill_snapshots(repo, days=days, dry_run=dry_run)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="'--days'") from exc
+
+    click.echo("")
+    click.echo("=" * 60)
+    if dry_run:
+        click.echo("  PRICE HISTORY BACKFILL — DRY RUN")
+        click.echo(f"  Days scanned:      {days}")
+        click.echo(f"  Would create:      {count} observations")
+    else:
+        click.echo("  PRICE HISTORY BACKFILL")
+        click.echo(f"  Days scanned:      {days}")
+        click.echo(f"  Created:           {count} observations")
+    click.echo("=" * 60)
+    click.echo("")
+
+
 if __name__ == "__main__":
     cli()

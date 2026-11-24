@@ -185,7 +185,8 @@
       "allActions": "All actions",
       "noEntries": "No audit log entries",
       "dateFrom": "From",
-      "dateTo": "To"
+      "dateTo": "To",
+      "timestamp": "Timestamp"
     },
     "errors": {
       "level": "Level",
@@ -201,7 +202,13 @@
       "allLevels": "All Levels",
       "detail": "Error Detail",
       "extra": "Extra Data",
-      "line": "Line"
+      "line": "Line",
+      "timestamp": "Timestamp",
+      "method": "Method",
+      "path": "Path",
+      "userId": "User ID",
+      "requestId": "Request ID",
+      "params": "Params"
     }
   },
   "dashboard": {
@@ -268,7 +275,9 @@
     "priceUpdateFailed": "Update failed",
     "priceUpdateTimeout": "Processing may take a while. Check back later.",
     "priceRefreshError": "Failed to request price update",
-    "priceRefreshTimeout": "Request timed out. Try again later."
+    "priceRefreshTimeout": "Request timed out. Try again later.",
+    "normalPrice": "Normal: R$ {{price}}",
+    "foilPrice": "Foil: R$ {{price}}"
   },
   "cardDetail": {
     "pageTitle": "Card Detail | TEDHC Market",

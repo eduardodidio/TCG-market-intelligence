@@ -88,27 +88,27 @@ function ErrorDetailView({ errorId }: { errorId: string }) {
           <div className="text-xs bg-slate-950 p-3 rounded space-y-1">
             {detail.request_method && (
               <p className="text-slate-300">
-                <span className="text-slate-500">Method:</span> {detail.request_method}
+                <span className="text-slate-500">{t("admin.errors.method")}:</span> {detail.request_method}
               </p>
             )}
             {detail.request_path && (
               <p className="text-slate-300">
-                <span className="text-slate-500">Path:</span> {detail.request_path}
+                <span className="text-slate-500">{t("admin.errors.path")}:</span> {detail.request_path}
               </p>
             )}
             {detail.request_user_id !== null && (
               <p className="text-slate-300">
-                <span className="text-slate-500">User ID:</span> {detail.request_user_id}
+                <span className="text-slate-500">{t("admin.errors.userId")}:</span> {detail.request_user_id}
               </p>
             )}
             {detail.request_id && (
               <p className="text-slate-300">
-                <span className="text-slate-500">Request ID:</span> {detail.request_id}
+                <span className="text-slate-500">{t("admin.errors.requestId")}:</span> {detail.request_id}
               </p>
             )}
             {detail.request_params && (
               <div>
-                <p className="text-slate-500 mb-1">Params:</p>
+                <p className="text-slate-500 mb-1">{t("admin.errors.params")}:</p>
                 <pre className="text-slate-300 font-mono">
                   {JSON.stringify(detail.request_params, null, 2)}
                 </pre>
@@ -288,7 +288,7 @@ function ErrorsContent() {
             >
               <thead className="text-xs text-slate-400 uppercase bg-slate-900/50">
                 <tr>
-                  <th className="px-4 py-2">Timestamp</th>
+                  <th className="px-4 py-2">{t("admin.errors.timestamp")}</th>
                   <th className="px-4 py-2">{t("admin.errors.level")}</th>
                   <th className="px-4 py-2">{t("admin.errors.type")}</th>
                   <th className="px-4 py-2">{t("admin.errors.message")}</th>

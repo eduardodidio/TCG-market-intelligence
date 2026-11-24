@@ -138,7 +138,7 @@ function AuditLogContent() {
             >
               <thead className="text-xs text-slate-400 uppercase bg-slate-900/50">
                 <tr>
-                  <th className="px-4 py-2">Timestamp</th>
+                  <th className="px-4 py-2">{t("admin.audit.timestamp")}</th>
                   <th className="px-4 py-2">{t("admin.audit.actor")}</th>
                   <th className="px-4 py-2">{t("admin.audit.action")}</th>
                   <th className="px-4 py-2">{t("admin.audit.target")}</th>

@@ -9,6 +9,7 @@ class WishlistAddRequest(BaseModel):
     card_id: int
     notes: str | None = None
     max_price: float | None = Field(None, ge=0)
+    any_version: bool = False
 
 
 class WishlistItem(BaseModel):
@@ -20,6 +21,7 @@ class WishlistItem(BaseModel):
     collector_number: str | None
     notes: str | None
     max_price: float | None
+    any_version: bool = False
     is_acquired: bool
     acquired_at: str | None
     created_at: str

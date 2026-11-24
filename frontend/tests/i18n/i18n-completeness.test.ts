@@ -32,6 +32,30 @@ describe("i18n completeness", () => {
     expect(missingInEn).toEqual([]);
   });
 
+  it("all pt-BR.json values are non-empty strings", () => {
+    for (const key of ptBRKeys) {
+      const parts = key.split(".");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let val: any = ptBR;
+      for (const part of parts) {
+        val = val?.[part];
+      }
+      expect(typeof val === "string" && val.length > 0, `pt-BR key "${key}" should be a non-empty string, got: ${JSON.stringify(val)}`).toBe(true);
+    }
+  });
+
+  it("all en.json values are non-empty strings", () => {
+    for (const key of enKeys) {
+      const parts = key.split(".");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let val: any = en;
+      for (const part of parts) {
+        val = val?.[part];
+      }
+      expect(typeof val === "string" && val.length > 0, `en key "${key}" should be a non-empty string, got: ${JSON.stringify(val)}`).toBe(true);
+    }
+  });
+
   it("all onboarding.* keys are non-empty strings in both locales", () => {
     const onboardingKeys = enKeys.filter((k) => k.startsWith("onboarding."));
     expect(onboardingKeys.length).toBeGreaterThan(0);

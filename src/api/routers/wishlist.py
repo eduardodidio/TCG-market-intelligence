@@ -62,9 +62,10 @@ def list_wishlist(
             offset=offset,
         )
 
-    # Enrich with image_uri from cards table
+    # Enrich with image_uri from cards table + current_price from latest observations
     card_ids = [item.card_id for item in items]
     image_map: dict[int, str | None] = {}
+    price_map: dict[int, float | None] = {}
     if card_ids:
         with Session(repo.engine) as session:
             from sqlalchemy import select
@@ -73,6 +74,12 @@ def list_wishlist(
                 select(CardRow.id, CardRow.image_uri).where(CardRow.id.in_(card_ids))
             ).all()
             image_map = {r.id: r.image_uri for r in rows}
+
+        # Fetch latest prices via batch method
+        latest_prices = repo.get_latest_prices_batch(card_ids)
+        for cid, obs in latest_prices.items():
+            if obs is not None and obs.median_price is not None:
+                price_map[cid] = float(obs.median_price)
 
     result = [
         WishlistItem(
@@ -84,10 +91,12 @@ def list_wishlist(
             collector_number=item.collector_number,
             notes=item.notes,
             max_price=float(item.max_price) if item.max_price is not None else None,
+            any_version=bool(item.any_version),
             is_acquired=bool(item.is_acquired),
             acquired_at=item.acquired_at.isoformat() if item.acquired_at else None,
             created_at=item.created_at.isoformat() if item.created_at else "",
             image_uri=image_map.get(item.card_id),
+            current_price=price_map.get(item.card_id),
         )
         for item in items
     ]
@@ -117,7 +126,7 @@ def add_to_wishlist(
     existing_ids = repo.get_wishlist_card_ids(user.id)
     if len(existing_ids) >= MAX_WISHLIST_ITEMS:
         raise HTTPException(
-            status_code=409,
+            status_code=400,
             detail=f"Maximum {MAX_WISHLIST_ITEMS} wishlist items allowed",
         )
 
@@ -130,6 +139,7 @@ def add_to_wishlist(
         collector_number=card_collector_number,
         notes=request.notes,
         max_price=Decimal(str(request.max_price)) if request.max_price is not None else None,
+        any_version=request.any_version,
     )
 
     if row is None:
@@ -145,6 +155,7 @@ def add_to_wishlist(
             collector_number=row.collector_number,
             notes=row.notes,
             max_price=float(row.max_price) if row.max_price is not None else None,
+            any_version=bool(row.any_version),
             is_acquired=bool(row.is_acquired),
             acquired_at=None,
             created_at=row.created_at.isoformat() if row.created_at else "",

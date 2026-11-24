@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import os
 from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.api.deps import get_db, require_auth_or_api_key
+from src.api.deps import get_db, require_admin
 from src.api.routers.banlist import router
+from src.domain.models import User
+
+_FAKE_ADMIN = User(id=1, email="admin@test.com", display_name="Admin", is_admin=True)
 
 
 def _make_app(user_id: str = "user1") -> FastAPI:
@@ -19,7 +21,7 @@ def _make_app(user_id: str = "user1") -> FastAPI:
 
     mock_repo = MagicMock()
     app.dependency_overrides[get_db] = lambda: mock_repo
-    app.dependency_overrides[require_auth_or_api_key] = lambda: user_id
+    app.dependency_overrides[require_admin] = lambda: _FAKE_ADMIN
 
     app.state.mock_repo = mock_repo
     return app
@@ -29,9 +31,7 @@ class TestListBanlist:
     def test_returns_banned_cards(self):
         app = _make_app()
         client = TestClient(app)
-        with patch(
-            "src.api.routers.banlist.banlist_queries.list_banlist_grouped"
-        ) as mock_grouped:
+        with patch("src.api.routers.banlist.banlist_queries.list_banlist_grouped") as mock_grouped:
             mock_grouped.return_value = (
                 [
                     {
@@ -60,9 +60,7 @@ class TestListBanlist:
     def test_default_shows_banned_and_restricted(self):
         app = _make_app()
         client = TestClient(app)
-        with patch(
-            "src.api.routers.banlist.banlist_queries.list_banlist_grouped"
-        ) as mock_grouped:
+        with patch("src.api.routers.banlist.banlist_queries.list_banlist_grouped") as mock_grouped:
             mock_grouped.return_value = (
                 [
                     {
@@ -102,9 +100,7 @@ class TestListBanlist:
     def test_no_results(self):
         app = _make_app()
         client = TestClient(app)
-        with patch(
-            "src.api.routers.banlist.banlist_queries.list_banlist_grouped"
-        ) as mock_grouped:
+        with patch("src.api.routers.banlist.banlist_queries.list_banlist_grouped") as mock_grouped:
             mock_grouped.return_value = ([], 0)
             resp = client.get("/banlist?format=standard&status=banned")
         assert resp.status_code == 200
@@ -307,16 +303,15 @@ class TestGetBanImpact:
 
 
 class TestSyncEndpoint:
-    def test_requires_auth_without_override(self):
-        """Without the auth override, sync should require auth."""
+    def test_requires_admin_without_override(self):
+        """Without the admin override, sync should require auth."""
         app = FastAPI()
         app.include_router(router)
         mock_repo = MagicMock()
         app.dependency_overrides[get_db] = lambda: mock_repo
-        # Do NOT override require_auth_or_api_key
-        with patch.dict(os.environ, {"TCG_API_KEY": "test-key"}):
-            client = TestClient(app)
-            resp = client.post("/banlist/sync", json={"bulk": True})
+        # Do NOT override require_admin — should fail auth
+        client = TestClient(app)
+        resp = client.post("/banlist/sync", json={"bulk": True})
         assert resp.status_code == 401
 
     def test_sync_with_auth_starts_job(self):

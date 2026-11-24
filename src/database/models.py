@@ -585,6 +585,7 @@ class WishlistRow(Base):
     collector_number: Mapped[str | None] = mapped_column(String(20))
     notes: Mapped[str | None] = mapped_column(String(500))
     max_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    any_version: Mapped[int] = mapped_column(Integer, default=0)
     is_acquired: Mapped[int] = mapped_column(Integer, default=0)
     acquired_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

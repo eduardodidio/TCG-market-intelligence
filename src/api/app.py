@@ -311,6 +311,7 @@ def create_app() -> FastAPI:
     from src.api.routers.marketplace import router as marketplace_router
     from src.api.routers.meta_decks import router as meta_decks_router
     from src.api.routers.news import router as news_router
+    from src.api.routers.price_history import router as price_history_router
     from src.api.routers.price_ingest import router as price_ingest_router
     from src.api.routers.purchases import router as purchases_router
     from src.api.routers.scans import router as scans_router
@@ -346,6 +347,7 @@ def create_app() -> FastAPI:
     app.include_router(trade_match_router, prefix="/api/v1")
     app.include_router(news_router, prefix="/api/v1")
     app.include_router(meta_decks_router, prefix="/api/v1")
+    app.include_router(price_history_router, prefix="/api/v1")
 
     # Health check (outside /api/v1)
     @app.get("/health")

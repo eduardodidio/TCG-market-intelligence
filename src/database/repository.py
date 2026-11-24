@@ -3903,6 +3903,56 @@ class Repository:
                 "total_scans": total_scans,
             }
 
+    def get_db_stats(self) -> dict:
+        """Return table row counts and last-sync timestamps for admin dashboard.
+
+        Counts: cards, user_collection, price_observations, source_cards,
+        decks, wishlists.
+        Last sync: latest price_observation timestamp, latest legality_history timestamp.
+        """
+        with Session(self.engine) as session:
+            cards_count = session.execute(select(func.count()).select_from(CardRow)).scalar() or 0
+            collection_count = (
+                session.execute(select(func.count()).select_from(UserCollectionRow)).scalar() or 0
+            )
+            observations_count = (
+                session.execute(select(func.count()).select_from(PriceObservationRow)).scalar() or 0
+            )
+            source_cards_count = (
+                session.execute(select(func.count()).select_from(SourceCardRow)).scalar() or 0
+            )
+            decks_count = session.execute(select(func.count()).select_from(DeckRow)).scalar() or 0
+            wishlists_count = (
+                session.execute(select(func.count()).select_from(WishlistRow)).scalar() or 0
+            )
+
+            # Last sync timestamps
+            latest_price_obs = session.execute(
+                select(func.max(PriceObservationRow.observed_at))
+            ).scalar()
+            latest_legality = session.execute(
+                select(func.max(LegalityHistoryRow.changed_at))
+            ).scalar()
+
+            return {
+                "table_counts": {
+                    "cards": cards_count,
+                    "user_collection": collection_count,
+                    "price_observations": observations_count,
+                    "source_cards": source_cards_count,
+                    "decks": decks_count,
+                    "wishlists": wishlists_count,
+                },
+                "last_sync": {
+                    "latest_price_observation": (
+                        latest_price_obs.isoformat() if latest_price_obs else None
+                    ),
+                    "latest_legality_history": (
+                        latest_legality.isoformat() if latest_legality else None
+                    ),
+                },
+            }
+
     # ── Marketplace / Trading ────────────────────────────────────────────
 
     def get_shared_collection(self, user_id: int) -> SharedCollectionRow | None:
@@ -4739,6 +4789,7 @@ class Repository:
         collector_number: str | None = None,
         notes: str | None = None,
         max_price: Decimal | None = None,
+        any_version: bool = False,
     ) -> WishlistRow | None:
         """Add a card to the user's wishlist. Returns None if already exists."""
         with Session(self.engine) as session:
@@ -4759,6 +4810,7 @@ class Repository:
                 collector_number=collector_number,
                 notes=notes,
                 max_price=max_price,
+                any_version=1 if any_version else 0,
             )
             session.add(row)
             session.commit()
@@ -5262,3 +5314,121 @@ class Repository:
                 or 0
             )
             return max(total - read, 0)
+
+    def get_collection_duplicates_with_deck_usage(
+        self,
+        user_id: int | str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Return collection cards where owned qty > needed qty (deck usage).
+
+        needed_qty = max(1, sum of deck_cards.quantity for that card across user decks).
+        surplus = owned_qty - needed_qty.
+        Only returns cards with surplus > 0.
+        Sorted by estimated_value DESC (surplus * latest price).
+        """
+        from sqlalchemy import case, literal_column
+
+        str_uid = str(user_id)
+        with Session(self.engine) as session:
+            deck_usage_sq = (
+                select(
+                    DeckCardRow.card_id,
+                    func.sum(DeckCardRow.quantity).label("deck_qty"),
+                )
+                .join(DeckRow, DeckCardRow.deck_id == DeckRow.id)
+                .where(
+                    DeckRow.user_id == str_uid,
+                    DeckCardRow.card_id.isnot(None),
+                )
+                .group_by(DeckCardRow.card_id)
+                .subquery()
+            )
+
+            latest_price_sq = (
+                select(
+                    SourceCardRow.card_id,
+                    func.max(PriceObservationRow.median_price).label("current_price"),
+                )
+                .join(
+                    PriceObservationRow,
+                    SourceCardRow.external_id == PriceObservationRow.external_id,
+                )
+                .where(SourceCardRow.card_id.isnot(None))
+                .group_by(SourceCardRow.card_id)
+                .subquery()
+            )
+
+            surplus_expr = (
+                UserCollectionRow.quantity
+                - func.coalesce(
+                    case(
+                        (deck_usage_sq.c.deck_qty > 1, deck_usage_sq.c.deck_qty),
+                        else_=literal_column("1"),
+                    ),
+                    literal_column("1"),
+                )
+            ).label("surplus")
+
+            base = (
+                select(
+                    UserCollectionRow.card_id,
+                    UserCollectionRow.name_en,
+                    UserCollectionRow.name_pt,
+                    UserCollectionRow.set_code,
+                    UserCollectionRow.collector_number,
+                    UserCollectionRow.quantity.label("owned_qty"),
+                    func.coalesce(
+                        case(
+                            (deck_usage_sq.c.deck_qty > 1, deck_usage_sq.c.deck_qty),
+                            else_=literal_column("1"),
+                        ),
+                        literal_column("1"),
+                    ).label("needed_qty"),
+                    surplus_expr,
+                    latest_price_sq.c.current_price,
+                    CardRow.image_uri,
+                )
+                .outerjoin(CardRow, UserCollectionRow.card_id == CardRow.id)
+                .outerjoin(deck_usage_sq, UserCollectionRow.card_id == deck_usage_sq.c.card_id)
+                .outerjoin(latest_price_sq, UserCollectionRow.card_id == latest_price_sq.c.card_id)
+                .where(
+                    UserCollectionRow.user_id == str_uid,
+                    UserCollectionRow.card_id.isnot(None),
+                    UserCollectionRow.quantity > 1,
+                )
+            )
+
+            base_sq = base.subquery()
+            filtered = select(base_sq).where(base_sq.c.surplus > 0)
+
+            total = session.scalar(select(func.count()).select_from(filtered.subquery()))
+
+            est_value = (base_sq.c.surplus * func.coalesce(base_sq.c.current_price, 0)).label(
+                "estimated_value"
+            )
+            rows = session.execute(
+                select(base_sq, est_value)
+                .where(base_sq.c.surplus > 0)
+                .order_by(est_value.desc(), base_sq.c.name_en)
+                .limit(limit)
+                .offset(offset)
+            ).all()
+
+            return [
+                {
+                    "card_id": r.card_id,
+                    "name_en": r.name_en,
+                    "name_pt": r.name_pt,
+                    "set_code": r.set_code,
+                    "collector_number": r.collector_number,
+                    "owned_qty": r.owned_qty,
+                    "needed_qty": r.needed_qty,
+                    "surplus": r.surplus,
+                    "current_price": float(r.current_price) if r.current_price else None,
+                    "estimated_value": float(r.estimated_value) if r.estimated_value else 0.0,
+                    "image_uri": r.image_uri,
+                }
+                for r in rows
+            ], total or 0

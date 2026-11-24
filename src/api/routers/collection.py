@@ -46,6 +46,7 @@ from src.api.schemas.collection import (
     CollectionMoversResponse,
     CollectionSummary,
     CollectionUpdateRequest,
+    DuplicateCard,
     ImportResult,
     ManualPriceRequest,
     ParsedLineResponse,
@@ -142,10 +143,20 @@ def list_collection(
         default=None,
         description="Filter by acquisition price presence: true=with price, false=without price",
     ),
+    acquisition_only: bool | None = Query(
+        default=None,
+        description="Alias for has_acquisition_price=true. "
+        "When true, only return entries with acquisition_price.",
+    ),
     repo: Repository = Depends(get_db),
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
 ):
+    # acquisition_only=true acts as alias for has_acquisition_price=true
+    effective_has_acquisition = has_acquisition_price
+    if acquisition_only is True and effective_has_acquisition is None:
+        effective_has_acquisition = True
+
     after_id = _decode_cursor(cursor) if cursor else None
     rows = repo.list_collection(
         user_id=user_id,
@@ -156,7 +167,7 @@ def list_collection(
         offset=offset if offset is not None else 0,
         after_id=after_id,
         limit=limit,
-        has_acquisition_price=has_acquisition_price,
+        has_acquisition_price=effective_has_acquisition,
     )
 
     has_next = len(rows) > limit
@@ -349,8 +360,13 @@ def portfolio_summary(
     converter: CurrencyConverter = Depends(get_currency_converter_dep),
     user_id: str = Depends(require_auth_or_api_key),
 ):
-    """Return portfolio investment summary: invested, current value, P&L."""
-    total_invested, invested_count = repo.get_portfolio_invested_total(user_id)
+    """Return portfolio investment summary: invested, current value, P&L.
+
+    Investment metrics (total_invested, total_current_value, total_pnl) only
+    include cards that have BOTH an acquisition_price AND a current market
+    price so that the P&L comparison is apples-to-apples.
+    """
+    _total_invested_all, invested_count = repo.get_portfolio_invested_total(user_id)
     cards_without_acquisition = repo.count_entries_without_acquisition(user_id)
 
     if invested_count == 0:
@@ -368,6 +384,9 @@ def portfolio_summary(
     # Get entries with acquisition_price and calculate current value
     entries = repo.get_collection_entries_with_acquisition(user_id)
     total_current_value = Decimal("0")
+    # Only sum invested amount for entries that ALSO have a market price
+    total_invested_paired = Decimal("0")
+    paired_count = 0
 
     # Batch-fetch all card_ids
     card_ids = [e.card_id for e in entries if e.card_id is not None]
@@ -382,6 +401,8 @@ def portfolio_summary(
                 price = obs.median_price or obs.tcg_price or obs.last_sold_price
                 if price is not None:
                     total_current_value += Decimal(str(price)) * entry.quantity
+                    total_invested_paired += Decimal(str(entry.acquisition_price)) * entry.quantity
+                    paired_count += 1
                 else:
                     unpriced_count += 1
             else:
@@ -389,14 +410,14 @@ def portfolio_summary(
         else:
             unpriced_count += 1
 
-    total_pnl = float(total_current_value) - float(total_invested)
+    total_pnl = float(total_current_value) - float(total_invested_paired)
     total_pnl_pct = None
-    if float(total_invested) > 0:
-        total_pnl_pct = round((total_pnl / float(total_invested)) * 100, 2)
+    if float(total_invested_paired) > 0:
+        total_pnl_pct = round((total_pnl / float(total_invested_paired)) * 100, 2)
 
     return success_response(
         data=PortfolioSummary(
-            total_invested=round(float(total_invested), 2),
+            total_invested=round(float(total_invested_paired), 2),
             total_current_value=round(float(total_current_value), 2),
             total_pnl=round(total_pnl, 2),
             total_pnl_pct=total_pnl_pct,
@@ -602,6 +623,28 @@ def set_completion(
 
     data.sort(key=lambda x: x["owned"] / max(x["total"], 1), reverse=True)
     return success_response(data=data)
+
+
+@router.get("/duplicates", response_model=ApiResponse[list[DuplicateCard]])
+def list_duplicates(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    repo: Repository = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List collection cards with surplus copies beyond deck usage needs.
+
+    A card is considered a duplicate when owned_qty > needed_qty.
+    needed_qty = max(1, sum of deck_cards.quantity across user's decks).
+    Results are sorted by estimated_value DESC (surplus * current_price).
+    """
+    dupes, total = repo.get_collection_duplicates_with_deck_usage(
+        user_id=user.id,
+        limit=limit,
+        offset=offset,
+    )
+    items = [DuplicateCard(**d) for d in dupes]
+    return success_response(items, total=total)
 
 
 @router.get("/banned", response_model=ApiResponse[list[BannedCollectionCard]])
@@ -1302,6 +1345,58 @@ async def refresh_card_price(
     return _build_collection_detail(entry_id, currency, repo, converter, user_id)
 
 
+def _resolve_liga_url(
+    source_cards_data: list,
+    card_id: int | None,
+    repo: Repository,
+) -> str | None:
+    """Resolve a Liga Magic URL for the card.
+
+    Strategy:
+    1. Check source_cards for a Liga-sourced entry (external_id starting with 'liga_').
+       Use the stored URL if it points to ligamagic.
+    2. Fall back to the liga_card_urls table using the external_id.
+    3. If a raw SourceCardRow has name_pt/name_en, construct a search URL.
+    """
+    if card_id is None:
+        return None
+
+    # Look for Liga source card among the already-fetched source_cards (SourceCardSchema)
+    liga_ext_ids: list[str] = []
+    for sc in source_cards_data:
+        ext_id = getattr(sc, "external_id", None) or ""
+        source = getattr(sc, "source", None) or ""
+        if ext_id.startswith("liga_") or source == "liga":
+            # If the source card has a URL stored that points to Liga, use it
+            url = getattr(sc, "url", None)
+            if url and "ligamagic" in url:
+                return url
+            liga_ext_ids.append(ext_id)
+
+    # Try liga_card_urls table for any collected Liga external_ids
+    for ext_id in liga_ext_ids:
+        liga_url = repo.get_liga_card_url(ext_id)
+        if liga_url:
+            return liga_url
+
+    # If source_cards_data was empty, fetch raw SourceCardRows which have name fields
+    if not source_cards_data:
+        raw_scs = repo.get_source_cards_for_card(card_id)
+        for sc in raw_scs:
+            if sc.external_id.startswith("liga_"):
+                if sc.url and "ligamagic" in sc.url:
+                    return sc.url
+                liga_url = repo.get_liga_card_url(sc.external_id)
+                if liga_url:
+                    return liga_url
+                # Construct from name (handles name drift)
+                name = sc.name_pt or sc.name_en
+                if name:
+                    return f"https://www.ligamagic.com.br/?view=cards/card&card={quote_plus(name)}"
+
+    return None
+
+
 def _build_collection_detail(
     entry_id: int,
     currency: str,
@@ -1345,6 +1440,9 @@ def _build_collection_detail(
             scryfall_q += f"+set:{entry.set_code}"
         scryfall_url = f"https://scryfall.com/search?q={scryfall_q}"
 
+    # Resolve Liga URL from source_cards (liga_{id}) or liga_card_urls table
+    liga_url = _resolve_liga_url(source_cards_data, entry.card_id, repo)
+
     data = CollectionCardDetail(
         id=entry.id,
         card_id=entry.card_id,
@@ -1369,6 +1467,7 @@ def _build_collection_detail(
         price_history=[],
         source_cards=source_cards_data,
         scryfall_url=scryfall_url,
+        liga_url=liga_url,
     )
 
     return success_response(data=data)
