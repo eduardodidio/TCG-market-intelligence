@@ -51,6 +51,9 @@ export function CreditConfirmModal({
     <div
       data-testid="credit-confirm-modal"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      role="alertdialog"
+      aria-modal="true"
+      aria-describedby="credit-confirm-desc"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}

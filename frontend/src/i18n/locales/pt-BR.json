@@ -141,7 +141,8 @@
       "operations": "Operacoes",
       "errors": "Erros da Aplicacao",
       "priceRequests": "Solicitacoes de Preco",
-      "auditLog": "Log de Auditoria"
+      "auditLog": "Log de Auditoria",
+      "dbStats": "Estatísticas do Banco"
     },
     "priceRequests": {
       "pending": "Pendente",
@@ -175,7 +176,21 @@
       "confirmCatalogScan": "Iniciar scan do catalogo para este set? Pode levar alguns minutos.",
       "scanRunning": "Scan em execucao... pode levar alguns minutos",
       "jobStarted": "Job iniciado",
-      "scanId": "ID do Scan"
+      "scanId": "ID do Scan",
+      "snapshotPrices": "Snapshot Diário de Preços",
+      "snapshotDesc": "Captura os preços atuais de todas as cartas em observações diárias. Idempotente — seguro rodar várias vezes no mesmo dia.",
+      "confirmSnapshot": "Rodar snapshot diário de preços? Isso captura os preços atuais de todas as cartas.",
+      "runSnapshot": "Rodar Snapshot",
+      "snapshotDone": "Snapshot concluído: {{count}} observações criadas"
+    },
+    "dbStats": {
+      "tableSizes": "Tamanho das Tabelas",
+      "table": "Tabela",
+      "rows": "Linhas",
+      "lastSync": "Últimas Sincronizações",
+      "source": "Fonte",
+      "lastSyncDate": "Última Sincronização",
+      "connectionInfo": "Informações de Conexão"
     },
     "audit": {
       "actor": "Ator",
@@ -223,6 +238,8 @@
     "coverage": "Cobertura",
     "coverageSubtitle": "{{linked}} vinculadas | {{priced}} com preco ({{pricedPct}}%)",
     "lowCoverageHint": "Sincronize sua colecao com o MYP para melhorar a cobertura e obter avaliacoes mais precisas.",
+    "missingAcquisition": "{{count}} cartas sem preço de aquisição",
+    "setAcquisitionPrices": "Definir preços",
     "emptyCollection": "Importe sua colecao e sincronize com o MYP para ver suas estatisticas aqui.",
     "totalCards": "Total de Cartas",
     "cardsTracked": "cartas rastreadas",
@@ -1459,7 +1476,12 @@
     "addToWishlist": "Adicionar a lista de desejos",
     "removeFromWishlist": "Remover da lista de desejos",
     "addSuccess": "Adicionada a lista de desejos",
-    "removeSuccess": "Removida da lista de desejos"
+    "removeSuccess": "Removida da lista de desejos",
+    "sortLabel": "Ordenar por",
+    "sortName": "Nome",
+    "sortPrice": "Preço",
+    "sortDate": "Data adicionada",
+    "setAlert": "Criar alerta"
   },
   "beta": {
     "blocked": "Esta funcao nao esta habilitada para o perfil atual",

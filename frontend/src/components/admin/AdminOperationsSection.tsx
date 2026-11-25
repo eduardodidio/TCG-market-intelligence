@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   triggerCatalogScan,
+  triggerSnapshotPrices,
   downloadBackup,
 } from "../../api/admin";
 
@@ -26,6 +27,11 @@ function OperationsContent() {
   const [catalogResult, setCatalogResult] = useState<{ scan_id: number } | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
+  // Snapshot state
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotResult, setSnapshotResult] = useState<string | null>(null);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
+
   // Backup state
   const [backupLoading, setBackupLoading] = useState(false);
 
@@ -42,6 +48,21 @@ function OperationsContent() {
       setCatalogResult({ scan_id: resp.data.scan_id });
     }
   }, [setCode, delay]);
+
+  const handleSnapshot = useCallback(async () => {
+    setSnapshotLoading(true);
+    setSnapshotError(null);
+    setSnapshotResult(null);
+    const resp = await triggerSnapshotPrices();
+    setSnapshotLoading(false);
+    if (resp.errors.length > 0) {
+      setSnapshotError(resp.errors.map((e) => e.message).join("; "));
+    } else if (resp.data) {
+      setSnapshotResult(
+        t("admin.ops.snapshotDone", { count: resp.data.observations_created }),
+      );
+    }
+  }, [t]);
 
   const handleBackup = useCallback(() => {
     setBackupLoading(true);
@@ -112,6 +133,43 @@ function OperationsContent() {
         {catalogError && (
           <p className="mt-2 text-sm text-red-400" data-testid="catalog-scan-error">
             {catalogError}
+          </p>
+        )}
+      </div>
+
+      {/* Snapshot Prices */}
+      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+        <h3 className="text-white font-medium mb-3" data-testid="snapshot-title">
+          {t("admin.ops.snapshotPrices")}
+        </h3>
+        <p className="text-xs text-slate-400 mb-3">
+          {t("admin.ops.snapshotDesc")}
+        </p>
+        <button
+          onClick={() => {
+            if (!safeConfirm(t("admin.ops.confirmSnapshot"))) return;
+            handleSnapshot();
+          }}
+          disabled={snapshotLoading}
+          className="px-4 py-2 text-sm bg-amber-700 hover:bg-amber-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded"
+          data-testid="snapshot-btn"
+        >
+          {snapshotLoading ? t("common.pleaseWait") : t("admin.ops.runSnapshot")}
+        </button>
+        {snapshotLoading && (
+          <div className="flex items-center gap-2 mt-2 text-sm text-cyan-400" data-testid="snapshot-spinner">
+            <div className="h-4 w-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            {t("admin.ops.scanRunning")}
+          </div>
+        )}
+        {snapshotResult && (
+          <p className="mt-2 text-sm text-green-400" data-testid="snapshot-result">
+            {snapshotResult}
+          </p>
+        )}
+        {snapshotError && (
+          <p className="mt-2 text-sm text-red-400" data-testid="snapshot-error">
+            {snapshotError}
           </p>
         )}
       </div>

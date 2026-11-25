@@ -135,7 +135,7 @@ export function SetCompletionBar({ setCode, setName, owned, total, hasCatalog }:
       </span>
 
       {/* Progress bar */}
-      <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+      <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${setCode}: ${pct}%`}>
         {!noCatalog && (
           <div
             className={`h-full rounded-full transition-all duration-500 ${

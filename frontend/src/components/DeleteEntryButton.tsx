@@ -28,8 +28,8 @@ export function DeleteEntryButton({ onConfirm, entryName }: DeleteEntryButtonPro
 
   if (confirming) {
     return (
-      <div className="flex items-center gap-2 bg-red-900/30 border border-red-500/40 rounded-lg px-4 py-3" data-testid="delete-confirm-dialog">
-        <p className="text-sm text-red-300 flex-1">
+      <div role="alertdialog" aria-describedby="delete-confirm-desc" className="flex items-center gap-2 bg-red-900/30 border border-red-500/40 rounded-lg px-4 py-3" data-testid="delete-confirm-dialog">
+        <p id="delete-confirm-desc" className="text-sm text-red-300 flex-1">
           {entryName
             ? t("inlineEdit.deleteConfirmNamed", { name: entryName })
             : t("inlineEdit.deleteConfirm")}

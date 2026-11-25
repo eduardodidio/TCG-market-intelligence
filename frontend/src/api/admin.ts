@@ -262,3 +262,28 @@ export function fetchAdminPriceRequestStats() {
     "/api/v1/admin/price-requests/stats",
   );
 }
+
+// ── F213: DB Stats ──────────────────────────────────────────────────
+
+export interface DbStatsResponse {
+  tables: Record<string, number>;
+  last_sync: Record<string, string | null>;
+  connection_info: Record<string, string>;
+}
+
+export function fetchDbStats() {
+  return apiGet<DbStatsResponse>("/api/v1/admin/db-stats");
+}
+
+// ── F213: Snapshot Prices ───────────────────────────────────────────
+
+export interface SnapshotResult {
+  observations_created: number;
+}
+
+export function triggerSnapshotPrices() {
+  return apiPost<SnapshotResult>(
+    "/api/v1/admin/jobs/snapshot-prices",
+    {},
+  );
+}

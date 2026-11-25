@@ -19,6 +19,7 @@ import { AdminScansSection } from "../components/admin/AdminScansSection";
 import { AdminErrorsSection } from "../components/admin/AdminErrorsSection";
 import { AdminOperationsSection } from "../components/admin/AdminOperationsSection";
 import { AdminAuditLogSection } from "../components/admin/AdminAuditLogSection";
+import { AdminDbStatsSection } from "../components/admin/AdminDbStatsSection";
 import { AdminPriceRequestsSection } from "../components/admin/AdminPriceRequestsSection";
 
 const LIMIT = 50;
@@ -709,6 +710,15 @@ export function AdminPanel() {
         onToggle={() => toggleSection("audit-log")}
       >
         <AdminAuditLogSection isOpen={openSection === "audit-log"} />
+      </AccordionSection>
+
+      {/* DB Stats Section (F213) */}
+      <AccordionSection
+        title={t("admin.section.dbStats")}
+        isOpen={openSection === "db-stats"}
+        onToggle={() => toggleSection("db-stats")}
+      >
+        <AdminDbStatsSection isOpen={openSection === "db-stats"} />
       </AccordionSection>
     </div>
   );

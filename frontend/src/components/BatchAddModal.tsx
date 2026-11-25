@@ -117,6 +117,9 @@ export function BatchAddModal({ isOpen, onClose, onSuccess, initialText }: Batch
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       data-testid="batch-add-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("batchAdd.title")}
     >
       <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-white mb-4">{t("batchAdd.title")}</h2>

@@ -76,6 +76,65 @@ export function fetchPriceRequestStatus(
   );
 }
 
+// ── F213-T07: Price history with variant resolution ──────────────
+
+export interface PriceHistoryPoint {
+  date: string;
+  price: number;
+  source: string;
+}
+
+export interface DetailedPriceHistory {
+  card_id: number;
+  variant: string;
+  sources: string[];
+  since: string | null;
+  real_points: number;
+  snapshot_points: number;
+  data: PriceHistoryPoint[];
+}
+
+export function fetchDetailedPriceHistory(
+  cardId: number,
+  params?: { days?: number; currency?: string },
+): Promise<ApiResponse<DetailedPriceHistory>> {
+  const query: Record<string, string> = {};
+  if (params?.days) query.days = String(params.days);
+  if (params?.currency) query.currency = params.currency;
+  return apiGet<DetailedPriceHistory>(
+    `/api/v1/price-history/cards/${cardId}`,
+    query,
+  );
+}
+
+export interface PriceMetrics {
+  card_id: number;
+  variant: string;
+  sources: string[];
+  min_price: number | null;
+  max_price: number | null;
+  avg_price: number | null;
+  current_price: number | null;
+  data_points: number;
+  trend: string | null;
+  change_pct: number | null;
+  real_points: number;
+  snapshot_points: number;
+}
+
+export function fetchPriceMetrics(
+  cardId: number,
+  params?: { days?: number; currency?: string },
+): Promise<ApiResponse<PriceMetrics>> {
+  const query: Record<string, string> = {};
+  if (params?.days) query.days = String(params.days);
+  if (params?.currency) query.currency = params.currency;
+  return apiGet<PriceMetrics>(
+    `/api/v1/price-history/cards/${cardId}/metrics`,
+    query,
+  );
+}
+
 export function searchCardsWeb(
   query: string,
 ): Promise<ApiResponse<WebSearchResult[]>> {

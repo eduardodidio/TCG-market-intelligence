@@ -165,6 +165,22 @@ export function Dashboard() {
               )}
             </div>
           </div>
+          {isAuthenticated && summaryData.cards_without_acquisition > 0 && (
+            <div className="mb-4 flex items-center gap-3 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3" data-testid="missing-acquisition-cta">
+              <svg className="h-5 w-5 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p className="text-sm text-amber-300">
+                {t("dashboard.missingAcquisition", { count: summaryData.cards_without_acquisition })}
+              </p>
+              <Link
+                to="/collection?sort=acquisition_price&sort_dir=asc"
+                className="ml-auto text-xs font-medium text-amber-400 hover:text-amber-300 whitespace-nowrap"
+              >
+                {t("dashboard.setAcquisitionPrices")}
+              </Link>
+            </div>
+          )}
           {isAuthenticated && (
             <div className="mb-8">
               <DashboardInvestmentSummary totalUnique={summaryData.total_unique} />

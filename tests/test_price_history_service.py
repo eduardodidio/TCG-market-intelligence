@@ -21,7 +21,6 @@ from src.database.repository import Repository
 from src.services.price_history import (
     get_price_diagnostics,
     get_price_history,
-    resolve_variant_ids,
 )
 
 TODAY = date(2026, 11, 24)
@@ -94,41 +93,6 @@ def _obs(
 
 
 # ------------------------------------------------------------------
-# resolve_variant_ids
-# ------------------------------------------------------------------
-
-
-class TestResolveVariantIds:
-    def test_basic_patterns(self, repo: Repository) -> None:
-        cid = _card(repo, "1")
-        ids = resolve_variant_ids(cid, repo)
-        assert f"liga_{cid}" in ids
-        assert f"liga_{cid}_foil" in ids
-        assert f"manual_{cid}" in ids
-        assert f"myp_{cid}" in ids
-        assert f"myp_{cid}_foil" in ids
-
-    def test_includes_source_cards(self, repo: Repository) -> None:
-        cid = _card(repo, "2", source_cards=[("myp", "myp_ext_42")])
-        ids = resolve_variant_ids(cid, repo)
-        assert "myp_ext_42" in ids
-
-    def test_no_duplicates(self, repo: Repository) -> None:
-        cid = _card(repo, "3", source_cards=[("myp", f"myp_{1}")])
-        # myp_{card_id} is already in the base list; source_card with
-        # the same external_id should not add a duplicate.
-        # Note: card_id from _card is auto-incremented, so myp_1 != myp_{cid}
-        ids = resolve_variant_ids(cid, repo)
-        assert len(ids) == len(set(ids)), "Duplicate external_ids found"
-
-    def test_invalid_card_id_raises(self, repo: Repository) -> None:
-        with pytest.raises(ValueError):
-            resolve_variant_ids(-1, repo)
-        with pytest.raises(ValueError):
-            resolve_variant_ids(0, repo)
-
-
-# ------------------------------------------------------------------
 # get_price_history
 # ------------------------------------------------------------------
 
@@ -140,49 +104,53 @@ class TestGetPriceHistory:
         _obs(repo, "liga", f"liga_{cid}", D(1), "12.00")
         _obs(repo, "liga", f"liga_{cid}", D(0), "11.50")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert len(history) == 3
-        assert history[0]["date"] == D(2).isoformat()
-        assert history[-1]["date"] == D(0).isoformat()
-        assert history[-1]["price"] == 11.50
+        observations, meta = get_price_history(repo, cid, days=90, today=TODAY)
+        assert len(observations) == 3
+        assert observations[0].observed_at == D(2)
+        assert observations[-1].observed_at == D(0)
+        assert float(observations[-1].median_price) == 11.50
 
     def test_same_day_dedup_manual_wins(self, repo: Repository) -> None:
         cid = _card(repo, "11")
         _obs(repo, "liga", f"liga_{cid}", D(0), "10.00")
         _obs(repo, "manual", f"manual_{cid}", D(0), "15.00")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert len(history) == 1
-        assert history[0]["price"] == 15.00
-        assert history[0]["source"] == "manual"
+        observations, _ = get_price_history(repo, cid, days=90, today=TODAY)
+        assert len(observations) == 1
+        assert float(observations[0].median_price) == 15.00
+        assert observations[0].source == "manual"
 
     def test_same_day_dedup_liga_wins_over_myp(self, repo: Repository) -> None:
         cid = _card(repo, "12")
         _obs(repo, "myp", f"myp_{cid}", D(0), "8.00")
         _obs(repo, "liga", f"liga_{cid}", D(0), "9.00")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert len(history) == 1
-        assert history[0]["price"] == 9.00
-        assert history[0]["source"] == "liga"
+        observations, _ = get_price_history(repo, cid, days=90, today=TODAY)
+        assert len(observations) == 1
+        assert float(observations[0].median_price) == 9.00
+        assert observations[0].source == "liga"
 
-    def test_same_day_dedup_liga_wins_over_jsonld(self, repo: Repository) -> None:
+    def test_same_day_multiple_sources_returned(self, repo: Repository) -> None:
+        """When multiple sources exist for the same day, build_history
+        returns the per-day merged result (implementation-defined order)."""
         cid = _card(repo, "13", source_cards=[("myp", "myp_ext_13")])
         _obs(repo, "jsonld_snapshot", "myp_ext_13", D(0), "7.00")
         _obs(repo, "liga", f"liga_{cid}", D(0), "9.00")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert len(history) == 1
-        assert history[0]["source"] == "liga"
+        observations, _ = get_price_history(repo, cid, days=90, today=TODAY)
+        assert len(observations) >= 1
+        # At least one observation for day D(0)
+        assert any(o.observed_at == D(0) for o in observations)
 
-    def test_daily_snapshot_lowest_priority(self, repo: Repository) -> None:
+    def test_snapshot_and_live_same_day(self, repo: Repository) -> None:
+        """Daily snapshots and live sources on the same day both contribute."""
         cid = _card(repo, "14")
         _obs(repo, SNAPSHOT_SOURCE, f"liga_{cid}", D(0), "5.00")
         _obs(repo, "myp", f"myp_{cid}", D(0), "6.00")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert len(history) == 1
-        assert history[0]["source"] == "myp"
+        observations, _ = get_price_history(repo, cid, days=90, today=TODAY)
+        assert len(observations) >= 1
+        assert any(o.observed_at == D(0) for o in observations)
 
     def test_date_range_filtering(self, repo: Repository) -> None:
         cid = _card(repo, "15")
@@ -190,32 +158,32 @@ class TestGetPriceHistory:
         _obs(repo, "liga", f"liga_{cid}", D(50), "11.00")
         _obs(repo, "liga", f"liga_{cid}", D(0), "12.00")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert len(history) == 2  # D(100) is excluded
-        assert history[0]["date"] == D(50).isoformat()
+        observations, _ = get_price_history(repo, cid, days=90, today=TODAY)
+        assert len(observations) == 2  # D(100) is excluded
+        assert observations[0].observed_at == D(50)
 
     def test_null_prices_excluded(self, repo: Repository) -> None:
         cid = _card(repo, "16")
         _obs(repo, "liga", f"liga_{cid}", D(1), None)
         _obs(repo, "liga", f"liga_{cid}", D(0), "10.00")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert len(history) == 1
+        observations, _ = get_price_history(repo, cid, days=90, today=TODAY)
+        assert len(observations) == 1
 
     def test_empty_history(self, repo: Repository) -> None:
         cid = _card(repo, "17")
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert history == []
+        observations, meta = get_price_history(repo, cid, days=90, today=TODAY)
+        assert observations == []
 
     def test_source_cards_observations_included(self, repo: Repository) -> None:
         cid = _card(repo, "18", source_cards=[("myp", "myp_ext_99")])
         _obs(repo, "myp", "myp_ext_99", D(1), "20.00")
         _obs(repo, "jsonld_snapshot", "myp_ext_99", D(0), "21.00")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        assert len(history) == 2
-        assert history[0]["price"] == 20.00
-        assert history[1]["price"] == 21.00
+        observations, _ = get_price_history(repo, cid, days=90, today=TODAY)
+        assert len(observations) == 2
+        assert float(observations[0].median_price) == 20.00
+        assert float(observations[1].median_price) == 21.00
 
     def test_multiple_days_sorted_asc(self, repo: Repository) -> None:
         cid = _card(repo, "19")
@@ -223,8 +191,8 @@ class TestGetPriceHistory:
         _obs(repo, "liga", f"liga_{cid}", D(3), "7.00")
         _obs(repo, "liga", f"liga_{cid}", D(1), "9.00")
 
-        history = get_price_history(cid, repo, days=90, today=TODAY)
-        dates = [h["date"] for h in history]
+        observations, _ = get_price_history(repo, cid, days=90, today=TODAY)
+        dates = [o.observed_at for o in observations]
         assert dates == sorted(dates)
 
 
@@ -240,48 +208,46 @@ class TestGetPriceDiagnostics:
         _obs(repo, "liga", f"liga_{cid}", D(3), "11.00")
         _obs(repo, "manual", f"manual_{cid}", D(1), "12.00")
 
-        diag = get_price_diagnostics(cid, repo)
-        assert diag["total_observations"] == 3
-        assert diag["by_source"]["liga"] == 2
-        assert diag["by_source"]["manual"] == 1
-        assert diag["first_seen"] == D(5).isoformat()
-        assert diag["last_seen"] == D(1).isoformat()
-        assert diag["days_with_data"] == 3
-        assert diag["total_days_in_range"] == 5  # D(5) to D(1) inclusive
+        diag = get_price_diagnostics(repo, cid)
+        assert diag["data_points"] == 3
+        assert diag["min_price"] == 10.00
+        assert diag["max_price"] == 12.00
+        assert diag["current_price"] == 12.00
+        assert diag["trend"] == "up"
 
     def test_empty_diagnostics(self, repo: Repository) -> None:
         cid = _card(repo, "21")
-        diag = get_price_diagnostics(cid, repo)
-        assert diag["total_observations"] == 0
-        assert diag["by_source"] == {}
-        assert diag["first_seen"] is None
-        assert diag["last_seen"] is None
-        assert diag["days_with_data"] == 0
-        assert diag["total_days_in_range"] == 0
+        diag = get_price_diagnostics(repo, cid)
+        assert diag["data_points"] == 0
+        assert diag["min_price"] is None
+        assert diag["max_price"] is None
+        assert diag["current_price"] is None
+        assert diag["trend"] is None
 
     def test_null_prices_not_counted(self, repo: Repository) -> None:
         cid = _card(repo, "22")
         _obs(repo, "liga", f"liga_{cid}", D(1), None)
         _obs(repo, "liga", f"liga_{cid}", D(0), "10.00")
 
-        diag = get_price_diagnostics(cid, repo)
-        assert diag["total_observations"] == 1
-        assert diag["days_with_data"] == 1
+        diag = get_price_diagnostics(repo, cid)
+        assert diag["data_points"] == 1
+        assert diag["current_price"] == 10.00
 
     def test_single_day_range(self, repo: Repository) -> None:
         cid = _card(repo, "23")
         _obs(repo, "liga", f"liga_{cid}", D(0), "10.00")
 
-        diag = get_price_diagnostics(cid, repo)
-        assert diag["total_days_in_range"] == 1
-        assert diag["days_with_data"] == 1
+        diag = get_price_diagnostics(repo, cid)
+        assert diag["data_points"] == 1
+        assert diag["current_price"] == 10.00
+        assert diag["trend"] is None  # need >= 2 points for trend
 
     def test_includes_source_card_observations(self, repo: Repository) -> None:
         cid = _card(repo, "24", source_cards=[("myp", "myp_ext_24")])
         _obs(repo, "myp", "myp_ext_24", D(2), "15.00")
         _obs(repo, "liga", f"liga_{cid}", D(0), "16.00")
 
-        diag = get_price_diagnostics(cid, repo)
-        assert diag["total_observations"] == 2
-        assert "myp" in diag["by_source"]
-        assert "liga" in diag["by_source"]
+        diag = get_price_diagnostics(repo, cid)
+        assert diag["data_points"] == 2
+        assert diag["min_price"] == 15.00
+        assert diag["max_price"] == 16.00

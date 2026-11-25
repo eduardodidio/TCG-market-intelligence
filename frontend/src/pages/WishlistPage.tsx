@@ -19,6 +19,21 @@ import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
 import type { WishlistItem } from "../types/wishlist";
 
 type Tab = "wanted" | "acquired";
+type SortKey = "name" | "price" | "date";
+
+function sortItems(items: WishlistItem[], sortBy: SortKey): WishlistItem[] {
+  return [...items].sort((a, b) => {
+    switch (sortBy) {
+      case "price":
+        return (b.current_price ?? 0) - (a.current_price ?? 0);
+      case "date":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case "name":
+      default:
+        return (a.name_en ?? "").localeCompare(b.name_en ?? "");
+    }
+  });
+}
 
 export function WishlistPage() {
   const { t } = useTranslation();
@@ -26,6 +41,7 @@ export function WishlistPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("wanted");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("name");
 
   const wantedFetcher = useCallback(
     () =>
@@ -97,7 +113,8 @@ export function WishlistPage() {
     { key: "acquired", labelKey: "wishlist.tabs.acquired" },
   ];
 
-  const items = activeTab === "wanted" ? wantedItems : acquiredItems;
+  const rawItems = activeTab === "wanted" ? wantedItems : acquiredItems;
+  const items = rawItems ? sortItems(rawItems, sortBy) : null;
   const loading = activeTab === "wanted" ? wantedLoading : acquiredLoading;
 
   return (
@@ -110,16 +127,27 @@ export function WishlistPage() {
         </h1>
       </div>
 
-      {/* Search bar */}
-      <div className="mb-4">
+      {/* Search + Sort */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           type="text"
           placeholder={t("wishlist.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 min-w-[200px] max-w-md px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           data-testid="wishlist-search"
         />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortKey)}
+          className="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          aria-label={t("wishlist.sortLabel")}
+          data-testid="wishlist-sort"
+        >
+          <option value="name">{t("wishlist.sortName")}</option>
+          <option value="price">{t("wishlist.sortPrice")}</option>
+          <option value="date">{t("wishlist.sortDate")}</option>
+        </select>
       </div>
 
       {/* Tab bar */}
@@ -159,7 +187,7 @@ export function WishlistPage() {
               ? [
                   {
                     label: t("wishlist.browseCatalog"),
-                    onClick: () => navigate("/catalog"),
+                    onClick: () => navigate("/cards"),
                   },
                 ]
               : []
@@ -200,6 +228,7 @@ function WishlistCard({
 }) {
   const { t } = useTranslation();
   const [previewOpen, setPreviewOpen] = useState(false);
+  const navigate = useNavigate();
 
   const imgSrc =
     item.image_uri ??
@@ -251,6 +280,11 @@ function WishlistCard({
             {item.notes}
           </p>
         )}
+        {item.current_price != null && (
+          <p className="text-xs text-green-600 dark:text-green-400 mt-0.5 font-medium" data-testid="wishlist-current-price">
+            R$ {item.current_price.toFixed(2)}
+          </p>
+        )}
         {item.max_price !== null && (
           <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">
             {t("wishlist.maxPrice")}: R$ {item.max_price.toFixed(2)}
@@ -267,18 +301,20 @@ function WishlistCard({
             title={t("wishlist.markAcquired")}
             data-testid="acquire-button"
           >
-            <svg
-              className="h-4 w-4 mx-auto"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-              />
+            <svg className="h-4 w-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+        )}
+        {!isAcquired && (
+          <button
+            onClick={() => navigate(`/cards/${item.card_id}`)}
+            className="flex-1 p-2 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+            title={t("wishlist.setAlert")}
+            data-testid="alert-shortcut-button"
+          >
+            <svg className="h-4 w-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           </button>
         )}
@@ -288,18 +324,8 @@ function WishlistCard({
           title={t("common.delete")}
           data-testid="remove-button"
         >
-          <svg
-            className="h-4 w-4 mx-auto"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
+          <svg className="h-4 w-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
         </button>
       </div>

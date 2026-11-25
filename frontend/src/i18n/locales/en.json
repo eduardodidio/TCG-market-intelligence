@@ -141,7 +141,8 @@
       "operations": "Operations",
       "errors": "Application Errors",
       "priceRequests": "Price Requests",
-      "auditLog": "Audit Log"
+      "auditLog": "Audit Log",
+      "dbStats": "Database Stats"
     },
     "priceRequests": {
       "pending": "Pending",
@@ -175,7 +176,21 @@
       "confirmCatalogScan": "Start catalog scan for this set? This may take several minutes.",
       "scanRunning": "Scan running... this may take a few minutes",
       "jobStarted": "Job started",
-      "scanId": "Scan ID"
+      "scanId": "Scan ID",
+      "snapshotPrices": "Daily Price Snapshot",
+      "snapshotDesc": "Snapshot current prices for all cards into daily observations. Idempotent — safe to run multiple times per day.",
+      "confirmSnapshot": "Run daily price snapshot? This captures current prices for all cards.",
+      "runSnapshot": "Run Snapshot",
+      "snapshotDone": "Snapshot completed: {{count}} observations created"
+    },
+    "dbStats": {
+      "tableSizes": "Table Sizes",
+      "table": "Table",
+      "rows": "Rows",
+      "lastSync": "Last Sync Dates",
+      "source": "Source",
+      "lastSyncDate": "Last Synced",
+      "connectionInfo": "Connection Info"
     },
     "audit": {
       "actor": "Actor",
@@ -223,6 +238,8 @@
     "coverage": "Coverage",
     "coverageSubtitle": "{{linked}} linked | {{priced}} priced ({{pricedPct}}%)",
     "lowCoverageHint": "Sync your collection with MYP to improve coverage and get more accurate valuations.",
+    "missingAcquisition": "{{count}} cards without acquisition price",
+    "setAcquisitionPrices": "Set prices",
     "emptyCollection": "Import your collection and sync with MYP to see your stats here.",
     "totalCards": "Total Cards",
     "cardsTracked": "cards tracked",
@@ -1459,7 +1476,12 @@
     "addToWishlist": "Add to wishlist",
     "removeFromWishlist": "Remove from wishlist",
     "addSuccess": "Added to wishlist",
-    "removeSuccess": "Removed from wishlist"
+    "removeSuccess": "Removed from wishlist",
+    "sortLabel": "Sort by",
+    "sortName": "Name",
+    "sortPrice": "Price",
+    "sortDate": "Date added",
+    "setAlert": "Set alert"
   },
   "beta": {
     "blocked": "This feature is not available for the current profile",

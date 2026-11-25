@@ -102,6 +102,9 @@ export function SetAlertModal({ cardId, cardName, onClose }: SetAlertModalProps)
         if (e.target === e.currentTarget) onClose();
       }}
       data-testid="set-alert-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("alerts.setAlert")}
     >
       <div
         className="bg-slate-800 border border-slate-600 rounded-lg shadow-xl w-full max-w-md mx-4 min-w-0"
