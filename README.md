@@ -41,6 +41,19 @@ make run-backfill SET=dominaria-remastered LIMIT=5
   detail pages (lazy-loaded, collapsible). Price impact analysis stub endpoint
   (`GET /banlist/impact/{card_id}`) returns `data_available=false` until
   future price integration.
+- **F213 Backlog Sprint** — 21 tasks across 4 Waves:
+  - **Price History**: variant-aware history API (`/api/v1/price-history/`),
+    per-card and per-entry endpoints with metrics, forward-fill backfill
+    with 30-day cap, integrated PriceChart with variant badge + sources.
+  - **Wishlist & Trades**: sort by name/price/date, alert shortcut per card,
+    current price display. Trade matching with duplicates/theyHave/theyWant tabs.
+  - **Admin Operations**: DB stats dashboard (table sizes, sync dates, connection
+    info), snapshot-prices job trigger, audit log with filters + pagination.
+  - **Collection**: "cards without acquisition price" dashboard CTA, inline
+    acquisition price edit on grid tiles.
+  - **Accessibility**: `alertdialog`/`dialog` roles on modals, `progressbar`
+    on set completion, `aria-labels` throughout.
+  - **i18n**: 150+ hardcoded strings wrapped, 14 new keys (en + pt-BR).
 
 ## Quick Start
 

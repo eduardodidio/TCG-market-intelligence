@@ -18,6 +18,9 @@ echo  [%time%] Processing price request queue...
 python -m src.cli.main process-price-requests --limit 500 || echo  [WARN] process-price-requests failed
 echo  [%time%] Price request queue done.
 
+echo  [%time%] Running daily price snapshot...
+python -m src.cli.main daily-snapshot || echo  [WARN] daily-snapshot failed
+
 echo  [%time%] Taking portfolio snapshot...
 python -m src.cli.main snapshot-portfolio || echo  [WARN] snapshot-portfolio failed
 

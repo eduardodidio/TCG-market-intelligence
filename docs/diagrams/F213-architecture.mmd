@@ -1,0 +1,49 @@
+graph TB
+    subgraph Frontend["Frontend (React SPA)"]
+        WP[WishlistPage<br/>sort, alert shortcut]
+        TMP[TradeMatchesPage<br/>duplicates, matches]
+        AP[AdminPanel<br/>DB stats, jobs, audit]
+        CD[CardDetail<br/>PriceChart + variant]
+        DB[Dashboard<br/>acquisition CTA]
+    end
+
+    subgraph API["FastAPI Backend"]
+        PHR[price_history router<br/>4 endpoints]
+        WR[wishlist router<br/>CRUD + duplicates]
+        TMR[trade_match router<br/>matches + reverse]
+        AR[admin router<br/>db-stats, jobs, audit]
+        BR[banlist router<br/>owned filter, sync]
+    end
+
+    subgraph Services
+        PHS[price_history<br/>variant resolution<br/>1-point/day aggregation]
+        TMS[trade_matcher<br/>cross-user matching]
+        AUS[audit service<br/>action logging]
+        PNS[price_snapshot<br/>daily snapshot<br/>forward-fill backfill]
+    end
+
+    subgraph Data["PostgreSQL (Neon)"]
+        cards[(cards)]
+        po[(price_observations)]
+        uc[(user_collection)]
+        wl[(wishlists)]
+        al[(audit_log)]
+    end
+
+    WP --> WR
+    TMP --> TMR
+    AP --> AR
+    CD --> PHR
+    DB --> |collection summary| API
+
+    PHR --> PHS
+    TMR --> TMS
+    AR --> AUS
+    AR --> PNS
+
+    PHS --> po
+    PHS --> cards
+    TMS --> wl
+    TMS --> uc
+    AUS --> al
+    PNS --> po

@@ -1,0 +1,27 @@
+graph LR
+    subgraph Wishlist_Trade["Wishlist → Trade Flow"]
+        A1[Browse Cards] -->|heart icon| A2[Add to Wishlist]
+        A2 --> A3[View Wishlist<br/>sort by price]
+        A3 -->|bell icon| A4[Set Price Alert]
+        A3 --> A5[Trade Matches]
+        A5 --> A6[They Have<br/>What I Want]
+        A5 --> A7[They Want<br/>What I Have]
+        A6 --> A8[View Partner<br/>Collection]
+    end
+
+    subgraph Price_History["Price History Exploration"]
+        B1[Card Detail] --> B2[PriceChart<br/>period selector]
+        B2 --> B3[Variant Badge<br/>normal/foil]
+        B2 --> B4[Sources Tooltip<br/>MYP, manual, snapshot]
+        B2 --> B5[Summary<br/>start/end/change %]
+        B1 --> B6[Collection Detail]
+        B6 --> B2
+    end
+
+    subgraph Admin_Ops["Admin Operations"]
+        C1[Admin Panel] --> C2[Trigger Snapshot]
+        C1 --> C3[View DB Stats<br/>table sizes, sync dates]
+        C1 --> C4[Audit Log<br/>filter by action/date]
+        C1 --> C5[Catalog Sweep]
+        C2 -->|confirm| C6[Snapshot Result<br/>N observations]
+    end

@@ -13,6 +13,7 @@ import { Card3DTilt } from "../components/Card3DTilt";
 import { CardImage } from "../components/CardImage";
 import { CardPreviewModal } from "../components/CardPreviewModal";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorBanner } from "../components/ErrorBanner";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { isPromoCard } from "../utils/promo";
 import { scryfallImageUrl, scryfallImageByName } from "../utils/scryfall";
@@ -66,12 +67,14 @@ export function WishlistPage() {
   const {
     data: wantedItems,
     loading: wantedLoading,
+    error: wantedError,
     refetch: refetchWanted,
   } = useApi<WishlistItem[]>(wantedFetcher, [search]);
 
   const {
     data: acquiredItems,
     loading: acquiredLoading,
+    error: acquiredError,
     refetch: refetchAcquired,
   } = useApi<WishlistItem[]>(acquiredFetcher, [search]);
 
@@ -116,6 +119,8 @@ export function WishlistPage() {
   const rawItems = activeTab === "wanted" ? wantedItems : acquiredItems;
   const items = rawItems ? sortItems(rawItems, sortBy) : null;
   const loading = activeTab === "wanted" ? wantedLoading : acquiredLoading;
+  const error = activeTab === "wanted" ? wantedError : acquiredError;
+  const refetch = activeTab === "wanted" ? refetchWanted : refetchAcquired;
 
   return (
     <div>
@@ -170,7 +175,11 @@ export function WishlistPage() {
 
       {loading && <LoadingSpinner message={t("common.loading")} />}
 
-      {!loading && (!items || items.length === 0) && (
+      {!loading && error && (
+        <ErrorBanner message={error} onRetry={refetch} />
+      )}
+
+      {!loading && !error && (!items || items.length === 0) && (
         <EmptyState
           title={
             activeTab === "wanted"
@@ -195,7 +204,7 @@ export function WishlistPage() {
         />
       )}
 
-      {!loading && items && items.length > 0 && (
+      {!loading && !error && items && items.length > 0 && (
         <div
           className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
           data-testid="wishlist-grid"
